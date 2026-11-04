@@ -1,0 +1,148 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/api/api_client.dart';
+import '../../core/api/api_exception.dart';
+import '../../core/api/session_storage.dart';
+import 'auth_repository.dart';
+import 'models.dart';
+
+enum SessionStatus {
+  /// Reading the saved session at startup.
+  restoring,
+
+  /// The saved session could not be checked (API unreachable).
+  unreachable,
+  signedOut,
+  signedIn,
+}
+
+class SessionState {
+  const SessionState({required this.status, this.token, this.user, this.profile, this.message});
+
+  const SessionState.restoring() : this(status: SessionStatus.restoring);
+
+  final SessionStatus status;
+  final String? token;
+  final User? user;
+
+  /// Profile chosen on "Qui regarde ?" (null = not chosen yet).
+  final Profile? profile;
+
+  /// Message to show once (e.g. "session expirée").
+  final String? message;
+
+  bool get isSignedIn => status == SessionStatus.signedIn;
+
+  SessionState copyWith({User? user, Profile? profile, bool clearProfile = false}) => SessionState(
+    status: status,
+    token: token,
+    user: user ?? this.user,
+    profile: clearProfile ? null : (profile ?? this.profile),
+  );
+}
+
+final sessionStorageProvider = Provider<SessionStorage>((ref) => SecureSessionStorage());
+
+final apiClientProvider = Provider<ApiClient>(
+  (ref) => ApiClient(
+    token: () => ref.read(sessionProvider).token,
+    profileId: () => ref.read(sessionProvider).profile?.id,
+    onUnauthorized: () => ref.read(sessionProvider.notifier).expire(),
+  ),
+);
+
+final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository(ref.read(apiClientProvider)));
+
+final sessionProvider = NotifierProvider<SessionController, SessionState>(SessionController.new);
+
+/// Signed-in account and active profile.
+class SessionController extends Notifier<SessionState> {
+  SessionStorage get _storage => ref.read(sessionStorageProvider);
+  AuthRepository get _auth => ref.read(authRepositoryProvider);
+
+  @override
+  SessionState build() {
+    Future.microtask(restore);
+    return const SessionState.restoring();
+  }
+
+  /// Reads the saved token and checks it with `GET /me`.
+  Future<void> restore() async {
+    state = const SessionState.restoring();
+    final token = await _storage.readToken();
+    if (token == null) {
+      state = const SessionState(status: SessionStatus.signedOut);
+      return;
+    }
+
+    // Token needed by the API client for the checks below.
+    state = SessionState(status: SessionStatus.restoring, token: token);
+    try {
+      final user = await _auth.me();
+      final profileId = await _storage.readProfileId();
+      Profile? profile;
+      if (profileId != null) {
+        final profiles = await _auth.profiles();
+        // A protected profile always asks for its PIN again after a restart.
+        profile = profiles.where((p) => p.id == profileId && !p.hasPin).firstOrNull;
+      }
+      state = SessionState(status: SessionStatus.signedIn, token: token, user: user, profile: profile);
+    } on ApiException catch (e) {
+      if (e.isUnauthorized) {
+        await _clear();
+        state = const SessionState(status: SessionStatus.signedOut);
+      } else {
+        state = SessionState(status: SessionStatus.unreachable, message: e.message);
+      }
+    }
+  }
+
+  Future<void> login(String email, String password) async {
+    final result = await _auth.login(email: email, password: password);
+    await _signedIn(result.token, result.user);
+  }
+
+  Future<void> register(String name, String email, String password) async {
+    final result = await _auth.register(name: name, email: email, password: password);
+    await _signedIn(result.token, result.user);
+  }
+
+  Future<void> selectProfile(Profile profile) async {
+    await _storage.writeProfileId(profile.id);
+    state = state.copyWith(profile: profile);
+  }
+
+  /// Back to "Qui regarde ?".
+  Future<void> switchProfile() async {
+    await _storage.writeProfileId(null);
+    state = state.copyWith(clearProfile: true);
+  }
+
+  Future<void> logout() async {
+    try {
+      await _auth.logout();
+    } on ApiException {
+      // Signing out locally is enough if the API cannot be reached.
+    }
+    await _clear();
+    state = const SessionState(status: SessionStatus.signedOut);
+  }
+
+  /// The API answered 401: the token was revoked or expired.
+  Future<void> expire() async {
+    if (!state.isSignedIn) return;
+    await _clear();
+    state = const SessionState(status: SessionStatus.signedOut, message: 'Votre session a expiré. Reconnectez-vous.');
+  }
+
+  Future<void> _signedIn(String token, User user) async {
+    await _storage.writeToken(token);
+    await _storage.writeProfileId(null);
+    state = SessionState(status: SessionStatus.signedIn, token: token, user: user);
+  }
+
+  Future<void> _clear() async {
+    await _storage.writeToken(null);
+    await _storage.writeProfileId(null);
+  }
+}

@@ -1,0 +1,138 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import 'core/theme.dart';
+import 'core/widgets/common.dart';
+import 'features/auth/login_screen.dart';
+import 'features/auth/register_screen.dart';
+import 'features/auth/session.dart';
+import 'features/catalog/details_screen.dart';
+import 'features/catalog/home_screen.dart';
+import 'features/catalog/models.dart';
+import 'features/library/my_list_screen.dart';
+import 'features/profiles/profiles_screen.dart';
+import 'features/search/search_screen.dart';
+import 'features/shell/app_shell.dart';
+
+/// Routes. Sign-in is the entry page: every route redirects there while signed out,
+/// then to "Qui regarde ?" until a profile is chosen.
+final routerProvider = Provider<GoRouter>((ref) {
+  final refresh = ValueNotifier<int>(0);
+  ref.listen(sessionProvider, (_, _) => refresh.value++);
+  ref.onDispose(refresh.dispose);
+
+  // Deep link opened before the session was restored.
+  String? pending;
+
+  Page<void> tab(Widget child) => NoTransitionPage(child: child);
+
+  return GoRouter(
+    initialLocation: '/connexion',
+    refreshListenable: refresh,
+    redirect: (context, state) {
+      final session = ref.read(sessionProvider);
+      final location = state.matchedLocation;
+      const authPages = {'/connexion', '/inscription'};
+
+      if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
+        if (location != '/demarrage') {
+          if (!authPages.contains(location)) pending = state.uri.toString();
+          return '/demarrage';
+        }
+        return null;
+      }
+      if (!session.isSignedIn) {
+        return authPages.contains(location) ? null : '/connexion';
+      }
+      if (session.profile == null) {
+        return location == '/profils' ? null : '/profils';
+      }
+      if (authPages.contains(location) || location == '/profils' || location == '/demarrage') {
+        final target = pending ?? '/accueil';
+        pending = null;
+        return target;
+      }
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/demarrage', builder: (_, _) => const SplashScreen()),
+      GoRoute(path: '/connexion', builder: (_, _) => const LoginScreen()),
+      GoRoute(path: '/inscription', builder: (_, _) => const RegisterScreen()),
+      GoRoute(path: '/profils', builder: (_, _) => const ProfilesScreen()),
+      ShellRoute(
+        builder: (context, state, child) => AppShell(location: state.uri.path, child: child),
+        routes: [
+          GoRoute(path: '/accueil', pageBuilder: (_, _) => tab(const HomeScreen())),
+          GoRoute(
+            path: '/films',
+            pageBuilder: (_, _) => tab(const HomeScreen(type: MediaType.movie)),
+          ),
+          GoRoute(
+            path: '/series',
+            pageBuilder: (_, _) => tab(const HomeScreen(type: MediaType.tv)),
+          ),
+          GoRoute(path: '/recherche', pageBuilder: (_, _) => tab(const SearchScreen())),
+          GoRoute(path: '/ma-liste', pageBuilder: (_, _) => tab(const MyListScreen())),
+        ],
+      ),
+      GoRoute(
+        path: '/titre/:type/:id',
+        builder: (_, state) => DetailsScreen(
+          type: MediaType.parse(state.pathParameters['type']),
+          id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+        ),
+      ),
+      GoRoute(
+        path: '/recherche/genre/:type/:id',
+        builder: (_, state) => GenreScreen(
+          type: MediaType.parse(state.pathParameters['type']),
+          genreId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+          name: state.uri.queryParameters['nom'] ?? 'Genre',
+        ),
+      ),
+    ],
+    errorBuilder: (context, state) => const Scaffold(
+      body: EmptyState(icon: Icons.explore_off_outlined, title: 'Page introuvable'),
+    ),
+  );
+});
+
+/// Shown while the saved session is checked, or when the API cannot be reached.
+class SplashScreen extends ConsumerWidget {
+  const SplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionProvider);
+    final unreachable = session.status == SessionStatus.unreachable;
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const VxLogo(size: 40),
+            const SizedBox(height: 32),
+            if (unreachable) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  session.message ?? 'Impossible de joindre le serveur.',
+                  textAlign: TextAlign.center,
+                  style: VxText.body(16, color: VxColors.textSoft),
+                ),
+              ),
+              const SizedBox(height: 20),
+              VxButton(
+                label: 'Réessayer',
+                autofocus: true,
+                onPressed: () => ref.read(sessionProvider.notifier).restore(),
+              ),
+            ] else
+              const SizedBox.square(dimension: 28, child: CircularProgressIndicator(strokeWidth: 3)),
+          ],
+        ),
+      ),
+    );
+  }
+}
