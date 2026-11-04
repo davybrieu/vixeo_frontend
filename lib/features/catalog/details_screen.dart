@@ -10,6 +10,7 @@ import '../../core/widgets/focusable.dart';
 import '../library/actions.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
+import 'person_screen.dart';
 import 'widgets.dart';
 
 /// Movie or TV show page.
@@ -126,42 +127,46 @@ class _CastRow extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: layout.gutter),
             itemCount: people.length,
             separatorBuilder: (_, _) => SizedBox(width: 16 * s),
-            itemBuilder: (_, i) {
+            itemBuilder: (context, i) {
               final p = people[i];
-              return SizedBox(
-                width: size + 8,
-                child: Semantics(
-                  label: p.role == null ? p.name : '${p.name}, ${p.role}',
-                  child: ExcludeSemantics(
-                    child: Column(
-                      children: [
-                        ClipOval(
-                          child: SizedBox.square(
-                            dimension: size,
-                            child: NetImage(
-                              url: p.profileUrl,
-                              seed: p.id,
-                              fallback: Center(child: Text(p.initials, style: VxText.title(size * 0.3))),
+              return VxFocusable(
+                borderRadius: size / 2,
+                onPressed: () => context.push(personPath(p.id)),
+                child: SizedBox(
+                  width: size + 8,
+                  child: Semantics(
+                    label: p.role == null ? p.name : '${p.name}, ${p.role}',
+                    child: ExcludeSemantics(
+                      child: Column(
+                        children: [
+                          ClipOval(
+                            child: SizedBox.square(
+                              dimension: size,
+                              child: NetImage(
+                                url: p.profileUrl,
+                                seed: p.id,
+                                fallback: Center(child: Text(p.initials, style: VxText.title(size * 0.3))),
+                              ),
                             ),
                           ),
-                        ),
-                        SizedBox(height: 6 * s),
-                        Text(
-                          p.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: VxText.body(13 * s, weight: FontWeight.w600, height: 1.2),
-                        ),
-                        if (p.role != null)
+                          SizedBox(height: 6 * s),
                           Text(
-                            p.role!,
+                            p.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
-                            style: VxText.body(12 * s, color: VxColors.textSecondary, height: 1.2),
+                            style: VxText.body(13 * s, weight: FontWeight.w600, height: 1.2),
                           ),
-                      ],
+                          if (p.role != null)
+                            Text(
+                              p.role!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: VxText.body(12 * s, color: VxColors.textSecondary, height: 1.2),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

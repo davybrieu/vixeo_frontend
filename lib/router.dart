@@ -4,13 +4,16 @@ import 'package:go_router/go_router.dart';
 
 import 'core/theme.dart';
 import 'core/widgets/common.dart';
+import 'features/auth/device_login.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/auth/session.dart';
 import 'features/catalog/details_screen.dart';
 import 'features/catalog/home_screen.dart';
 import 'features/catalog/models.dart';
+import 'features/catalog/person_screen.dart';
 import 'features/library/my_list_screen.dart';
+import 'features/profiles/parental_control_screen.dart';
 import 'features/profiles/profile_settings_screen.dart';
 import 'features/profiles/profiles_screen.dart';
 import 'features/search/search_screen.dart';
@@ -24,7 +27,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.listen(sessionProvider.select((s) => (s.status, s.profile == null)), (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
-  // Deep link opened before the session was restored.
+  // Deep link opened before the session was restored, or while signed out (QR code of a TV).
   String? pending;
 
   Page<void> tab(Widget child) => NoTransitionPage(child: child);
@@ -45,7 +48,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
       if (!session.isSignedIn) {
-        return authPages.contains(location) ? null : '/connexion';
+        if (authPages.contains(location)) return null;
+        if (location == '/tv') pending = state.uri.toString();
+        return '/connexion';
+      }
+      // Approving a TV code needs an account, not a profile.
+      if (location == '/tv') return null;
+      if (pending != null && pending!.startsWith('/tv')) {
+        final target = pending;
+        pending = null;
+        return target;
       }
       if (session.profile == null) {
         return location == '/profils' ? null : '/profils';
@@ -80,6 +92,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
+      GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),
+      GoRoute(
+        path: '/personne/:id',
+        builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+      ),
+      // Opened by the QR code of a TV: /tv?code=K7F29Q.
+      GoRoute(
+        path: '/tv',
+        builder: (_, state) => DeviceApproveScreen(initialCode: state.uri.queryParameters['code']),
+      ),
       GoRoute(
         path: '/titre/:type/:id',
         builder: (_, state) => DetailsScreen(

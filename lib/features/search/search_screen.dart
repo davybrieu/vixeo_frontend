@@ -10,6 +10,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
+import '../catalog/person_screen.dart';
 import '../catalog/widgets.dart';
 
 /// Recent searches of this app session (not synced yet).
@@ -234,30 +235,35 @@ class _Results extends ConsumerWidget {
                       padding: EdgeInsets.symmetric(horizontal: layout.gutter),
                       itemCount: r.people.length,
                       separatorBuilder: (_, _) => const SizedBox(width: 16),
-                      itemBuilder: (_, i) {
+                      itemBuilder: (context, i) {
                         final p = r.people[i];
-                        return SizedBox(
-                          width: 84,
-                          child: Column(
-                            children: [
-                              ClipOval(
-                                child: SizedBox.square(
-                                  dimension: 72,
-                                  child: NetImage(
-                                    url: p.profileUrl,
-                                    seed: p.id,
-                                    fallback: Center(child: Text(p.initials, style: VxText.title(22))),
+                        return VxFocusable(
+                          borderRadius: 36,
+                          semanticLabel: p.name,
+                          onPressed: () => context.push(personPath(p.id)),
+                          child: SizedBox(
+                            width: 84,
+                            child: Column(
+                              children: [
+                                ClipOval(
+                                  child: SizedBox.square(
+                                    dimension: 72,
+                                    child: NetImage(
+                                      url: p.profileUrl,
+                                      seed: p.id,
+                                      fallback: Center(child: Text(p.initials, style: VxText.title(22))),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                p.name,
-                                maxLines: 2,
-                                textAlign: TextAlign.center,
-                                style: VxText.body(13, weight: FontWeight.w600, height: 1.2),
-                              ),
-                            ],
+                                const SizedBox(height: 6),
+                                Text(
+                                  p.name,
+                                  maxLines: 2,
+                                  textAlign: TextAlign.center,
+                                  style: VxText.body(13, weight: FontWeight.w600, height: 1.2),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },

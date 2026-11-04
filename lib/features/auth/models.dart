@@ -42,6 +42,7 @@ class Profile {
     this.effectiveMaxAgeRating,
     this.hasPin = false,
     this.position = 0,
+    this.allowUnrated = false,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
@@ -54,6 +55,7 @@ class Profile {
     effectiveMaxAgeRating: json['effective_max_age_rating'] as int?,
     hasPin: json['has_pin'] as bool? ?? false,
     position: json['position'] as int? ?? 0,
+    allowUnrated: json['allow_unrated'] as bool? ?? false,
   );
 
   final int id;
@@ -69,6 +71,9 @@ class Profile {
   final int? effectiveMaxAgeRating;
   final bool hasPin;
   final int position;
+
+  /// With an age limit: also show titles without a known age rating.
+  final bool allowUnrated;
 
   /// First letter, shown on the avatar tile.
   String get initial => name.isEmpty ? '?' : String.fromCharCode(name.runes.first).toUpperCase();

@@ -117,6 +117,20 @@ class ProfileSettingsScreen extends ConsumerWidget {
             runSpacing: 12 * s,
             children: [
               VxButton(
+                label: 'Contrôle parental',
+                icon: Icons.shield_outlined,
+                kind: VxButtonKind.outline,
+                onPressed: () => context.push('/profil/controle-parental'),
+              ),
+              // A TV signs in with its own QR code; this is for phones, tablets and computers.
+              if (!DeviceInfo.isTv)
+                VxButton(
+                  label: 'Connecter une TV',
+                  icon: Icons.qr_code_scanner_rounded,
+                  kind: VxButtonKind.outline,
+                  onPressed: () => context.push('/tv'),
+                ),
+              VxButton(
                 label: 'Changer de profil',
                 icon: Icons.switch_account_rounded,
                 kind: VxButtonKind.outline,

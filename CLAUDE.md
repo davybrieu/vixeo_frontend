@@ -52,9 +52,10 @@ lib/
     api/                             client HTTP (dio), erreurs en français, stockage du jeton
     widgets/                         VxFocusable (focus TV), boutons, images, états vides / erreur
   features/
-    auth/        connexion (page d'accueil de l'appli), inscription, session
-    profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars
-    catalog/     modèles TMDb, accueil, fiche film / série, cartes et rangées
+    auth/        connexion (page d'accueil de l'appli), inscription, session,
+                 connexion TV par QR code (device_login.dart : carte TV + page /tv)
+    profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
+    catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
     library/     synchro par profil (favoris, vus, « Continuer à regarder »), Ma liste
     search/      recherche, genres
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
@@ -68,7 +69,18 @@ lib/
 - **Navigation** : go_router. La connexion est la page d'entrée ; le routeur redirige vers
   `/connexion` tant qu'on n'est pas connecté, puis vers `/profils` tant qu'aucun profil n'est choisi.
   Le routeur n'écoute que le statut de connexion et la présence d'un profil : modifier le profil
-  (avatar…) ne doit pas reconstruire les pages.
+  (avatar…) ne doit pas reconstruire les pages. Exception : `/tv` (validation d'une TV) ne demande
+  pas de profil ; ouvert sans être connecté, il est mémorisé et rouvert juste après la connexion.
+- **Connexion TV par QR code** (`features/auth/device_login.dart`, API : `vixeo_backend/docs/connexion-tv.md`) :
+  sur grand écran, la page de connexion affiche `TvCodeCard` (QR code vers `<WEB_URL>/tv?code=…`
+  + code court), qui interroge `/auth/device/token` toutes les `interval` secondes et demande un
+  nouveau code sur un 410. Le téléphone valide sur `/tv` (« Mon profil » → « Connecter une TV »).
+  Le `device_code` reste en mémoire, jamais dans une URL.
+- **Contrôle parental** (`features/profiles/parental_control_screen.dart`, route
+  `/profil/controle-parental`) : si un PIN parental existe, il est demandé à l'arrivée, gardé en
+  mémoire tant que la page est ouverte et envoyé (`parental_pin`) avec chaque modification de
+  profil ; « Code oublié ? » désactive le contrôle avec le mot de passe du compte. Après une
+  modification : invalider `profilesProvider` et `homeProvider` (le catalogue dépend des limites).
 - **API** : passer par `ApiClient` (jeton Bearer + en-tête `X-Profile-Id` ajoutés automatiquement,
   erreurs → `ApiException` avec le message français de l'API, 401 → session expirée).
 - **Modèles** : écrits à la main d'après `vixeo_backend/docs/openapi.json` (seuls les champs
@@ -103,16 +115,18 @@ lib/
 
 ## État actuel
 
-- Fait : connexion, inscription, session persistante (jeton chiffré), « Qui regarde ? » (PIN de
-  profil, ajout avec PIN parental si activé), accueil (carrousel / grande image, « Continuer à
-  regarder », rangées), Films / Séries, fiche film et série (saisons, épisodes, distribution,
-  recommandations, bande-annonce, Ma liste, Vu), recherche (genres, résultats groupés), Ma liste,
-  « Mon profil » (avatar par licence, format des affiches, changer de profil, déconnexion),
-  mises en page téléphone et TV / grand écran, navigation à la télécommande.
+- Fait : connexion, inscription, session persistante (jeton chiffré), connexion TV par QR code
+  (validée depuis le téléphone), « Qui regarde ? » (PIN de profil, ajout avec PIN parental si
+  activé), accueil (carrousel / grande image, « Continuer à regarder », rangées), Films / Séries,
+  fiche film et série (saisons, épisodes, distribution, recommandations, bande-annonce, Ma liste,
+  Vu), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
+  la distribution et la recherche), recherche (genres, résultats groupés), Ma liste,
+  « Mon profil » (avatar par licence, format des affiches, contrôle parental, connecter une TV,
+  changer de profil, déconnexion), mises en page téléphone et TV / grand écran, navigation à la
+  télécommande.
 - Vérifié de bout en bout (web) contre l'API Laravel locale avec un faux TMDb.
-- Pas encore fait : lecteur vidéo et sources (Jellyfin / Plex / Emby), connexion TV par QR code
-  (route d'API à créer), réglages du contrôle parental dans l'appli, historique de recherche
-  synchronisé, page personne (filmographie), déploiement web (workflow `deploy-web.yml` du §8.2).
+- Pas encore fait : lecteur vidéo et sources (Jellyfin / Plex / Emby), historique de recherche
+  synchronisé, déploiement web (workflow `deploy-web.yml` du §8.2).
 - Limite connue : sur le web avec le mode lecteur d'écran activé, le focus initial et les flèches
   passent par le navigateur (Tab fonctionne). Sans lecteur d'écran, et sur Android TV, les flèches
   et OK fonctionnent.

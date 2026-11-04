@@ -6,6 +6,7 @@ import '../../core/api/api_exception.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
+import 'device_login.dart';
 import 'session.dart';
 
 /// Main page of the app: sign in.
@@ -62,6 +63,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
+    // Large screens: QR card and form side by side when they fit (a 1080p TV is ~960 dp wide).
+    final available = layout.width - 2 * layout.gutter - 64;
+    final formWidth = (available * 0.45).clamp(360.0, 480.0);
+    final qrWidth = (available - formWidth - 40).clamp(400.0, 640.0);
     final form = _LoginForm(
       formKey: _formKey,
       email: _email,
@@ -118,15 +123,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         children: [
                           VxLogo(size: layout.isLarge ? layout.tv(52).clamp(30, 60).toDouble() : 40),
                           const SizedBox(height: 32),
-                          Container(
-                            width: 480,
-                            padding: const EdgeInsets.all(36),
-                            decoration: BoxDecoration(
-                              color: VxColors.surface.withValues(alpha: 0.94),
-                              borderRadius: BorderRadius.circular(28),
-                              border: Border.all(color: VxColors.line),
-                            ),
-                            child: form,
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 40,
+                            runSpacing: 32,
+                            children: [
+                              // TV / large screen: sign in from a phone with a QR code.
+                              if (layout.isLarge) SizedBox(width: qrWidth, child: const TvCodeCard()),
+                              Container(
+                                width: formWidth,
+                                padding: const EdgeInsets.all(36),
+                                decoration: BoxDecoration(
+                                  color: VxColors.surface.withValues(alpha: 0.94),
+                                  borderRadius: BorderRadius.circular(28),
+                                  border: Border.all(color: VxColors.line),
+                                ),
+                                child: form,
+                              ),
+                            ],
                           ),
                         ],
                       ),

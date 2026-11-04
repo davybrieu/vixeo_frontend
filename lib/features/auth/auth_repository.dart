@@ -59,4 +59,73 @@ class AuthRepository {
   /// Throws an [ApiException] with a `pin` field error when the PIN is wrong.
   Future<void> verifyProfilePin(int profileId, String pin) =>
       _api.post('/profiles/$profileId/verify-pin', body: {'pin': pin});
+
+  // ── TV sign-in with a QR code (vixeo_backend/docs/connexion-tv.md) ──
+
+  /// The TV asks for a code to show.
+  Future<DeviceCode> startDeviceLogin() async =>
+      DeviceCode.fromJson(await _api.post('/auth/device', body: {'device_name': DeviceInfo.deviceName}));
+
+  /// The TV polls: null while pending, the session once approved.
+  /// Throws an [ApiException] with status 410 when the code expired: ask a new one.
+  Future<({String token, User user})?> pollDeviceLogin(String deviceCode) async {
+    final json = await _api.post('/auth/device/token', body: {'device_code': deviceCode});
+    if (json['status'] != 'approved') return null;
+    return (token: json['token'] as String, user: User.fromJson(json['user'] as Map<String, dynamic>));
+  }
+
+  /// Signed-in phone: which device asks for this code?
+  Future<String> lookupDeviceLogin(String userCode) async =>
+      (await _api.post('/auth/device/lookup', body: {'user_code': userCode}))['device_name'] as String? ?? '';
+
+  /// Signed-in phone: sign the TV in to this account.
+  Future<void> approveDeviceLogin(String userCode) => _api.post('/auth/device/approve', body: {'user_code': userCode});
+
+  // ── Parental control (vixeo_backend/docs/controle-parental.md) ──
+
+  Future<bool> parentalControlEnabled() async => (await _api.get('/parental-control'))['enabled'] as bool? ?? false;
+
+  /// Sets (or changes, with [currentPin] or [password]) the parental PIN.
+  Future<void> setParentalPin(String pin, {String? currentPin, String? password}) =>
+      _api.put('/parental-control/pin', body: {'pin': pin, 'current_pin': ?currentPin, 'password': ?password});
+
+  /// Turns parental control off, with the current PIN or the account password.
+  Future<void> disableParentalControl({String? currentPin, String? password}) =>
+      _api.post('/parental-control/disable', body: {'current_pin': ?currentPin, 'password': ?password});
+
+  /// Throws an [ApiException] (`pin` field) when wrong, 429 after 5 wrong attempts.
+  Future<void> verifyParentalPin(String pin) => _api.post('/parental-control/verify', body: {'pin': pin});
+}
+
+/// Code shown by a TV waiting to be signed in.
+class DeviceCode {
+  const DeviceCode({
+    required this.deviceCode,
+    required this.userCode,
+    required this.verificationUrl,
+    required this.verificationUrlComplete,
+    required this.expiresIn,
+    required this.interval,
+  });
+
+  factory DeviceCode.fromJson(Map<String, dynamic> json) => DeviceCode(
+    deviceCode: json['device_code'] as String,
+    userCode: json['user_code'] as String,
+    verificationUrl: json['verification_url'] as String,
+    verificationUrlComplete: json['verification_url_complete'] as String,
+    expiresIn: Duration(seconds: json['expires_in'] as int? ?? 600),
+    interval: Duration(seconds: json['interval'] as int? ?? 5),
+  );
+
+  /// Secret: stays on the TV.
+  final String deviceCode;
+
+  /// "K7F-29Q".
+  final String userCode;
+  final String verificationUrl;
+
+  /// Put in the QR code.
+  final String verificationUrlComplete;
+  final Duration expiresIn;
+  final Duration interval;
 }

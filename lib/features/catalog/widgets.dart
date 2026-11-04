@@ -241,6 +241,17 @@ class ResumeCard extends StatelessWidget {
   }
 }
 
+/// Grid layout for title cards, by screen and format.
+SliverGridDelegate posterGridDelegate(Layout layout, PosterFormat format) {
+  final gap = layout.isLarge ? layout.tv(28) : 10.0;
+  return SliverGridDelegateWithMaxCrossAxisExtent(
+    maxCrossAxisExtent: rowCardWidth(layout, format) * 1.15,
+    childAspectRatio: format == PosterFormat.portrait ? 2 / 3 : 16 / 9,
+    crossAxisSpacing: gap,
+    mainAxisSpacing: gap,
+  );
+}
+
 /// Grid of title cards (Ma liste, genres), following the profile's poster format.
 class PosterGrid extends ConsumerWidget {
   const PosterGrid({super.key, required this.items, this.padding});
@@ -252,16 +263,9 @@ class PosterGrid extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final format = posterFormatOf(ref);
-    final itemWidth = rowCardWidth(layout, format);
-    final gap = layout.isLarge ? layout.tv(28) : 10.0;
     return GridView.builder(
       padding: padding ?? EdgeInsets.all(layout.gutter),
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: itemWidth * 1.15,
-        childAspectRatio: format == PosterFormat.portrait ? 2 / 3 : 16 / 9,
-        crossAxisSpacing: gap,
-        mainAxisSpacing: gap,
-      ),
+      gridDelegate: posterGridDelegate(layout, format),
       itemCount: items.length,
       itemBuilder: (context, i) => LayoutBuilder(
         builder: (context, c) =>

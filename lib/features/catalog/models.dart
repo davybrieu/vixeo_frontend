@@ -320,6 +320,83 @@ class SearchResults {
   bool get isEmpty => movies.isEmpty && shows.isEmpty && people.isEmpty;
 }
 
+/// Actor / director page (PersonResource).
+class PersonDetails {
+  const PersonDetails({
+    required this.id,
+    required this.name,
+    this.biography,
+    this.birthday,
+    this.deathday,
+    this.placeOfBirth,
+    this.knownForDepartment,
+    this.profileUrl,
+    this.knownFor = const [],
+    this.filmography = const [],
+  });
+
+  factory PersonDetails.fromJson(Map<String, dynamic> json) => PersonDetails(
+    id: json['id'] as int,
+    name: json['name'] as String? ?? '',
+    biography: json['biography'] as String?,
+    birthday: DateTime.tryParse(json['birthday'] as String? ?? ''),
+    deathday: DateTime.tryParse(json['deathday'] as String? ?? ''),
+    placeOfBirth: json['place_of_birth'] as String?,
+    knownForDepartment: json['known_for_department'] as String?,
+    profileUrl: json['profile_url'] as String?,
+    knownFor: _list(json['known_for'], MediaItem.fromJson),
+    filmography: _list(json['filmography'], MediaItem.fromJson),
+  );
+
+  final int id;
+  final String name;
+  final String? biography;
+  final DateTime? birthday;
+  final DateTime? deathday;
+  final String? placeOfBirth;
+  final String? knownForDepartment;
+  final String? profileUrl;
+
+  /// Best-known titles.
+  final List<MediaItem> knownFor;
+
+  /// All titles as cast member, most recent first.
+  final List<MediaItem> filmography;
+
+  /// "Interprétation", "Réalisation"…
+  String? get department => switch (knownForDepartment) {
+    null => null,
+    'Acting' => 'Interprétation',
+    'Directing' => 'Réalisation',
+    'Writing' => 'Scénario',
+    'Production' => 'Production',
+    'Sound' => 'Musique et son',
+    'Camera' => 'Image',
+    'Editing' => 'Montage',
+    'Art' => 'Décors',
+    'Costume & Make-Up' => 'Costumes et maquillage',
+    'Visual Effects' => 'Effets visuels',
+    'Crew' => 'Équipe technique',
+    final other => other,
+  };
+
+  /// "Né le 18 décembre 1963 à Shawnee, Oklahoma, USA" / "1963 – 2020"…
+  String? get lifeLine {
+    if (birthday == null) return placeOfBirth == null ? null : 'Originaire de $placeOfBirth';
+    final born = 'Naissance : ${formatFrenchDate(birthday!)}${placeOfBirth != null ? ' à $placeOfBirth' : ''}';
+    return deathday == null ? born : '$born · Décès : ${formatFrenchDate(deathday!)}';
+  }
+}
+
+const _frenchMonths = [
+  'janvier', 'février', 'mars', 'avril', 'mai', 'juin', //
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+];
+
+/// "18 décembre 1963" ("1er" for the first day of the month).
+String formatFrenchDate(DateTime date) =>
+    '${date.day == 1 ? '1er' : date.day} ${_frenchMonths[date.month - 1]} ${date.year}';
+
 /// Human-readable duration: "2 h 06", "45 min".
 String formatRuntime(int? minutes) {
   if (minutes == null || minutes <= 0) return '';

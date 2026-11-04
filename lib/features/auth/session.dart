@@ -112,6 +112,15 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(profile: profile);
   }
 
+  /// Signed in by another device (TV approved from a phone).
+  Future<void> signInWithToken(String token, User user) => _signedIn(token, user);
+
+  /// Re-reads the account (e.g. after turning parental control on or off).
+  Future<void> refreshUser() async {
+    if (!state.isSignedIn) return;
+    state = state.copyWith(user: await _auth.me());
+  }
+
   /// The active profile was edited (avatar, poster format…).
   void updateProfile(Profile profile) {
     if (state.profile?.id == profile.id) {

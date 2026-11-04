@@ -22,6 +22,9 @@ class CatalogRepository {
   Future<Season> season(int showId, int number) async =>
       Season.fromJson((await _api.get('/catalog/tv/$showId/season/$number'))['data'] as Map<String, dynamic>);
 
+  Future<PersonDetails> person(int id) async =>
+      PersonDetails.fromJson((await _api.get('/catalog/person/$id'))['data'] as Map<String, dynamic>);
+
   Future<SearchResults> search(String query) async =>
       SearchResults.fromJson(await _api.get('/catalog/search', query: {'query': query}));
 
@@ -57,6 +60,11 @@ final titleProvider = FutureProvider.autoDispose.family<TitleDetails, (MediaType
 final seasonProvider = FutureProvider.autoDispose.family<Season, (int, int)>((ref, key) {
   ref.watch(_profileIdProvider);
   return ref.read(catalogRepositoryProvider).season(key.$1, key.$2);
+});
+
+final personProvider = FutureProvider.autoDispose.family<PersonDetails, int>((ref, id) {
+  ref.watch(_profileIdProvider);
+  return ref.read(catalogRepositoryProvider).person(id);
 });
 
 final searchProvider = FutureProvider.autoDispose.family<SearchResults, String>((ref, query) {
