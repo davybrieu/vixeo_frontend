@@ -7,7 +7,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
-import '../library/library.dart';
+import '../library/actions.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
 import 'widgets.dart';
@@ -77,113 +77,29 @@ class _BackButton extends StatelessWidget {
   );
 }
 
-/// Ma liste / Vu / Bande-annonce, wired to the sync API.
-class _Actions extends ConsumerWidget {
-  const _Actions({required this.title, this.showLabels = true});
+/// Ma liste / Vu / Bande-annonce: the same round icon-only button for each action.
+/// Each click confirms with an alert ("Supprimé de votre liste"…).
+class _Actions extends StatelessWidget {
+  const _Actions({required this.title});
 
   final TitleDetails title;
-  final bool showLabels;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final item = title.asItem;
-    final state = ref.watch(libraryProvider).value?.forItem(item);
-    final library = ref.read(libraryProvider.notifier);
-    final favorite = state?.isFavorite ?? false;
-    final watched = state?.isWatched ?? false;
-
-    Future<void> run(Future<void> Function() action, String done) async {
-      try {
-        await action();
-        if (context.mounted) showVxSnack(context, done);
-      } catch (e) {
-        if (context.mounted) showVxSnack(context, '$e');
-      }
-    }
-
-    return Wrap(
-      spacing: showLabels ? 4 : 16,
-      runSpacing: 12,
-      children: [
-        VxIconAction(
-          icon: favorite ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-          label: favorite ? 'Dans ma liste' : 'Ma liste',
-          active: favorite,
-          showLabel: showLabels,
-          onPressed: () =>
-              run(() => library.setFavorite(item, !favorite), favorite ? 'Retiré de ma liste' : 'Ajouté à ma liste'),
-        ),
-        if (title.type == MediaType.movie)
-          VxIconAction(
-            icon: watched ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded,
-            label: watched ? 'Vu' : 'Marquer vu',
-            active: watched,
-            showLabel: showLabels,
-            onPressed: () =>
-                run(() => library.setWatched(item, !watched), watched ? 'Marqué comme non vu' : 'Marqué comme vu'),
-          ),
-        if (title.trailer != null)
-          VxIconAction(
-            icon: Icons.smart_display_outlined,
-            label: 'Bande-annonce',
-            showLabel: showLabels,
-            onPressed: () => _openTrailer(context, title.trailer!),
-          ),
-      ],
-    );
-  }
-}
-
-/// No playback source yet (Jellyfin / Plex / Emby come later).
-class _SourcesSection extends StatelessWidget {
-  const _SourcesSection();
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final s = layout.isLarge ? layout.scale * 2 : 1.0;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final item = title.asItem;
+    return Wrap(
+      spacing: layout.isLarge ? layout.tv(20) : 14,
+      runSpacing: 12,
       children: [
-        const SectionHeader('Sources'),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: layout.gutter),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: layout.isLarge ? layout.tv(900) : 600),
-            child: Container(
-              padding: EdgeInsets.all(16 * s),
-              decoration: BoxDecoration(
-                color: VxColors.surface,
-                borderRadius: BorderRadius.circular(14 * s),
-                border: Border.all(color: VxColors.surfaceHigh),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40 * s,
-                    height: 40 * s,
-                    decoration: BoxDecoration(color: VxColors.surfaceHigh, borderRadius: BorderRadius.circular(10 * s)),
-                    child: Icon(Icons.dns_outlined, color: VxColors.accent, size: 20 * s),
-                  ),
-                  SizedBox(width: 14 * s),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Aucune source pour l’instant', style: VxText.body(15 * s, weight: FontWeight.w600)),
-                        SizedBox(height: 2 * s),
-                        Text(
-                          'Ajoutez votre serveur Jellyfin, Plex ou Emby pour regarder ce titre.',
-                          style: VxText.body(13 * s, color: VxColors.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        FavoriteButton(item: item),
+        if (title.type == MediaType.movie) WatchedButton(item: item),
+        if (title.trailer != null)
+          VxIconAction(
+            icon: Icons.smart_display_outlined,
+            label: 'Voir la bande-annonce',
+            onPressed: () => _openTrailer(context, title.trailer!),
           ),
-        ),
       ],
     );
   }
@@ -407,97 +323,102 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
       children: [
-        SizedBox(
-          height: 340,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              NetImage(url: t.asItem.backdrop('w1280'), seed: t.id),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0x73070A08), Colors.transparent, Color(0xB3070A08), VxColors.background],
-                    stops: [0, 0.3, 0.75, 1],
-                  ),
-                ),
-              ),
-              const Positioned(left: 0, top: 0, child: _BackButton()),
-            ],
-          ),
-        ),
-        Transform.translate(
-          offset: const Offset(0, -64),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(t.title, style: VxText.title(32, weight: FontWeight.w800)),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    if (t.voteAverage > 0)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.star_rounded, color: VxColors.accent, size: 17),
-                          const SizedBox(width: 3),
-                          Text(formatRating(t.voteAverage), style: VxText.body(14, weight: FontWeight.w600)),
-                        ],
+        Stack(
+          children: [
+            SizedBox(
+              height: 340,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  NetImage(url: t.asItem.backdrop('w1280'), seed: t.id),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0x73070A08), Colors.transparent, Color(0xB3070A08), VxColors.background],
+                        stops: [0, 0.3, 0.75, 1],
                       ),
-                    for (final m in _meta(t)) Text(m, style: VxText.body(14, color: VxColors.textSoft)),
-                    if (t.ageRating != null) VxBadge(_ageLabel(t.ageRating!), outlined: true),
-                  ],
-                ),
-                if (t.genres.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(t.genres.map((g) => g.name).join(' · '), style: VxText.body(14, color: VxColors.textSecondary)),
-                ],
-                const SizedBox(height: 18),
-                VxButton(
-                  label: 'Lecture',
-                  icon: Icons.play_arrow_rounded,
-                  expand: true,
-                  onPressed: () => _play(context),
-                ),
-                const SizedBox(height: 16),
-                _Actions(title: t),
-                if (t.overview != null) ...[
-                  const SizedBox(height: 16),
-                  GestureDetector(
-                    onTap: () => setState(() => _expanded = !_expanded),
-                    child: Text(
-                      t.overview!,
-                      maxLines: _expanded ? null : 4,
-                      overflow: _expanded ? null : TextOverflow.ellipsis,
-                      style: VxText.body(15, color: VxColors.textSoft, height: 1.55),
                     ),
                   ),
                 ],
-                if (t.crew.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    '${t.type == MediaType.movie ? 'Réalisation' : 'Création'} : ${t.crew.map((p) => p.name).join(', ')}',
-                    style: VxText.body(13, color: VxColors.textSecondary),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
+            Padding(
+              // The title overlaps the bottom of the backdrop.
+              padding: const EdgeInsets.fromLTRB(20, 276, 20, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(t.title, style: VxText.title(32, weight: FontWeight.w800)),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (t.voteAverage > 0)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star_rounded, color: VxColors.accent, size: 17),
+                            const SizedBox(width: 3),
+                            Text(formatRating(t.voteAverage), style: VxText.body(14, weight: FontWeight.w600)),
+                          ],
+                        ),
+                      for (final m in _meta(t)) Text(m, style: VxText.body(14, color: VxColors.textSoft)),
+                      if (t.ageRating != null) VxBadge(_ageLabel(t.ageRating!), outlined: true),
+                    ],
+                  ),
+                  if (t.genres.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      t.genres.map((g) => g.name).join(' · '),
+                      style: VxText.body(14, color: VxColors.textSecondary),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  VxButton(
+                    label: 'Lecture',
+                    icon: Icons.play_arrow_rounded,
+                    expand: true,
+                    onPressed: () => _play(context),
+                  ),
+                  const SizedBox(height: 16),
+                  _Actions(title: t),
+                  if (t.overview != null) ...[
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: () => setState(() => _expanded = !_expanded),
+                      child: Text(
+                        t.overview!,
+                        maxLines: _expanded ? null : 4,
+                        overflow: _expanded ? null : TextOverflow.ellipsis,
+                        style: VxText.body(15, color: VxColors.textSoft, height: 1.55),
+                      ),
+                    ),
+                  ],
+                  if (t.crew.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      '${t.type == MediaType.movie ? 'Réalisation' : 'Création'} : ${t.crew.map((p) => p.name).join(', ')}',
+                      style: VxText.body(13, color: VxColors.textSecondary),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const Positioned(left: 0, top: 0, child: _BackButton()),
+          ],
         ),
-        ..._lowerSections(t, top: -40),
+        ..._lowerSections(t),
       ],
     );
   }
 }
 
-List<Widget> _lowerSections(TitleDetails t, {double top = 0}) => [
-  Transform.translate(offset: Offset(0, top), child: const _SourcesSection()),
+List<Widget> _lowerSections(TitleDetails t) => [
   if (t.type == MediaType.tv && t.seasons.isNotEmpty) ...[const SizedBox(height: 8), _Episodes(title: t)],
   if (t.cast.isNotEmpty) ...[const SizedBox(height: 16), _CastRow(people: t.cast)],
   if (t.recommended.isNotEmpty) ...[
@@ -649,7 +570,7 @@ class _LargeDetails extends StatelessWidget {
                           onPressed: () => _play(context),
                         ),
                         SizedBox(width: layout.tv(24)),
-                        _Actions(title: t, showLabels: false),
+                        _Actions(title: t),
                       ],
                     ),
                   ],

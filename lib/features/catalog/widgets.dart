@@ -6,23 +6,50 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
+import '../auth/models.dart';
+import '../auth/session.dart';
+import '../library/actions.dart';
 import '../library/library.dart';
 import 'models.dart';
 
 String titlePath(MediaType type, int id) => '/titre/${type.name}/$id';
 
-/// Poster 2:3 with the title as fallback when there is no image.
+/// Title card: vertical poster (2:3) or horizontal image (16:9, title written on it),
+/// following the profile's poster format.
 class PosterCard extends StatelessWidget {
-  const PosterCard({super.key, required this.item, required this.width, this.onFocused, this.autofocus = false});
+  const PosterCard({
+    super.key,
+    required this.item,
+    required this.width,
+    this.format = PosterFormat.portrait,
+    this.onFocused,
+    this.autofocus = false,
+  });
 
   final MediaItem item;
   final double width;
+  final PosterFormat format;
   final VoidCallback? onFocused;
   final bool autofocus;
 
+  static double heightFor(double width, PosterFormat format) =>
+      format == PosterFormat.portrait ? width * 1.5 : width * 9 / 16;
+
   @override
   Widget build(BuildContext context) {
-    final radius = width * 0.086;
+    final landscape = format == PosterFormat.landscape;
+    final radius = landscape ? width * 0.05 : width * 0.086;
+    final titleSize = landscape ? (width * 0.07).clamp(13, 30).toDouble() : width * 0.12;
+    final title = Padding(
+      padding: EdgeInsets.all(landscape ? width * 0.045 : width * 0.08),
+      child: Text(
+        item.title,
+        maxLines: landscape ? 2 : 3,
+        overflow: TextOverflow.ellipsis,
+        style: VxText.title(titleSize),
+      ),
+    );
+
     return VxFocusable(
       autofocus: autofocus,
       borderRadius: radius,
@@ -34,26 +61,47 @@ class PosterCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
         child: SizedBox(
           width: width,
-          height: width * 1.5,
-          child: NetImage(
-            url: item.posterUrl,
-            seed: item.id,
-            fallback: Align(
-              alignment: Alignment.bottomLeft,
-              child: Padding(
-                padding: EdgeInsets.all(width * 0.08),
-                child: Text(item.title, maxLines: 3, style: VxText.title(width * 0.12)),
-              ),
-            ),
-          ),
+          height: heightFor(width, format),
+          child: landscape
+              ? Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    NetImage(url: item.backdrop('w780') ?? item.posterUrl, seed: item.id),
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Color(0xD9070A08)],
+                          stops: [0.4, 1],
+                        ),
+                      ),
+                    ),
+                    Align(alignment: Alignment.bottomLeft, child: title),
+                  ],
+                )
+              : NetImage(
+                  url: item.posterUrl,
+                  seed: item.id,
+                  fallback: Align(alignment: Alignment.bottomLeft, child: title),
+                ),
         ),
       ),
     );
   }
 }
 
-/// Horizontal row of posters, with its title.
-class PosterRow extends StatelessWidget {
+/// Poster format of the active profile.
+PosterFormat posterFormatOf(WidgetRef ref) =>
+    ref.watch(sessionProvider.select((s) => s.profile?.posterFormat)) ?? PosterFormat.portrait;
+
+/// Card width in rows, by screen and format.
+double rowCardWidth(Layout layout, PosterFormat format) => format == PosterFormat.portrait
+    ? (layout.isLarge ? layout.tv(220) : (layout.isPhone ? 116.0 : 140.0))
+    : (layout.isLarge ? layout.tv(384) : (layout.isPhone ? 220.0 : 260.0));
+
+/// Horizontal row of title cards, with its title.
+class PosterRow extends ConsumerWidget {
   const PosterRow({super.key, required this.title, required this.items, this.onFocused});
 
   final String title;
@@ -61,9 +109,10 @@ class PosterRow extends StatelessWidget {
   final void Function(MediaItem item)? onFocused;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final width = layout.isLarge ? layout.tv(220) : (layout.isPhone ? 116.0 : 140.0);
+    final format = posterFormatOf(ref);
+    final width = rowCardWidth(layout, format);
     final gap = layout.isLarge ? layout.tv(28) : 10.0;
     // Room for the focus zoom on TV.
     final vPad = layout.isLarge ? layout.tv(16) : 0.0;
@@ -74,7 +123,7 @@ class PosterRow extends StatelessWidget {
         SectionHeader(title),
         FocusTraversalGroup(
           child: SizedBox(
-            height: width * 1.5 + vPad * 2,
+            height: PosterCard.heightFor(width, format) + vPad * 2,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               clipBehavior: Clip.none,
@@ -84,6 +133,7 @@ class PosterRow extends StatelessWidget {
               itemBuilder: (context, i) => PosterCard(
                 item: items[i],
                 width: width,
+                format: format,
                 onFocused: onFocused == null ? null : () => onFocused!(items[i]),
               ),
             ),
@@ -191,44 +241,51 @@ class ResumeCard extends StatelessWidget {
   }
 }
 
-/// Grid of posters (Ma liste, genres, search results).
-class PosterGrid extends StatelessWidget {
+/// Grid of title cards (Ma liste, genres), following the profile's poster format.
+class PosterGrid extends ConsumerWidget {
   const PosterGrid({super.key, required this.items, this.padding});
 
   final List<MediaItem> items;
   final EdgeInsetsGeometry? padding;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final itemWidth = layout.isLarge ? layout.tv(220) : 116.0;
+    final format = posterFormatOf(ref);
+    final itemWidth = rowCardWidth(layout, format);
+    final gap = layout.isLarge ? layout.tv(28) : 10.0;
     return GridView.builder(
       padding: padding ?? EdgeInsets.all(layout.gutter),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: itemWidth * 1.15,
-        childAspectRatio: 2 / 3,
-        crossAxisSpacing: layout.isLarge ? layout.tv(28) : 10,
-        mainAxisSpacing: layout.isLarge ? layout.tv(28) : 10,
+        childAspectRatio: format == PosterFormat.portrait ? 2 / 3 : 16 / 9,
+        crossAxisSpacing: gap,
+        mainAxisSpacing: gap,
       ),
       itemCount: items.length,
       itemBuilder: (context, i) => LayoutBuilder(
-        builder: (context, c) => PosterCard(item: items[i], width: c.maxWidth, autofocus: i == 0 && layout.isLarge),
+        builder: (context, c) =>
+            PosterCard(item: items[i], width: c.maxWidth, format: format, autofocus: i == 0 && layout.isLarge),
       ),
     );
   }
 }
 
-/// Long press menu: Ma liste, marquer vu.
+/// Long press menu: Ma liste, marquer vu / non vu.
 Future<void> showTitleMenu(BuildContext context, MediaItem item) => showModalBottomSheet<void>(
   context: context,
   backgroundColor: VxColors.surface,
   showDragHandle: true,
-  builder: (context) => Consumer(
-    builder: (context, ref, _) {
+  builder: (sheetContext) => Consumer(
+    builder: (sheetContext, ref, _) {
       final state = ref.watch(libraryProvider).value?.forItem(item);
-      final library = ref.read(libraryProvider.notifier);
       final favorite = state?.isFavorite ?? false;
       final watched = state?.isWatched ?? false;
+      void then(Future<void> Function(BuildContext, MediaItem) action) {
+        Navigator.of(sheetContext).pop();
+        action(context, item);
+      }
+
       return SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -238,16 +295,16 @@ Future<void> showTitleMenu(BuildContext context, MediaItem item) => showModalBot
               child: Text(item.title, style: VxText.title(20)),
             ),
             _MenuTile(
-              icon: favorite ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              icon: favorite ? Icons.bookmark_remove_rounded : Icons.bookmark_add_outlined,
               label: favorite ? 'Retirer de ma liste' : 'Ajouter à ma liste',
               autofocus: true,
-              onTap: () => _run(context, () => library.setFavorite(item, !favorite)),
+              onTap: () => then(toggleFavorite),
             ),
             if (item.type == MediaType.movie)
               _MenuTile(
                 icon: watched ? Icons.remove_done_rounded : Icons.check_circle_outline_rounded,
                 label: watched ? 'Marquer comme non vu' : 'Marquer comme vu',
-                onTap: () => _run(context, () => library.setWatched(item, !watched)),
+                onTap: () => then(toggleWatched),
               ),
             const SizedBox(height: 12),
           ],
@@ -262,39 +319,36 @@ Future<void> showResumeMenu(BuildContext context, ProfileItem item) => showModal
   context: context,
   backgroundColor: VxColors.surface,
   showDragHandle: true,
-  builder: (context) => Consumer(
-    builder: (context, ref, _) {
-      return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-              child: Text(item.title, style: VxText.title(20)),
-            ),
-            _MenuTile(
-              icon: Icons.remove_circle_outline_rounded,
-              label: 'Retirer de « Continuer à regarder »',
-              autofocus: true,
-              onTap: () => _run(context, () => ref.read(libraryProvider.notifier).removeFromContinueWatching(item)),
-            ),
-            const SizedBox(height: 12),
-          ],
+  builder: (sheetContext) => SafeArea(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+          child: Text(item.title, style: VxText.title(20)),
         ),
-      );
-    },
+        _MenuTile(
+          icon: Icons.remove_circle_outline_rounded,
+          label: 'Retirer de « Continuer à regarder »',
+          autofocus: true,
+          onTap: () async {
+            Navigator.of(sheetContext).pop();
+            final container = ProviderScope.containerOf(context, listen: false);
+            try {
+              await container.read(libraryProvider.notifier).removeFromContinueWatching(item);
+              if (context.mounted) {
+                showVxSnack(context, 'Retiré de « Continuer à regarder »', icon: Icons.remove_circle_outline_rounded);
+              }
+            } catch (e) {
+              if (context.mounted) showVxSnack(context, '$e', icon: Icons.error_outline_rounded);
+            }
+          },
+        ),
+        const SizedBox(height: 12),
+      ],
+    ),
   ),
 );
-
-Future<void> _run(BuildContext context, Future<void> Function() action) async {
-  final messenger = ScaffoldMessenger.of(context);
-  Navigator.of(context).pop();
-  try {
-    await action();
-  } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('$e')));
-  }
-}
 
 class _MenuTile extends StatelessWidget {
   const _MenuTile({required this.icon, required this.label, required this.onTap, this.autofocus = false});

@@ -9,6 +9,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
+import 'avatars.dart';
 
 final profilesProvider = FutureProvider.autoDispose<List<Profile>>((ref) {
   ref.watch(sessionProvider.select((s) => s.token));
@@ -153,20 +154,21 @@ class _ProfileTile extends StatelessWidget {
             autofocus: autofocus,
             onPressed: onPressed,
             borderRadius: radius,
-            onAccent: colors.$1 == VxColors.accent,
+            onAccent: profile.avatar == null && colors.$1 == VxColors.accent,
             focusScale: 1.08,
             semanticLabel: label,
-            child: Container(
+            child: SizedBox(
               width: size,
               height: size,
-              decoration: BoxDecoration(color: colors.$1, borderRadius: BorderRadius.circular(radius)),
               child: Stack(
                 children: [
-                  Center(
-                    child: Text(
-                      profile.initial,
-                      style: VxText.title(size * 0.4, weight: FontWeight.w800, color: colors.$2),
-                    ),
+                  AvatarTile(
+                    avatarId: profile.avatar,
+                    initial: profile.initial,
+                    size: size,
+                    radius: radius,
+                    fallbackColor: colors.$1,
+                    fallbackInk: colors.$2,
                   ),
                   if (profile.isKid)
                     Positioned(

@@ -11,6 +11,7 @@ import 'features/catalog/details_screen.dart';
 import 'features/catalog/home_screen.dart';
 import 'features/catalog/models.dart';
 import 'features/library/my_list_screen.dart';
+import 'features/profiles/profile_settings_screen.dart';
 import 'features/profiles/profiles_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
@@ -19,7 +20,8 @@ import 'features/shell/app_shell.dart';
 /// then to "Qui regarde ?" until a profile is chosen.
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
-  ref.listen(sessionProvider, (_, _) => refresh.value++);
+  // Only what the redirects depend on: editing the profile (avatar…) must not rebuild the pages.
+  ref.listen(sessionProvider.select((s) => (s.status, s.profile == null)), (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
   // Deep link opened before the session was restored.
@@ -74,8 +76,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/recherche', pageBuilder: (_, _) => tab(const SearchScreen())),
           GoRoute(path: '/ma-liste', pageBuilder: (_, _) => tab(const MyListScreen())),
+          GoRoute(path: '/profil', pageBuilder: (_, _) => tab(const ProfileSettingsScreen())),
         ],
       ),
+      GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
       GoRoute(
         path: '/titre/:type/:id',
         builder: (_, state) => DetailsScreen(

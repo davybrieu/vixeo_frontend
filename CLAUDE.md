@@ -53,7 +53,7 @@ lib/
     widgets/                         VxFocusable (focus TV), boutons, images, états vides / erreur
   features/
     auth/        connexion (page d'accueil de l'appli), inscription, session
-    profiles/    « Qui regarde ? », PIN de profil, ajout de profil
+    profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars
     catalog/     modèles TMDb, accueil, fiche film / série, cartes et rangées
     library/     synchro par profil (favoris, vus, « Continuer à regarder »), Ma liste
     search/      recherche, genres
@@ -67,6 +67,8 @@ lib/
   recharge les données (l'API filtre selon l'âge du profil).
 - **Navigation** : go_router. La connexion est la page d'entrée ; le routeur redirige vers
   `/connexion` tant qu'on n'est pas connecté, puis vers `/profils` tant qu'aucun profil n'est choisi.
+  Le routeur n'écoute que le statut de connexion et la présence d'un profil : modifier le profil
+  (avatar…) ne doit pas reconstruire les pages.
 - **API** : passer par `ApiClient` (jeton Bearer + en-tête `X-Profile-Id` ajoutés automatiquement,
   erreurs → `ApiException` avec le message français de l'API, 401 → session expirée).
 - **Modèles** : écrits à la main d'après `vixeo_backend/docs/openapi.json` (seuls les champs
@@ -80,6 +82,17 @@ lib/
   - chaque écran donne le focus à un élément à l'arrivée (`autofocus: true` sur un seul élément) ;
   - les tailles TV sont celles du design 1920×1080, converties avec `Layout.of(context).tv(px)` ;
   - les rangées horizontales sont dans un `FocusTraversalGroup`.
+- **Actions sur un titre** (Ma liste, Vu / non vu, Bande-annonce) : toujours le même bouton
+  rond **icône seule** (`VxIconAction`, `FavoriteButton`, `WatchedButton`), sans texte visible
+  (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire. Chaque action
+  se confirme par une alerte (`showVxSnack`) : « Ajouté à votre liste », « Supprimé de votre
+  liste », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`).
+- **Pas de section « Sources »** sur la fiche (demande du développeur).
+- **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
+  horizontal 16:9 avec le titre sur l'image), appliqué par `PosterRow` / `PosterGrid`.
+- **Avatars** : galerie `GET /avatars` regroupée par licence (`features/profiles/avatars.dart`,
+  pixel art dessiné par `PixelAvatarPainter`, ou `image_url`) ; `ProfileAvatar` partout où le
+  profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits.
 - **Images** : `NetImage` (cache, couleur de remplacement). Tailles TMDb via
   `MediaItem.poster('w780')` / `backdrop('original')`, dérivées des URL renvoyées par l'API.
 - Tests : `VxFonts.useGoogleFonts = false` dans les tests de widgets (pas de réseau).
@@ -94,6 +107,7 @@ lib/
   profil, ajout avec PIN parental si activé), accueil (carrousel / grande image, « Continuer à
   regarder », rangées), Films / Séries, fiche film et série (saisons, épisodes, distribution,
   recommandations, bande-annonce, Ma liste, Vu), recherche (genres, résultats groupés), Ma liste,
+  « Mon profil » (avatar par licence, format des affiches, changer de profil, déconnexion),
   mises en page téléphone et TV / grand écran, navigation à la télécommande.
 - Vérifié de bout en bout (web) contre l'API Laravel locale avec un faux TMDb.
 - Pas encore fait : lecteur vidéo et sources (Jellyfin / Plex / Emby), connexion TV par QR code

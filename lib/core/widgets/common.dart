@@ -137,7 +137,8 @@ class VxButton extends StatelessWidget {
   }
 }
 
-/// Round icon button (Ma liste, Vu…), optionally with a caption under it.
+/// Round icon-only button, the same for every title action (Ma liste, Vu, Bande-annonce).
+/// [label] is read by screen readers only. [active] = the state is on (in my list, watched).
 class VxIconAction extends StatelessWidget {
   const VxIconAction({
     super.key,
@@ -145,50 +146,35 @@ class VxIconAction extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.active = false,
-    this.showLabel = true,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onPressed;
   final bool active;
-  final bool showLabel;
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final size = layout.isLarge ? layout.tv(76) : 48.0;
-    final color = active ? VxColors.accent : VxColors.text;
-    final circle = Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: active ? VxColors.accent.withValues(alpha: 0.14) : VxColors.text.withValues(alpha: 0.12),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(icon, color: color, size: size * 0.46),
-    );
+    final size = layout.isLarge ? layout.tv(76) : 52.0;
     return VxFocusable(
       onPressed: onPressed,
       borderRadius: size,
       semanticLabel: label,
-      child: showLabel
-          ? SizedBox(
-              width: 84,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  circle,
-                  const SizedBox(height: 6),
-                  Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: VxText.body(12, weight: FontWeight.w500, color: color),
-                  ),
-                ],
-              ),
-            )
-          : circle,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: active ? VxColors.accent.withValues(alpha: 0.16) : VxColors.text.withValues(alpha: 0.12),
+          shape: BoxShape.circle,
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+          child: Icon(icon, key: ValueKey(icon), color: active ? VxColors.accent : VxColors.text, size: size * 0.46),
+        ),
+      ),
     );
   }
 }
@@ -344,8 +330,31 @@ class EmptyState extends StatelessWidget {
   );
 }
 
-void showVxSnack(BuildContext context, String message) {
-  ScaffoldMessenger.of(context)
+/// Short alert at the bottom of the screen ("Supprimé de votre liste"…).
+void showVxSnack(BuildContext context, String message, {IconData? icon}) =>
+    showVxSnackOn(ScaffoldMessenger.of(context), message, icon: icon);
+
+/// Same, when the screen that asked may already be closed.
+void showVxSnackOn(ScaffoldMessengerState messenger, String message, {IconData? icon}) {
+  // Readable from the sofa: bigger and centered on TV / large screens.
+  final layout = Layout.of(messenger.context);
+  final textSize = layout.isLarge ? layout.tv(24) : 15.0;
+  messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+    ..showSnackBar(
+      SnackBar(
+        duration: const Duration(milliseconds: 2500),
+        width: layout.isLarge ? layout.tv(760) : null,
+        padding: layout.isLarge ? EdgeInsets.symmetric(horizontal: layout.tv(28), vertical: layout.tv(22)) : null,
+        content: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: VxColors.accent, size: textSize * 1.45),
+              SizedBox(width: textSize * 0.8),
+            ],
+            Expanded(child: Text(message, style: VxText.body(textSize))),
+          ],
+        ),
+      ),
+    );
 }

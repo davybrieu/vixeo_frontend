@@ -6,6 +6,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/focusable.dart';
 import '../auth/session.dart';
+import '../profiles/avatars.dart';
 
 class _Destination {
   const _Destination(this.path, this.label, this.icon, this.selectedIcon);
@@ -43,7 +44,9 @@ class AppShell extends ConsumerWidget {
     final profile = ref.watch(sessionProvider).profile;
 
     if (layout.isPhone) {
-      final index = _phoneTabs.indexWhere((d) => location.startsWith(d.path));
+      final index = location.startsWith('/profil')
+          ? _phoneTabs.length
+          : _phoneTabs.indexWhere((d) => location.startsWith(d.path));
       return Scaffold(
         body: child,
         bottomNavigationBar: NavigationBarTheme(
@@ -67,19 +70,15 @@ class AppShell extends ConsumerWidget {
             height: 68,
             selectedIndex: index < 0 ? 0 : index,
             onDestinationSelected: (i) {
-              if (i < _phoneTabs.length) {
-                context.go(_phoneTabs[i].path);
-              } else {
-                ref.read(sessionProvider.notifier).switchProfile();
-              }
+              context.go(i < _phoneTabs.length ? _phoneTabs[i].path : '/profil');
             },
             destinations: [
               for (final d in _phoneTabs)
                 NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: d.label),
               NavigationDestination(
-                icon: _Avatar(letter: profile?.initial ?? '?', size: 26),
+                icon: ProfileAvatar(profile: profile, size: 26, radius: 7),
                 label: 'Profil',
-                tooltip: 'Changer de profil',
+                tooltip: 'Mon profil',
               ),
             ],
           ),
@@ -100,11 +99,11 @@ class AppShell extends ConsumerWidget {
               child: Column(
                 children: [
                   VxFocusable(
-                    onPressed: () => ref.read(sessionProvider.notifier).switchProfile(),
+                    onPressed: () => context.go('/profil'),
                     borderRadius: itemSize * 0.25,
-                    onAccent: true,
-                    semanticLabel: 'Changer de profil (${profile?.name ?? ''})',
-                    child: _Avatar(letter: profile?.initial ?? '?', size: itemSize * 0.78),
+                    onAccent: profile?.avatar == null,
+                    semanticLabel: 'Mon profil (${profile?.name ?? ''})',
+                    child: ProfileAvatar(profile: profile, size: itemSize * 0.78, radius: itemSize * 0.2),
                   ),
                   SizedBox(height: itemSize * 0.8),
                   for (final d in _railItems)
@@ -153,25 +152,6 @@ class _RailItem extends StatelessWidget {
           color: selected ? VxColors.accent : VxColors.textSecondary,
         ),
       ),
-    ),
-  );
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.letter, required this.size});
-
-  final String letter;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(color: VxColors.accent, borderRadius: BorderRadius.circular(size * 0.25)),
-    child: Text(
-      letter,
-      style: VxText.title(size * 0.46, weight: FontWeight.w800, color: VxColors.onAccent),
     ),
   );
 }

@@ -17,12 +17,26 @@ class User {
   final bool parentalControl;
 }
 
+/// How a profile wants titles drawn in rows and grids.
+enum PosterFormat {
+  /// Vertical poster (2:3). Default.
+  portrait,
+
+  /// Horizontal image (16:9).
+  landscape;
+
+  static PosterFormat parse(Object? value) => value == 'landscape' ? landscape : portrait;
+
+  String get label => this == portrait ? 'Vertical' : 'Horizontal';
+}
+
 /// Viewer profile ("Qui regarde ?", ProfileResource).
 class Profile {
   const Profile({
     required this.id,
     required this.name,
     this.avatar,
+    this.posterFormat = PosterFormat.portrait,
     this.isKid = false,
     this.maxAgeRating,
     this.effectiveMaxAgeRating,
@@ -34,6 +48,7 @@ class Profile {
     id: json['id'] as int,
     name: json['name'] as String,
     avatar: json['avatar'] as String?,
+    posterFormat: PosterFormat.parse(json['poster_format']),
     isKid: json['is_kid'] as bool? ?? false,
     maxAgeRating: json['max_age_rating'] as int?,
     effectiveMaxAgeRating: json['effective_max_age_rating'] as int?,
@@ -43,7 +58,10 @@ class Profile {
 
   final int id;
   final String name;
+
+  /// Avatar id from `GET /avatars` (null = initial letter).
   final String? avatar;
+  final PosterFormat posterFormat;
   final bool isKid;
   final int? maxAgeRating;
 

@@ -112,6 +112,13 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(profile: profile);
   }
 
+  /// The active profile was edited (avatar, poster format…).
+  void updateProfile(Profile profile) {
+    if (state.profile?.id == profile.id) {
+      state = state.copyWith(profile: profile);
+    }
+  }
+
   /// Back to "Qui regarde ?".
   Future<void> switchProfile() async {
     await _storage.writeProfileId(null);

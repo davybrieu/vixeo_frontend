@@ -6,6 +6,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
+import '../library/actions.dart';
 import '../library/library.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
@@ -207,14 +208,13 @@ class _FeaturedCarouselState extends State<_FeaturedCarousel> {
   }
 }
 
-class _FeaturedCard extends ConsumerWidget {
+class _FeaturedCard extends StatelessWidget {
   const _FeaturedCard({required this.item});
 
   final MediaItem item;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final favorite = ref.watch(libraryProvider).value?.forItem(item)?.isFavorite ?? false;
+  Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: Stack(
@@ -264,16 +264,9 @@ class _FeaturedCard extends ConsumerWidget {
                         onPressed: () => context.push(titlePath(item.type, item.id)),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: VxButton(
-                        label: favorite ? 'Dans ma liste' : 'Ma liste',
-                        icon: favorite ? Icons.check_rounded : Icons.add_rounded,
-                        kind: VxButtonKind.secondary,
-                        expand: true,
-                        onPressed: () => ref.read(libraryProvider.notifier).setFavorite(item, !favorite),
-                      ),
-                    ),
+                    const SizedBox(width: 12),
+                    // Same round icon button as on the title page.
+                    FavoriteButton(item: item),
                   ],
                 ),
               ],

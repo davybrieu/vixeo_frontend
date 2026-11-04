@@ -50,6 +50,12 @@ class AuthRepository {
     return Profile.fromJson(json['data'] as Map<String, dynamic>);
   }
 
+  /// Changes harmless profile fields (`name`, `avatar`, `poster_format`…).
+  Future<Profile> updateProfile(int profileId, Map<String, Object?> fields) async {
+    final json = await _api.patch('/profiles/$profileId', body: fields);
+    return Profile.fromJson(json['data'] as Map<String, dynamic>);
+  }
+
   /// Throws an [ApiException] with a `pin` field error when the PIN is wrong.
   Future<void> verifyProfilePin(int profileId, String pin) =>
       _api.post('/profiles/$profileId/verify-pin', body: {'pin': pin});
