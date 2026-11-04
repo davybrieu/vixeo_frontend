@@ -9,6 +9,17 @@ périmètre légal (§3 : ce qui est hors périmètre ne doit pas être impléme
 
 **Écarté par le développeur** (ne pas proposer) : import IPTV / M3U / Xtream, radio, replays.
 
+**Distribution Android** (décision du développeur, ne plus poser la question) : **pas de Play
+Store**. L'appli Android (téléphones, tablettes, Android TV / Google TV) est distribuée en
+**APK signé** depuis le site `vixeo_web` (page `/installer`). Conséquences :
+- chaque version est signée avec la **même clé de release** (keystore hors du dépôt, dans les
+  secrets) : sinon Android refuse d'installer la mise à jour par-dessus l'ancienne version ;
+- les mises à jour passent par la vérification intégrée à l'appli (`GET /app/update`), pas par
+  un store ;
+- vérification des développeurs Android par Google : obligatoire hors Play Store dans 4 pays
+  depuis le 30/09/2026, prévue partout en 2027 : enregistrer le développeur dans l'Android
+  Developer Console avant.
+
 Design de référence (canevas) : https://claude.ai/artifact/ESe8nVYEhsSdPbzeV8UdNc
 (écrans téléphone + TV, charte graphique).
 
@@ -99,11 +110,13 @@ lib/
   **build** installé (`package_info_plus`) au lancement et au retour au premier plan (toutes les 6 h
   au plus). `update_required` → écran « Mise à jour nécessaire » à la place de l'appli ;
   `update_available` → proposition une fois par lancement. Une vérification qui échoue ne bloque
-  jamais. L'installation est faite par le système (Play Store, ou distribution web d'Apple) :
-  l'appli ne télécharge jamais de code. Le web ne vérifie pas. Pour essayer dans un navigateur :
+  jamais. L'installation reste faite par le système : sur Android, l'APK téléchargé depuis le site
+  `vixeo_web` (pas de Play Store) ; sur iOS, plus tard, la distribution web d'Apple. L'appli ne
+  télécharge jamais de code qu'elle exécuterait elle-même. Le web ne vérifie pas. Pour essayer dans un navigateur :
   version « profile » avec `--dart-define=UPDATE_PLATFORM=android`.
-- **Version** : `version: x.y.z+build` dans `pubspec.yaml`. Le build doit augmenter à chaque envoi
-  dans un store, puis la version est déclarée côté API (`php artisan vixeo:release`).
+- **Version** : `version: x.y.z+build` dans `pubspec.yaml`. Le build doit augmenter à chaque version
+  publiée (APK signé avec la clé de release), puis la version est déclarée côté API
+  (`php artisan vixeo:release`).
 - **Polices** : Sora et Inter sont dans `assets/fonts` (licence OFL) ; rien n'est téléchargé au
   lancement (pas de `google_fonts`).
 - **API** : passer par `ApiClient` (jeton Bearer + en-tête `X-Profile-Id` ajoutés automatiquement,

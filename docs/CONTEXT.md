@@ -403,7 +403,10 @@ Forge ne crée pas d'URL par PR. Options :
 
 ### 8.4 Applis mobiles
 
-- Android (APK / AAB) : construit dans GitHub Actions.
+- Android : **pas de Play Store** (décision du développeur). APK signé avec une clé de release
+  stable (hors du dépôt), distribué depuis le site `vixeo_web` ; mises à jour par la vérification
+  intégrée à l'appli. Vérification des développeurs Android (Google) obligatoire hors Play Store
+  dans 4 pays depuis le 30/09/2026, prévue partout en 2027.
 - iOS : exige macOS → runner macOS de GitHub Actions ; compte Apple Developer.
 
 ---

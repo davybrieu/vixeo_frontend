@@ -38,7 +38,7 @@ Corrections validées par le développeur, puis appliquées. Les tableaux des §
 | P1 Manifeste | ✅ `ios/Runner/PrivacyInfo.xcprivacy`, ajouté aux ressources du projet Xcode | ❓ À confirmer avec le rapport de confidentialité Xcode (P7) |
 | P18 Chiffrement | ✅ `ITSAppUsesNonExemptEncryption` = false | ❓ Obligations d'export à confirmer |
 | P2 Lecture | ❌ **Inchangé** (décision du développeur) | Reste bloquant pour la règle 2.1(a) |
-| P17 Versions et mises à jour | ✅ Versions publiées déclarées dans l'API (`php artisan vixeo:release`) ; l'appli compare son build au lancement et au retour au premier plan, propose ou impose la mise à jour, puis renvoie vers le Play Store ou la page de téléchargement du site. Aucun code téléchargé (règle 2.5.2). | 10 tests API, 6 tests de l'appli, parcours dans le navigateur (version « profile » forcée en Android). ❓ Côté iOS, le serveur de distribution web (`/.well-known/marketplace-kit`, adresses `restore` et `updates`, serveur de licences en Swift) reste à construire après l'accord d'Apple. |
+| P17 Versions et mises à jour | ✅ Versions publiées déclarées dans l'API (`php artisan vixeo:release`) ; l'appli compare son build au lancement et au retour au premier plan, propose ou impose la mise à jour, puis renvoie vers la page de téléchargement du site (pas de Play Store pour Android). Aucun code téléchargé (règle 2.5.2). | 10 tests API, 6 tests de l'appli, parcours dans le navigateur (version « profile » forcée en Android). ❓ Côté iOS, le serveur de distribution web (`/.well-known/marketplace-kit`, adresses `restore` et `updates`, serveur de licences en Swift) reste à construire après l'accord d'Apple. |
 
 Reste à faire :
 - B1 ;
