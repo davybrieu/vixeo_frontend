@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -130,12 +128,6 @@ void main() {
     expect(AppConfig.checkLegal(publisher: 'Vixeo SAS', supportEmail: 'aide', release: true), isNotNull);
     expect(AppConfig.checkLegal(publisher: 'Vixeo SAS', supportEmail: 'aide@vixeo.app', release: true), isNull);
     expect(AppConfig.checkLegal(publisher: '', supportEmail: '', release: false), isNull);
-  });
-
-  test('the version shown matches pubspec.yaml', () {
-    final pubspec = File('pubspec.yaml').readAsStringSync();
-    final version = RegExp(r'^version: ([0-9.]+)', multiLine: true).firstMatch(pubspec)!.group(1);
-    expect(AppConfig.appVersion, version);
   });
 
   testWidgets('forgotten password: code by e-mail, then a new password signs in', (tester) async {

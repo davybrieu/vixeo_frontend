@@ -62,6 +62,10 @@ class PrivacyScreen extends StatelessWidget {
               'Pour la sécurité : votre adresse IP, pendant quelques minutes, pour limiter les tentatives de '
               'connexion, et les journaux techniques du serveur, pendant une durée limitée.',
             ),
+            InfoBullet(
+              'Pour les mises à jour (Android et iOS) : à chaque ouverture, l’appli envoie à notre serveur sa '
+              'plateforme et son numéro de version, sans votre identité. Rien n’est conservé.',
+            ),
           ],
         ),
         const InfoSection(

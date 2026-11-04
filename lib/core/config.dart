@@ -47,10 +47,6 @@ class AppConfig {
   /// Base URL of the v1 API, e.g. `https://api.vixeo.app/api/v1`.
   static String get apiBase => '${apiUrl.replaceAll(RegExp(r'/+$'), '')}/api/v1';
 
-  /// Shown in "Aide et à propos". Same as `version:` in pubspec.yaml (checked by a test);
-  /// a CI build can pass `--dart-define=APP_VERSION=…` with `--build-name`.
-  static const String appVersion = String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0');
-
   /// Mandatory TMDb notice (shown in "À propos").
   static const String tmdbAttribution = 'This product uses the TMDB API but is not endorsed or certified by TMDB.';
 }

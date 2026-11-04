@@ -24,6 +24,9 @@ import 'features/profiles/profiles_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
 
+/// Navigator of the router, for dialogs opened from above it (update suggestion).
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 /// Routes. Sign-in is the entry page: every route redirects there while signed out,
 /// then to "Qui regarde ?" until a profile is chosen.
 final routerProvider = Provider<GoRouter>((ref) {
@@ -38,6 +41,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   Page<void> tab(Widget child) => NoTransitionPage(child: child);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/connexion',
     refreshListenable: refresh,
     redirect: (context, state) {

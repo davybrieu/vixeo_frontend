@@ -60,6 +60,7 @@ lib/
     auth/        connexion (page d'accueil de l'appli), inscription, mot de passe oublié, session,
                  connexion TV par QR code (device_login.dart : carte TV + page /tv)
     account/     Mon compte (export, suppression), appareils connectés, confidentialité, aide
+    updates/     vérification des mises à jour Android / iOS (UpdateGate, écrans)
     profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
     library/     synchro par profil (favoris, vus, « Continuer à regarder »), Ma liste
@@ -93,6 +94,16 @@ lib/
   l'appli et l'API font (`APPLE_NOTARIZATION.md` §5). Toute nouvelle donnée, tout nouveau service
   tiers ou SDK : mettre à jour ce texte, `Legal.privacyPolicyDate`, `ios/Runner/PrivacyInfo.xcprivacy`
   et l'audit. Pas de SDK de publicité, de suivi ou d'analytics ; aucune permission iOS sans besoin.
+- **Mises à jour** (`features/updates`, API : `vixeo_backend/docs/mise-a-jour.md`) : sur Android et
+  iOS, `UpdateGate` (dans le `builder` de `MaterialApp.router`) interroge `GET /app/update` avec le
+  **build** installé (`package_info_plus`) au lancement et au retour au premier plan (toutes les 6 h
+  au plus). `update_required` → écran « Mise à jour nécessaire » à la place de l'appli ;
+  `update_available` → proposition une fois par lancement. Une vérification qui échoue ne bloque
+  jamais. L'installation est faite par le système (Play Store, ou distribution web d'Apple) :
+  l'appli ne télécharge jamais de code. Le web ne vérifie pas. Pour essayer dans un navigateur :
+  version « profile » avec `--dart-define=UPDATE_PLATFORM=android`.
+- **Version** : `version: x.y.z+build` dans `pubspec.yaml`. Le build doit augmenter à chaque envoi
+  dans un store, puis la version est déclarée côté API (`php artisan vixeo:release`).
 - **Polices** : Sora et Inter sont dans `assets/fonts` (licence OFL) ; rien n'est téléchargé au
   lancement (pas de `google_fonts`).
 - **API** : passer par `ApiClient` (jeton Bearer + en-tête `X-Profile-Id` ajoutés automatiquement,
@@ -139,8 +150,9 @@ lib/
   la distribution et la recherche), recherche (genres, résultats groupés), Ma liste,
   « Mon profil » (avatar par licence, format des affiches, contrôle parental, connecter une TV,
   changer de profil, déconnexion, mon compte : export et suppression, appareils connectés),
-  mot de passe oublié, politique de confidentialité et « Aide et à propos », mises en page
-  téléphone et TV / grand écran, navigation à la télécommande.
+  mot de passe oublié, politique de confidentialité et « Aide et à propos », vérification des
+  mises à jour (Android / iOS), mises en page téléphone et TV / grand écran, navigation à la
+  télécommande.
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
 - Vérifié de bout en bout (web) contre l'API Laravel locale avec un faux TMDb.
 - Pas encore fait : lecteur vidéo et sources (Jellyfin / Plex / Emby), historique de recherche

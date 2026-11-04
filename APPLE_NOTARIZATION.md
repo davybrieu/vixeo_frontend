@@ -38,10 +38,12 @@ Corrections validées par le développeur, puis appliquées. Les tableaux des §
 | P1 Manifeste | ✅ `ios/Runner/PrivacyInfo.xcprivacy`, ajouté aux ressources du projet Xcode | ❓ À confirmer avec le rapport de confidentialité Xcode (P7) |
 | P18 Chiffrement | ✅ `ITSAppUsesNonExemptEncryption` = false | ❓ Obligations d'export à confirmer |
 | P2 Lecture | ❌ **Inchangé** (décision du développeur) | Reste bloquant pour la règle 2.1(a) |
+| P17 Versions et mises à jour | ✅ Versions publiées déclarées dans l'API (`php artisan vixeo:release`) ; l'appli compare son build au lancement et au retour au premier plan, propose ou impose la mise à jour, puis renvoie vers le Play Store ou la page de téléchargement du site. Aucun code téléchargé (règle 2.5.2). | 10 tests API, 6 tests de l'appli, parcours dans le navigateur (version « profile » forcée en Android). ❓ Côté iOS, le serveur de distribution web (`/.well-known/marketplace-kit`, adresses `restore` et `updates`, serveur de licences en Swift) reste à construire après l'accord d'Apple. |
 
 Reste à faire :
 - B1 ;
-- P2, P7, P11, P12, P13, P14, P17, P19, P20, P21 ;
+- P2, P7, P11, P12, P13, P14, P19, P20, P21 ;
+- le serveur de distribution web iOS (voir P17) ;
 - configurer le service d'e-mails en production (`MAIL_*` dans Forge, adresse vérifiée SPF / DKIM).
   Sans lui, « Mot de passe oublié » et l'export des données ne fonctionnent pas.
 
@@ -418,8 +420,9 @@ Ces données sont liées à l'utilisateur et **ne servent pas au suivi**.
 
 - **Flutter** 3.47.9, Dart 3.13, canal stable.
 - **Paquets directs** : `flutter_riverpod` 3.4.3, `go_router` 18.1.2, `dio` 5.11.1,
-  `flutter_secure_storage` 11.2.0, `cached_network_image` 4.0.6, `google_fonts` 9.0.0,
-  `url_launcher` 6.3.3, `qr_flutter` 4.1.0, `cupertino_icons` 1.0.9.
+  `flutter_secure_storage` 11.2.0, `cached_network_image` 4.0.6, `url_launcher` 6.3.3,
+  `qr_flutter` 4.1.0, `package_info_plus` 10.2.2 (avec son manifeste de confidentialité iOS),
+  `cupertino_icons` 1.0.9. `google_fonts` a été retiré (P8).
 - **Code natif iOS** (plugins) :
 
   | Plugin | Version | Manifeste de confidentialité |
@@ -452,8 +455,12 @@ Ces données sont liées à l'utilisateur et **ne servent pas au suivi**.
    **Notarization** et fournir le compte de démonstration. Puis soumettre.
 5. Une fois l'appli acceptée, récupérer le paquet de distribution et l'héberger sur le domaine
    enregistré, avec la page d'installation (documentation MarketplaceKit, ❓ à relire).
-6. Pour chaque mise à jour : nouveau numéro de build, nouvelle notarisation, nouveau paquet.
-   La façon dont l'appareil reçoit la mise à jour reste à confirmer (§2.1).
+6. Pour chaque mise à jour :
+   - nouveau numéro de build, nouvelle notarisation, nouveau paquet hébergé ;
+   - l'iPhone interroge l'adresse `updates` du fichier `/.well-known/marketplace-kit` au plus une
+     fois par 24 h (documentation MarketplaceKit, « Serve an app update request ») ;
+   - une fois la version disponible, la déclarer dans l'API (`php artisan vixeo:release ios …`) :
+     l'appli la propose ou l'impose (`vixeo_backend/docs/mise-a-jour.md`).
 
 ---
 

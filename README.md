@@ -35,6 +35,18 @@ flutter build web --release \
 - Notarisation Apple et distribution web dans l'UE : voir
   [`APPLE_NOTARIZATION.md`](APPLE_NOTARIZATION.md).
 
+## Publier une nouvelle version (Android, iOS)
+
+1. Augmenter `version:` dans `pubspec.yaml` (ex. `1.1.0+14`). Le build, après le `+`, doit
+   toujours augmenter.
+2. Compiler et publier (Play Store ; pour iOS, notarisation puis paquet hébergé sur le site).
+3. Une fois la version disponible, la déclarer dans l'API :
+   `php artisan vixeo:release android 1.1.0 14 --notes="…"`. Ajouter `--required` pour obliger les
+   versions plus anciennes à se mettre à jour.
+
+Les applis installées vérifient au lancement, puis toutes les 6 h au plus. Elles proposent la
+nouvelle version, ou bloquent si elle est obligatoire (`vixeo_backend/docs/mise-a-jour.md`).
+
 ## Écrans
 
 | Écran | Téléphone | TV / grand écran |

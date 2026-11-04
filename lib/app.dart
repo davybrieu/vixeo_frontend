@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme.dart';
 import 'core/widgets/focusable.dart';
+import 'features/updates/update_gate.dart';
 import 'router.dart';
 
 /// Same keys everywhere (TV remote, keyboard, web): arrows move the focus,
@@ -39,6 +40,8 @@ class VixeoApp extends ConsumerWidget {
     theme: buildVixeoTheme(),
     themeMode: ThemeMode.dark,
     routerConfig: ref.watch(routerProvider),
+    // Android / iOS: blocks an unsupported version, suggests a newer one (features/updates).
+    builder: (context, child) => UpdateGate(navigatorKey: rootNavigatorKey, child: child ?? const SizedBox()),
     shortcuts: remoteShortcuts,
     actions: remoteActions,
     locale: const Locale('fr', 'FR'),
