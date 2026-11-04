@@ -17,6 +17,38 @@ class User {
   final bool parentalControl;
 }
 
+/// A signed-in device of the account (one API token): `GET /me/devices`.
+class Device {
+  const Device({
+    required this.id,
+    required this.name,
+    required this.current,
+    this.signedInAt,
+    this.lastUsedAt,
+    this.expiresAt,
+  });
+
+  factory Device.fromJson(Map<String, dynamic> json) => Device(
+    id: json['id'] as int,
+    name: json['name'] as String? ?? '',
+    current: json['current'] as bool? ?? false,
+    signedInAt: DateTime.tryParse(json['signed_in_at'] as String? ?? '')?.toLocal(),
+    lastUsedAt: DateTime.tryParse(json['last_used_at'] as String? ?? '')?.toLocal(),
+    expiresAt: DateTime.tryParse(json['expires_at'] as String? ?? '')?.toLocal(),
+  );
+
+  final int id;
+  final String name;
+
+  /// The device making the request (this app).
+  final bool current;
+  final DateTime? signedInAt;
+  final DateTime? lastUsedAt;
+
+  /// After this date the device has to sign in again.
+  final DateTime? expiresAt;
+}
+
 /// How a profile wants titles drawn in rows and grids.
 enum PosterFormat {
   /// Vertical poster (2:3). Default.

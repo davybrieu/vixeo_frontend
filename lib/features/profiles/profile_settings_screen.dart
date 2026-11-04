@@ -144,6 +144,39 @@ class ProfileSettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          SizedBox(height: 36 * s),
+          Text('Compte et confidentialité', style: VxText.title(18 * s)),
+          SizedBox(height: 14 * s),
+          Wrap(
+            spacing: 12 * s,
+            runSpacing: 12 * s,
+            children: [
+              VxButton(
+                label: 'Mon compte',
+                icon: Icons.manage_accounts_outlined,
+                kind: VxButtonKind.outline,
+                onPressed: () => context.push('/profil/compte'),
+              ),
+              VxButton(
+                label: 'Appareils connectés',
+                icon: Icons.devices_rounded,
+                kind: VxButtonKind.outline,
+                onPressed: () => context.push('/profil/appareils'),
+              ),
+              VxButton(
+                label: 'Confidentialité',
+                icon: Icons.privacy_tip_outlined,
+                kind: VxButtonKind.outline,
+                onPressed: () => context.push('/confidentialite'),
+              ),
+              VxButton(
+                label: 'Aide et à propos',
+                icon: Icons.help_outline_rounded,
+                kind: VxButtonKind.outline,
+                onPressed: () => context.push('/a-propos'),
+              ),
+            ],
+          ),
         ],
       ),
     );

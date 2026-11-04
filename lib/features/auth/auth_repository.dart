@@ -31,6 +31,40 @@ class AuthRepository {
 
   Future<User> me() async => User.fromJson((await _api.get('/me'))['data'] as Map<String, dynamic>);
 
+  // ── Forgotten password (vixeo_backend/docs/compte.md) ──
+
+  /// E-mails a 6-digit code if an account uses this address. Returns the API's message.
+  Future<String> forgotPassword(String email) async =>
+      (await _api.post('/auth/password/forgot', body: {'email': email}))['message'] as String? ?? '';
+
+  /// New password with the code; signs out the other devices and signs this one in.
+  Future<({String token, User user})> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  }) async {
+    final json = await _api.post(
+      '/auth/password/reset',
+      body: {'email': email, 'code': code, 'password': password, 'device_name': DeviceInfo.deviceName},
+    );
+    return (token: json['token'] as String, user: User.fromJson(json['user'] as Map<String, dynamic>));
+  }
+
+  // ── Account: devices, data, deletion ──
+
+  Future<List<Device>> devices() async {
+    final json = await _api.get('/me/devices');
+    return (json['data'] as List).cast<Map<String, dynamic>>().map(Device.fromJson).toList();
+  }
+
+  Future<void> revokeDevice(int id) => _api.delete('/me/devices/$id');
+
+  /// E-mails the account's data (JSON). Returns the API's message.
+  Future<String> exportData() async => (await _api.post('/me/export'))['message'] as String? ?? '';
+
+  /// Deletes the account and all its data. Throws an [ApiException] (`password`) when wrong.
+  Future<void> deleteAccount(String password) => _api.post('/me/delete', body: {'password': password});
+
   Future<void> logout() => _api.post('/auth/logout');
 
   Future<List<Profile>> profiles() async {

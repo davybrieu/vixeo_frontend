@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'legal.dart';
+
 /// Build-time configuration.
 ///
 /// The API address is passed at build time:
@@ -14,7 +16,20 @@ class AppConfig {
 
   /// Why this build must not start, or null. A release build needs an explicit `https://` API
   /// (plain `http://` only to this machine or the Android emulator's host, for local tests).
-  static String? get configurationError => checkApiUrl(apiUrl, given: _apiUrlGiven, release: kReleaseMode);
+  static String? get configurationError =>
+      checkApiUrl(apiUrl, given: _apiUrlGiven, release: kReleaseMode) ??
+      checkLegal(publisher: Legal.publisher, supportEmail: Legal.supportEmail, release: kReleaseMode);
+
+  /// The privacy policy and the contact page need the publisher and a support address.
+  @visibleForTesting
+  static String? checkLegal({required String publisher, required String supportEmail, required bool release}) {
+    if (!release) return null;
+    if (publisher.trim().isEmpty || !supportEmail.contains('@')) {
+      return 'Éditeur ou adresse de support manquants : compilez avec '
+          '--dart-define=PUBLISHER_NAME=… --dart-define=SUPPORT_EMAIL=…';
+    }
+    return null;
+  }
 
   @visibleForTesting
   static String? checkApiUrl(String url, {required bool given, required bool release}) {
@@ -31,6 +46,10 @@ class AppConfig {
 
   /// Base URL of the v1 API, e.g. `https://api.vixeo.app/api/v1`.
   static String get apiBase => '${apiUrl.replaceAll(RegExp(r'/+$'), '')}/api/v1';
+
+  /// Shown in "Aide et à propos". Same as `version:` in pubspec.yaml (checked by a test);
+  /// a CI build can pass `--dart-define=APP_VERSION=…` with `--build-name`.
+  static const String appVersion = String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0');
 
   /// Mandatory TMDb notice (shown in "À propos").
   static const String tmdbAttribution = 'This product uses the TMDB API but is not endorsed or certified by TMDB.';

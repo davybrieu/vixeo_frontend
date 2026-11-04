@@ -4,8 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import 'core/theme.dart';
 import 'core/widgets/common.dart';
+import 'features/account/about_screen.dart';
+import 'features/account/account_screen.dart';
+import 'features/account/devices_screen.dart';
+import 'features/account/privacy_screen.dart';
 import 'features/auth/device_login.dart';
 import 'features/auth/login_screen.dart';
+import 'features/auth/password_reset_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/auth/session.dart';
 import 'features/catalog/details_screen.dart';
@@ -38,7 +43,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
       final location = state.matchedLocation;
-      const authPages = {'/connexion', '/inscription'};
+      const authPages = {'/connexion', '/inscription', '/mot-de-passe-oublie'};
+      // Readable by everyone, at any time (the privacy policy is also the link given to Apple).
+      const publicPages = {'/confidentialite', '/a-propos'};
+      if (publicPages.contains(location)) return null;
 
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
         if (location != '/demarrage') {
@@ -73,6 +81,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/demarrage', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/connexion', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/inscription', builder: (_, _) => const RegisterScreen()),
+      GoRoute(
+        path: '/mot-de-passe-oublie',
+        builder: (_, state) => PasswordResetScreen(initialEmail: state.extra as String?),
+      ),
+      GoRoute(path: '/confidentialite', builder: (_, _) => const PrivacyScreen()),
+      GoRoute(path: '/a-propos', builder: (_, _) => const AboutScreen()),
       GoRoute(path: '/profils', builder: (_, _) => const ProfilesScreen()),
       ShellRoute(
         builder: (context, state, child) => AppShell(location: state.uri.path, child: child),
@@ -93,6 +107,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
       GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),
+      GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
+      GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
       GoRoute(
         path: '/personne/:id',
         builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),

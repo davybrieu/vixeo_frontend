@@ -236,7 +236,7 @@ class _LoginForm extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: () => showVxSnack(context, 'La réinitialisation du mot de passe arrive bientôt.'),
+                onPressed: () => context.push('/mot-de-passe-oublie', extra: email.text.trim()),
                 child: const Text('Mot de passe oublié ?'),
               ),
             ),
@@ -254,9 +254,36 @@ class _LoginForm extends StatelessWidget {
                 TextButton(onPressed: () => context.go('/inscription'), child: const Text('Créer un compte')),
               ],
             ),
+            const LegalLinks(),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "Confidentialité · Aide et à propos", under the sign-in and sign-up forms.
+class LegalLinks extends StatelessWidget {
+  const LegalLinks({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextButton.styleFrom(
+      foregroundColor: VxColors.textSecondary,
+      textStyle: VxText.body(13, weight: FontWeight.w500),
+    );
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        TextButton(
+          style: style,
+          onPressed: () => context.push('/confidentialite'),
+          child: const Text('Confidentialité'),
+        ),
+        Text('·', style: VxText.body(13, color: VxColors.textMuted)),
+        TextButton(style: style, onPressed: () => context.push('/a-propos'), child: const Text('Aide et à propos')),
+      ],
     );
   }
 }
