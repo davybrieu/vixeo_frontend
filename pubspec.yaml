@@ -43,7 +43,6 @@ dependencies:
   dio: ^5.11.1
   flutter_secure_storage: ^11.2.0
   cached_network_image: ^4.0.6
-  google_fonts: ^9.0.0
   url_launcher: ^6.3.3
   qr_flutter: ^4.1.0
 
@@ -68,6 +67,37 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Bundled fonts (SIL Open Font License, texts in assets/fonts/OFL-*.txt, shown in "Licences"):
+  # no font is downloaded at launch.
+  assets:
+    - assets/fonts/OFL-Sora.txt
+    - assets/fonts/OFL-Inter.txt
+  fonts:
+    - family: Sora
+      fonts:
+        - asset: assets/fonts/Sora-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Sora-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Sora-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Sora-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Sora-ExtraBold.ttf
+          weight: 800
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Inter-ExtraBold.ttf
+          weight: 800
 
   # To add assets to your application, add an assets section, like this:
   # assets:

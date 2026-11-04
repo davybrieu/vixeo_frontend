@@ -24,8 +24,6 @@ String? focusedLabel() {
 }
 
 void main() {
-  setUp(() => VxFonts.useGoogleFonts = false);
-
   testWidgets('TV home: the remote moves from the hero into the rows, and the hero follows the focus', (tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1;

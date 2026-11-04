@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Colors of the Vixeo design system (see the "Charte graphique" artboard).
 class VxColors {
@@ -38,18 +37,13 @@ class VxColors {
   static Color tone(int seed) => posterTones[seed.abs() % posterTones.length];
 }
 
-/// Fonts: Sora for titles, Inter for text.
+/// Fonts: Sora for titles, Inter for text. Bundled in the app (`assets/fonts`, OFL licence, declared
+/// in `pubspec.yaml`): nothing is downloaded at launch, so no request reaches Google's servers.
 class VxFonts {
   const VxFonts._();
 
-  /// Set to false in tests (no network, no bundled font files).
-  static bool useGoogleFonts = true;
-
-  static TextStyle display(TextStyle style) =>
-      useGoogleFonts ? GoogleFonts.sora(textStyle: style) : style.copyWith(fontFamily: 'Sora');
-
-  static TextStyle body(TextStyle style) =>
-      useGoogleFonts ? GoogleFonts.inter(textStyle: style) : style.copyWith(fontFamily: 'Inter');
+  static const display = 'Sora';
+  static const text = 'Inter';
 }
 
 /// Title style (Sora), e.g. `VxText.title(28)`.
@@ -57,14 +51,14 @@ class VxText {
   const VxText._();
 
   static TextStyle title(double size, {FontWeight weight = FontWeight.w700, Color color = VxColors.text}) =>
-      VxFonts.display(TextStyle(fontSize: size, fontWeight: weight, color: color, height: 1.15));
+      TextStyle(fontFamily: VxFonts.display, fontSize: size, fontWeight: weight, color: color, height: 1.15);
 
   static TextStyle body(
     double size, {
     FontWeight weight = FontWeight.w400,
     Color color = VxColors.text,
     double height = 1.45,
-  }) => VxFonts.body(TextStyle(fontSize: size, fontWeight: weight, color: color, height: height));
+  }) => TextStyle(fontFamily: VxFonts.text, fontSize: size, fontWeight: weight, color: color, height: height);
 }
 
 ThemeData buildVixeoTheme() {
@@ -88,8 +82,7 @@ ThemeData buildVixeoTheme() {
   final textTheme = base.textTheme.apply(bodyColor: VxColors.text, displayColor: VxColors.text);
 
   return base.copyWith(
-    // google_fonts 9 builds TextThemes for package:material_ui: only its TextStyles are shared.
-    textTheme: textTheme.apply(fontFamily: VxFonts.body(const TextStyle()).fontFamily),
+    textTheme: textTheme.apply(fontFamily: VxFonts.text),
     focusColor: VxColors.accent.withValues(alpha: 0.18),
     hoverColor: VxColors.text.withValues(alpha: 0.06),
     splashFactory: InkSparkle.splashFactory,

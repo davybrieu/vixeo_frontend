@@ -37,7 +37,6 @@ void main() {
   late ProviderContainer container;
 
   setUp(() {
-    VxFonts.useGoogleFonts = false;
     auth = FakeAuthRepository();
     storage = MemorySessionStorage();
     container = ProviderContainer(

@@ -105,8 +105,6 @@ Widget wrap(Widget child, FakeAuth auth, {List overrides = const []}) => Provide
 );
 
 void main() {
-  setUp(() => VxFonts.useGoogleFonts = false);
-
   testWidgets('TV: shows the code, polls, and signs in once a phone approves it', (tester) async {
     final auth = FakeAuth();
     final storage = MemorySessionStorage();

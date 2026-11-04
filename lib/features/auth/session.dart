@@ -69,7 +69,16 @@ class SessionController extends Notifier<SessionState> {
   /// Reads the saved token and checks it with `GET /me`.
   Future<void> restore() async {
     state = const SessionState.restoring();
-    final token = await _storage.readToken();
+    String? token;
+    try {
+      token = await _storage.readToken();
+    } catch (_) {
+      // Unreadable keychain entry (e.g. a backup restored on another device): sign in again
+      // rather than staying on the start screen.
+      await _clearQuietly();
+      state = const SessionState(status: SessionStatus.signedOut);
+      return;
+    }
     if (token == null) {
       state = const SessionState(status: SessionStatus.signedOut);
       return;
@@ -94,6 +103,12 @@ class SessionController extends Notifier<SessionState> {
       } else {
         state = SessionState(status: SessionStatus.unreachable, message: e.message);
       }
+    } catch (_) {
+      // Unexpected answer (not the JSON the app expects): the start screen offers "Réessayer".
+      state = const SessionState(
+        status: SessionStatus.unreachable,
+        message: 'Le serveur a envoyé une réponse inattendue. Réessayez dans un instant.',
+      );
     }
   }
 
@@ -151,6 +166,12 @@ class SessionController extends Notifier<SessionState> {
     state = const SessionState(status: SessionStatus.signedOut, message: 'Votre session a expiré. Reconnectez-vous.');
   }
 
+  /// The account was deleted, or its token revoked on purpose: forget it on this device.
+  Future<void> forget({String? message}) async {
+    await _clearQuietly();
+    state = SessionState(status: SessionStatus.signedOut, message: message);
+  }
+
   Future<void> _signedIn(String token, User user) async {
     await _storage.writeToken(token);
     await _storage.writeProfileId(null);
@@ -160,5 +181,13 @@ class SessionController extends Notifier<SessionState> {
   Future<void> _clear() async {
     await _storage.writeToken(null);
     await _storage.writeProfileId(null);
+  }
+
+  Future<void> _clearQuietly() async {
+    try {
+      await _clear();
+    } catch (_) {
+      // Nothing more to do if the keychain refuses: the user signs in again.
+    }
   }
 }

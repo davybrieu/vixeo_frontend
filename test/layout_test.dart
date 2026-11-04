@@ -4,12 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/app.dart';
 import 'package:vixeo/core/device/layout.dart';
-import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/core/widgets/focusable.dart';
 
 void main() {
-  setUp(() => VxFonts.useGoogleFonts = false);
-
   test('picks the layout from the width, and always the large one on a TV', () {
     expect(Layout.forWidth(390).formFactor, FormFactor.phone);
     expect(Layout.forWidth(800).formFactor, FormFactor.tablet);

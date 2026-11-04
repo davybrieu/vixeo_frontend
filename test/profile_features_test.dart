@@ -61,8 +61,6 @@ Widget app(Widget child, {Profile profile = const Profile(id: 1, name: 'Davy')})
 );
 
 void main() {
-  setUp(() => VxFonts.useGoogleFonts = false);
-
   testWidgets('one icon-only button adds to and removes from the list, with an alert', (tester) async {
     await tester.pumpWidget(app(const FavoriteButton(item: movie)));
     await tester.pumpAndSettle();
