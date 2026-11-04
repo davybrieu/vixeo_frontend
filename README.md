@@ -15,6 +15,26 @@ flutter run -d chrome --dart-define=API_URL=http://localhost:8000
 - Émulateur Android : `--dart-define=API_URL=http://10.0.2.2:8000`.
 - Tests : `flutter test` · analyse : `flutter analyze`.
 
+## Version Release (web, Android, iOS)
+
+Une version Release refuse de démarrer s'il lui manque l'un de ces réglages
+(`lib/core/config.dart`, `lib/core/legal.dart`) :
+
+```bash
+flutter build web --release \
+  --dart-define=API_URL=https://api.<domaine> \
+  --dart-define=PUBLISHER_NAME="<éditeur : nom de la société ou de la personne>" \
+  --dart-define=SUPPORT_EMAIL=support@<domaine>
+# iOS (sur un Mac) : flutter build ipa --release avec les mêmes --dart-define
+```
+
+- `API_URL` doit être en `https://` (le `http://` n'est accepté que vers `localhost` ou
+  l'émulateur Android, pour les tests).
+- `PUBLISHER_NAME` et `SUPPORT_EMAIL` s'affichent dans la politique de confidentialité et dans
+  « Aide et à propos ».
+- Notarisation Apple et distribution web dans l'UE : voir
+  [`APPLE_NOTARIZATION.md`](APPLE_NOTARIZATION.md).
+
 ## Écrans
 
 | Écran | Téléphone | TV / grand écran |
@@ -26,6 +46,9 @@ flutter run -d chrome --dart-define=API_URL=http://localhost:8000
 | Fiche film / série | ✓ | ✓ |
 | Recherche, genres | ✓ | ✓ |
 | Ma liste | ✓ | ✓ |
+| Mot de passe oublié (code par e-mail) | ✓ | ✓ |
+| Mon profil : compte, appareils connectés, contrôle parental | ✓ | ✓ |
+| Confidentialité, Aide et à propos (sans compte) | ✓ | ✓ |
 
 ## Web en production
 

@@ -33,8 +33,12 @@ dart format lib test               # largeur 120 (analysis_options.yaml)
 # Lancer contre une API locale (php artisan serve dans vixeo_backend)
 flutter run -d chrome --dart-define=API_URL=http://localhost:8000
 flutter run -d <android> --dart-define=API_URL=http://10.0.2.2:8000   # émulateur Android
-flutter build web --release --dart-define=API_URL=https://api.<domaine>
+flutter build web --release --dart-define=API_URL=https://api.<domaine> \
+  --dart-define=PUBLISHER_NAME="…" --dart-define=SUPPORT_EMAIL=support@<domaine>
 ```
+
+Une version Release refuse de démarrer sans `API_URL` en `https://`, ni sans `PUBLISHER_NAME` et
+`SUPPORT_EMAIL` (`AppConfig.configurationError`).
 
 Dans un conteneur Claude Code cloud, Flutter n'est pas préinstallé : voir le script de
 `docs/CONTEXT.md` §7 (clone du canal stable dans `/opt/flutter`). Pas de SDK Android ni de
@@ -46,14 +50,16 @@ Xcode : seules les cibles web et les tests se vérifient dans le conteneur.
 lib/
   main.dart, app.dart, router.dart   entrée, thème, raccourcis télécommande, routes
   core/
-    config.dart                      API_URL (--dart-define)
+    config.dart                      API_URL (--dart-define), contrôle de la configuration en Release
+    legal.dart                       éditeur et adresse de support (--dart-define)
     theme.dart                       couleurs (VxColors), polices Sora / Inter (VxText)
     device/layout.dart               téléphone / tablette / grand écran, détection TV, échelle TV
     api/                             client HTTP (dio), erreurs en français, stockage du jeton
     widgets/                         VxFocusable (focus TV), boutons, images, états vides / erreur
   features/
-    auth/        connexion (page d'accueil de l'appli), inscription, session,
+    auth/        connexion (page d'accueil de l'appli), inscription, mot de passe oublié, session,
                  connexion TV par QR code (device_login.dart : carte TV + page /tv)
+    account/     Mon compte (export, suppression), appareils connectés, confidentialité, aide
     profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
     library/     synchro par profil (favoris, vus, « Continuer à regarder »), Ma liste
@@ -71,6 +77,8 @@ lib/
   Le routeur n'écoute que le statut de connexion et la présence d'un profil : modifier le profil
   (avatar…) ne doit pas reconstruire les pages. Exception : `/tv` (validation d'une TV) ne demande
   pas de profil ; ouvert sans être connecté, il est mémorisé et rouvert juste après la connexion.
+  `/confidentialite` et `/a-propos` sont lisibles par tous, à tout moment (la politique est aussi
+  l'URL donnée à Apple) ; `/mot-de-passe-oublie` est une page de connexion.
 - **Connexion TV par QR code** (`features/auth/device_login.dart`, API : `vixeo_backend/docs/connexion-tv.md`) :
   sur grand écran, la page de connexion affiche `TvCodeCard` (QR code vers `<WEB_URL>/tv?code=…`
   + code court), qui interroge `/auth/device/token` toutes les `interval` secondes et demande un
@@ -81,6 +89,12 @@ lib/
   mémoire tant que la page est ouverte et envoyé (`parental_pin`) avec chaque modification de
   profil ; « Code oublié ? » désactive le contrôle avec le mot de passe du compte. Après une
   modification : invalider `profilesProvider` et `homeProvider` (le catalogue dépend des limites).
+- **Confidentialité** (`features/account/privacy_screen.dart`) : le texte décrit exactement ce que
+  l'appli et l'API font (`APPLE_NOTARIZATION.md` §5). Toute nouvelle donnée, tout nouveau service
+  tiers ou SDK : mettre à jour ce texte, `Legal.privacyPolicyDate`, `ios/Runner/PrivacyInfo.xcprivacy`
+  et l'audit. Pas de SDK de publicité, de suivi ou d'analytics ; aucune permission iOS sans besoin.
+- **Polices** : Sora et Inter sont dans `assets/fonts` (licence OFL) ; rien n'est téléchargé au
+  lancement (pas de `google_fonts`).
 - **API** : passer par `ApiClient` (jeton Bearer + en-tête `X-Profile-Id` ajoutés automatiquement,
   erreurs → `ApiException` avec le message français de l'API, 401 → session expirée).
 - **Modèles** : écrits à la main d'après `vixeo_backend/docs/openapi.json` (seuls les champs
@@ -109,7 +123,7 @@ lib/
   profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits.
 - **Images** : `NetImage` (cache, couleur de remplacement). Tailles TMDb via
   `MediaItem.poster('w780')` / `backdrop('original')`, dérivées des URL renvoyées par l'API.
-- Tests : `VxFonts.useGoogleFonts = false` dans les tests de widgets (pas de réseau).
+- Tests : `flutter test` ne charge pas les polices (texte de remplacement), sans réseau.
 
 ## Branches
 
@@ -124,8 +138,10 @@ lib/
   Vu), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (genres, résultats groupés), Ma liste,
   « Mon profil » (avatar par licence, format des affiches, contrôle parental, connecter une TV,
-  changer de profil, déconnexion), mises en page téléphone et TV / grand écran, navigation à la
-  télécommande.
+  changer de profil, déconnexion, mon compte : export et suppression, appareils connectés),
+  mot de passe oublié, politique de confidentialité et « Aide et à propos », mises en page
+  téléphone et TV / grand écran, navigation à la télécommande.
+- Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
 - Vérifié de bout en bout (web) contre l'API Laravel locale avec un faux TMDb.
 - Pas encore fait : lecteur vidéo et sources (Jellyfin / Plex / Emby), historique de recherche
   synchronisé, déploiement web (workflow `deploy-web.yml` du §8.2).

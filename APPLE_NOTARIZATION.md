@@ -1,12 +1,49 @@
 # Vixeo : notarisation Apple (iOS) et distribution web dans l'UE
 
 Audit du 4 novembre 2026, sur `vixeo_frontend` (commit `a8c1ec1`) et `vixeo_backend` (commit `e413624`).
+Corrections du même jour : voir le §0.
 
-> **Statut : l'application n'est pas prête pour la notarisation.**
-> Sept points bloquants sont listés au §4.1. Aucun point de ce document ne doit être lu comme une
-> déclaration de conformité tant qu'il n'est pas marqué « vérifié ».
+> **Statut : l'application n'est toujours pas prête pour la notarisation.**
+> Restent bloquants :
+> - B1 : éligibilité à la distribution web ;
+> - P2 : bouton « Lecture » sans lecteur, conservé à la demande du développeur ;
+> - P7 : compilation et tests sur iPhone et iPad ;
+> - P12 : compte de démonstration ;
+> - la configuration d'un service d'e-mails en production.
+>
+> Aucun point de ce document ne doit être lu comme une déclaration de conformité tant qu'il n'est
+> pas marqué « vérifié ».
 
 Légende : ✅ vérifié conforme · ⚠️ à corriger · ❌ bloquant · ❓ non vérifiable dans cet audit
+
+---
+
+## 0. Suivi des corrections (4 novembre 2026)
+
+Corrections validées par le développeur, puis appliquées. Les tableaux des §2 et §3 décrivent l'état
+**au moment de l'audit** ; ce suivi les remplace pour les points listés.
+
+| Point | État | Vérification |
+|---|---|---|
+| P16 Symfony | ✅ Mis à jour en 7.4.23 (`vixeo_backend` `00617d4`) | `composer audit` sans avis ; Pest |
+| P3 Mot de passe oublié | ✅ Code à 6 chiffres par e-mail, valable 15 min, usage unique, 5 essais ; les autres appareils sont déconnectés | 9 tests API ; tests de l'appli ; parcours complet dans le navigateur (code lu dans l'e-mail) |
+| P5 Suppression et export | ✅ `POST /me/delete` (mot de passe), `POST /me/export` (JSON par e-mail) ; écran « Mon compte » | Tests API (compte, profils, liste, jetons et connexions TV supprimés) ; tests de l'appli ; navigateur (base vide après suppression) |
+| P15 Sessions | ✅ Jetons de 180 jours, purge quotidienne, écran « Appareils connectés » | Tests API (expiration, révocation, appareil d'un autre compte refusé) ; navigateur |
+| P4 Confidentialité | ✅ Page `/confidentialite`, lisible sans compte (= « Privacy Policy URL » : `<WEB_URL>/confidentialite`), liens sur la connexion, l'inscription et « Mon profil » | ⚠️ Texte juridique **à relire par le développeur** ; préciser la durée des journaux du serveur et l'hébergeur |
+| P6 Contact | ✅ « Aide et à propos » (`/a-propos`) : contact, éditeur, version | Une version Release exige `PUBLISHER_NAME` et `SUPPORT_EMAIL` ; ❓ URL de support à renseigner dans App Store Connect |
+| P9 Mention TMDb, services tiers | ✅ Mention affichée dans « Aide et à propos » ; TMDb et YouTube décrits dans la politique | Tests de l'appli |
+| P7 Démarrage | ✅ Restauration de session : une erreur du trousseau mène à la connexion, une réponse inattendue à « Réessayer » | Tests de l'appli ; ❓ compilation iOS toujours à faire |
+| P10 HTTPS | ✅ Une version Release refuse une `API_URL` absente ou non `https://` | Tests de l'appli ; ❓ HSTS et redirection côté Forge (documentés dans `docs/deploiement.md`) |
+| P8 Polices | ✅ Sora et Inter intégrées (OFL, licences dans « Licences ») ; `google_fonts` retiré | Plus aucune requête vers Google au lancement |
+| P1 Manifeste | ✅ `ios/Runner/PrivacyInfo.xcprivacy`, ajouté aux ressources du projet Xcode | ❓ À confirmer avec le rapport de confidentialité Xcode (P7) |
+| P18 Chiffrement | ✅ `ITSAppUsesNonExemptEncryption` = false | ❓ Obligations d'export à confirmer |
+| P2 Lecture | ❌ **Inchangé** (décision du développeur) | Reste bloquant pour la règle 2.1(a) |
+
+Reste à faire :
+- B1 ;
+- P2, P7, P11, P12, P13, P14, P17, P19, P20, P21 ;
+- configurer le service d'e-mails en production (`MAIL_*` dans Forge, adresse vérifiée SPF / DKIM).
+  Sans lui, « Mot de passe oublié » et l'export des données ne fonctionnent pas.
 
 ---
 
