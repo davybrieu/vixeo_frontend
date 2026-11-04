@@ -101,7 +101,9 @@ lib/
   liste », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`).
 - **Pas de section « Sources »** sur la fiche (demande du développeur).
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
-  horizontal 16:9 avec le titre sur l'image), appliqué par `PosterRow` / `PosterGrid`.
+  horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Pas de nom sur les affiches**, dans
+  les deux formats (demande du développeur : l'image suffit) ; le nom n'est écrit que pour un titre
+  sans aucune image, et reste dans le libellé pour les lecteurs d'écran.
 - **Avatars** : galerie `GET /avatars` regroupée par licence (`features/profiles/avatars.dart`,
   pixel art dessiné par `PixelAvatarPainter`, ou `image_url`) ; `ProfileAvatar` partout où le
   profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits.

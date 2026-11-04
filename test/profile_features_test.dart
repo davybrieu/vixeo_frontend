@@ -117,8 +117,24 @@ void main() {
     await tester.pumpAndSettle();
     size = tester.getSize(find.byType(PosterCard));
     expect(size.height / size.width, closeTo(9 / 16, 0.01));
-    // Horizontal images carry the title.
+    // A title without any image shows its name instead.
     expect(find.text('Nord Sauvage'), findsOneWidget);
+  });
+
+  testWidgets('poster cards show the image without the name, in both formats', (tester) async {
+    const withImages = MediaItem(
+      id: 551,
+      type: MediaType.movie,
+      title: 'Nord Sauvage',
+      posterUrl: 'https://image.tmdb.org/t/p/w342/p.jpg',
+      backdropUrl: 'https://image.tmdb.org/t/p/w780/b.jpg',
+    );
+    for (final format in PosterFormat.values) {
+      await tester.pumpWidget(app(PosterCard(item: withImages, width: 200, format: format)));
+      await tester.pump();
+      expect(find.text('Nord Sauvage'), findsNothing, reason: format.name);
+      expect(find.bySemanticsLabel(RegExp('^Nord Sauvage, film')), findsOneWidget, reason: format.name);
+    }
   });
 
   test('reads the poster format of a profile', () {

@@ -14,8 +14,9 @@ import 'models.dart';
 
 String titlePath(MediaType type, int id) => '/titre/${type.name}/$id';
 
-/// Title card: vertical poster (2:3) or horizontal image (16:9, title written on it),
-/// following the profile's poster format.
+/// Title card: vertical poster (2:3) or horizontal image (16:9), following the profile's poster
+/// format. The image alone, without the name (developer's choice); the name is written only for
+/// a title without any image. Screen readers get the name from the label.
 class PosterCard extends StatelessWidget {
   const PosterCard({
     super.key,
@@ -39,14 +40,16 @@ class PosterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final landscape = format == PosterFormat.landscape;
     final radius = landscape ? width * 0.05 : width * 0.086;
-    final titleSize = landscape ? (width * 0.07).clamp(13, 30).toDouble() : width * 0.12;
-    final title = Padding(
-      padding: EdgeInsets.all(landscape ? width * 0.045 : width * 0.08),
-      child: Text(
-        item.title,
-        maxLines: landscape ? 2 : 3,
-        overflow: TextOverflow.ellipsis,
-        style: VxText.title(titleSize),
+    final noImage = Align(
+      alignment: Alignment.bottomLeft,
+      child: Padding(
+        padding: EdgeInsets.all(landscape ? width * 0.045 : width * 0.08),
+        child: Text(
+          item.title,
+          maxLines: landscape ? 2 : 3,
+          overflow: TextOverflow.ellipsis,
+          style: VxText.title(landscape ? (width * 0.07).clamp(13, 30).toDouble() : width * 0.12),
+        ),
       ),
     );
 
@@ -62,29 +65,11 @@ class PosterCard extends StatelessWidget {
         child: SizedBox(
           width: width,
           height: heightFor(width, format),
-          child: landscape
-              ? Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    NetImage(url: item.backdrop('w780') ?? item.posterUrl, seed: item.id),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, Color(0xD9070A08)],
-                          stops: [0.4, 1],
-                        ),
-                      ),
-                    ),
-                    Align(alignment: Alignment.bottomLeft, child: title),
-                  ],
-                )
-              : NetImage(
-                  url: item.posterUrl,
-                  seed: item.id,
-                  fallback: Align(alignment: Alignment.bottomLeft, child: title),
-                ),
+          child: NetImage(
+            url: landscape ? (item.backdrop('w780') ?? item.posterUrl) : item.posterUrl,
+            seed: item.id,
+            fallback: noImage,
+          ),
         ),
       ),
     );
