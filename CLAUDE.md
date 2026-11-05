@@ -136,7 +136,11 @@ lib/
     élément vert, léger zoom ; appui long ou touche menu = menu contextuel) ;
   - chaque écran donne le focus à un élément à l'arrivée (`autofocus: true` sur un seul élément) ;
   - les tailles TV sont celles du design 1920×1080, converties avec `Layout.of(context).tv(px)` ;
-  - les rangées horizontales sont dans un `FocusTraversalGroup`.
+  - les rangées horizontales sont dans un `FocusTraversalGroup` ;
+  - accueil grand écran : la grande image et ses informations suivent la carte sélectionnée
+    (focus : tout de suite) ou survolée à la souris (`onHovered`, après 150 ms), rangée
+    « Continuer à regarder » comprise. Quand la sélection reste 400 ms sur un titre, sa fiche
+    (`titleProvider`) ajoute genres, durée ou saisons et âge conseillé.
 - **Actions sur un titre** (Ma liste, Vu / non vu, Bande-annonce) : toujours le même bouton
   rond **icône seule** (`VxIconAction`, `FavoriteButton`, `WatchedButton`), sans texte visible
   (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire. Chaque action

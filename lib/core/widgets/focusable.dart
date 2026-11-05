@@ -21,6 +21,7 @@ class VxFocusable extends StatefulWidget {
     this.onPressed,
     this.onLongPress,
     this.onFocused,
+    this.onHovered,
     this.autofocus = false,
     this.focusNode,
     this.borderRadius = 12,
@@ -37,6 +38,9 @@ class VxFocusable extends StatefulWidget {
 
   /// Called when this element receives the focus (e.g. to update a TV hero).
   final VoidCallback? onFocused;
+
+  /// Called when the mouse starts hovering this element (same use, with a mouse).
+  final VoidCallback? onHovered;
   final bool autofocus;
   final FocusNode? focusNode;
   final double borderRadius;
@@ -116,21 +120,25 @@ class _VxFocusableState extends State<VxFocusable> {
         onFocusChange: (focused) {
           if (focused) widget.onFocused?.call();
         },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: widget.onPressed,
-          onLongPress: widget.onLongPress,
-          child: AnimatedScale(
-            scale: scale,
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOutCubic,
-            child: AnimatedContainer(
+        // The mouse enters the element, whatever the highlight mode (touch or keyboard).
+        child: MouseRegion(
+          onEnter: widget.onHovered == null ? null : (_) => widget.onHovered!(),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onPressed,
+            onLongPress: widget.onLongPress,
+            child: AnimatedScale(
+              scale: scale,
               duration: const Duration(milliseconds: 160),
-              foregroundDecoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(widget.borderRadius),
-                border: Border.all(color: _focused ? ringColor : Colors.transparent, width: 3.5),
+              curve: Curves.easeOutCubic,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                foregroundDecoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(widget.borderRadius),
+                  border: Border.all(color: _focused ? ringColor : Colors.transparent, width: 3.5),
+                ),
+                child: widget.child,
               ),
-              child: widget.child,
             ),
           ),
         ),

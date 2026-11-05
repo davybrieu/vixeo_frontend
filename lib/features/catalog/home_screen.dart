@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -292,13 +294,29 @@ class _LargeHome extends StatefulWidget {
 }
 
 class _LargeHomeState extends State<_LargeHome> {
-  /// Title shown in the hero: the focused poster, else the first featured one.
+  /// Title shown in the hero: the selected (focused) or hovered card, else the first featured one.
   late final ValueNotifier<MediaItem?> _hero = ValueNotifier(
     widget.home.featured.firstOrNull ?? widget.home.sections.firstOrNull?.items.firstOrNull,
   );
+  Timer? _hoverTimer;
+
+  /// Remote or keyboard: the hero follows at once.
+  void _select(MediaItem? item) {
+    if (item == null) return;
+    _hoverTimer?.cancel();
+    _hero.value = item;
+  }
+
+  /// Mouse: only once the pointer rests on a card, so sweeping across a row doesn't flicker.
+  void _hover(MediaItem? item) {
+    if (item == null) return;
+    _hoverTimer?.cancel();
+    _hoverTimer = Timer(const Duration(milliseconds: 150), () => _hero.value = item);
+  }
 
   @override
   void dispose() {
+    _hoverTimer?.cancel();
     _hero.dispose();
     super.dispose();
   }
@@ -349,15 +367,20 @@ class _LargeHomeState extends State<_LargeHome> {
                           padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.tv(16)),
                           itemCount: widget.resume.length,
                           separatorBuilder: (_, _) => SizedBox(width: layout.tv(32)),
-                          itemBuilder: (_, i) =>
-                              ResumeCard(item: widget.resume[i], width: layout.tv(384), autofocus: i == 0),
+                          itemBuilder: (_, i) => ResumeCard(
+                            item: widget.resume[i],
+                            width: layout.tv(384),
+                            autofocus: i == 0,
+                            onFocused: () => _select(widget.resume[i].asMediaItem),
+                            onHovered: () => _hover(widget.resume[i].asMediaItem),
+                          ),
                         ),
                       ),
                     ),
                     SizedBox(height: layout.tv(36)),
                   ],
                   for (final (index, section) in widget.home.sections.indexed) ...[
-                    PosterRow(title: section.title, items: section.items, onFocused: (item) => _hero.value = item),
+                    PosterRow(title: section.title, items: section.items, onFocused: _select, onHovered: _hover),
                     if (index < widget.home.sections.length - 1) SizedBox(height: layout.tv(36)),
                   ],
                 ],
@@ -402,7 +425,10 @@ class _HeroBackdrop extends StatelessWidget {
   );
 }
 
-class _HeroText extends StatelessWidget {
+/// Information of the title in the hero. The list item gives the essentials at once; when the
+/// selection rests for a moment, the title's page adds genres, length and age rating (fetched
+/// only then, not for every card the remote or the mouse passes over).
+class _HeroText extends ConsumerStatefulWidget {
   const _HeroText({required this.item, this.autofocus = false});
 
   final MediaItem item;
@@ -411,8 +437,63 @@ class _HeroText extends StatelessWidget {
   final bool autofocus;
 
   @override
+  ConsumerState<_HeroText> createState() => _HeroTextState();
+}
+
+class _HeroTextState extends ConsumerState<_HeroText> {
+  static const _settleDelay = Duration(milliseconds: 400);
+
+  Timer? _timer;
+  bool _settled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _waitForSettle();
+  }
+
+  @override
+  void didUpdateWidget(_HeroText old) {
+    super.didUpdateWidget(old);
+    if (old.item.id != widget.item.id || old.item.type != widget.item.type) {
+      _settled = false;
+      _waitForSettle();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _waitForSettle() {
+    _timer?.cancel();
+    _timer = Timer(_settleDelay, () {
+      if (mounted) setState(() => _settled = true);
+    });
+  }
+
+  static String _age(int age) => age == 0 ? 'Tous publics' : '$age+';
+
+  @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
+    final item = widget.item;
+    final details = _settled ? ref.watch(titleProvider((item.type, item.id))).value : null;
+
+    final rating = details?.voteAverage ?? item.voteAverage;
+    final year = details?.year ?? item.year;
+    final overview = details?.overview ?? item.overview;
+    final length = switch (details) {
+      final d? when d.type == MediaType.movie && d.runtime != null => formatRuntime(d.runtime),
+      final d? when d.type == MediaType.tv && d.numberOfSeasons > 0 =>
+        '${d.numberOfSeasons} saison${d.numberOfSeasons > 1 ? 's' : ''}',
+      _ => null,
+    };
+    final genres = details?.genres.take(3).map((g) => g.name).join(' · ') ?? '';
+    final meta = VxText.body(layout.tv(22), color: VxColors.textSoft);
+
     return Padding(
       padding: EdgeInsets.fromLTRB(layout.gutter, layout.tv(110), layout.gutter, layout.tv(24)),
       child: Align(
@@ -439,22 +520,39 @@ class _HeroText extends StatelessWidget {
                 style: VxText.title(layout.tv(88), weight: FontWeight.w800),
               ),
               SizedBox(height: layout.tv(20)),
-              Row(
+              Wrap(
+                spacing: layout.tv(18),
+                runSpacing: layout.tv(8),
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  if (item.voteAverage > 0) ...[
-                    Icon(Icons.star_rounded, color: VxColors.accent, size: layout.tv(26)),
-                    SizedBox(width: layout.tv(6)),
-                    Text(formatRating(item.voteAverage), style: VxText.body(layout.tv(22), weight: FontWeight.w600)),
-                    SizedBox(width: layout.tv(18)),
-                  ],
-                  if (item.year != null)
-                    Text('${item.year}', style: VxText.body(layout.tv(22), color: VxColors.textSoft)),
+                  if (rating > 0)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.star_rounded, color: VxColors.accent, size: layout.tv(26)),
+                        SizedBox(width: layout.tv(6)),
+                        Text(formatRating(rating), style: VxText.body(layout.tv(22), weight: FontWeight.w600)),
+                      ],
+                    ),
+                  if (year != null) Text('$year', style: meta),
+                  if (length != null) Text(length, style: meta),
+                  if (details?.ageRating != null)
+                    VxBadge(_age(details!.ageRating!), outlined: true, fontSize: layout.tv(18)),
                 ],
               ),
-              if (item.overview != null) ...[
+              if (genres.isNotEmpty) ...[
+                SizedBox(height: layout.tv(12)),
+                Text(
+                  genres,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: VxText.body(layout.tv(20), color: VxColors.textSecondary),
+                ),
+              ],
+              if (overview != null) ...[
                 SizedBox(height: layout.tv(20)),
                 Text(
-                  item.overview!,
+                  overview,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: VxText.body(layout.tv(24), color: VxColors.textSoft),
@@ -465,7 +563,7 @@ class _HeroText extends StatelessWidget {
                 label: 'Plus d’infos',
                 icon: Icons.info_outline_rounded,
                 kind: VxButtonKind.secondary,
-                autofocus: autofocus,
+                autofocus: widget.autofocus,
                 onPressed: () => context.push(titlePath(item.type, item.id)),
               ),
             ],

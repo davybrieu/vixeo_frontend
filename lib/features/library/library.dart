@@ -70,6 +70,14 @@ class ProfileItem {
 
   bool get inContinueWatching => lastEngagedAt != null && !isWatched;
 
+  /// The TMDb title as a catalog item (hero of the TV home), or null for another source.
+  MediaItem? get asMediaItem {
+    final t = tmdbTitle;
+    return t == null
+        ? null
+        : MediaItem(id: t.id, type: t.type, title: title, year: year, posterUrl: posterUrl, backdropUrl: backdropUrl);
+  }
+
   /// TMDb title this item points to, if any ("movie:550", "tv:1399").
   ({MediaType type, int id})? get tmdbTitle {
     if (source != 'tmdb') return null;

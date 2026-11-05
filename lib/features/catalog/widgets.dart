@@ -24,6 +24,7 @@ class PosterCard extends StatelessWidget {
     required this.width,
     this.format = PosterFormat.portrait,
     this.onFocused,
+    this.onHovered,
     this.autofocus = false,
   });
 
@@ -31,6 +32,7 @@ class PosterCard extends StatelessWidget {
   final double width;
   final PosterFormat format;
   final VoidCallback? onFocused;
+  final VoidCallback? onHovered;
   final bool autofocus;
 
   static double heightFor(double width, PosterFormat format) =>
@@ -58,6 +60,7 @@ class PosterCard extends StatelessWidget {
       borderRadius: radius,
       semanticLabel: '${item.title}, ${item.type.label.toLowerCase()}${item.year != null ? ', ${item.year}' : ''}',
       onFocused: onFocused,
+      onHovered: onHovered,
       onPressed: () => context.push(titlePath(item.type, item.id)),
       onLongPress: () => showTitleMenu(context, item),
       child: ClipRRect(
@@ -87,11 +90,14 @@ double rowCardWidth(Layout layout, PosterFormat format) => format == PosterForma
 
 /// Horizontal row of title cards, with its title.
 class PosterRow extends ConsumerWidget {
-  const PosterRow({super.key, required this.title, required this.items, this.onFocused});
+  const PosterRow({super.key, required this.title, required this.items, this.onFocused, this.onHovered});
 
   final String title;
   final List<MediaItem> items;
+
+  /// The remote / keyboard focus, or the mouse, is on [item] (TV home: the hero follows).
   final void Function(MediaItem item)? onFocused;
+  final void Function(MediaItem item)? onHovered;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -120,6 +126,7 @@ class PosterRow extends ConsumerWidget {
                 width: width,
                 format: format,
                 onFocused: onFocused == null ? null : () => onFocused!(items[i]),
+                onHovered: onHovered == null ? null : () => onHovered!(items[i]),
               ),
             ),
           ),
@@ -131,11 +138,20 @@ class PosterRow extends ConsumerWidget {
 
 /// "Continuer à regarder" card: backdrop 16:9 + progress bar.
 class ResumeCard extends StatelessWidget {
-  const ResumeCard({super.key, required this.item, required this.width, this.autofocus = false});
+  const ResumeCard({
+    super.key,
+    required this.item,
+    required this.width,
+    this.autofocus = false,
+    this.onFocused,
+    this.onHovered,
+  });
 
   final ProfileItem item;
   final double width;
   final bool autofocus;
+  final VoidCallback? onFocused;
+  final VoidCallback? onHovered;
 
   @override
   Widget build(BuildContext context) {
@@ -200,6 +216,8 @@ class ResumeCard extends StatelessWidget {
       autofocus: autofocus,
       borderRadius: radius,
       semanticLabel: '${item.title}, reprendre. ${item.resumeLabel}',
+      onFocused: onFocused,
+      onHovered: onHovered,
       onPressed: title == null ? null : () => context.push(titlePath(title.type, title.id)),
       onLongPress: () => showResumeMenu(context, item),
       child: layout.isLarge
