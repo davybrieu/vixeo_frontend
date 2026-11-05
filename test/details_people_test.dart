@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -45,6 +46,25 @@ List<String> cardNames(WidgetTester tester) =>
     tester.widgetList<PersonCard>(find.byType(PersonCard)).map((c) => '${c.person.name} (${c.role})').toList();
 
 void main() {
+  testWidgets('the title is the TMDb logo when there is one, else the name', (tester) async {
+    const logo = 'https://image.tmdb.org/t/p/w500/logo.png';
+    await pumpDetails(
+      tester,
+      const TitleDetails(id: 550, type: MediaType.movie, title: 'Nord Sauvage', logoUrl: logo, logoAspectRatio: 4),
+      size: const Size(1920, 1080),
+    );
+
+    final image = find.byWidgetPredicate((w) => w is CachedNetworkImage && w.imageUrl == logo);
+    expect(image, findsOneWidget);
+    // Screen readers still get the title. Its room is kept while the logo loads (4:1, 220 high at most).
+    expect(find.bySemanticsLabel('Nord Sauvage'), findsOneWidget);
+    expect(tester.getSize(image).height, closeTo(190, 1));
+
+    await pumpDetails(tester, const TitleDetails(id: 3, type: MediaType.movie, title: 'Le Phare'));
+    expect(find.byType(CachedNetworkImage), findsNothing);
+    expect(find.text('Le Phare'), findsOneWidget);
+  });
+
   testWidgets('movie: "Créateur et distribution", the director first, then the cast', (tester) async {
     await pumpDetails(
       tester,

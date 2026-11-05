@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -101,6 +104,54 @@ class _Actions extends StatelessWidget {
             onPressed: () => _openTrailer(context, title.trailer!),
           ),
       ],
+    );
+  }
+}
+
+/// Title of the page: TMDb's logo of the title when there is one (sized before it loads, so the
+/// page doesn't jump), else, or if it can't be loaded, the name written as text.
+class _TitleName extends StatelessWidget {
+  const _TitleName({required this.title, required this.logoSize, required this.style, this.maxLines});
+
+  final TitleDetails title;
+
+  /// From [sizeFor]; null = no logo.
+  final Size? logoSize;
+  final TextStyle style;
+  final int? maxLines;
+
+  /// Logo size within [maxWidth] × [maxHeight], keeping its proportions; null without a logo.
+  static Size? sizeFor(TitleDetails t, {required double maxWidth, required double maxHeight}) {
+    if (t.logoUrl == null) return null;
+    final ratio = (t.logoAspectRatio ?? 0) > 0 ? t.logoAspectRatio! : 3.0;
+    final width = math.min(maxWidth, maxHeight * ratio);
+    return Size(width, width / ratio);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(title.title, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style);
+    final size = logoSize;
+    if (size == null) return text;
+
+    return Semantics(
+      header: true,
+      label: title.title,
+      child: ExcludeSemantics(
+        child: CachedNetworkImage(
+          imageUrl: title.logoUrl!,
+          fadeInDuration: const Duration(milliseconds: 200),
+          imageBuilder: (_, image) => Image(
+            image: image,
+            width: size.width,
+            height: size.height,
+            fit: BoxFit.contain,
+            alignment: Alignment.bottomLeft,
+          ),
+          placeholder: (_, _) => SizedBox(width: size.width, height: size.height),
+          errorWidget: (_, _, _) => text,
+        ),
+      ),
     );
   }
 }
@@ -287,6 +338,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
   @override
   Widget build(BuildContext context) {
     final t = widget.title;
+    final logo = _TitleName.sizeFor(t, maxWidth: MediaQuery.sizeOf(context).width * 0.72, maxHeight: 96);
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
       children: [
@@ -298,7 +350,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  NetImage(url: t.asItem.backdrop('w1280'), seed: t.id),
+                  NetImage(url: t.background('w1280'), seed: t.id),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -313,12 +365,16 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
               ),
             ),
             Padding(
-              // The title overlaps the bottom of the backdrop.
-              padding: const EdgeInsets.fromLTRB(20, 276, 20, 8),
+              // The title overlaps the bottom of the backdrop; a logo sits on it.
+              padding: EdgeInsets.fromLTRB(20, logo == null ? 276 : 330 - logo.height, 20, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(t.title, style: VxText.title(32, weight: FontWeight.w800)),
+                  _TitleName(
+                    title: t,
+                    logoSize: logo,
+                    style: VxText.title(32, weight: FontWeight.w800),
+                  ),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 10,
@@ -410,7 +466,7 @@ class _LargeDetails extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              NetImage(url: t.asItem.backdrop('original'), seed: t.id),
+              NetImage(url: t.background('original'), seed: t.id),
               const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -469,7 +525,12 @@ class _LargeDetails extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(t.title, maxLines: 2, style: VxText.title(layout.tv(100), weight: FontWeight.w800)),
+                    _TitleName(
+                      title: t,
+                      logoSize: _TitleName.sizeFor(t, maxWidth: layout.tv(760), maxHeight: layout.tv(220)),
+                      maxLines: 2,
+                      style: VxText.title(layout.tv(100), weight: FontWeight.w800),
+                    ),
                     SizedBox(height: layout.tv(22)),
                     Wrap(
                       spacing: layout.tv(18),

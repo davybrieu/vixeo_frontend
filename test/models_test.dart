@@ -113,6 +113,36 @@ void main() {
     expect(movie.cast.single.role, 'Tyler Durden');
     expect(movie.cast.single.initials, 'BP');
     expect(movie.recommended.single.title, 'Seven');
+    // No logo nor textless backdrop: the title is written on the main backdrop.
+    expect(movie.logoUrl, isNull);
+    expect(movie.background('original'), isNull);
+  });
+
+  test('reads the title logo and the textless backdrop of a page', () {
+    final movie = TitleDetails.fromJson({
+      'id': 550,
+      'type': 'movie',
+      'title': 'Fight Club',
+      'backdrop_path': '/main.jpg',
+      'backdrop_url': 'https://image.tmdb.org/t/p/w1280/main.jpg',
+      'logo_url': 'https://image.tmdb.org/t/p/w500/logo.png',
+      'logo_aspect_ratio': 2,
+      'textless_backdrop_path': '/clean.jpg',
+      'textless_backdrop_url': 'https://image.tmdb.org/t/p/w1280/clean.jpg',
+    });
+
+    expect(movie.logoUrl, 'https://image.tmdb.org/t/p/w500/logo.png');
+    expect(movie.logoAspectRatio, 2.0);
+    expect(movie.background('original'), 'https://image.tmdb.org/t/p/original/clean.jpg');
+
+    final withoutTextless = TitleDetails.fromJson({
+      'id': 550,
+      'type': 'movie',
+      'title': 'Fight Club',
+      'backdrop_path': '/main.jpg',
+      'backdrop_url': 'https://image.tmdb.org/t/p/w1280/main.jpg',
+    });
+    expect(withoutTextless.background('original'), 'https://image.tmdb.org/t/p/original/main.jpg');
   });
 
   test('reads a TV show page and puts specials last', () {

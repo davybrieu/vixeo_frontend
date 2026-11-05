@@ -204,6 +204,10 @@ class TitleDetails {
     this.backdropUrl,
     this.posterPath,
     this.backdropPath,
+    this.logoUrl,
+    this.logoAspectRatio,
+    this.textlessBackdropUrl,
+    this.textlessBackdropPath,
     this.trailer,
     this.cast = const [],
     this.crew = const [],
@@ -229,6 +233,10 @@ class TitleDetails {
       backdropUrl: json['backdrop_url'] as String?,
       posterPath: json['poster_path'] as String?,
       backdropPath: json['backdrop_path'] as String?,
+      logoUrl: json['logo_url'] as String?,
+      logoAspectRatio: (json['logo_aspect_ratio'] as num?)?.toDouble(),
+      textlessBackdropUrl: json['textless_backdrop_url'] as String?,
+      textlessBackdropPath: json['textless_backdrop_path'] as String?,
       trailer: json['trailer'] is Map<String, dynamic>
           ? Trailer.fromJson(json['trailer'] as Map<String, dynamic>)
           : null,
@@ -260,6 +268,16 @@ class TitleDetails {
   final String? backdropUrl;
   final String? posterPath;
   final String? backdropPath;
+
+  /// Title logo from TMDb (transparent PNG), null when there is none: the title is written.
+  final String? logoUrl;
+
+  /// Logo width / height.
+  final double? logoAspectRatio;
+
+  /// Backdrop without text, to show under the logo.
+  final String? textlessBackdropUrl;
+  final String? textlessBackdropPath;
   final Trailer? trailer;
   final List<Person> cast;
 
@@ -269,6 +287,10 @@ class TitleDetails {
   final List<MediaItem> recommended;
 
   String get syncId => '${type.name}:$id';
+
+  /// Background of the title page: the backdrop without text if TMDb has one, else the main one.
+  String? background(String size) =>
+      resizeImage(textlessBackdropUrl, textlessBackdropPath, size) ?? asItem.backdrop(size);
 
   MediaItem get asItem => MediaItem(
     id: id,
