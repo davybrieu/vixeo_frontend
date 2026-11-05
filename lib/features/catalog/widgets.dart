@@ -11,6 +11,7 @@ import '../auth/session.dart';
 import '../library/actions.dart';
 import '../library/library.dart';
 import 'models.dart';
+import 'person_screen.dart';
 
 String titlePath(MediaType type, int id) => '/titre/${type.name}/$id';
 
@@ -251,6 +252,76 @@ class ResumeCard extends StatelessWidget {
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// Person card (cast, director, search results): round photo or initials, name on up to two
+/// lines and, if given, the role. Opens the person's page.
+class PersonCard extends StatelessWidget {
+  const PersonCard({super.key, required this.person, this.role});
+
+  final Person person;
+
+  /// Character, or "Réalisation" / "Création"; null = name only.
+  final String? role;
+
+  static double avatarOf(Layout layout) => layout.isLarge ? layout.tv(150) : 84;
+
+  static double widthOf(Layout layout) => layout.isLarge ? layout.tv(210) : 108;
+
+  /// Room for the photo, two lines of name and two lines of role.
+  static double heightOf(Layout layout, {bool withRole = true}) =>
+      avatarOf(layout) + (layout.isLarge ? layout.tv(withRole ? 136 : 76) : (withRole ? 76 : 44));
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final size = avatarOf(layout);
+    final large = layout.isLarge;
+
+    return VxFocusable(
+      borderRadius: large ? layout.tv(20) : 12,
+      semanticLabel: role == null ? person.name : '${person.name}, $role',
+      onPressed: () => context.push(personPath(person.id)),
+      child: SizedBox(
+        width: widthOf(layout),
+        child: ExcludeSemantics(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipOval(
+                child: SizedBox.square(
+                  dimension: size,
+                  child: NetImage(
+                    url: person.profileUrl,
+                    seed: person.id,
+                    fallback: Center(child: Text(person.initials, style: VxText.title(size * 0.3))),
+                  ),
+                ),
+              ),
+              SizedBox(height: large ? layout.tv(12) : 8),
+              Text(
+                person.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: VxText.body(large ? layout.tv(24) : 13, weight: FontWeight.w600, height: 1.2),
+              ),
+              if (role != null) ...[
+                SizedBox(height: large ? layout.tv(4) : 2),
+                Text(
+                  role!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: VxText.body(large ? layout.tv(20) : 12, color: VxColors.textSecondary, height: 1.2),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

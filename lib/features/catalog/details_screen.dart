@@ -10,7 +10,6 @@ import '../../core/widgets/focusable.dart';
 import '../library/actions.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
-import 'person_screen.dart';
 import 'widgets.dart';
 
 /// Movie or TV show page.
@@ -106,72 +105,35 @@ class _Actions extends StatelessWidget {
   }
 }
 
-class _CastRow extends StatelessWidget {
-  const _CastRow({required this.people});
+/// "Créateur et distribution": the director(s) of a movie or creator(s) of a TV show first, on
+/// the left, then the cast ("Distribution" alone when TMDb gives no director or creator).
+class _PeopleRow extends StatelessWidget {
+  const _PeopleRow({required this.title});
 
-  final List<Person> people;
+  final TitleDetails title;
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final size = layout.isLarge ? layout.tv(120) : 72.0;
-    final s = layout.isLarge ? layout.scale * 2 : 1.0;
+    final crewRole = title.type == MediaType.movie ? 'Réalisation' : 'Création';
+    final people = [for (final p in title.crew) (p, crewRole), for (final p in title.cast) (p, p.role)];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader('Distribution'),
-        SizedBox(
-          height: size + 64 * s,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: layout.gutter),
-            itemCount: people.length,
-            separatorBuilder: (_, _) => SizedBox(width: 16 * s),
-            itemBuilder: (context, i) {
-              final p = people[i];
-              return VxFocusable(
-                borderRadius: size / 2,
-                onPressed: () => context.push(personPath(p.id)),
-                child: SizedBox(
-                  width: size + 8,
-                  child: Semantics(
-                    label: p.role == null ? p.name : '${p.name}, ${p.role}',
-                    child: ExcludeSemantics(
-                      child: Column(
-                        children: [
-                          ClipOval(
-                            child: SizedBox.square(
-                              dimension: size,
-                              child: NetImage(
-                                url: p.profileUrl,
-                                seed: p.id,
-                                fallback: Center(child: Text(p.initials, style: VxText.title(size * 0.3))),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: 6 * s),
-                          Text(
-                            p.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: VxText.body(13 * s, weight: FontWeight.w600, height: 1.2),
-                          ),
-                          if (p.role != null)
-                            Text(
-                              p.role!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: VxText.body(12 * s, color: VxColors.textSecondary, height: 1.2),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
+        SectionHeader(title.crew.isEmpty ? 'Distribution' : 'Créateur et distribution'),
+        FocusTraversalGroup(
+          child: SizedBox(
+            height: PersonCard.heightOf(layout) + (layout.isLarge ? layout.tv(32) : 0),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              // Room for the focus zoom on TV.
+              padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.isLarge ? layout.tv(16) : 0),
+              itemCount: people.length,
+              separatorBuilder: (_, _) => SizedBox(width: layout.isLarge ? layout.tv(24) : 8),
+              itemBuilder: (_, i) => PersonCard(person: people[i].$1, role: people[i].$2),
+            ),
           ),
         ),
       ],
@@ -425,7 +387,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
 
 List<Widget> _lowerSections(TitleDetails t) => [
   if (t.type == MediaType.tv && t.seasons.isNotEmpty) ...[const SizedBox(height: 8), _Episodes(title: t)],
-  if (t.cast.isNotEmpty) ...[const SizedBox(height: 16), _CastRow(people: t.cast)],
+  if (t.cast.isNotEmpty || t.crew.isNotEmpty) ...[const SizedBox(height: 16), _PeopleRow(title: t)],
   if (t.recommended.isNotEmpty) ...[
     const SizedBox(height: 16),
     PosterRow(title: 'Vous pourriez aussi aimer', items: t.recommended),

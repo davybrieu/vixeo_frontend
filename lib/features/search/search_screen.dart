@@ -2,16 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
-import '../../core/widgets/focusable.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/hero.dart';
 import '../catalog/models.dart';
-import '../catalog/person_screen.dart';
 import '../catalog/widgets.dart';
 import 'filter_bar.dart';
 import 'search_filters.dart';
@@ -315,12 +312,12 @@ class _Results extends ConsumerWidget {
           page: (page) => peopleProvider((query, page)),
           idOf: (p) => p.id,
           gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: layout.isLarge ? layout.tv(220) : 110,
-            mainAxisExtent: layout.isLarge ? layout.tv(260) : 140,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 16,
+            maxCrossAxisExtent: PersonCard.widthOf(layout) * 1.1,
+            mainAxisExtent: PersonCard.heightOf(layout, withRole: false),
+            crossAxisSpacing: 8,
+            mainAxisSpacing: layout.isLarge ? layout.tv(24) : 16,
           ),
-          itemBuilder: (_, person) => _PersonTile(person: person),
+          itemBuilder: (_, person) => Center(child: PersonCard(person: person)),
           empty: _Empty(title: 'Aucun résultat', message: emptyMessage),
         ),
       ];
@@ -532,17 +529,17 @@ class _SearchRows extends ConsumerWidget {
             const SectionHeader('Personnes'),
             FocusTraversalGroup(
               child: SizedBox(
-                height: layout.isLarge ? layout.tv(270) : 140,
+                height: PersonCard.heightOf(layout, withRole: false) + (layout.isLarge ? layout.tv(32) : 0),
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   clipBehavior: Clip.none,
-                  padding: EdgeInsets.symmetric(horizontal: layout.gutter),
-                  itemCount: value.people.length,
-                  separatorBuilder: (_, _) => SizedBox(width: layout.isLarge ? layout.tv(28) : 16),
-                  itemBuilder: (_, i) => SizedBox(
-                    width: layout.isLarge ? layout.tv(180) : 84,
-                    child: _PersonTile(person: value.people[i]),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: layout.gutter,
+                    vertical: layout.isLarge ? layout.tv(16) : 0,
                   ),
+                  itemCount: value.people.length,
+                  separatorBuilder: (_, _) => SizedBox(width: layout.isLarge ? layout.tv(24) : 8),
+                  itemBuilder: (_, i) => PersonCard(person: value.people[i]),
                 ),
               ),
             ),
@@ -555,45 +552,6 @@ class _SearchRows extends ConsumerWidget {
       ),
       _ => const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator())),
     };
-  }
-}
-
-class _PersonTile extends StatelessWidget {
-  const _PersonTile({required this.person});
-
-  final Person person;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final size = layout.isLarge ? layout.tv(150) : 72.0;
-    return VxFocusable(
-      borderRadius: size / 2,
-      semanticLabel: person.name,
-      onPressed: () => context.push(personPath(person.id)),
-      child: Column(
-        children: [
-          ClipOval(
-            child: SizedBox.square(
-              dimension: size,
-              child: NetImage(
-                url: person.profileUrl,
-                seed: person.id,
-                fallback: Center(child: Text(person.initials, style: VxText.title(size * 0.3))),
-              ),
-            ),
-          ),
-          SizedBox(height: layout.isLarge ? layout.tv(12) : 6),
-          Text(
-            person.name,
-            maxLines: 2,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            style: VxText.body(layout.isLarge ? layout.tv(22) : 13, weight: FontWeight.w600, height: 1.2),
-          ),
-        ],
-      ),
-    );
   }
 }
 

@@ -162,6 +162,11 @@ lib/
   résultat, puis suit la carte sélectionnée ou survolée. Un genre absent du type choisi est
   retiré. Les recherches récentes restent celles de la session. Pas de page par genre : on
   filtre par genre dans la recherche.
+- **Fiche : « Créateur et distribution »** : la rangée commence, à gauche, par la réalisation
+  (film, `directors`) ou la création (série, `creators`), marquées « Réalisation » / « Création »
+  (mots neutres), puis la distribution ; « Distribution » seul si TMDb n'en donne pas. Les cartes
+  de personnes passent toutes par `PersonCard` (`catalog/widgets.dart`, fiche et recherche) : nom
+  et rôle sur deux lignes au plus, pour ne pas les couper.
 - **Pas de section « Sources »** sur la fiche (demande du développeur).
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
   horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Pas de nom sur les affiches**, dans
