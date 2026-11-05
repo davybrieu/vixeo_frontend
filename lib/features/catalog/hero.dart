@@ -138,11 +138,20 @@ class _FeaturedCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: VxText.title(32, weight: FontWeight.w800),
+                // The logo of the title (given with the home rows), else its name.
+                LayoutBuilder(
+                  builder: (_, c) => TitleLogo(
+                    name: item.title,
+                    logoUrl: item.logoUrl,
+                    size: TitleLogo.sizeFor(
+                      item.logoUrl,
+                      item.logoAspectRatio,
+                      maxWidth: c.maxWidth * 0.85,
+                      maxHeight: 84,
+                    ),
+                    maxLines: 2,
+                    style: VxText.title(32, weight: FontWeight.w800),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -267,6 +276,11 @@ class _HeroTextState extends ConsumerState<HeroText> {
     final layout = Layout.of(context);
     final item = widget.item;
     final details = _settled ? ref.watch(titleProvider((item.type, item.id))).value : null;
+    // Home rows give the logo at once; elsewhere (search, "Continuer à regarder") the title page
+    // brings it once the selection rests.
+    final logoUrl = item.logoUrl ?? details?.logoUrl;
+    final logoRatio = item.logoUrl != null ? item.logoAspectRatio : details?.logoAspectRatio;
+    final slot = layout.tv(widget.compact ? 90 : 120);
 
     final rating = details?.voteAverage ?? item.voteAverage;
     final year = details?.year ?? item.year;
@@ -299,11 +313,24 @@ class _HeroTextState extends ConsumerState<HeroText> {
                 ).copyWith(letterSpacing: 1.5),
               ),
               SizedBox(height: layout.tv(16)),
-              Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: VxText.title(layout.tv(widget.compact ? 64 : 88), weight: FontWeight.w800),
+              // Logo of the title, else its name: in a slot of fixed height, so the lines below
+              // don't move when the logo arrives.
+              SizedBox(
+                height: slot,
+                width: double.infinity,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  layoutBuilder: (current, previous) =>
+                      Stack(alignment: Alignment.bottomLeft, children: [...previous, ?current]),
+                  child: TitleLogo(
+                    key: ValueKey((item.type, item.id, logoUrl)),
+                    name: item.title,
+                    logoUrl: logoUrl,
+                    size: TitleLogo.sizeFor(logoUrl, logoRatio, maxWidth: layout.tv(700), maxHeight: slot),
+                    maxLines: 1,
+                    style: VxText.title(layout.tv(widget.compact ? 64 : 88), weight: FontWeight.w800),
+                  ),
+                ),
               ),
               SizedBox(height: layout.tv(20)),
               Wrap(

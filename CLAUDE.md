@@ -168,10 +168,14 @@ lib/
   ligne « Avec … · Réalisation : … » sous le résumé (demande du développeur). Les cartes
   de personnes passent toutes par `PersonCard` (`catalog/widgets.dart`, fiche et recherche) : nom
   et rôle sur deux lignes au plus, pour ne pas les couper.
-- **Fiche : logo et fond** : le titre est le logo TMDb (`logo_url`, `_TitleName`), dimensionné
-  avant son chargement (`logo_aspect_ratio`) ; sans logo, ou s'il ne se charge pas, le nom est
-  écrit comme avant. Le fond est l'image sans texte (`textless_backdrop_url`, via
-  `TitleDetails.background(size)`), sinon `backdrop_url`. Le lecteur d'écran lit toujours le nom.
+- **Logo du titre** (`TitleLogo`, `catalog/widgets.dart`) : fiche, grande image (accueil et
+  recherche) et carrousel du téléphone écrivent le titre avec le logo TMDb (`logo_url`),
+  dimensionné avant son chargement (`logo_aspect_ratio`) ; sans logo, ou s'il ne se charge pas, le
+  nom est écrit. L'accueil donne le logo avec chaque titre (logo tout de suite) ; ailleurs
+  (recherche, « Continuer à regarder »), il vient de la fiche quand la sélection s'arrête, dans une
+  place de hauteur fixe (rien ne bouge). Fond de la fiche : l'image sans texte
+  (`textless_backdrop_url`, via `TitleDetails.background(size)`), sinon `backdrop_url`. Le lecteur
+  d'écran lit toujours le nom.
 - **Pas de section « Sources »** sur la fiche (demande du développeur).
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
   horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Pas de nom sur les affiches**, dans

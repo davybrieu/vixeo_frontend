@@ -69,6 +69,19 @@ void main() {
     expect(Paged.fromJson({'data': []}, MediaItem.fromJson).hasMore, isFalse);
   });
 
+  test('reads the logo of a home item', () {
+    final item = MediaItem.fromJson({
+      'id': 550,
+      'type': 'movie',
+      'title': 'Fight Club',
+      'logo_url': 'https://image.tmdb.org/t/p/w500/logo.png',
+      'logo_aspect_ratio': 4,
+    });
+    expect(item.logoUrl, 'https://image.tmdb.org/t/p/w500/logo.png');
+    expect(item.logoAspectRatio, 4.0);
+    expect(MediaItem.fromJson({'id': 1, 'type': 'tv', 'title': 'Dark'}).logoUrl, isNull);
+  });
+
   test('resizes images on whatever host the API uses', () {
     expect(resizeImage('http://cdn.test/t/p/w342/a.jpg', '/a.jpg', 'w780'), 'http://cdn.test/t/p/w780/a.jpg');
     expect(resizeImage(null, '/a.jpg', 'w780'), isNull);

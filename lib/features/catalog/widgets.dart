@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -252,6 +255,63 @@ class ResumeCard extends StatelessWidget {
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// A title written with TMDb's logo when there is one (title page, hero, phone carousel): sized
+/// before it loads, so nothing jumps. Without a logo, or if it can't be loaded, the name is written
+/// as text. Screen readers always get the name.
+class TitleLogo extends StatelessWidget {
+  const TitleLogo({
+    super.key,
+    required this.name,
+    required this.logoUrl,
+    required this.size,
+    required this.style,
+    this.maxLines,
+  });
+
+  final String name;
+  final String? logoUrl;
+
+  /// From [sizeFor]; null = no logo.
+  final Size? size;
+  final TextStyle style;
+  final int? maxLines;
+
+  /// Logo size within [maxWidth] × [maxHeight], keeping its proportions; null without a logo.
+  static Size? sizeFor(String? logoUrl, double? aspectRatio, {required double maxWidth, required double maxHeight}) {
+    if (logoUrl == null) return null;
+    final ratio = (aspectRatio ?? 0) > 0 ? aspectRatio! : 3.0;
+    final width = math.min(maxWidth, maxHeight * ratio);
+    return Size(width, width / ratio);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(name, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style);
+    final size = this.size;
+    if (logoUrl == null || size == null) return text;
+
+    return Semantics(
+      header: true,
+      label: name,
+      child: ExcludeSemantics(
+        child: CachedNetworkImage(
+          imageUrl: logoUrl!,
+          fadeInDuration: const Duration(milliseconds: 200),
+          imageBuilder: (_, image) => Image(
+            image: image,
+            width: size.width,
+            height: size.height,
+            fit: BoxFit.contain,
+            alignment: Alignment.bottomLeft,
+          ),
+          placeholder: (_, _) => SizedBox(width: size.width, height: size.height),
+          errorWidget: (_, _, _) => text,
+        ),
+      ),
     );
   }
 }

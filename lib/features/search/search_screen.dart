@@ -209,7 +209,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   return item == null
                       ? const SizedBox.shrink()
                       : SizedBox(
-                          height: layout.tv(320),
+                          height: layout.tv(350),
                           child: HeroText(item: item, compact: true),
                         );
                 },

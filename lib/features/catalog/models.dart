@@ -27,6 +27,8 @@ class MediaItem {
     this.backdropUrl,
     this.posterPath,
     this.backdropPath,
+    this.logoUrl,
+    this.logoAspectRatio,
   });
 
   factory MediaItem.fromJson(Map<String, dynamic> json) => MediaItem(
@@ -40,6 +42,8 @@ class MediaItem {
     backdropUrl: json['backdrop_url'] as String?,
     posterPath: json['poster_path'] as String?,
     backdropPath: json['backdrop_path'] as String?,
+    logoUrl: json['logo_url'] as String?,
+    logoAspectRatio: (json['logo_aspect_ratio'] as num?)?.toDouble(),
   );
 
   final int id;
@@ -52,6 +56,10 @@ class MediaItem {
   final String? backdropUrl;
   final String? posterPath;
   final String? backdropPath;
+
+  /// Title logo: given on the home rows only (elsewhere, the title page has it).
+  final String? logoUrl;
+  final double? logoAspectRatio;
 
   /// Identity used by the sync API (`source` = "tmdb").
   String get syncId => '${type.name}:$id';
