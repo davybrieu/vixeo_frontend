@@ -294,9 +294,12 @@ class _LargeHome extends StatefulWidget {
 }
 
 class _LargeHomeState extends State<_LargeHome> {
-  /// Title shown in the hero: the selected (focused) or hovered card, else the first featured one.
+  /// Title shown in the hero: the selected (focused) or hovered card. On arrival, the first card of
+  /// the first row, which also has the focus ("Continuer à regarder" if any, else the first list).
   late final ValueNotifier<MediaItem?> _hero = ValueNotifier(
-    widget.home.featured.firstOrNull ?? widget.home.sections.firstOrNull?.items.firstOrNull,
+    widget.resume.firstOrNull?.asMediaItem ??
+        widget.home.sections.firstOrNull?.items.firstOrNull ??
+        widget.home.featured.firstOrNull,
   );
   Timer? _hoverTimer;
 
@@ -345,11 +348,10 @@ class _LargeHomeState extends State<_LargeHome> {
         Column(
           children: [
             SizedBox(
-              height: layout.tv(580),
+              height: layout.tv(500),
               child: ValueListenableBuilder(
                 valueListenable: _hero,
-                builder: (_, item, _) =>
-                    item == null ? const SizedBox() : _HeroText(item: item, autofocus: widget.resume.isEmpty),
+                builder: (_, item, _) => item == null ? const SizedBox() : _HeroText(item: item),
               ),
             ),
             Expanded(
@@ -380,7 +382,14 @@ class _LargeHomeState extends State<_LargeHome> {
                     SizedBox(height: layout.tv(36)),
                   ],
                   for (final (index, section) in widget.home.sections.indexed) ...[
-                    PosterRow(title: section.title, items: section.items, onFocused: _select, onHovered: _hover),
+                    PosterRow(
+                      title: section.title,
+                      items: section.items,
+                      onFocused: _select,
+                      onHovered: _hover,
+                      // Nothing to resume: the first card of the first list takes the focus.
+                      autofocusFirst: index == 0 && widget.resume.isEmpty,
+                    ),
                     if (index < widget.home.sections.length - 1) SizedBox(height: layout.tv(36)),
                   ],
                 ],
@@ -425,16 +434,13 @@ class _HeroBackdrop extends StatelessWidget {
   );
 }
 
-/// Information of the title in the hero. The list item gives the essentials at once; when the
-/// selection rests for a moment, the title's page adds genres, length and age rating (fetched
-/// only then, not for every card the remote or the mouse passes over).
+/// Information of the title in the hero (no button: the card itself opens the title page). The
+/// list item gives the essentials at once; when the selection rests for a moment, the title's page
+/// adds genres, length and age rating (fetched only then, not for every card passed over).
 class _HeroText extends ConsumerStatefulWidget {
-  const _HeroText({required this.item, this.autofocus = false});
+  const _HeroText({required this.item});
 
   final MediaItem item;
-
-  /// Focus the button on arrival when nothing else takes the focus.
-  final bool autofocus;
 
   @override
   ConsumerState<_HeroText> createState() => _HeroTextState();
@@ -558,14 +564,6 @@ class _HeroTextState extends ConsumerState<_HeroText> {
                   style: VxText.body(layout.tv(24), color: VxColors.textSoft),
                 ),
               ],
-              SizedBox(height: layout.tv(28)),
-              VxButton(
-                label: 'Plus d’infos',
-                icon: Icons.info_outline_rounded,
-                kind: VxButtonKind.secondary,
-                autofocus: widget.autofocus,
-                onPressed: () => context.push(titlePath(item.type, item.id)),
-              ),
             ],
           ),
         ),

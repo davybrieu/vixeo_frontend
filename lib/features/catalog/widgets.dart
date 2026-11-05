@@ -90,10 +90,20 @@ double rowCardWidth(Layout layout, PosterFormat format) => format == PosterForma
 
 /// Horizontal row of title cards, with its title.
 class PosterRow extends ConsumerWidget {
-  const PosterRow({super.key, required this.title, required this.items, this.onFocused, this.onHovered});
+  const PosterRow({
+    super.key,
+    required this.title,
+    required this.items,
+    this.onFocused,
+    this.onHovered,
+    this.autofocusFirst = false,
+  });
 
   final String title;
   final List<MediaItem> items;
+
+  /// The first card takes the focus on arrival (first row of a screen).
+  final bool autofocusFirst;
 
   /// The remote / keyboard focus, or the mouse, is on [item] (TV home: the hero follows).
   final void Function(MediaItem item)? onFocused;
@@ -127,6 +137,7 @@ class PosterRow extends ConsumerWidget {
                 format: format,
                 onFocused: onFocused == null ? null : () => onFocused!(items[i]),
                 onHovered: onHovered == null ? null : () => onHovered!(items[i]),
+                autofocus: autofocusFirst && i == 0,
               ),
             ),
           ),

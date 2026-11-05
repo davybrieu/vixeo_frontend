@@ -140,7 +140,11 @@ lib/
   - accueil grand écran : la grande image et ses informations suivent la carte sélectionnée
     (focus : tout de suite) ou survolée à la souris (`onHovered`, après 150 ms), rangée
     « Continuer à regarder » comprise. Quand la sélection reste 400 ms sur un titre, sa fiche
-    (`titleProvider`) ajoute genres, durée ou saisons et âge conseillé.
+    (`titleProvider`) ajoute genres, durée ou saisons et âge conseillé. À l'arrivée, la première
+    carte de la première rangée (« Continuer à regarder » s'il y en a, sinon la première liste) a
+    le focus et occupe la grande image : pas de « titre à la une » (`featured`) sur grand écran,
+    ni de bouton « Plus d'infos » ; OK ou un clic sur la carte ouvre la fiche. Le carrousel du
+    téléphone garde les titres à la une.
 - **Actions sur un titre** (Ma liste, Vu / non vu, Bande-annonce) : toujours le même bouton
   rond **icône seule** (`VxIconAction`, `FavoriteButton`, `WatchedButton`), sans texte visible
   (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire. Chaque action

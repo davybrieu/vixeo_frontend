@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:vixeo/app.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/core/widgets/focusable.dart';
@@ -72,31 +73,62 @@ String? focusedLabel() {
 }
 
 void main() {
-  testWidgets('TV home: the remote moves from the hero into the rows, and the hero follows the focus', (tester) async {
+  testWidgets('TV home: the first card of the list has the focus, and the hero follows the focus', (tester) async {
     await pumpHome(tester);
 
-    // Nothing to resume: the hero button has the focus on arrival.
-    expect(focusedLabel(), 'Plus d’infos');
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pumpAndSettle();
+    // Nothing to resume: the first card of the first list has the focus, and is in the hero
+    // (not the featured title). No "Plus d’infos" button: the card opens the title page.
     expect(focusedLabel(), startsWith('Orbite 9'));
-    // The info panel shows the focused title (with its title page, once loaded).
+    expect(find.text('Résumé de Orbite 9'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pumpAndSettle();
     expect(find.text('Résumé complet du titre 2'), findsOneWidget);
+    expect(find.text('Plus d’infos'), findsNothing);
+    expect(find.text('Nord Sauvage'), findsNothing);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     expect(focusedLabel(), startsWith('Le Phare'));
-    expect(find.text('Le Phare'), findsWidgets);
+    expect(find.text('Résumé complet du titre 3'), findsOneWidget);
+  });
+
+  testWidgets('a click on a card opens its title page', (tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const Scaffold(body: HomeScreen()),
+        ),
+        GoRoute(path: '/titre/:type/:id', builder: (_, state) => Text('Fiche ${state.pathParameters['id']}')),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          homeProvider.overrideWith((ref, type) async => home),
+          libraryProvider.overrideWith(EmptyLibrary.new),
+          titleProvider.overrideWith((ref, key) async => details(key)),
+        ],
+        child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel(RegExp('^Le Phare')).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Fiche 3'), findsOneWidget);
   });
 
   testWidgets('the hero shows the title page details once the selection rests', (tester) async {
     await pumpHome(tester);
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
     // At once: what the list gives.
-    expect(find.text('Résumé de Orbite 9'), findsOneWidget);
+    expect(find.text('Résumé de Le Phare'), findsOneWidget);
     expect(find.text('Drame · Aventure'), findsNothing);
 
     await tester.pump(const Duration(milliseconds: 450));
@@ -104,12 +136,12 @@ void main() {
     expect(find.text('Drame · Aventure'), findsOneWidget);
     expect(find.text('2 h 06'), findsOneWidget);
     expect(find.text('12+'), findsOneWidget);
-    expect(find.text('Résumé complet du titre 2'), findsOneWidget);
+    expect(find.text('Résumé complet du titre 3'), findsOneWidget);
   });
 
   testWidgets('the hero follows the mouse too', (tester) async {
     await pumpHome(tester);
-    expect(find.text('Résumé de Nord Sauvage'), findsOneWidget);
+    expect(find.text('Résumé de Orbite 9'), findsOneWidget);
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
