@@ -462,7 +462,8 @@ class _LargeDetails extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(layout.gutter + layout.tv(64), layout.tv(60), layout.gutter, layout.tv(48)),
+              // Same left edge as the sections below ("Créateur et distribution", rows).
+              padding: EdgeInsets.fromLTRB(layout.gutter, layout.tv(60), layout.gutter, layout.tv(48)),
               child: SizedBox(
                 width: layout.tv(1100),
                 child: Column(

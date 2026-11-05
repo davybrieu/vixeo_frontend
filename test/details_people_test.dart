@@ -78,6 +78,7 @@ void main() {
         id: 7,
         type: MediaType.tv,
         title: 'Les Veilleurs',
+        overview: 'Résumé des Veilleurs',
         cast: cast,
         crew: [Person(id: 9, name: 'Ines Dahl')],
       ),
@@ -87,6 +88,11 @@ void main() {
     await tester.scrollUntilVisible(find.text('Créateur et distribution'), 300, scrollable: pageScroll);
     await tester.pumpAndSettle();
     expect(cardNames(tester).first, 'Ines Dahl (Création)');
+    // Title, overview and the sections below start at the same left edge.
+    final left = tester.getTopLeft(find.text('Créateur et distribution')).dx;
+    expect(tester.getTopLeft(find.text('Les Veilleurs').first).dx, left);
+    expect(tester.getTopLeft(find.text('Résumé des Veilleurs')).dx, left);
+
     // Large screen: no "Avec … · Création : …" line under the overview.
     expect(find.textContaining('Avec '), findsNothing);
     expect(find.textContaining('Création :'), findsNothing);
