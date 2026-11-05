@@ -62,6 +62,8 @@ void main() {
     expect(find.text('Distribution'), findsNothing);
     expect(cardNames(tester), ['Ines Dahl (Réalisation)', 'Alma Meyer-Lindqvist (Ingrid)', 'Théo Rivière (Karl)']);
     expect(find.bySemanticsLabel('Ines Dahl, Réalisation'), findsOneWidget);
+    // Only in the row: no "Réalisation : …" line under the overview any more.
+    expect(find.textContaining('Réalisation :'), findsNothing);
 
     // A long name gets two lines on a wider card, instead of being cut after a few letters.
     final name = tester.widget<Text>(find.text('Alma Meyer-Lindqvist'));
@@ -85,6 +87,9 @@ void main() {
     await tester.scrollUntilVisible(find.text('Créateur et distribution'), 300, scrollable: pageScroll);
     await tester.pumpAndSettle();
     expect(cardNames(tester).first, 'Ines Dahl (Création)');
+    // Large screen: no "Avec … · Création : …" line under the overview.
+    expect(find.textContaining('Avec '), findsNothing);
+    expect(find.textContaining('Création :'), findsNothing);
   });
 
   testWidgets('no director nor creator: "Distribution" only', (tester) async {

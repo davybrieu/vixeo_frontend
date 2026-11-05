@@ -164,7 +164,8 @@ lib/
   filtre par genre dans la recherche.
 - **Fiche : « Créateur et distribution »** : la rangée commence, à gauche, par la réalisation
   (film, `directors`) ou la création (série, `creators`), marquées « Réalisation » / « Création »
-  (mots neutres), puis la distribution ; « Distribution » seul si TMDb n'en donne pas. Les cartes
+  (mots neutres), puis la distribution ; « Distribution » seul si TMDb n'en donne pas. Pas de
+  ligne « Avec … · Réalisation : … » sous le résumé (demande du développeur). Les cartes
   de personnes passent toutes par `PersonCard` (`catalog/widgets.dart`, fiche et recherche) : nom
   et rôle sur deux lignes au plus, pour ne pas les couper.
 - **Pas de section « Sources »** sur la fiche (demande du développeur).

@@ -366,13 +366,6 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                       ),
                     ),
                   ],
-                  if (t.crew.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      '${t.type == MediaType.movie ? 'Réalisation' : 'Création'} : ${t.crew.map((p) => p.name).join(', ')}',
-                      style: VxText.body(13, color: VxColors.textSecondary),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -514,17 +507,6 @@ class _LargeDetails extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: VxText.body(layout.tv(24), color: VxColors.textSoft),
                         ),
-                      ),
-                    ],
-                    if (t.cast.isNotEmpty || t.crew.isNotEmpty) ...[
-                      SizedBox(height: layout.tv(16)),
-                      Text(
-                        [
-                          if (t.cast.isNotEmpty) 'Avec ${t.cast.take(3).map((p) => p.name).join(', ')}',
-                          if (t.crew.isNotEmpty)
-                            '${t.type == MediaType.movie ? 'Réalisation' : 'Création'} : ${t.crew.first.name}',
-                        ].join(' · '),
-                        style: VxText.body(layout.tv(20), color: VxColors.textSecondary),
                       ),
                     ],
                     SizedBox(height: layout.tv(36)),
