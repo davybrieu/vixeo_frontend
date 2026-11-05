@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -7,28 +6,121 @@ import '../../core/legal.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../account/info_page.dart';
+import 'apk_installer.dart';
 import 'updates.dart';
 
-/// Opens the page where the update is installed: the Play Store app on Android (phones and TVs,
-/// which have no browser), the website's download page on iOS. Returns false if nothing opened.
+/// Opens the install page of the site (no Play Store), when the app can't install the update
+/// itself. Android TVs often have no browser: the page address is then shown instead.
 Future<bool> openUpdatePage(BuildContext context, UpdateInfo info) async {
   final url = info.updateUrl;
-  var opened = false;
-  if (url != null) {
-    final uri = Uri.tryParse(url);
-    if (uri != null) {
-      final id = uri.host == 'play.google.com' ? uri.queryParameters['id'] : null;
-      if (id != null && !kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        opened = await launchUrl(Uri.parse('market://details?id=$id')).catchError((_) => false);
-      }
-      if (!opened) opened = await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
-    }
-  }
+  final uri = url == null ? null : Uri.tryParse(url);
+  final opened = uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
   if (!opened && context.mounted) {
-    final where = defaultTargetPlatform == TargetPlatform.iOS ? 'depuis le site de Vixeo' : 'depuis le Play Store';
+    final where = url == null ? 'depuis le site de Vixeo' : 'depuis ${url.replaceFirst(RegExp(r'^https?://'), '')}';
     showVxSnack(context, 'Installez la nouvelle version $where.', icon: Icons.system_update_rounded);
   }
   return opened;
+}
+
+/// "Mettre à jour": on Android, downloads and installs the APK in place (progress shown here);
+/// otherwise opens the install page. Used by the dialog, the blocking screen and "À propos".
+class UpdateButton extends ConsumerStatefulWidget {
+  const UpdateButton({super.key, required this.info, this.autofocus = false, this.expand = false});
+
+  final UpdateInfo info;
+  final bool autofocus;
+  final bool expand;
+
+  @override
+  ConsumerState<UpdateButton> createState() => _UpdateButtonState();
+}
+
+class _UpdateButtonState extends ConsumerState<UpdateButton> {
+  bool _busy = false;
+  double? _progress;
+  ApkInstallResult? _result;
+
+  Future<void> _update() async {
+    final installer = ref.read(apkInstallerProvider);
+    final release = widget.info.latest;
+    if (!installer.canInstall(release)) {
+      await openUpdatePage(context, widget.info);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _progress = null;
+      _result = null;
+    });
+    final result = await installer.install(
+      release!,
+      onProgress: (value) {
+        if (mounted) setState(() => _progress = value);
+      },
+    );
+    if (mounted) {
+      setState(() {
+        _busy = false;
+        _result = result;
+      });
+    }
+  }
+
+  String? get _message => switch (_result) {
+    ApkInstallResult.started => 'Confirmez l’installation dans la fenêtre d’Android : Vixeo redémarre ensuite.',
+    ApkInstallResult.permissionNeeded =>
+      'Autorisez Vixeo à installer des applis (« Installer des applis inconnues »), revenez ici, puis réessayez.',
+    ApkInstallResult.corrupted => 'Le fichier téléchargé est incorrect : il a été supprimé. Réessayez.',
+    ApkInstallResult.failed => 'Téléchargement impossible. Vérifiez votre connexion et réessayez.',
+    _ => null,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final s = uiScale(context);
+    final message = _message;
+    final retry = _result != null && _result != ApkInstallResult.started;
+
+    return Column(
+      crossAxisAlignment: widget.expand ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_busy) ...[
+          Text(
+            _progress == null ? 'Préparation du téléchargement…' : 'Téléchargement… ${(_progress! * 100).round()} %',
+            style: VxText.body(14 * s, color: VxColors.textSoft),
+          ),
+          SizedBox(height: 10 * s),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4 * s),
+            child: LinearProgressIndicator(
+              value: _progress,
+              minHeight: 6 * s,
+              color: VxColors.accent,
+              backgroundColor: VxColors.surfaceHigh,
+            ),
+          ),
+        ] else ...[
+          if (message != null) ...[
+            Text(message, style: VxText.body(14 * s, color: VxColors.textSoft)),
+            SizedBox(height: 12 * s),
+          ],
+          VxButton(
+            label: retry ? 'Réessayer' : 'Mettre à jour',
+            icon: retry ? Icons.refresh_rounded : Icons.system_update_rounded,
+            autofocus: widget.autofocus,
+            expand: widget.expand,
+            onPressed: _update,
+          ),
+          if (_result == ApkInstallResult.failed || _result == ApkInstallResult.corrupted)
+            TextButton(
+              onPressed: () => openUpdatePage(context, widget.info),
+              child: const Text('Ouvrir la page de téléchargement'),
+            ),
+        ],
+      ],
+    );
+  }
 }
 
 /// Wraps the whole app (`MaterialApp.router` builder): blocks with "Mise à jour nécessaire" when
@@ -96,23 +188,20 @@ Future<void> showUpdateAvailableDialog(BuildContext context, UpdateInfo info) =>
     title: Text('Vixeo ${info.latest?.version ?? ''} est disponible'),
     content: SizedBox(
       width: 420,
-      child: Text(
-        info.latest?.notes ?? 'Une nouvelle version de Vixeo est disponible.',
-        style: VxText.body(15, color: VxColors.textSoft),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            info.latest?.notes ?? 'Une nouvelle version de Vixeo est disponible.',
+            style: VxText.body(15, color: VxColors.textSoft),
+          ),
+          const SizedBox(height: 20),
+          UpdateButton(info: info, autofocus: true),
+        ],
       ),
     ),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Plus tard')),
-      VxButton(
-        label: 'Mettre à jour',
-        icon: Icons.system_update_rounded,
-        autofocus: true,
-        onPressed: () {
-          Navigator.pop(dialogContext);
-          openUpdatePage(context, info);
-        },
-      ),
-    ],
+    actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Plus tard'))],
   ),
 );
 
@@ -159,13 +248,7 @@ class UpdateRequiredScreen extends ConsumerWidget {
                   ),
                 ],
                 SizedBox(height: 28 * s),
-                VxButton(
-                  label: 'Mettre à jour',
-                  icon: Icons.system_update_rounded,
-                  autofocus: true,
-                  expand: true,
-                  onPressed: () => openUpdatePage(context, info),
-                ),
+                UpdateButton(info: info, autofocus: true, expand: true),
                 SizedBox(height: 10 * s),
                 VxButton(
                   label: 'Réessayer',

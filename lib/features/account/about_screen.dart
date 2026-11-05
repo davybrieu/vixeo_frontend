@@ -158,12 +158,7 @@ class _UpdatesSectionState extends ConsumerState<_UpdatesSection> {
                 loading: _checking,
                 onPressed: _checkNow,
               ),
-              if (info?.status == UpdateStatus.updateAvailable)
-                VxButton(
-                  label: 'Mettre à jour',
-                  icon: Icons.system_update_rounded,
-                  onPressed: () => openUpdatePage(context, info!),
-                ),
+              if (info?.status == UpdateStatus.updateAvailable) UpdateButton(info: info!),
             ],
           ),
         ),

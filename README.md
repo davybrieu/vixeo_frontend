@@ -39,11 +39,14 @@ flutter build web --release \
 
 1. Augmenter `version:` dans `pubspec.yaml` (ex. `1.1.0+14`). Le build, après le `+`, doit
    toujours augmenter.
-2. Compiler l'APK (`flutter build apk --release`), signé avec la clé de release, et le publier sur
-   le site `vixeo_web` (`VIXEO_ANDROID_APK_URL`). Pas de Play Store. iOS plus tard.
-3. Une fois la version disponible, la déclarer dans l'API :
-   `php artisan vixeo:release android 1.1.0 14 --notes="…"`. Ajouter `--required` pour obliger les
-   versions plus anciennes à se mettre à jour.
+2. Compiler l'APK (`flutter build apk --release`), signé avec la clé de release, et le déposer sur
+   le site `vixeo_web`. Pas de Play Store. iOS plus tard.
+3. Déclarer la version dans l'API :
+   `php artisan vixeo:release android 1.1.0 14 --apk=https://… --sha256=… --notes="…"`. Ajouter
+   `--required` pour obliger les versions plus anciennes à se mettre à jour.
+
+Étapes détaillées (clé de release, empreinte, vérification des développeurs Google) :
+[`docs/android-release.md`](docs/android-release.md).
 
 Les applis installées vérifient au lancement, puis toutes les 6 h au plus. Elles proposent la
 nouvelle version, ou bloquent si elle est obligatoire (`vixeo_backend/docs/mise-a-jour.md`).

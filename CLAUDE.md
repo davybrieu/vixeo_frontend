@@ -110,13 +110,18 @@ lib/
   **build** installé (`package_info_plus`) au lancement et au retour au premier plan (toutes les 6 h
   au plus). `update_required` → écran « Mise à jour nécessaire » à la place de l'appli ;
   `update_available` → proposition une fois par lancement. Une vérification qui échoue ne bloque
-  jamais. L'installation reste faite par le système : sur Android, l'APK téléchargé depuis le site
-  `vixeo_web` (pas de Play Store) ; sur iOS, plus tard, la distribution web d'Apple. L'appli ne
-  télécharge jamais de code qu'elle exécuterait elle-même. Le web ne vérifie pas. Pour essayer dans un navigateur :
+  jamais. Sur Android (pas de Play Store), « Mettre à jour » (`UpdateButton`) télécharge l'APK
+  (`latest.download_url`, https uniquement, sans le jeton Vixeo), vérifie son SHA-256, puis ouvre
+  l'installateur d'Android (`ApkInstaller`, canal `app.vixeo/updates` dans `MainActivity.kt`,
+  `FileProvider` sur `cache/updates`, permission `REQUEST_INSTALL_PACKAGES`), qui demande une
+  confirmation. Sans APK, ou sur iOS, le bouton ouvre la page d'installation du site. L'appli ne
+  charge jamais de code qu'elle exécuterait elle-même. Publication : `docs/android-release.md`. Le web ne vérifie pas. Pour essayer dans un navigateur :
   version « profile » avec `--dart-define=UPDATE_PLATFORM=android`.
-- **Version** : `version: x.y.z+build` dans `pubspec.yaml`. Le build doit augmenter à chaque version
-  publiée (APK signé avec la clé de release), puis la version est déclarée côté API
-  (`php artisan vixeo:release`).
+- **Version et signature** : `version: x.y.z+build` dans `pubspec.yaml`. Le build doit augmenter à
+  chaque version publiée. La version Release est signée avec la clé de release
+  (`android/key.properties` ou variables `VIXEO_KEYSTORE_*`, jamais dans le dépôt) ; sans clé, le
+  build Release échoue. Puis la version est déclarée côté API (`php artisan vixeo:release`, avec
+  `--apk` et `--sha256`). Détails : `docs/android-release.md`.
 - **Polices** : Sora et Inter sont dans `assets/fonts` (licence OFL) ; rien n'est téléchargé au
   lancement (pas de `google_fonts`).
 - **API** : passer par `ApiClient` (jeton Bearer + en-tête `X-Profile-Id` ajoutés automatiquement,

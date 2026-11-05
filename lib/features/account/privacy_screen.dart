@@ -64,7 +64,9 @@ class PrivacyScreen extends StatelessWidget {
             ),
             InfoBullet(
               'Pour les mises à jour (Android et iOS) : à chaque ouverture, l’appli envoie à notre serveur sa '
-              'plateforme et son numéro de version, sans votre identité. Rien n’est conservé.',
+              'plateforme et son numéro de version, sans votre identité. Rien n’est conservé. Sur Android, la '
+              'nouvelle version se télécharge depuis notre site, puis Android vous demande de confirmer '
+              'l’installation.',
             ),
           ],
         ),

@@ -47,7 +47,7 @@ enum UpdateStatus {
 
 /// A published version (`latest` in `GET /app/update`).
 class AppRelease {
-  const AppRelease({required this.version, required this.build, this.notes});
+  const AppRelease({required this.version, required this.build, this.notes, this.downloadUrl, this.sha256});
 
   factory AppRelease.fromJson(Map<String, dynamic> json) {
     final notes = (json['notes'] as String? ?? '').trim();
@@ -55,6 +55,8 @@ class AppRelease {
       version: json['version'] as String? ?? '',
       build: json['build'] as int? ?? 0,
       notes: notes.isEmpty ? null : notes,
+      downloadUrl: json['download_url'] as String?,
+      sha256: json['sha256'] as String?,
     );
   }
 
@@ -63,6 +65,10 @@ class AppRelease {
 
   /// What's new, in French.
   final String? notes;
+
+  /// Android (no Play Store): the APK the app downloads and installs, and its SHA-256.
+  final String? downloadUrl;
+  final String? sha256;
 }
 
 /// Answer of `GET /app/update`.
@@ -78,7 +84,7 @@ class UpdateInfo {
   final UpdateStatus status;
   final AppRelease? latest;
 
-  /// Where the update is installed: the Play Store page, the website's download page (iOS)…
+  /// Install page of the site (no Play Store), when the app can't install the update itself.
   final String? updateUrl;
 }
 
