@@ -82,6 +82,28 @@ void main() {
     expect(MediaItem.fromJson({'id': 1, 'type': 'tv', 'title': 'Dark'}).logoUrl, isNull);
   });
 
+  test('prefers the poster without text, else the usual one', () {
+    final item = MediaItem.fromJson({
+      'id': 550,
+      'type': 'movie',
+      'title': 'Fight Club',
+      'poster_path': '/poster.jpg',
+      'poster_url': 'https://image.tmdb.org/t/p/w342/poster.jpg',
+      'textless_poster_path': '/clean.jpg',
+      'textless_poster_url': 'https://image.tmdb.org/t/p/w500/clean.jpg',
+    });
+    expect(item.cleanPoster('w780'), 'https://image.tmdb.org/t/p/w780/clean.jpg');
+
+    final usual = MediaItem.fromJson({
+      'id': 550,
+      'type': 'movie',
+      'title': 'Fight Club',
+      'poster_path': '/poster.jpg',
+      'poster_url': 'https://image.tmdb.org/t/p/w342/poster.jpg',
+    });
+    expect(usual.cleanPoster('w780'), 'https://image.tmdb.org/t/p/w780/poster.jpg');
+  });
+
   test('resizes images on whatever host the API uses', () {
     expect(resizeImage('http://cdn.test/t/p/w342/a.jpg', '/a.jpg', 'w780'), 'http://cdn.test/t/p/w780/a.jpg');
     expect(resizeImage(null, '/a.jpg', 'w780'), isNull);

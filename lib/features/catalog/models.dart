@@ -29,6 +29,8 @@ class MediaItem {
     this.backdropPath,
     this.logoUrl,
     this.logoAspectRatio,
+    this.textlessPosterUrl,
+    this.textlessPosterPath,
   });
 
   factory MediaItem.fromJson(Map<String, dynamic> json) => MediaItem(
@@ -44,6 +46,8 @@ class MediaItem {
     backdropPath: json['backdrop_path'] as String?,
     logoUrl: json['logo_url'] as String?,
     logoAspectRatio: (json['logo_aspect_ratio'] as num?)?.toDouble(),
+    textlessPosterUrl: json['textless_poster_url'] as String?,
+    textlessPosterPath: json['textless_poster_path'] as String?,
   );
 
   final int id;
@@ -61,11 +65,18 @@ class MediaItem {
   final String? logoUrl;
   final double? logoAspectRatio;
 
+  /// Poster without text, to show under the logo (phone carousel). Home rows only.
+  final String? textlessPosterUrl;
+  final String? textlessPosterPath;
+
   /// Identity used by the sync API (`source` = "tmdb").
   String get syncId => '${type.name}:$id';
 
   /// Poster at another TMDb size ("w500", "w780"…), falls back to [posterUrl].
   String? poster(String size) => resizeImage(posterUrl, posterPath, size);
+
+  /// Poster without the title printed on it if TMDb has one (home rows), else the usual poster.
+  String? cleanPoster(String size) => resizeImage(textlessPosterUrl, textlessPosterPath, size) ?? poster(size);
 
   /// Backdrop at another TMDb size ("w780", "original"…), falls back to [backdropUrl].
   String? backdrop(String size) => resizeImage(backdropUrl, backdropPath, size);

@@ -21,7 +21,17 @@ const pageLogo = 'https://image.tmdb.org/t/p/w500/phare.png';
 
 final home = Home(
   featured: const [
-    MediaItem(id: 2, type: MediaType.movie, title: 'Orbite 9', logoUrl: homeLogo, logoAspectRatio: 3),
+    MediaItem(
+      id: 2,
+      type: MediaType.movie,
+      title: 'Orbite 9',
+      logoUrl: homeLogo,
+      logoAspectRatio: 3,
+      posterPath: '/orbite.jpg',
+      posterUrl: 'https://image.tmdb.org/t/p/w342/orbite.jpg',
+      textlessPosterPath: '/orbite-clean.jpg',
+      textlessPosterUrl: 'https://image.tmdb.org/t/p/w500/orbite-clean.jpg',
+    ),
     MediaItem(id: 3, type: MediaType.movie, title: 'Le Phare'),
   ],
   sections: [
@@ -151,6 +161,8 @@ void main() {
     await pumpHome(tester, const Size(430, 932));
 
     expect(logo(homeLogo), findsOneWidget);
+    // Under the logo, the poster without text.
+    expect(logo('https://image.tmdb.org/t/p/w780/orbite-clean.jpg'), findsOneWidget);
     // No logo given by the home for "Le Phare" (next card): its name.
     await tester.drag(find.byType(PageView), const Offset(-300, 0));
     await tester.pumpAndSettle();

@@ -120,7 +120,8 @@ class _FeaturedCard extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          NetImage(url: item.poster('w780'), seed: item.id),
+          // The poster without text if there is one: the logo below is the title.
+          NetImage(url: item.cleanPoster('w780'), seed: item.id),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(

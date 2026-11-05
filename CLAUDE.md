@@ -173,7 +173,9 @@ lib/
   dimensionné avant son chargement (`logo_aspect_ratio`) ; sans logo, ou s'il ne se charge pas, le
   nom est écrit. L'accueil donne le logo avec chaque titre (logo tout de suite) ; ailleurs
   (recherche, « Continuer à regarder »), il vient de la fiche quand la sélection s'arrête, dans une
-  place de hauteur fixe (rien ne bouge). Fond de la fiche : l'image sans texte
+  place de hauteur fixe (rien ne bouge). Carrousel du téléphone : l'affiche sans texte
+  (`MediaItem.cleanPoster`, `textless_poster_url` de l'accueil), sinon l'affiche habituelle. Fond de
+  la fiche : l'image sans texte
   (`textless_backdrop_url`, via `TitleDetails.background(size)`), sinon `backdrop_url`. Le lecteur
   d'écran lit toujours le nom.
 - **Pas de section « Sources »** sur la fiche (demande du développeur).
