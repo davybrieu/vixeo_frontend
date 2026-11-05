@@ -108,6 +108,32 @@ class Genre {
 
   final int id;
   final String name;
+
+  @override
+  bool operator ==(Object other) => other is Genre && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
+/// One page of a paginated list (`data` + `meta`: discover, search by type).
+class Paged<T> {
+  const Paged({required this.items, this.page = 1, this.totalPages = 1});
+
+  factory Paged.fromJson(Map<String, dynamic> json, T Function(Map<String, dynamic>) parse) {
+    final meta = json['meta'] is Map ? json['meta'] as Map : const {};
+    return Paged(
+      items: _list(json['data'], parse),
+      page: meta['page'] as int? ?? 1,
+      totalPages: meta['total_pages'] as int? ?? 1,
+    );
+  }
+
+  final List<T> items;
+  final int page;
+  final int totalPages;
+
+  bool get hasMore => page < totalPages;
 }
 
 class Person {

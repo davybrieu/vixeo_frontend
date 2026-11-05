@@ -50,6 +50,25 @@ void main() {
     expect(item.backdrop('original'), 'https://image.tmdb.org/t/p/original/bd.jpg');
   });
 
+  test('reads a page of titles (discover, search by type)', () {
+    final page = Paged.fromJson({
+      'data': [
+        {
+          'id': 550,
+          'type': 'movie',
+          'title': 'Fight Club',
+          'genre_ids': [18],
+        },
+      ],
+      'meta': {'page': 2, 'total_pages': 3, 'total_results': 60},
+    }, MediaItem.fromJson);
+
+    expect(page.items.single.title, 'Fight Club');
+    expect(page.page, 2);
+    expect(page.hasMore, isTrue);
+    expect(Paged.fromJson({'data': []}, MediaItem.fromJson).hasMore, isFalse);
+  });
+
   test('resizes images on whatever host the API uses', () {
     expect(resizeImage('http://cdn.test/t/p/w342/a.jpg', '/a.jpg', 'w780'), 'http://cdn.test/t/p/w780/a.jpg');
     expect(resizeImage(null, '/a.jpg', 'w780'), isNull);
