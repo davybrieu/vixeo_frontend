@@ -44,7 +44,8 @@ travail sur `main`, pas de workflow GitHub Actions pour l'API) sont dans les `CL
   - [ ] installer l'APK avec une appli de téléchargement (lien court `/apk`) ;
   - [ ] naviguer à la télécommande (focus vert, flèches, OK, retour) ;
   - [ ] se connecter par QR code depuis le téléphone ;
-  - [ ] mise à jour intégrée sur TV.
+  - [ ] mise à jour intégrée sur TV ;
+  - [ ] grande image : logos des titres, fond, lisibilité à 3 m.
 - [ ] **Navigateurs** : appli web sur Chrome, Edge, Firefox et Safari ; site `vixeo_web` sur
       téléphone, tablette et ordinateur.
 
@@ -58,6 +59,9 @@ travail sur `main`, pas de workflow GitHub Actions pour l'API) sont dans les `CL
       Variables : `WEB_URL`, `SITE_URL`, `CORS_ALLOWED_ORIGINS` (limité aux domaines Vixeo),
       `TMDB_READ_ACCESS_TOKEN`, `SANCTUM_EXPIRATION`, `APP_LOCALE=fr`.
       → `vixeo_backend/docs/deploiement.md`
+- [ ] **Jeton TMDb de production** : en générer un nouveau sur TMDb (celui des essais a été écrit
+      dans une conversation), le mettre seulement dans Forge (`TMDB_READ_ACCESS_TOKEN`), puis vider
+      le cache de l'API (`php artisan cache:clear`).
 - [ ] **Service d'e-mails** (`MAIL_*`, adresse d'envoi vérifiée SPF / DKIM). Sans lui, « Mot de
       passe oublié » et l'export des données ne fonctionnent pas.
 - [ ] **Site `vixeo_web`** : site Forge sans base, daemon SSR `php artisan inertia:start-ssr`,
@@ -78,6 +82,9 @@ travail sur `main`, pas de workflow GitHub Actions pour l'API) sont dans les `CL
 - [ ] Vérifier les **conditions d'utilisation de TMDb** pour l'usage prévu (attribution déjà
       affichée ; usage commercial éventuel).
 - [ ] Créer l'adresse de **support** (`SUPPORT_EMAIL`, `VIXEO_CONTACT_EMAIL`).
+- [ ] *(Facultatif)* **Notes IMDb** à la place des notes TMDb : seulement avec la licence officielle
+      d'IMDb (AWS Data Exchange, contact imdb-licensing-support@imdb.com). Les fichiers gratuits
+      d'IMDb et OMDb sont réservés à un usage personnel et non commercial.
 
 ---
 
@@ -120,4 +127,9 @@ travail sur `main`, pas de workflow GitHub Actions pour l'API) sont dans les `CL
       (appli).
 - [ ] Piste : générer le client Dart depuis `vixeo_backend/docs/openapi.json` au lieu des modèles
       écrits à la main.
+- [ ] **Accessibilité** : les boutons Films / Séries de l'accueil (téléphone) et le menu de
+      navigation sont lus deux fois par les lecteurs d'écran (« Films Films ») ; même correction que
+      les filtres de la recherche (`ExcludeSemantics` sous le libellé).
+- [ ] Surveiller la place prise par le cache TMDb dans Redis (images de l'accueil, environ 30 Ko par
+      titre, gardées une semaine).
 - [ ] Mettre à jour `APPLE_NOTARIZATION.md` et ce fichier à chaque étape franchie.
