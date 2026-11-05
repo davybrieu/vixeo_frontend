@@ -157,11 +157,11 @@ lib/
   n'existent qu'avec un texte). Avec un texte : l'API filtre et trie les premiers résultats (une
   recherche filtrée ne renvoie pas de personnes). « Tout » = une rangée Films et une rangée
   Séries ; un type choisi = une grille qui charge la page suivante en arrivant à la fin
-  (`_PagedGrid`). Téléphone : carrousel des titres tendance (`FeaturedCarousel`) avant de taper ;
+  (`_PagedGrid`). Téléphone : pas de carrousel ni de grande image (demande du développeur) ;
   grand écran : la grande image (`catalog/hero.dart`, partagée avec l'accueil) montre le premier
   résultat, puis suit la carte sélectionnée ou survolée. Un genre absent du type choisi est
-  retiré. Les recherches récentes restent celles de la session. L'ancienne page
-  `/recherche/genre/...` n'est plus liée depuis la recherche.
+  retiré. Les recherches récentes restent celles de la session. Pas de page par genre : on
+  filtre par genre dans la recherche.
 - **Pas de section « Sources »** sur la fiche (demande du développeur).
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
   horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Pas de nom sur les affiches**, dans
@@ -186,9 +186,10 @@ lib/
   fiche film et série (saisons, épisodes, distribution, recommandations, bande-annonce, Ma liste,
   Vu), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (« Explorer », filtres type / genre / années /
-  note, tri, grande image ou carrousel, résultats groupés), Ma liste, « Mon profil » (avatar par licence, format des affiches, contrôle parental, connecter une TV,
-  changer de profil, déconnexion, mon compte : export et suppression, appareils connectés),
-  mot de passe oublié, politique de confidentialité et « Aide et à propos », vérification des
+  note, tri, grande image sur grand écran, résultats groupés), Ma liste, « Mon profil » (avatar
+  par licence, format des affiches, contrôle parental, connecter une TV, changer de profil,
+  déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
+  politique de confidentialité et « Aide et à propos », vérification des
   mises à jour (Android / iOS), mises en page téléphone et TV / grand écran, navigation à la
   télécommande.
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.

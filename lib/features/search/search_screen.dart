@@ -30,10 +30,10 @@ class RecentSearches extends Notifier<List<String>> {
   void clear() => state = const [];
 }
 
-/// Search page. Without a text: "Explorer" (whole catalog by type, genre, years, rating and order),
-/// with the trending carousel on a phone. With a text: the results, filtered and sorted the same
-/// way. On larger screens, the hero (backdrop and information) follows the selected or hovered
-/// result, as on the home page.
+/// Search page. Without a text: "Explorer" (whole catalog by type, genre, years, rating and order).
+/// With a text: the results, filtered and sorted the same way. On larger screens, the hero
+/// (backdrop and information) follows the selected or hovered result, as on the home page; a
+/// phone has no hero nor carousel here.
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -374,12 +374,7 @@ class _Results extends ConsumerWidget {
 
     return CustomScrollView(
       slivers: [
-        if (!_withText) ...[
-          _RecentSearches(onPick: onPickRecent),
-          // Phone: trending titles of the chosen type, before typing (the large-screen hero
-          // shows the first result instead).
-          if (layout.isPhone) SliverToBoxAdapter(child: _TrendingCarousel(type: type)),
-        ],
+        if (!_withText) _RecentSearches(onPick: onPickRecent),
         ...content,
         SliverToBoxAdapter(child: SizedBox(height: layout.isLarge ? layout.tv(80) : 32)),
       ],
@@ -425,23 +420,6 @@ class _RecentSearches extends ConsumerWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-/// Phone, before typing: the featured (trending) titles of the home, for the chosen type.
-class _TrendingCarousel extends ConsumerWidget {
-  const _TrendingCarousel({required this.type});
-
-  final MediaType? type;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final featured = ref.watch(homeProvider(type)).value?.featured ?? const <MediaItem>[];
-    if (featured.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: FeaturedCarousel(items: featured),
     );
   }
 }
@@ -728,33 +706,6 @@ class _PagedGridState<T> extends ConsumerState<_PagedGrid<T>> {
             ),
           ),
       ],
-    );
-  }
-}
-
-/// Titles of one genre (older links to `/recherche/genre/...`; the search page filters by genre).
-class GenreScreen extends ConsumerWidget {
-  const GenreScreen({super.key, required this.type, required this.genreId, required this.name});
-
-  final MediaType type;
-  final int genreId;
-  final String name;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(discoverProvider((type, genreId)));
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(name, style: VxText.title(20)),
-        backgroundColor: VxColors.background,
-      ),
-      body: AsyncView(
-        value: items,
-        onRetry: () => ref.invalidate(discoverProvider((type, genreId))),
-        data: (list) => list.isEmpty
-            ? const EmptyState(icon: Icons.movie_filter_outlined, title: 'Aucun titre')
-            : PosterGrid(items: list),
-      ),
     );
   }
 }

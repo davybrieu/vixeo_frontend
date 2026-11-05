@@ -149,18 +149,19 @@ void main() {
     });
   });
 
-  testWidgets('phone: explore with the trending carousel, then a filtered grid of one type', (tester) async {
+  testWidgets('phone: explore without carousel, then a filtered grid of one type', (tester) async {
     final fake = await pumpSearch(tester);
 
-    // Before typing: the carousel of trending titles, and a row of movies and of TV shows.
-    expect(find.text('Tendance tout'), findsOneWidget);
+    // Before typing: a row of movies and a row of TV shows, no carousel of trending titles.
+    expect(find.text('Tendance tout'), findsNothing);
     expect(find.text('Films'), findsWidgets);
     expect(fake.titleQueries.map((q) => q.type), containsAll([MediaType.movie, MediaType.tv]));
     expect(find.text('Personnes'), findsNothing);
 
-    // "Séries": the carousel follows the type, and the titles come in a grid.
+    // "Séries": the TV shows come in a grid.
     await tapChip(tester, 'Séries');
-    expect(find.text('Tendance tv'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('^Série 1-0,')), findsOneWidget);
+    expect(find.text('Tendance tv'), findsNothing);
 
     await choose(tester, 'Genre', 'Drame');
     expect(fake.titleQueries.last.type, MediaType.tv);
@@ -211,18 +212,24 @@ void main() {
     await tester.tap(find.byTooltip('Effacer'));
     await tester.pumpAndSettle();
     expect(find.text('Personnes'), findsNothing);
-    expect(find.text('Tendance tout'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('^Film 1-0,')), findsOneWidget);
   });
 
   testWidgets('the grid loads the next page at its end', (tester) async {
     final fake = await pumpSearch(tester, totalPages: 3);
     await tapChip(tester, 'Films');
-    expect(fake.titleQueries.where((q) => q.type == MediaType.movie).map((q) => q.page).toSet(), {1});
+    Set<int> moviePages() => fake.titleQueries.where((q) => q.type == MediaType.movie).map((q) => q.page).toSet();
+    expect(moviePages(), isNot(contains(3)));
 
     final page = find.descendant(of: find.byType(CustomScrollView), matching: find.byType(Scrollable)).first;
-    await tester.scrollUntilVisible(find.bySemanticsLabel(RegExp('^Film 1-19')), 400, scrollable: page);
+    await tester.scrollUntilVisible(find.bySemanticsLabel(RegExp('^Film 2-19,')), 400, scrollable: page);
     await tester.pumpAndSettle();
-    expect(fake.titleQueries.map((q) => q.page), contains(2));
+    expect(moviePages(), {1, 2, 3});
+
+    // Last page reached: nothing more is asked.
+    await tester.scrollUntilVisible(find.bySemanticsLabel(RegExp('^Film 3-19,')), 400, scrollable: page);
+    await tester.pumpAndSettle();
+    expect(moviePages(), {1, 2, 3});
   });
 
   testWidgets('large screen: the hero shows the first result, then follows the selection', (tester) async {

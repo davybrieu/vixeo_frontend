@@ -129,14 +129,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
         ),
       ),
-      GoRoute(
-        path: '/recherche/genre/:type/:id',
-        builder: (_, state) => GenreScreen(
-          type: MediaType.parse(state.pathParameters['type']),
-          genreId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
-          name: state.uri.queryParameters['nom'] ?? 'Genre',
-        ),
-      ),
     ],
     errorBuilder: (context, state) => const Scaffold(
       body: EmptyState(icon: Icons.explore_off_outlined, title: 'Page introuvable'),

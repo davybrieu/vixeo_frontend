@@ -46,7 +46,7 @@ class HeroSelection {
   }
 }
 
-/// Phone: swipeable cards of featured titles (home, search before typing).
+/// Phone home: swipeable cards of featured titles.
 class FeaturedCarousel extends StatefulWidget {
   const FeaturedCarousel({super.key, required this.items});
 

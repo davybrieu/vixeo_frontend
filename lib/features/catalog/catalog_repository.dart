@@ -56,11 +56,6 @@ class CatalogRepository {
   }
 
   Future<List<Genre>> genres(MediaType type) async => (await allGenres())[type] ?? const [];
-
-  Future<List<MediaItem>> discover(MediaType type, {int? genre, int page = 1}) async {
-    final json = await _api.get('/catalog/${type.name}/discover', query: {'genre': genre, 'page': page});
-    return (json['data'] as List).whereType<Map<String, dynamic>>().map(MediaItem.fromJson).toList();
-  }
 }
 
 final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => CatalogRepository(ref.read(apiClientProvider)));
@@ -114,8 +109,3 @@ final allGenresProvider = FutureProvider.autoDispose<Map<MediaType, List<Genre>>
 final genresProvider = FutureProvider.autoDispose.family<List<Genre>, MediaType>(
   (ref, type) async => (await ref.watch(allGenresProvider.future))[type] ?? const [],
 );
-
-final discoverProvider = FutureProvider.autoDispose.family<List<MediaItem>, (MediaType, int)>((ref, key) {
-  ref.watch(_profileIdProvider);
-  return ref.read(catalogRepositoryProvider).discover(key.$1, genre: key.$2);
-});
