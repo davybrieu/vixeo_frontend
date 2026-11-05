@@ -72,7 +72,9 @@ d'ONYX (voir annexe), avec **une seule base de code** pour :
   via leurs flux publics, **en respectant leurs conditions d'utilisation**.
 - **Serveurs média personnels** de l'utilisateur : Jellyfin, Plex, Emby (via leurs API).
 - **Métadonnées** : TMDb (clé API, attribution « This product uses the TMDB API… » obligatoire).
-- **Sous-titres** : OpenSubtitles, SubDL (clé API fournie par l'utilisateur).
+- **Sous-titres** : OpenSubtitles, avec la clé Vixeo (décision du développeur, 07/11/2026 :
+  l'API interroge OpenSubtitles pour les applis et garde les fichiers en cache, voir
+  `docs/lecture.md`). Moments à passer (génériques, résumé) : TheIntroDB.
 - Vidéos locales de l'appareil.
 
 ### Écarté par décision du développeur (ne pas proposer ni implémenter)
@@ -246,7 +248,8 @@ Garder un cache des flux morts (écartés plus vite) et un cache des résolution
 
 ### 5.9 Sous-titres
 
-- Recherche OpenSubtitles / SubDL avec la clé de l'utilisateur.
+- Recherche OpenSubtitles par l'API, avec la clé Vixeo (fichiers convertis en WebVTT et mis en
+  cache), langue préférée réglée dans le profil.
 - Traduction sur l'appareil (ONYX : ML Kit de Google).
 - Calage automatique (fonction avancée, plus tard) : ONYX analyse le son décodé du film
   (pas le micro) avec un détecteur de voix (TEN VAD) et aligne les sous-titres sur

@@ -27,6 +27,28 @@ void main() {
     expect(profile.initial, 'L');
   });
 
+  test('reads the playback settings of a profile', () {
+    final profile = Profile.fromJson({
+      'id': 3,
+      'name': 'Léa',
+      'audio_language': 'fr',
+      'subtitle_language': 'pt-BR',
+      'skip_intro': true,
+      'skip_recap': false,
+      'skip_credits': true,
+      'skip_preview': false,
+    });
+    expect(profile.audioLanguage, 'fr');
+    expect(profile.subtitleLanguage, 'pt-BR');
+    expect(profile.skipIntro, isTrue);
+    expect(profile.skipCredits, isTrue);
+    expect(profile.skipRecap, isFalse);
+
+    final older = Profile.fromJson({'id': 3, 'name': 'Léa'});
+    expect(older.audioLanguage, isNull);
+    expect(older.skipIntro, isFalse);
+  });
+
   test('reads a catalog item and builds image sizes', () {
     final item = MediaItem.fromJson({
       'id': 1399,

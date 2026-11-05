@@ -12,20 +12,7 @@ import '../catalog/models.dart';
 import '../catalog/widgets.dart';
 import 'filter_bar.dart';
 import 'search_filters.dart';
-
-/// Recent searches of this app session (not synced yet).
-final recentSearchesProvider = NotifierProvider<RecentSearches, List<String>>(RecentSearches.new);
-
-class RecentSearches extends Notifier<List<String>> {
-  @override
-  List<String> build() => const [];
-
-  void add(String query) => state = [query, ...state.where((q) => q != query)].take(8).toList();
-
-  void remove(String query) => state = state.where((q) => q != query).toList();
-
-  void clear() => state = const [];
-}
+import 'search_history.dart';
 
 /// Search page. Without a text: "Explorer" (whole catalog by type, genre, years, rating and order).
 /// With a text: the results, filtered and sorted the same way. On larger screens, the hero
@@ -387,7 +374,8 @@ class _RecentSearches extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final recent = ref.watch(recentSearchesProvider);
+    // Synced with the profile's other devices; the 8 most recent here.
+    final recent = (ref.watch(recentSearchesProvider).value ?? const <RecentSearch>[]).take(8).toList();
     if (recent.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
 
     return SliverPadding(
@@ -403,16 +391,16 @@ class _RecentSearches extends ConsumerWidget {
               ),
             ],
           ),
-          for (final q in recent)
+          for (final search in recent)
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.history_rounded, color: VxColors.textMuted),
-              title: Text(q, style: VxText.body(15)),
-              onTap: () => onPick(q),
+              title: Text(search.query, style: VxText.body(15)),
+              onTap: () => onPick(search.query),
               trailing: IconButton(
-                tooltip: 'Retirer « $q » de l’historique',
+                tooltip: 'Retirer « ${search.query} » de l’historique',
                 icon: const Icon(Icons.close_rounded, size: 18, color: VxColors.textMuted),
-                onPressed: () => ref.read(recentSearchesProvider.notifier).remove(q),
+                onPressed: () => ref.read(recentSearchesProvider.notifier).remove(search),
               ),
             ),
         ],

@@ -75,7 +75,10 @@ lib/
     profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
     library/     synchro par profil (favoris, vus, « Continuer à regarder »), Ma liste
-    search/      recherche : « Explorer » sans texte, filtres (type, genre, années, note) et tri
+    search/      recherche : « Explorer » sans texte, filtres (type, genre, années, note) et tri,
+                 recherches récentes synchronisées (search_history.dart)
+    playback/    pour le futur lecteur : moments à passer (TheIntroDB) et sous-titres (OpenSubtitles),
+                 via l'API
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
 ```
 
@@ -160,8 +163,10 @@ lib/
   (`_PagedGrid`). Téléphone : pas de carrousel ni de grande image (demande du développeur) ;
   grand écran : la grande image (`catalog/hero.dart`, partagée avec l'accueil) montre le premier
   résultat, puis suit la carte sélectionnée ou survolée. Un genre absent du type choisi est
-  retiré. Les recherches récentes restent celles de la session. Pas de page par genre : on
-  filtre par genre dans la recherche.
+  retiré. Recherches récentes synchronisées entre les appareils du profil
+  (`RecentSearches`, API `/profiles/{id}/searches`) : affichées tout de suite, enregistrées en
+  arrière-plan, 8 visibles sur 20 gardées ; « orbi » puis « orbite » ne garde que « orbite » (même
+  règle que l'API). Pas de page par genre : on filtre par genre dans la recherche.
 - **Fiche : « Créateur et distribution »** : la rangée commence, à gauche, par la réalisation
   (film, `directors`) ou la création (série, `creators`), marquées « Réalisation » / « Création »
   (mots neutres), puis la distribution ; « Distribution » seul si TMDb n'en donne pas. Pas de
@@ -178,6 +183,14 @@ lib/
   la fiche : l'image sans texte
   (`textless_backdrop_url`, via `TitleDetails.background(size)`), sinon `backdrop_url`. Le lecteur
   d'écran lit toujours le nom.
+- **Lecture et sous-titres** (`/profil/lecture`, `PlaybackSettingsScreen`, API :
+  `vixeo_backend/docs/lecture.md`) : langue audio préférée (null = version originale), langue des
+  sous-titres (null = désactivés ; noms dans `profiles/languages.dart`, mêmes codes que l'API) et
+  « Passer automatiquement » le générique de début, le résumé, le générique de fin, l'aperçu
+  (sinon le lecteur montrera un bouton « Passer »). Champs du profil : synchronisés, pas de PIN
+  parental. Le lecteur n'existe pas encore : `features/playback` (`PlaybackRepository`,
+  `SkipSegments.at`, `SkipKind.autoFor`) prépare ce qu'il utilisera. Les applis ne parlent jamais
+  à OpenSubtitles ni à TheIntroDB : tout passe par l'API (clé Vixeo commune).
 - **Pas de section « Sources »** sur la fiche (demande du développeur).
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
   horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Pas de nom sur les affiches**, dans
@@ -202,16 +215,18 @@ lib/
   fiche film et série (saisons, épisodes, distribution, recommandations, bande-annonce, Ma liste,
   Vu), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (« Explorer », filtres type / genre / années /
-  note, tri, grande image sur grand écran, résultats groupés), Ma liste, « Mon profil » (avatar
-  par licence, format des affiches, contrôle parental, connecter une TV, changer de profil,
+  note, tri, grande image sur grand écran, résultats groupés, recherches récentes synchronisées),
+  Ma liste, « Mon profil » (avatar par licence, format des affiches, lecture et sous-titres,
+  contrôle parental, connecter une TV, changer de profil,
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   politique de confidentialité et « Aide et à propos », vérification des
   mises à jour (Android / iOS), mises en page téléphone et TV / grand écran, navigation à la
   télécommande.
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
 - Vérifié de bout en bout (web) contre l'API Laravel locale avec un faux TMDb.
-- Pas encore fait : lecteur vidéo et sources (Jellyfin / Plex / Emby), historique de recherche
-  synchronisé, déploiement web (workflow `deploy-web.yml` du §8.2).
+- Pas encore fait : lecteur vidéo et sources (Jellyfin / Plex / Emby), qui utilisera les réglages
+  de lecture, les moments à passer et les sous-titres déjà prêts ; déploiement web (workflow
+  `deploy-web.yml` du §8.2).
 - Limite connue : sur le web avec le mode lecteur d'écran activé, le focus initial et les flèches
   passent par le navigateur (Tab fonctionne). Sans lecteur d'écran, et sur Android TV, les flèches
   et OK fonctionnent.

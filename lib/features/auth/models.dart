@@ -75,6 +75,12 @@ class Profile {
     this.hasPin = false,
     this.position = 0,
     this.allowUnrated = false,
+    this.audioLanguage,
+    this.subtitleLanguage,
+    this.skipIntro = false,
+    this.skipRecap = false,
+    this.skipCredits = false,
+    this.skipPreview = false,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
@@ -88,6 +94,12 @@ class Profile {
     hasPin: json['has_pin'] as bool? ?? false,
     position: json['position'] as int? ?? 0,
     allowUnrated: json['allow_unrated'] as bool? ?? false,
+    audioLanguage: json['audio_language'] as String?,
+    subtitleLanguage: json['subtitle_language'] as String?,
+    skipIntro: json['skip_intro'] as bool? ?? false,
+    skipRecap: json['skip_recap'] as bool? ?? false,
+    skipCredits: json['skip_credits'] as bool? ?? false,
+    skipPreview: json['skip_preview'] as bool? ?? false,
   );
 
   final int id;
@@ -106,6 +118,18 @@ class Profile {
 
   /// With an age limit: also show titles without a known age rating.
   final bool allowUnrated;
+
+  /// Preferred audio language ("fr"…), null = original version (docs: vixeo_backend/docs/lecture.md).
+  final String? audioLanguage;
+
+  /// Preferred subtitles ("fr", "pt-BR"…), null = none.
+  final String? subtitleLanguage;
+
+  /// Moments the player skips by itself; otherwise it shows a "Passer" button.
+  final bool skipIntro;
+  final bool skipRecap;
+  final bool skipCredits;
+  final bool skipPreview;
 
   /// First letter, shown on the avatar tile.
   String get initial => name.isEmpty ? '?' : String.fromCharCode(name.runes.first).toUpperCase();

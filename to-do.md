@@ -62,6 +62,12 @@ travail sur `main`, pas de workflow GitHub Actions pour l'API) sont dans les `CL
 - [ ] **Jeton TMDb de production** : en générer un nouveau sur TMDb (celui des essais a été écrit
       dans une conversation), le mettre seulement dans Forge (`TMDB_READ_ACCESS_TOKEN`), puis vider
       le cache de l'API (`php artisan cache:clear`).
+- [ ] **OpenSubtitles** : créer le compte Vixeo et une clé « consumer » sur opensubtitles.com, les
+      mettre dans Forge (`OPENSUBTITLES_API_KEY`, `OPENSUBTITLES_USERNAME`, `OPENSUBTITLES_PASSWORD`) ;
+      vérifier le quota quotidien de téléchargements (offre VIP ou commerciale pour une appli
+      publique) et tester la recherche et le téléchargement avec la vraie clé.
+- [ ] **TheIntroDB** : vérifier les conditions d'utilisation des données (non publiées) ; clé
+      facultative (`THEINTRODB_API_KEY`) si 5 000 requêtes par jour ne suffisent plus.
 - [ ] **Service d'e-mails** (`MAIL_*`, adresse d'envoi vérifiée SPF / DKIM). Sans lui, « Mot de
       passe oublié » et l'export des données ne fonctionnent pas.
 - [ ] **Site `vixeo_web`** : site Forge sans base, daemon SSR `php artisan inertia:start-ssr`,
@@ -98,8 +104,11 @@ travail sur `main`, pas de workflow GitHub Actions pour l'API) sont dans les `CL
   - [ ] statuts « retiré » (410) et « non autorisé » (451). → `APPLE_NOTARIZATION.md` P13
 - [ ] Chaînes FAST seulement avec un accord écrit ou des conditions qui autorisent les applis
       tierces (`docs/CONTEXT.md` §3).
-- [ ] Historique des recherches synchronisé entre appareils.
-- [ ] Réglages du profil synchronisés (langue audio et sous-titres préférés).
+- [x] Historique des recherches synchronisé entre appareils.
+- [x] Réglages du profil synchronisés (langue audio et sous-titres préférés, génériques passés
+      automatiquement).
+- [ ] Lecteur : utiliser les moments à passer (TheIntroDB) et les sous-titres (OpenSubtitles) déjà
+      fournis par l'API (`features/playback`, `vixeo_backend/docs/lecture.md`).
 - [ ] Résumé en anglais quand le résumé français manque (API).
 - [ ] Déverrouillage temporaire d'un titre avec le PIN parental.
 

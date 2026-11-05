@@ -13,7 +13,7 @@ class Legal {
   static const supportEmail = String.fromEnvironment('SUPPORT_EMAIL');
 
   /// Last change of the privacy policy (update it with the text).
-  static const privacyPolicyDate = '4 novembre 2026';
+  static const privacyPolicyDate = '7 novembre 2026';
 
   static String get publisherOrDefault => publisher.isEmpty ? 'L’éditeur de Vixeo' : publisher;
 }

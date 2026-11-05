@@ -117,6 +117,12 @@ class ProfileSettingsScreen extends ConsumerWidget {
             runSpacing: 12 * s,
             children: [
               VxButton(
+                label: 'Lecture et sous-titres',
+                icon: Icons.subtitles_outlined,
+                kind: VxButtonKind.outline,
+                onPressed: () => context.push('/profil/lecture'),
+              ),
+              VxButton(
                 label: 'Contrôle parental',
                 icon: Icons.shield_outlined,
                 kind: VxButtonKind.outline,

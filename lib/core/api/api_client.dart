@@ -52,6 +52,18 @@ class ApiClient {
   Future<Map<String, dynamic>> get(String path, {Map<String, dynamic>? query}) =>
       _send(() => _dio.get<dynamic>(path, queryParameters: _clean(query)));
 
+  /// A text answer (e.g. a WebVTT subtitle file).
+  Future<String> getText(String path) async {
+    try {
+      final response = await _dio.get<String>(path, options: Options(responseType: ResponseType.plain));
+      return response.data ?? '';
+    } on DioException catch (error) {
+      final exception = ApiException.fromDio(error);
+      if (exception.isUnauthorized) _onUnauthorized?.call();
+      throw exception;
+    }
+  }
+
   Future<Map<String, dynamic>> post(String path, {Object? body, Map<String, String>? headers}) => _send(
     () => _dio.post<dynamic>(
       path,

@@ -47,8 +47,13 @@ class PrivacyScreen extends StatelessWidget {
               'hachée : illisible, même pour nous.',
             ),
             InfoBullet(
-              'Vos profils : nom, avatar, réglages (profil enfant, âge maximum, format des affiches) et, si vous en '
-              'mettez un, le code PIN (lui aussi haché). De même pour le code PIN parental du compte.',
+              'Vos profils : nom, avatar, réglages (profil enfant, âge maximum, format des affiches, langues audio et '
+              'sous-titres préférées, génériques passés automatiquement) et, si vous en mettez un, le code PIN (lui '
+              'aussi haché). De même pour le code PIN parental du compte.',
+            ),
+            InfoBullet(
+              'Vos recherches récentes (les 20 dernières de chaque profil), pour les retrouver sur tous vos écrans. '
+              'Vous pouvez en retirer une ou tout effacer depuis la page Recherche.',
             ),
             InfoBullet(
               'Ce que vous regardez : votre liste, votre progression et les titres marqués comme vus, pour les '
@@ -107,6 +112,11 @@ class PrivacyScreen extends StatelessWidget {
             InfoBullet(
               'YouTube : les bandes-annonces s’ouvrent dans YouTube (application ou site), qui applique sa propre '
               'politique de confidentialité.',
+            ),
+            InfoBullet(
+              'OpenSubtitles (sous-titres) et TheIntroDB (moments des génériques à passer) : notre serveur les '
+              'interroge avec l’identifiant du titre, la saison, l’épisode et la langue, sans votre identité. Votre '
+              'appareil ne leur parle pas.',
             ),
             InfoBullet(
               'Notre hébergeur et notre service d’envoi d’e-mails (codes de réinitialisation, export de vos '

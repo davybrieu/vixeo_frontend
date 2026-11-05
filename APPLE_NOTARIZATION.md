@@ -401,17 +401,20 @@ CVE-2026-118514 et CVE-2026-118516.
 | Nom, adresse e-mail | API (`users`) | Compte | Jusqu'à la suppression du compte (P5) |
 | Mot de passe | API, haché | Connexion | Idem |
 | PIN parental, PIN de profil | API, hachés | Contrôle parental | Idem |
-| Profils (nom, avatar, profil enfant, âge maximum, format des affiches) | API (`profiles`) | Personnalisation, filtre d'âge | Idem |
+| Profils (nom, avatar, profil enfant, âge maximum, format des affiches, langues audio et sous-titres, génériques à passer) | API (`profiles`) | Personnalisation, filtre d'âge, lecture | Idem |
+| Recherches récentes (20 par profil) | API (`profile_searches`) | Les retrouver sur tous les appareils | Jusqu'à leur effacement par l'utilisateur ou la suppression du compte |
 | Activité : favoris, progression, titres vus (titre, dates) | API (`profile_items`) | Synchro entre appareils, « Continuer à regarder » | Idem |
 | Nom de l'appareil (ex. « Vixeo TV ») | API (jetons, connexions TV) | Identifier les sessions | Jetons sans expiration (P15) ; codes TV supprimés un jour après expiration |
 | Adresse IP | Limites d'essais (cache), journaux du serveur web | Sécurité | Quelques minutes (cache) ; journaux selon la configuration Forge (à préciser) |
-| Termes recherchés | Transmis à TMDb par le serveur, sans identité | Recherche | Non enregistrés par Vixeo |
+| Termes recherchés | Transmis à TMDb par le serveur, sans identité | Recherche | Les 20 derniers par profil (ligne ci-dessus) |
+| Identifiant du titre, saison, épisode, langue | Transmis à OpenSubtitles et TheIntroDB par le serveur, sans identité | Sous-titres, génériques à passer | Réponses mises en cache, sans lien avec un compte |
 | Jeton de session, profil choisi | Appareil (trousseau iOS) | Rester connecté | Jusqu'à la déconnexion |
 | Cache d'images | Appareil | Performance | Géré par le cache |
 
 Rien d'autre n'est collecté : pas de localisation, de contacts, de photos, d'identifiant
 publicitaire, d'analytics ni de rapport de plantage. App Store Connect (« App Privacy ») :
-coordonnées (nom, e-mail), identifiants (ID utilisateur), usage (interactions avec le contenu).
+coordonnées (nom, e-mail), identifiants (ID utilisateur), usage (interactions avec le contenu),
+historique de recherche (`NSPrivacyCollectedDataTypeSearchHistory` dans le manifeste).
 Ces données sont liées à l'utilisateur et **ne servent pas au suivi**.
 
 ---
