@@ -94,6 +94,17 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Read app version
+        id: app-version
+        shell: bash
+        run: |
+          VERSION="$(sed -n 's/^version: *\([0-9][^+ ]*\).*/\1/p' pubspec.yaml | head -n1)"
+          if [ -z "$VERSION" ]; then
+            echo "::error::Unable to read version from pubspec.yaml"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Restore Android release keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.VIXEO_KEYSTORE_BASE64 }}
@@ -125,7 +136,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-${{ github.run_number }}
-          name: Vixeo Android - build ${{ github.run_number }}
+          name: Vixeo Android v${{ steps.app-version.outputs.version }} - build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           files: |

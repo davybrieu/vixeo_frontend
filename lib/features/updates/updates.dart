@@ -93,8 +93,12 @@ class UpdateRepository {
 
   final ApiClient _api;
 
-  Future<UpdateInfo> check(UpdatePlatform platform, int build) async =>
-      UpdateInfo.fromJson(await _api.get('/app/update', query: {'platform': platform.name, 'build': build}));
+  Future<UpdateInfo> check(UpdatePlatform platform, InstalledVersion installed) async =>
+      UpdateInfo.fromJson(await _api.get('/app/update', query: {
+        'platform': platform.name,
+        'version': installed.version,
+        'build': installed.build,
+      }));
 }
 
 final updatePlatformProvider = Provider<UpdatePlatform?>((ref) => currentUpdatePlatform());
@@ -136,7 +140,7 @@ class UpdateController extends AsyncNotifier<UpdateInfo?> {
     final platform = ref.read(updatePlatformProvider);
     if (platform == null) return null;
     final installed = await ref.read(installedVersionProvider.future);
-    final info = await ref.read(updateRepositoryProvider).check(platform, installed.build);
+    final info = await ref.read(updateRepositoryProvider).check(platform, installed);
     _checkedAt = DateTime.now();
     return info;
   }
