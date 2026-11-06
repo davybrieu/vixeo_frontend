@@ -308,7 +308,7 @@ class _ExpandableOverviewState extends State<_ExpandableOverview> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final scale = layout.isLarge ? layout.scale * 2 : 1.0;
+    final scale = 1.0;
     final long = widget.text.length > 300;
 
     return Column(
@@ -319,7 +319,7 @@ class _ExpandableOverviewState extends State<_ExpandableOverview> {
           maxLines: _expanded || !long ? null : widget.maxLines,
           overflow: _expanded || !long ? null : TextOverflow.ellipsis,
           style: VxText.body(
-            (layout.isLarge ? 24 : 15) * scale,
+            (layout.isLarge ? layout.tv(16) : 15) * scale,
             color: VxColors.textSoft,
             height: 1.55,
           ),
