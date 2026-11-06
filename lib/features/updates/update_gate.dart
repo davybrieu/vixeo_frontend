@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/legal.dart';
+import '../auth/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../account/info_page.dart';
