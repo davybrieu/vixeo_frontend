@@ -34,11 +34,12 @@ jobs:
         run: flutter pub get
 
       - name: Build web
-        run: >-
-          flutter build web --release
-          --dart-define=API_URL=${{ env.API_URL }}
-          --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}"
-          --dart-define=SUPPORT_EMAIL=${{ env.SUPPORT_EMAIL }}
+        run: |
+          flutter build web --release \
+            --dart-define=API_URL="${{ env.API_URL }}" \
+            --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}" \
+            --dart-define=SUPPORT_EMAIL="${{ env.SUPPORT_EMAIL }}"
+
 
       - name: Upload web dist
         uses: actions/upload-artifact@v5
