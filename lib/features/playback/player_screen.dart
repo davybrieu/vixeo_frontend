@@ -159,34 +159,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   child: VideoPlayer(_controller!),
                 ),
               )
-            else if (_error != null)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.error_outline, color: VxColors.error, size: 48),
-                      const SizedBox(height: 16),
-                      Text(_error!, textAlign: TextAlign.center, style: VxText.body(16, color: VxColors.textSoft)),
-                      const SizedBox(height: 24),
-                      VxButton(
-                        label: 'Changer de source',
-                        icon: Icons.list_rounded,
-                        onPressed: () {
-                          setState(() {
-                            _sourcesPanelOpen = true;
-                            _controlsVisible = true;
-                          });
-                          _hideTimer?.cancel();
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      VxButton(label: 'Ouvrir en externe', icon: Icons.open_in_new, onPressed: _openExternal),
-                    ],
-                  ),
-                ),
-              )
             else
               const Center(child: CircularProgressIndicator(color: VxColors.accent)),
 
@@ -252,6 +224,54 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 onClose: () => setState(() => _sourcesPanelOpen = false),
               ),
             ),
+
+            // Keep playback errors above the video and all player controls so
+            // the recovery actions remain visible and tappable.
+            if (_error != null)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: const Color(0xCC000000),
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 340),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline, color: VxColors.error, size: 48),
+                            const SizedBox(height: 16),
+                            Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: VxText.body(16, color: VxColors.textSoft),
+                            ),
+                            const SizedBox(height: 24),
+                            VxButton(
+                              label: 'Changer de source',
+                              icon: Icons.list_rounded,
+                              onPressed: () {
+                                setState(() {
+                                  _error = null;
+                                  _sourcesPanelOpen = true;
+                                  _controlsVisible = true;
+                                });
+                                _hideTimer?.cancel();
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            VxButton(
+                              label: 'Ouvrir en externe',
+                              icon: Icons.open_in_new,
+                              onPressed: _openExternal,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -376,18 +396,18 @@ class _SourcesPanel extends StatefulWidget {
 class _SourcesPanelState extends State<_SourcesPanel> {
   String? _selectedProvider;
 
-  String _language(StreamSource source) {
+  String? _language(StreamSource source) {
     final value = source.name.toUpperCase();
     if (RegExp(r'\b(VOSTFR|VOSTA|SUBFR)\b').hasMatch(value)) return 'VOSTFR';
     if (RegExp(r'\b(VF|TRUEFRENCH|FRENCH|FR)\b').hasMatch(value)) return 'VF';
     if (RegExp(r'\b(VO|VOST)\b').hasMatch(value)) return 'VO';
-    return 'Non précisée';
+    return null;
   }
 
-  String _quality(StreamSource source) {
+  String? _quality(StreamSource source) {
     final value = source.name.toUpperCase();
     final match = RegExp(r'\b(2160P|4K|1080P|720P|576P|480P|360P|HD|SD)\b').firstMatch(value);
-    return match?.group(0) ?? 'Non précisée';
+    return match?.group(0);
   }
 
   @override
@@ -476,13 +496,24 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                                           style: VxText.body(15, weight: FontWeight.w700),
                                         ),
                                         const SizedBox(height: 7),
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 6,
-                                          children: [
-                                            _SourceInfoChip(icon: Icons.language_rounded, label: _language(source)),
-                                            _SourceInfoChip(icon: Icons.high_quality_rounded, label: _quality(source)),
-                                          ],
+                                        Builder(
+                                          builder: (context) {
+                                            final language = _language(source);
+                                            final quality = _quality(source);
+                                            if (language == null && quality == null) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              children: [
+                                                if (language != null)
+                                                  _SourceInfoChip(icon: Icons.language_rounded, label: language),
+                                                if (quality != null)
+                                                  _SourceInfoChip(icon: Icons.high_quality_rounded, label: quality),
+                                              ],
+                                            );
+                                          },
                                         ),
                                       ],
                                     ),
