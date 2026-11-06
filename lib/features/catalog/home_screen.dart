@@ -71,13 +71,6 @@ class _PhoneHome extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.only(top: top + 8, bottom: 24),
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-          child: const Align(
-            alignment: Alignment.centerLeft,
-            child: VxLogo(size: 22),
-          ),
-        ),
         if (home.featured.isNotEmpty) FeaturedCarousel(items: home.featured),
         if (resume.isNotEmpty) ...[
           const SizedBox(height: 28),
