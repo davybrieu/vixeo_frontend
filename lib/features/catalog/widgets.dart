@@ -113,18 +113,22 @@ class PosterCard extends ConsumerWidget {
                   ),
                 ),
               ],
-              if (watched || favorite)
+              if (favorite)
                 Positioned(
                   top: width * 0.06,
                   left: width * 0.06,
-                  child: Wrap(
-                    spacing: 5,
-                    children: [
-                      if (watched)
-                        _PosterBadge(label: 'Vu', width: width, color: VxColors.accent),
-                      if (favorite)
-                        _PosterBadge(label: 'Ma liste', width: width, color: const Color(0xFF16865B)),
-                    ],
+                  child: Container(
+                    width: (width * 0.13).clamp(22, 32).toDouble(),
+                    height: (width * 0.13).clamp(22, 32).toDouble(),
+                    decoration: const BoxDecoration(
+                      color: Color(0xB8070A08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.favorite_rounded,
+                      color: Color(0xFFFF5B75),
+                      size: 17,
+                    ),
                   ),
                 ),
             ],
@@ -133,34 +137,6 @@ class PosterCard extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _PosterBadge extends StatelessWidget {
-  const _PosterBadge({required this.label, required this.width, required this.color});
-
-  final String label;
-  final double width;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.symmetric(
-      horizontal: (width * 0.035).clamp(4, 7).toDouble(),
-      vertical: (width * 0.012).clamp(2, 3).toDouble(),
-    ),
-    decoration: BoxDecoration(
-      color: color,
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Text(
-      label,
-      style: VxText.body(
-        (width * 0.045).clamp(9, 12).toDouble(),
-        color: Colors.white,
-        weight: FontWeight.w700,
-      ),
-    ),
-  );
 }
 
 /// Poster format of the active profile.
