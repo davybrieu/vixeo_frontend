@@ -73,12 +73,9 @@ class _PhoneHome extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-          child: Row(
-            children: [
-              const VxLogo(size: 22),
-              const Spacer(),
-              _TypeChips(type: type),
-            ],
+          child: const Align(
+            alignment: Alignment.centerLeft,
+            child: VxLogo(size: 22),
           ),
         ),
         if (home.featured.isNotEmpty) FeaturedCarousel(items: home.featured),
@@ -98,53 +95,13 @@ class _PhoneHome extends StatelessWidget {
         ],
         for (final section in home.sections) ...[
           const SizedBox(height: 24),
-          PosterRow(title: section.title, items: section.items),
+          PosterRow(
+            title: section.title,
+            items: section.items,
+            onSeeAll: () => context.go(section.type == MediaType.movie ? '/films' : '/series'),
+          ),
         ],
       ],
-    );
-  }
-}
-
-class _TypeChips extends StatelessWidget {
-  const _TypeChips({required this.type});
-
-  final MediaType? type;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget chip(String label, MediaType value, String path) {
-      final selected = type == value;
-      return Padding(
-        padding: const EdgeInsets.only(left: 8),
-        child: VxFocusable(
-          borderRadius: 18,
-          semanticLabel: label,
-          onPressed: () => context.go(selected ? '/accueil' : path),
-          child: Container(
-            height: 36,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected ? VxColors.accent.withValues(alpha: 0.14) : Colors.transparent,
-              border: selected ? null : Border.all(color: VxColors.lineStrong),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Text(
-              label,
-              style: VxText.body(
-                14,
-                weight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected ? VxColors.accent : VxColors.text,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [chip('Films', MediaType.movie, '/films'), chip('Séries', MediaType.tv, '/series')],
     );
   }
 }
@@ -238,6 +195,7 @@ class _LargeHomeState extends State<_LargeHome> {
                     PosterRow(
                       title: section.title,
                       items: section.items,
+                      onSeeAll: () => context.go(section.type == MediaType.movie ? '/films' : '/series'),
                       onFocused: _hero.select,
                       onHovered: _hero.hover,
                       // Nothing to resume: the first card of the first list takes the focus.
