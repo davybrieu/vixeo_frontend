@@ -60,3 +60,15 @@ jobs:
             git commit -m "chore: update Flutter web build"
             git push origin HEAD:main
           fi
+
+  deploy:
+    name: Deploy to Laravel Forge
+    needs: build-web
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' && success()
+
+    steps:
+      - name: Trigger Forge deployment
+        run: |
+          curl --fail --silent --show-error \
+            -X POST "${{ secrets.FORGE_DEPLOY_WEBHOOK }}"
