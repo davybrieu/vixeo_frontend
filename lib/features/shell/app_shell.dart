@@ -112,6 +112,7 @@ class AppShell extends ConsumerWidget {
                     ),
                 ],
               ),
+          ),
           Expanded(child: child),
         ],
       ),
