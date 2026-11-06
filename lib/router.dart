@@ -18,6 +18,7 @@ import 'features/catalog/home_screen.dart';
 import 'features/catalog/models.dart';
 import 'features/catalog/person_screen.dart';
 import 'features/library/my_list_screen.dart';
+import 'features/playback/player_screen.dart';
 import 'features/profiles/parental_control_screen.dart';
 import 'features/profiles/playback_settings_screen.dart';
 import 'features/profiles/profile_settings_screen.dart';
@@ -129,6 +130,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => DetailsScreen(
           type: MediaType.parse(state.pathParameters['type']),
           id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+        ),
+      ),
+      GoRoute(
+        path: '/lecture/:type/:id',
+        builder: (_, state) => PlayerScreen(
+          type: MediaType.parse(state.pathParameters['type']),
+          id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+          season: int.tryParse(state.uri.queryParameters['saison'] ?? ''),
+          episode: int.tryParse(state.uri.queryParameters['episode'] ?? ''),
         ),
       ),
     ],

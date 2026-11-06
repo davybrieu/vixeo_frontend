@@ -37,10 +37,13 @@ class DetailsScreen extends ConsumerWidget {
   }
 }
 
-void _play(BuildContext context) => showVxSnack(
-  context,
-  'Aucune source disponible pour ce contenu. Ajoutez un serveur Jellyfin, Plex ou Emby pour le regarder.',
-);
+
+void _play(BuildContext context, TitleDetails title, {int? season, int? episode}) {
+  final type = title.type == MediaType.movie ? 'movie' : 'tv';
+  final path = '/lecture/$type/${title.id}';
+  final query = (season != null && episode != null) ? '?saison=$season&episode=$episode' : '';
+  context.push('$path$query');
+}
 
 Future<void> _openTrailer(BuildContext context, Trailer trailer) async {
   final ok = await launchUrl(Uri.parse(trailer.url), mode: LaunchMode.externalApplication);
@@ -219,7 +222,7 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                     child: VxFocusable(
                       borderRadius: 12 * s,
                       semanticLabel: 'Épisode ${e.number}, ${e.name}',
-                      onPressed: () => _play(context),
+                      onPressed: () => _play(context, widget.title, season: _season, episode: e.number),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -361,7 +364,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                     label: 'Lecture',
                     icon: Icons.play_arrow_rounded,
                     expand: true,
-                    onPressed: () => _play(context),
+                    onPressed: () => _play(context, t),
                   ),
                   const SizedBox(height: 16),
                   _Actions(title: t),
@@ -539,7 +542,7 @@ class _LargeDetails extends StatelessWidget {
                           label: 'Lecture',
                           icon: Icons.play_arrow_rounded,
                           autofocus: true,
-                          onPressed: () => _play(context),
+                          onPressed: () => _play(context, t),
                         ),
                         SizedBox(width: layout.tv(24)),
                         _Actions(title: t),
