@@ -356,7 +356,7 @@ class _BottomControls extends StatelessWidget {
   }
 }
 
-class _SourcesPanel extends StatelessWidget {
+class _SourcesPanel extends StatefulWidget {
   const _SourcesPanel({
     required this.sources,
     required this.current,
@@ -370,6 +370,27 @@ class _SourcesPanel extends StatelessWidget {
   final VoidCallback onClose;
 
   @override
+  State<_SourcesPanel> createState() => _SourcesPanelState();
+}
+
+class _SourcesPanelState extends State<_SourcesPanel> {
+  String? _selectedProvider;
+
+  String _language(StreamSource source) {
+    final value = source.name.toUpperCase();
+    if (RegExp(r'\b(VOSTFR|VOSTA|SUBFR)\b').hasMatch(value)) return 'VOSTFR';
+    if (RegExp(r'\b(VF|TRUEFRENCH|FRENCH|FR)\b').hasMatch(value)) return 'VF';
+    if (RegExp(r'\b(VO|VOST)\b').hasMatch(value)) return 'VO';
+    return 'Non précisée';
+  }
+
+  String _quality(StreamSource source) {
+    final value = source.name.toUpperCase();
+    final match = RegExp(r'\b(2160P|4K|1080P|720P|576P|480P|360P|HD|SD)\b').firstMatch(value);
+    return match?.group(0) ?? 'Non précisée';
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Material(
       color: const Color(0xF0070A08),
@@ -381,38 +402,147 @@ class _SourcesPanel extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
               child: Row(
                 children: [
-                  Text('Sources', style: VxText.title(20)),
-                  const Spacer(),
-                  IconButton(icon: const Icon(Icons.close, color: VxColors.textSoft), onPressed: onClose),
+                  if (_selectedProvider != null)
+                    IconButton(
+                      tooltip: 'Retour aux serveurs',
+                      icon: const Icon(Icons.arrow_back_rounded, color: VxColors.textSoft),
+                      onPressed: () => setState(() => _selectedProvider = null),
+                    ),
+                  Expanded(
+                    child: Text(
+                      _selectedProvider ?? 'Sources',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: VxText.title(20),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: VxColors.textSoft),
+                    onPressed: widget.onClose,
+                  ),
                 ],
               ),
             ),
             const Divider(color: VxColors.line, height: 1),
             Expanded(
               child: AsyncView(
-                value: sources,
+                value: widget.sources,
                 data: (list) {
                   if (list.isEmpty) {
                     return const Center(
                       child: Text('Aucune source', style: TextStyle(color: VxColors.textMuted)),
                     );
                   }
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: list.length,
-                    itemBuilder: (_, i) {
-                      final s = list[i];
-                      final selected = current?.url == s.url;
-                      return ListTile(
-                        leading: Icon(
-                          selected ? Icons.play_circle_filled : Icons.play_circle_outline,
-                          color: selected ? VxColors.accent : VxColors.textMuted,
+
+                  final grouped = <String, List<StreamSource>>{};
+                  for (final source in list) {
+                    final provider = source.provider.trim().isEmpty ? 'Autre serveur' : source.provider.trim();
+                    grouped.putIfAbsent(provider, () => []).add(source);
+                  }
+
+                  if (_selectedProvider != null) {
+                    final links = grouped[_selectedProvider] ?? const <StreamSource>[];
+                    return ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: links.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, index) {
+                        final source = links[index];
+                        final selected = widget.current?.url == source.url;
+                        return Material(
+                          color: selected
+                              ? VxColors.accent.withValues(alpha: 0.12)
+                              : const Color(0xFF111713),
+                          borderRadius: BorderRadius.circular(14),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () => widget.onSelect(source),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    selected ? Icons.play_circle_filled_rounded : Icons.play_circle_outline_rounded,
+                                    color: VxColors.accent,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Lien \${index + 1}',
+                                          style: VxText.body(15, weight: FontWeight.w700),
+                                        ),
+                                        const SizedBox(height: 7),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: [
+                                            _SourceInfoChip(icon: Icons.language_rounded, label: _language(source)),
+                                            _SourceInfoChip(icon: Icons.high_quality_rounded, label: _quality(source)),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right_rounded, color: VxColors.textMuted),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }
+
+                  final providers = grouped.keys.toList();
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: providers.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, index) {
+                      final provider = providers[index];
+                      final count = grouped[provider]!.length;
+                      return Material(
+                        color: const Color(0xFF111713),
+                        borderRadius: BorderRadius.circular(14),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () => setState(() => _selectedProvider = provider),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: VxColors.accent.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.dns_rounded, color: VxColors.accent),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(provider, style: VxText.body(15, weight: FontWeight.w700)),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        '\$count \${count > 1 ? 'liens disponibles' : 'lien disponible'}',
+                                        style: VxText.body(12, color: VxColors.textMuted),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right_rounded, color: VxColors.textMuted),
+                              ],
+                            ),
+                          ),
                         ),
-                        title: Text(s.name, style: VxText.body(15, weight: FontWeight.w600)),
-                        subtitle: Text(s.provider, style: VxText.body(12, color: VxColors.textMuted)),
-                        selected: selected,
-                        selectedTileColor: VxColors.accent.withValues(alpha: 0.08),
-                        onTap: () => onSelect(s),
                       );
                     },
                   );
@@ -421,6 +551,32 @@ class _SourcesPanel extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SourceInfoChip extends StatelessWidget {
+  const _SourceInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF202923),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: VxColors.textMuted),
+          const SizedBox(width: 4),
+          Text(label, style: VxText.body(11, color: VxColors.textSoft)),
+        ],
       ),
     );
   }
