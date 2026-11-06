@@ -245,11 +245,30 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                                   overflow: TextOverflow.ellipsis,
                                   style: VxText.body(14 * s, weight: FontWeight.w600, height: 1.3),
                                 ),
-                                if (e.runtime != null)
-                                  Text(
-                                    formatRuntime(e.runtime),
-                                    style: VxText.body(12 * s, color: VxColors.textSecondary),
-                                  ),
+                                Wrap(
+                                  spacing: 10 * s,
+                                  runSpacing: 2 * s,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    if (e.runtime != null)
+                                      Text(
+                                        formatRuntime(e.runtime),
+                                        style: VxText.body(12 * s, color: VxColors.textSecondary),
+                                      ),
+                                    if (e.voteAverage > 0)
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.star_rounded, color: VxColors.accent, size: 14 * s),
+                                          SizedBox(width: 3 * s),
+                                          Text(
+                                            formatRating(e.voteAverage),
+                                            style: VxText.body(12 * s, color: VxColors.textSecondary, weight: FontWeight.w600),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
                                 if (e.overview != null && !layout.isPhone)
                                   Text(
                                     e.overview!,
@@ -273,6 +292,49 @@ class _EpisodesState extends ConsumerState<_Episodes> {
   }
 }
 
+class _ExpandableOverview extends StatefulWidget {
+  const _ExpandableOverview({required this.text, this.maxLines = 5});
+
+  final String text;
+  final int maxLines;
+
+  @override
+  State<_ExpandableOverview> createState() => _ExpandableOverviewState();
+}
+
+class _ExpandableOverviewState extends State<_ExpandableOverview> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final scale = layout.isLarge ? layout.scale * 2 : 1.0;
+    final long = widget.text.length > 300;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.text,
+          maxLines: _expanded || !long ? null : widget.maxLines,
+          overflow: _expanded || !long ? null : TextOverflow.ellipsis,
+          style: VxText.body(
+            (layout.isLarge ? 24 : 15) * scale,
+            color: VxColors.textSoft,
+            height: 1.55,
+          ),
+        ),
+        if (long)
+          TextButton(
+            onPressed: () => setState(() => _expanded = !_expanded),
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
+            child: Text(_expanded ? 'Réduire' : 'Lire la suite'),
+          ),
+      ],
+    );
+  }
+}
+
 // ───────────────────────────── Phone ─────────────────────────────
 
 class _PhoneDetails extends StatefulWidget {
@@ -285,8 +347,6 @@ class _PhoneDetails extends StatefulWidget {
 }
 
 class _PhoneDetailsState extends State<_PhoneDetails> {
-  bool _expanded = false;
-
   @override
   Widget build(BuildContext context) {
     final t = widget.title;
@@ -370,15 +430,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                   _Actions(title: t),
                   if (t.overview != null) ...[
                     const SizedBox(height: 16),
-                    GestureDetector(
-                      onTap: () => setState(() => _expanded = !_expanded),
-                      child: Text(
-                        t.overview!,
-                        maxLines: _expanded ? null : 4,
-                        overflow: _expanded ? null : TextOverflow.ellipsis,
-                        style: VxText.body(15, color: VxColors.textSoft, height: 1.55),
-                      ),
-                    ),
+                    _ExpandableOverview(text: t.overview!, maxLines: 5),
                   ],
                 ],
               ),
@@ -527,12 +579,7 @@ class _LargeDetails extends StatelessWidget {
                       SizedBox(height: layout.tv(22)),
                       SizedBox(
                         width: layout.tv(820),
-                        child: Text(
-                          t.overview!,
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                          style: VxText.body(layout.tv(24), color: VxColors.textSoft),
-                        ),
+                        child: _ExpandableOverview(text: t.overview!, maxLines: 5),
                       ),
                     ],
                     SizedBox(height: layout.tv(36)),
