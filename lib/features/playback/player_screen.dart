@@ -123,7 +123,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _scheduleHide();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Impossible de lire cette source.\n${e.toString()}');
+      setState(() => _error = 'Impossible de lire cette source.');
     }
   }
 
@@ -170,6 +170,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       const SizedBox(height: 16),
                       Text(_error!, textAlign: TextAlign.center, style: VxText.body(16, color: VxColors.textSoft)),
                       const SizedBox(height: 24),
+                      VxButton(
+                        label: 'Changer de source',
+                        icon: Icons.list_rounded,
+                        onPressed: () {
+                          setState(() {
+                            _sourcesPanelOpen = true;
+                            _controlsVisible = true;
+                          });
+                          _hideTimer?.cancel();
+                        },
+                      ),
+                      const SizedBox(height: 12),
                       VxButton(label: 'Ouvrir en externe', icon: Icons.open_in_new, onPressed: _openExternal),
                     ],
                   ),
