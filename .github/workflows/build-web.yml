@@ -3,9 +3,14 @@ name: Build Web
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'build/**'
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 env:
   API_URL: https://api.vixeo.app
@@ -35,3 +40,16 @@ jobs:
           name: web-dist
           path: build/web
           retention-days: 14
+
+      - name: Commit build output to repository
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f build/web
+          if git diff --cached --quiet; then
+            echo "No changes in build/web to commit."
+          else
+            git commit -m "chore: update Flutter web build"
+            git push origin HEAD:main
+          fi
