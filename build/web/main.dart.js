@@ -121429,7 +121429,7 @@ Fg(a,b){return this.aDg(a,b)},
 aDg(a,b){var s=0,r=A.u(t.DZ),q,p=this,o,n,m,l,k,j,i
 var $async$Fg=A.p(function(c,d){if(c===1)return A.q(d,r)
 for(;;)switch(s){case 0:s=3
-return A.n(p.a.op("/app/update",A.ak(["platform",a.b,"build",b],t.N,t.z)),$async$Fg)
+return A.n(p.a.op("/app/update",A.ak(["platform",a.b,"version",b.a,"build",b.b],t.N,t.z)),$async$Fg)
 case 3:k=d
 j=A.buC(A.aK(k.i(0,"status")))
 i=t.a
@@ -121513,7 +121513,7 @@ break}s=3
 return A.n(A.dt(p).aU($.b4s().gZ5(),t.rj),$async$uJ)
 case 3:o=b
 s=4
-return A.n(A.dt(p).aU($.bme(),t.i2).Fg(m,o.b),$async$uJ)
+return A.n(A.dt(p).aU($.bme(),t.i2).Fg(m,o),$async$uJ)
 case 4:n=b
 p.x=new A.dH(Date.now(),0,!1)
 q=n
