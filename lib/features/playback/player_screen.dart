@@ -472,7 +472,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Lien \${index + 1}',
+                                          'Lien ${index + 1}',
                                           style: VxText.body(15, weight: FontWeight.w700),
                                         ),
                                         const SizedBox(height: 7),
@@ -532,7 +532,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                                       Text(provider, style: VxText.body(15, weight: FontWeight.w700)),
                                       const SizedBox(height: 3),
                                       Text(
-                                        '\$count \${count > 1 ? 'liens disponibles' : 'lien disponible'}',
+                                        '$count ${count > 1 ? 'liens disponibles' : 'lien disponible'}',
                                         style: VxText.body(12, color: VxColors.textMuted),
                                       ),
                                     ],
