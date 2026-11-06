@@ -33,7 +33,10 @@ final streamSourcesProvider = FutureProvider.family<List<StreamSource>, Playback
   final path = item.type == MediaType.movie
       ? '/catalog/movie/${item.id}/sources'
       : '/catalog/tv/${item.id}/season/${item.season}/episode/${item.episode}/sources';
-  final json = await api.get(path);
+  // Source discovery fans out to several providers (including browser-based
+  // searches). The API allows up to 45 seconds for the scraper, so don't let
+  // the global 20-second API timeout cancel this request prematurely.
+  final json = await api.get(path, receiveTimeout: const Duration(seconds: 55));
   final data = json['data'];
   return data is List
       ? data.whereType<Map<String, dynamic>>().map(StreamSource.fromJson).toList()

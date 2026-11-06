@@ -49,8 +49,17 @@ class ApiClient {
   final int? Function() _profileId;
   final void Function()? _onUnauthorized;
 
-  Future<Map<String, dynamic>> get(String path, {Map<String, dynamic>? query}) =>
-      _send(() => _dio.get<dynamic>(path, queryParameters: _clean(query)));
+  Future<Map<String, dynamic>> get(
+    String path, {
+    Map<String, dynamic>? query,
+    Duration? receiveTimeout,
+  }) => _send(
+    () => _dio.get<dynamic>(
+      path,
+      queryParameters: _clean(query),
+      options: receiveTimeout == null ? null : Options(receiveTimeout: receiveTimeout),
+    ),
+  );
 
   /// A text answer (e.g. a WebVTT subtitle file).
   Future<String> getText(String path) async {
