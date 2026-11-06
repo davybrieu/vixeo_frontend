@@ -334,6 +334,7 @@ class Episode {
     this.overview,
     this.runtime,
     this.stillUrl,
+    this.voteAverage = 0,
   });
 
   factory Episode.fromJson(Map<String, dynamic> json) => Episode(
@@ -344,6 +345,7 @@ class Episode {
     overview: json['overview'] as String?,
     runtime: json['runtime'] as int?,
     stillUrl: json['still_url'] as String?,
+    voteAverage: _double(json['vote_average']),
   );
 
   final int id;
@@ -353,6 +355,7 @@ class Episode {
   final String? overview;
   final int? runtime;
   final String? stillUrl;
+  final double voteAverage;
 }
 
 class Season {
