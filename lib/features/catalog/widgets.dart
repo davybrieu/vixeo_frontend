@@ -21,7 +21,7 @@ String titlePath(MediaType type, int id) => '/titre/${type.name}/$id';
 /// Title card: vertical poster (2:3) or horizontal image (16:9), following the profile's poster
 /// format. The image alone, without the name (developer's choice); the name is written only for
 /// a title without any image. Screen readers get the name from the label.
-class PosterCard extends StatelessWidget {
+class PosterCard extends ConsumerWidget {
   const PosterCard({
     super.key,
     required this.item,
@@ -43,7 +43,10 @@ class PosterCard extends StatelessWidget {
       format == PosterFormat.portrait ? width * 1.5 : width * 9 / 16;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final watched = ref.watch(
+      libraryProvider.select((state) => state.value?.forItem(item)?.isWatched ?? false),
+    );
     final landscape = format == PosterFormat.landscape;
     final radius = landscape ? width * 0.05 : width * 0.086;
     final noImage = Align(
@@ -62,7 +65,7 @@ class PosterCard extends StatelessWidget {
     return VxFocusable(
       autofocus: autofocus,
       borderRadius: radius,
-      semanticLabel: '${item.title}, ${item.type.label.toLowerCase()}${item.year != null ? ', ${item.year}' : ''}',
+      semanticLabel: '${item.title}, ${item.type.label.toLowerCase()}${item.year != null ? ', ${item.year}' : ''}${watched ? ', vu' : ''}',
       onFocused: onFocused,
       onHovered: onHovered,
       onPressed: () => context.push(titlePath(item.type, item.id)),
@@ -72,10 +75,38 @@ class PosterCard extends StatelessWidget {
         child: SizedBox(
           width: width,
           height: heightFor(width, format),
-          child: NetImage(
-            url: landscape ? (item.backdrop('w780') ?? item.posterUrl) : item.posterUrl,
-            seed: item.id,
-            fallback: noImage,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              NetImage(
+                url: landscape ? (item.backdrop('w780') ?? item.posterUrl) : item.posterUrl,
+                seed: item.id,
+                fallback: noImage,
+              ),
+              if (watched)
+                Positioned(
+                  top: width * 0.06,
+                  left: width * 0.06,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: width * 0.055,
+                      vertical: width * 0.025,
+                    ),
+                    decoration: BoxDecoration(
+                      color: VxColors.accent,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Vu',
+                      style: VxText.body(
+                        (width * 0.075).clamp(10, 16).toDouble(),
+                        color: Colors.white,
+                        weight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
