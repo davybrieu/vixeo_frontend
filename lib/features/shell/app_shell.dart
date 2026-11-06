@@ -91,8 +91,7 @@ class AppShell extends ConsumerWidget {
     return Scaffold(
       body: Row(
         children: [
-          FocusTraversalGroup(
-            child: Container(
+          Container(
               width: railWidth,
               color: const Color(0xE6070A08),
               padding: EdgeInsets.symmetric(vertical: layout.isLarge ? layout.tv(56) : 24),
@@ -113,8 +112,6 @@ class AppShell extends ConsumerWidget {
                     ),
                 ],
               ),
-            ),
-          ),
           Expanded(child: child),
         ],
       ),
