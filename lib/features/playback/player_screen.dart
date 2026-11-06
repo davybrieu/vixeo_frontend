@@ -102,7 +102,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     String playUrl = source.url;
     try {
       final api = ref.read(apiClientProvider);
-      final extracted = await api.post('/extract', data: {'url': source.url});
+      final extracted = await api.post('/extract', body: {'url': source.url});
       if (extracted is Map && extracted['url'] is String) {
         playUrl = extracted['url'] as String;
       }
