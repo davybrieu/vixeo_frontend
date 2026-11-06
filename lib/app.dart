@@ -34,14 +34,25 @@ class VixeoApp extends ConsumerWidget {
   const VixeoApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+    return MaterialApp.router(
     title: 'Vixeo',
     debugShowCheckedModeBanner: false,
     theme: buildVixeoTheme(),
     themeMode: ThemeMode.dark,
-    routerConfig: ref.watch(routerProvider),
-    // Android / iOS: blocks an unsupported version, suggests a newer one (features/updates).
-    builder: (context, child) => UpdateGate(navigatorKey: rootNavigatorKey, child: child ?? const SizedBox()),
+    routerConfig: router,
+    // On TV, Back first returns to Home from any page. Back on Home can then exit Vixeo.
+    builder: (context, child) {
+      final isHome = router.routeInformationProvider.value.uri.path == '/accueil';
+      return PopScope<void>(
+        canPop: isHome,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop && !isHome) router.go('/accueil');
+        },
+        child: UpdateGate(navigatorKey: rootNavigatorKey, child: child ?? const SizedBox()),
+      );
+    },
     shortcuts: remoteShortcuts,
     actions: remoteActions,
     locale: const Locale('fr', 'FR'),
@@ -57,4 +68,5 @@ class VixeoApp extends ConsumerWidget {
       },
     ),
   );
+  }
 }
