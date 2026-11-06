@@ -19,7 +19,9 @@ import 'search_history.dart';
 /// (backdrop and information) follows the selected or hovered result, as on the home page; a
 /// phone has no hero nor carousel here.
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({super.key, this.initialType});
+
+  final MediaType? initialType;
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
@@ -30,7 +32,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _hero = HeroSelection();
   Timer? _debounce;
   String _query = '';
-  SearchFilters _filters = const SearchFilters();
+  late SearchFilters _filters;
+
+  @override
+  void initState() {
+    super.initState();
+    _filters = SearchFilters(
+      kind: switch (widget.initialType) {
+        MediaType.movie => SearchKind.movie,
+        MediaType.tv => SearchKind.tv,
+        null => SearchKind.all,
+      },
+    );
+  }
 
   bool get _withText => _query.isNotEmpty;
 

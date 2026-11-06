@@ -106,7 +106,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/series',
             pageBuilder: (_, _) => tab(const HomeScreen(type: MediaType.tv)),
           ),
-          GoRoute(path: '/recherche', pageBuilder: (_, _) => tab(const SearchScreen())),
+          GoRoute(
+            path: '/recherche',
+            pageBuilder: (_, state) => tab(SearchScreen(initialType: state.extra as MediaType?)),
+          ),
           GoRoute(path: '/ma-liste', pageBuilder: (_, _) => tab(const MyListScreen())),
           GoRoute(path: '/profil', pageBuilder: (_, _) => tab(const ProfileSettingsScreen())),
         ],

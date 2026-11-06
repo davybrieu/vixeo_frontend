@@ -117,8 +117,8 @@ class _PosterBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: EdgeInsets.symmetric(
-      horizontal: width * 0.055,
-      vertical: width * 0.025,
+      horizontal: (width * 0.035).clamp(4, 7).toDouble(),
+      vertical: (width * 0.012).clamp(2, 3).toDouble(),
     ),
     decoration: BoxDecoration(
       color: color,
@@ -127,7 +127,7 @@ class _PosterBadge extends StatelessWidget {
     child: Text(
       label,
       style: VxText.body(
-        (width * 0.075).clamp(10, 16).toDouble(),
+        (width * 0.045).clamp(9, 12).toDouble(),
         color: Colors.white,
         weight: FontWeight.w700,
       ),

@@ -32,8 +32,45 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(layout.gutter, 16 * s, layout.gutter, 12 * s),
-            child: Text('Ma liste', style: VxText.title(28 * s)),
+            padding: EdgeInsets.fromLTRB(layout.gutter, 16 * s, layout.gutter, 4 * s),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Ma liste', style: VxText.title(28 * s)),
+                SizedBox(height: 10 * s),
+                Row(
+                  children: [
+                    for (final (label, value) in [('Tout', null), ('Films', MediaType.movie), ('Séries', MediaType.tv)])
+                      Padding(
+                        padding: EdgeInsets.only(right: 8 * s),
+                        child: VxFocusable(
+                          borderRadius: 18 * s,
+                          semanticLabel: label,
+                          onPressed: () => setState(() => _filter = value),
+                          child: Container(
+                            height: 34 * s,
+                            padding: EdgeInsets.symmetric(horizontal: 13 * s),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: _filter == value ? VxColors.accent.withValues(alpha: 0.14) : Colors.transparent,
+                              border: _filter == value ? null : Border.all(color: VxColors.lineStrong),
+                              borderRadius: BorderRadius.circular(18 * s),
+                            ),
+                            child: Text(
+                              label,
+                              style: VxText.body(
+                                13 * s,
+                                weight: FontWeight.w600,
+                                color: _filter == value ? VxColors.accent : VxColors.text,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
           Expanded(
             child: AsyncView(
@@ -79,41 +116,6 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                               width: constraints.maxWidth,
                               format: posterFormatOf(ref),
                             ),
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.fromLTRB(layout.gutter, 12 * s, layout.gutter, 8 * s),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              for (final (label, value) in [('Tout', null), ('Films', MediaType.movie), ('Séries', MediaType.tv)])
-                                Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 4 * s),
-                                  child: VxFocusable(
-                                    borderRadius: 18 * s,
-                                    semanticLabel: label,
-                                    onPressed: () => setState(() => _filter = value),
-                                    child: Container(
-                                      height: 36 * s,
-                                      padding: EdgeInsets.symmetric(horizontal: 14 * s),
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: _filter == value ? VxColors.accent.withValues(alpha: 0.14) : Colors.transparent,
-                                        border: _filter == value ? null : Border.all(color: VxColors.lineStrong),
-                                        borderRadius: BorderRadius.circular(18 * s),
-                                      ),
-                                      child: Text(
-                                        label,
-                                        style: VxText.body(
-                                          14 * s,
-                                          weight: FontWeight.w600,
-                                          color: _filter == value ? VxColors.accent : VxColors.text,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
                           ),
                         ),
                       ],

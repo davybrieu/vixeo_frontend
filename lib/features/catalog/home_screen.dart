@@ -98,7 +98,7 @@ class _PhoneHome extends StatelessWidget {
           PosterRow(
             title: section.title,
             items: section.items,
-            onSeeAll: () => context.go(section.type == MediaType.movie ? '/films' : '/series'),
+            onSeeAll: () => context.go('/recherche', extra: section.type),
           ),
         ],
       ],
@@ -195,7 +195,7 @@ class _LargeHomeState extends State<_LargeHome> {
                     PosterRow(
                       title: section.title,
                       items: section.items,
-                      onSeeAll: () => context.go(section.type == MediaType.movie ? '/films' : '/series'),
+                      onSeeAll: () => context.go('/recherche', extra: section.type),
                       onFocused: _hero.select,
                       onHovered: _hero.hover,
                       // Nothing to resume: the first card of the first list takes the focus.
