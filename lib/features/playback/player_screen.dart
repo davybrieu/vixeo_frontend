@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/api/api_client.dart';
+import '../auth/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../catalog/models.dart';
