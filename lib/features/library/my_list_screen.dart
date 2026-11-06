@@ -33,38 +33,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(layout.gutter, 16 * s, layout.gutter, 12 * s),
-            child: Row(
-              children: [
-                Expanded(child: Text('Ma liste', style: VxText.title(28 * s))),
-                for (final (label, value) in [('Tout', null), ('Films', MediaType.movie), ('Séries', MediaType.tv)])
-                  Padding(
-                    padding: EdgeInsets.only(left: 8 * s),
-                    child: VxFocusable(
-                      borderRadius: 18 * s,
-                      semanticLabel: label,
-                      onPressed: () => setState(() => _filter = value),
-                      child: Container(
-                        height: 36 * s,
-                        padding: EdgeInsets.symmetric(horizontal: 14 * s),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: _filter == value ? VxColors.accent.withValues(alpha: 0.14) : Colors.transparent,
-                          border: _filter == value ? null : Border.all(color: VxColors.lineStrong),
-                          borderRadius: BorderRadius.circular(18 * s),
-                        ),
-                        child: Text(
-                          label,
-                          style: VxText.body(
-                            14 * s,
-                            weight: FontWeight.w600,
-                            color: _filter == value ? VxColors.accent : VxColors.text,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            child: Text('Ma liste', style: VxText.title(28 * s)),
           ),
           Expanded(
             child: AsyncView(
@@ -92,7 +61,64 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                 }
                 return RefreshIndicator(
                   onRefresh: () => ref.read(libraryProvider.notifier).refresh(),
-                  child: PosterGrid(items: items),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.only(bottom: 20 * s),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: EdgeInsets.all(layout.gutter),
+                          gridDelegate: posterGridDelegate(layout, posterFormatOf(ref)),
+                          itemCount: items.length,
+                          itemBuilder: (context, i) => LayoutBuilder(
+                            builder: (context, constraints) => PosterCard(
+                              item: items[i],
+                              width: constraints.maxWidth,
+                              format: posterFormatOf(ref),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(layout.gutter, 12 * s, layout.gutter, 8 * s),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              for (final (label, value) in [('Tout', null), ('Films', MediaType.movie), ('Séries', MediaType.tv)])
+                                Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 4 * s),
+                                  child: VxFocusable(
+                                    borderRadius: 18 * s,
+                                    semanticLabel: label,
+                                    onPressed: () => setState(() => _filter = value),
+                                    child: Container(
+                                      height: 36 * s,
+                                      padding: EdgeInsets.symmetric(horizontal: 14 * s),
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: _filter == value ? VxColors.accent.withValues(alpha: 0.14) : Colors.transparent,
+                                        border: _filter == value ? null : Border.all(color: VxColors.lineStrong),
+                                        borderRadius: BorderRadius.circular(18 * s),
+                                      ),
+                                      child: Text(
+                                        label,
+                                        style: VxText.body(
+                                          14 * s,
+                                          weight: FontWeight.w600,
+                                          color: _filter == value ? VxColors.accent : VxColors.text,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
