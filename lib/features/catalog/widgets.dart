@@ -44,9 +44,11 @@ class PosterCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final watched = ref.watch(
-      libraryProvider.select((state) => state.value?.forItem(item)?.isWatched ?? false),
+    final itemState = ref.watch(
+      libraryProvider.select((state) => state.value?.forItem(item)),
     );
+    final watched = itemState?.isWatched ?? false;
+    final favorite = itemState?.isFavorite ?? false;
     final landscape = format == PosterFormat.landscape;
     final radius = landscape ? width * 0.05 : width * 0.086;
     final noImage = Align(
@@ -83,27 +85,18 @@ class PosterCard extends ConsumerWidget {
                 seed: item.id,
                 fallback: noImage,
               ),
-              if (watched)
+              if (watched || favorite)
                 Positioned(
                   top: width * 0.06,
                   left: width * 0.06,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: width * 0.055,
-                      vertical: width * 0.025,
-                    ),
-                    decoration: BoxDecoration(
-                      color: VxColors.accent,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      'Vu',
-                      style: VxText.body(
-                        (width * 0.075).clamp(10, 16).toDouble(),
-                        color: Colors.white,
-                        weight: FontWeight.w700,
-                      ),
-                    ),
+                  child: Wrap(
+                    spacing: 5,
+                    children: [
+                      if (watched)
+                        _PosterBadge(label: 'Vu', width: width, color: VxColors.accent),
+                      if (favorite)
+                        _PosterBadge(label: 'Ma liste', width: width, color: const Color(0xFF16865B)),
+                    ],
                   ),
                 ),
             ],
@@ -112,6 +105,34 @@ class PosterCard extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _PosterBadge extends StatelessWidget {
+  const _PosterBadge({required this.label, required this.width, required this.color});
+
+  final String label;
+  final double width;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: EdgeInsets.symmetric(
+      horizontal: width * 0.055,
+      vertical: width * 0.025,
+    ),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(
+      label,
+      style: VxText.body(
+        (width * 0.075).clamp(10, 16).toDouble(),
+        color: Colors.white,
+        weight: FontWeight.w700,
+      ),
+    ),
+  );
 }
 
 /// Poster format of the active profile.
