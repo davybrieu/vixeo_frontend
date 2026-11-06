@@ -14,6 +14,8 @@ permissions:
 
 env:
   API_URL: https://api.vixeo.app
+  PUBLISHER_NAME: Vixeo
+  SUPPORT_EMAIL: support@vixeo.app
 
 jobs:
   build-web:
@@ -32,7 +34,11 @@ jobs:
         run: flutter pub get
 
       - name: Build web
-        run: flutter build web --release --dart-define=API_URL=${{ env.API_URL }}
+        run: >-
+          flutter build web --release
+          --dart-define=API_URL=${{ env.API_URL }}
+          --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}"
+          --dart-define=SUPPORT_EMAIL=${{ env.SUPPORT_EMAIL }}
 
       - name: Upload web dist
         uses: actions/upload-artifact@v4
