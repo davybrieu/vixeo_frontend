@@ -100,6 +100,7 @@ class PosterRow extends ConsumerWidget {
     required this.items,
     this.onFocused,
     this.onHovered,
+    this.onSeeAll,
     this.autofocusFirst = false,
   });
 
@@ -112,6 +113,7 @@ class PosterRow extends ConsumerWidget {
   /// The remote / keyboard focus, or the mouse, is on [item] (TV home: the hero follows).
   final void Function(MediaItem item)? onFocused;
   final void Function(MediaItem item)? onHovered;
+  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -125,7 +127,31 @@ class PosterRow extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title),
+        Padding(
+          padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, layout.isLarge ? layout.tv(22) : 12),
+          child: Row(
+            children: [
+              Expanded(child: Text(title, style: VxText.title(layout.isLarge ? layout.tv(30) : 18))),
+              if (onSeeAll != null)
+                VxFocusable(
+                  borderRadius: 8,
+                  semanticLabel: 'Voir tout $title',
+                  onPressed: onSeeAll,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Voir tout', style: VxText.body(layout.isLarge ? layout.tv(20) : 13, color: VxColors.accent, weight: FontWeight.w600)),
+                        SizedBox(width: layout.isLarge ? layout.tv(6) : 3),
+                        Icon(Icons.chevron_right_rounded, size: layout.isLarge ? layout.tv(24) : 18, color: VxColors.accent),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
         FocusTraversalGroup(
           child: SizedBox(
             height: PosterCard.heightFor(width, format) + vPad * 2,
