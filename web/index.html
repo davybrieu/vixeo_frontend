@@ -4,15 +4,6 @@
   <!--
     If you are serving your web app in a path other than the root, change the
     href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
   -->
   <base href="$FLUTTER_BASE_HREF">
 
@@ -31,18 +22,78 @@
 
   <title>Vixeo</title>
   <meta name="theme-color" content="#070A08">
-  <style>html, body { background: #070A08; }</style>
   <link rel="manifest" href="manifest.json">
+  <style>
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #070A08;
+    }
+
+    #vixeo-boot-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 30px;
+      background: #070A08;
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 220ms ease, visibility 220ms ease;
+    }
+
+    #vixeo-boot-loader.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .vixeo-boot-logo {
+      color: #F1F5F2;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: 2.5px;
+    }
+
+    .vixeo-boot-logo span {
+      color: #2EE58A;
+    }
+
+    .vixeo-boot-spinner {
+      width: 34px;
+      height: 34px;
+      border: 3px solid rgba(46, 229, 138, 0.18);
+      border-top-color: #2EE58A;
+      border-radius: 50%;
+      animation: vixeo-spin 800ms linear infinite;
+    }
+
+    @keyframes vixeo-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .vixeo-boot-spinner { animation-duration: 1800ms; }
+      #vixeo-boot-loader { transition: none; }
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <div id="vixeo-boot-loader" role="status" aria-label="Chargement de Vixeo">
+    <div class="vixeo-boot-logo">VI<span>X</span>EO</div>
+    <div class="vixeo-boot-spinner" aria-hidden="true"></div>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var loader = document.getElementById('vixeo-boot-loader');
+      if (loader) loader.classList.add('is-hidden');
+    }, { once: true });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
