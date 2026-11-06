@@ -143,6 +143,11 @@ class _UpdateGateState extends ConsumerState<UpdateGate> {
   /// Build already suggested during this launch.
   int? _suggested;
 
+  /// A suggestion can arrive before the saved session has finished restoring.
+  /// Keep it pending until GoRouter has completed its startup redirect.
+  UpdateInfo? _pendingSuggestion;
+  bool _dialogScheduledOrOpen = false;
+
   @override
   void initState() {
     super.initState();
@@ -159,17 +164,50 @@ class _UpdateGateState extends ConsumerState<UpdateGate> {
     final latest = info?.latest;
     if (info == null || info.status != UpdateStatus.updateAvailable || latest == null) return;
     if (_suggested == latest.build) return;
-    _suggested = latest.build;
+    _pendingSuggestion = info;
+    _showPendingSuggestionWhenReady();
+  }
+
+  void _showPendingSuggestionWhenReady() {
+    if (!mounted || _dialogScheduledOrOpen || _pendingSuggestion == null) return;
+
+    // Do not put a dialog on top of /demarrage: the session restoration redirect
+    // immediately replaces that route and can dismiss the dialog.
+    if (ref.read(sessionProvider).status == SessionStatus.restoring) return;
+
+    final info = _pendingSuggestion!;
+    final build = info.latest!.build;
+    _pendingSuggestion = null;
+    _suggested = build;
+    _dialogScheduledOrOpen = true;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        _dialogScheduledOrOpen = false;
+        return;
+      }
       final context = widget.navigatorKey.currentContext;
-      if (context != null) showUpdateAvailableDialog(context, info);
+      if (context == null) {
+        _dialogScheduledOrOpen = false;
+        _pendingSuggestion = info;
+        return;
+      }
+      showUpdateAvailableDialog(context, info).whenComplete(() {
+        _dialogScheduledOrOpen = false;
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
     ref.listen(updateProvider, (_, next) => _maybeSuggest(next.value));
+    ref.listen(sessionProvider, (_, next) {
+      if (next.status != SessionStatus.restoring) {
+        _showPendingSuggestionWhenReady();
+      }
+    });
     final info = ref.watch(updateProvider).value;
+    _maybeSuggest(info);
 
     if (info != null && info.status == UpdateStatus.updateRequired) {
       // Above the router: an Overlay of its own for tooltips and text selection.
