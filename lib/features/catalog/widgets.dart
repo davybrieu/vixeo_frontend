@@ -85,6 +85,34 @@ class PosterCard extends ConsumerWidget {
                 seed: item.id,
                 fallback: noImage,
               ),
+              if (landscape && item.logoUrl != null) ...[
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Color(0xB8070A08)],
+                      stops: [0.48, 1],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: width * 0.045,
+                  bottom: width * 0.045,
+                  child: TitleLogo(
+                    name: item.title,
+                    logoUrl: item.logoUrl,
+                    size: TitleLogo.sizeFor(
+                      item.logoUrl,
+                      item.logoAspectRatio,
+                      maxWidth: width * 0.48,
+                      maxHeight: width * 0.17,
+                    ),
+                    style: VxText.title((width * 0.07).clamp(13, 30).toDouble()),
+                    maxLines: 2,
+                  ),
+                ),
+              ],
               if (watched || favorite)
                 Positioned(
                   top: width * 0.06,
