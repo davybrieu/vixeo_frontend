@@ -25,6 +25,7 @@ class _Destination {
 const _phoneTabs = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
+  _Destination('/tv-live', 'TV', Icons.live_tv_outlined, Icons.live_tv),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
 ];
 
@@ -101,7 +102,7 @@ class AppShell extends ConsumerWidget {
                     borderRadius: itemSize * 0.25,
                     onAccent: profile?.avatar == null,
                     semanticLabel: 'Mon profil (${profile?.name ?? ''})',
-                    child: ProfileAvatar(profile: profile, size: itemSize * 0.78, radius: itemSize * 0.2),
+                    child: ProfileAvatar(profile: profile, size: itemSize * of 0.78, radius: itemSize * 0.2),
                   ),
                   SizedBox(height: itemSize * 0.8),
                   for (final d in _railItems)
@@ -198,7 +199,7 @@ class _PhoneNavigationBar extends StatelessWidget {
         alignment: Alignment.bottomCenter,
         heightFactor: 1,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 320),
+          constraints: const BoxConstraints(maxWidth: 360),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(28),
             child: BackdropFilter(
