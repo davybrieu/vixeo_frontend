@@ -197,8 +197,8 @@ class _FeaturedCard extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: VxButton(
-                        label: 'Lecture',
-                        icon: Icons.play_arrow_rounded,
+                        label: 'Voir la fiche',
+                        icon: Icons.info_outline_rounded,
                         expand: true,
                         onPressed: () => context.push(titlePath(item.type, item.id)),
                       ),
