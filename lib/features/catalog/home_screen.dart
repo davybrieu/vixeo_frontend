@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
@@ -91,7 +90,6 @@ class _PhoneHome extends StatelessWidget {
           PosterRow(
             title: section.title,
             items: section.items,
-            onSeeAll: () => context.go('/recherche', extra: section.type),
           ),
         ],
       ],
@@ -188,7 +186,6 @@ class _LargeHomeState extends State<_LargeHome> {
                     PosterRow(
                       title: section.title,
                       items: section.items,
-                      onSeeAll: () => context.go('/recherche', extra: section.type),
                       onFocused: _hero.select,
                       onHovered: _hero.hover,
                       // Nothing to resume: the first card of the first list takes the focus.
