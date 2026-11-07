@@ -358,3 +358,58 @@ void showVxSnackOn(ScaffoldMessengerState messenger, String message, {IconData? 
       ),
     );
 }
+
+
+/// Shared search input used by catalog search and the personal library.
+class VxSearchField extends StatelessWidget {
+  const VxSearchField({
+    super.key,
+    required this.controller,
+    this.autofocus = false,
+    this.fontSize = 16,
+    this.hintText = 'Films, séries, acteurs…',
+    required this.onChanged,
+    this.onSubmitted,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final bool autofocus;
+  final double fontSize;
+  final String hintText;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    OutlineInputBorder border(Color color, [double width = 1]) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(28),
+      borderSide: BorderSide(color: color, width: width),
+    );
+
+    return ValueListenableBuilder(
+      valueListenable: controller,
+      builder: (_, value, _) => TextField(
+        controller: controller,
+        autofocus: autofocus,
+        onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        textInputAction: TextInputAction.search,
+        style: VxText.body(fontSize),
+        decoration: InputDecoration(
+          hintText: hintText,
+          filled: true,
+          fillColor: VxColors.background.withValues(alpha: 0.6),
+          prefixIcon: const Icon(Icons.search_rounded, color: VxColors.textSecondary),
+          suffixIcon: value.text.isEmpty
+              ? null
+              : IconButton(tooltip: 'Effacer', icon: const Icon(Icons.close_rounded), onPressed: onClear),
+          border: border(VxColors.line),
+          enabledBorder: border(VxColors.line),
+          focusedBorder: border(VxColors.accent, 2),
+        ),
+      ),
+    );
+  }
+}
