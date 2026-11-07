@@ -102,7 +102,7 @@ class AppShell extends ConsumerWidget {
                     borderRadius: itemSize * 0.25,
                     onAccent: profile?.avatar == null,
                     semanticLabel: 'Mon profil (${profile?.name ?? ''})',
-                    child: ProfileAvatar(profile: profile, size: itemSize * of 0.78, radius: itemSize * 0.2),
+                    child: ProfileAvatar(profile: profile, size: itemSize * 0.78, radius: itemSize * 0.2),
                   ),
                   SizedBox(height: itemSize * 0.8),
                   for (final d in _railItems)
