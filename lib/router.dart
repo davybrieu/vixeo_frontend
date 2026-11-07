@@ -26,6 +26,7 @@ import 'features/profiles/profiles_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
+import 'features/tv/tv_hub_screen.dart';
 
 /// Navigator of the router, for dialogs opened from above it (update suggestion).
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -107,6 +108,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/series',
             pageBuilder: (_, _) => tab(const HomeScreen(type: MediaType.tv)),
+          ),
+          GoRoute(
+            path: '/tv-live',
+            pageBuilder: (_, _) => tab(const TvHubScreen()),
           ),
           GoRoute(
             path: '/recherche',
