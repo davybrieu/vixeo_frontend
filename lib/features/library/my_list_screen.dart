@@ -159,19 +159,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
 
                 return RefreshIndicator(
                   onRefresh: () => ref.read(libraryProvider.notifier).refresh(),
-                  child: GridView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.all(layout.gutter),
-                    gridDelegate: posterGridDelegate(layout, posterFormatOf(ref)),
-                    itemCount: items.length,
-                    itemBuilder: (context, i) => LayoutBuilder(
-                      builder: (context, constraints) => PosterCard(
-                        item: items[i],
-                        width: constraints.maxWidth,
-                        format: posterFormatOf(ref),
-                      ),
-                    ),
-                  ),
+                  child: PosterGrid(items: items),
                 );
               },
             ),
