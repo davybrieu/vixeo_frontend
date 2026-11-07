@@ -19,6 +19,14 @@ class MyListScreen extends ConsumerStatefulWidget {
 
 class _MyListScreenState extends ConsumerState<MyListScreen> {
   MediaType? _filter;
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +45,34 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Ma liste', style: VxText.title(28 * s)),
-                SizedBox(height: 10 * s),
+                SizedBox(height: 16 * s),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: layout.isPhone ? double.infinity : 720 * s),
+                  child: ValueListenableBuilder(
+                    valueListenable: _searchController,
+                    builder: (_, value, _) => TextField(
+                      controller: _searchController,
+                      textInputAction: TextInputAction.search,
+                      style: VxText.body(16 * s),
+                      onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
+                      decoration: InputDecoration(
+                        hintText: 'Films, séries…',
+                        filled: true,
+                        fillColor: VxColors.background.withValues(alpha: 0.6),
+                        prefixIcon: const Icon(Icons.search_rounded, color: VxColors.textSecondary),
+                        suffixIcon: value.text.isEmpty ? null : IconButton(
+                          tooltip: 'Effacer',
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () { _searchController.clear(); setState(() => _query = ''); },
+                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: const BorderSide(color: VxColors.line)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: const BorderSide(color: VxColors.line)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: const BorderSide(color: VxColors.accent, width: 2)),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 12 * s),
                 Row(
                   children: [
                     for (final (label, value) in [('Tout', null), ('Films', MediaType.movie), ('Séries', MediaType.tv)])
@@ -79,7 +114,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
               data: (state) {
                 final items = [
                   for (final fav in state.favorites)
-                    if (fav.tmdbTitle case final t? when _filter == null || t.type == _filter)
+                    if (fav.tmdbTitle case final t? when (_filter == null || t.type == _filter) && (_query.isEmpty || fav.title.toLowerCase().contains(_query)))
                       MediaItem(
                         id: t.id,
                         type: t.type,
@@ -90,10 +125,12 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                       ),
                 ];
                 if (items.isEmpty) {
-                  return const EmptyState(
+                  return EmptyState(
                     icon: Icons.bookmark_border_rounded,
-                    title: 'Votre liste est vide',
-                    message: 'Ajoutez des films et des séries avec « Ma liste » pour les retrouver ici, sur tous vos écrans.',
+                    title: _query.isNotEmpty ? 'Aucun résultat' : 'Votre liste est vide',
+                    message: _query.isNotEmpty
+                        ? 'Aucun titre de votre liste ne correspond à « ${_searchController.text} ».'
+                        : 'Ajoutez des films et des séries avec « Ma liste » pour les retrouver ici, sur tous vos écrans.',
                   );
                 }
                 return RefreshIndicator(
