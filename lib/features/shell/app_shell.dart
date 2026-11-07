@@ -62,7 +62,13 @@ class AppShell extends ConsumerWidget {
         location: location,
         child: Scaffold(
         extendBody: true,
-        body: child,
+        // The floating navigation overlays the body (extendBody: true).
+        // Reserve its full height in the page viewport so scrollable content
+        // can reach the bottom without being hidden behind the navigation.
+        body: Padding(
+          padding: EdgeInsets.only(bottom: showNavigation ? 66 : 0),
+          child: child,
+        ),
         bottomNavigationBar: showNavigation
             ? _PhoneNavigationBar(
                 selectedIndex: selectedIndex,
