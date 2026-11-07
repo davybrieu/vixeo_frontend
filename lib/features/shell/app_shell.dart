@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -22,6 +23,8 @@ const _phoneTabs = [
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
 ];
+
+final _tvSidebarFocusNode = FocusNode(debugLabel: 'Navigation latérale');
 
 const _railItems = [
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
@@ -108,12 +111,28 @@ class AppShell extends ConsumerWidget {
                   for (final d in _railItems)
                     Padding(
                       padding: EdgeInsets.only(bottom: itemSize * 0.16),
-                      child: _RailItem(destination: d, selected: _isSelected(d.path), size: itemSize),
+                      child: _RailItem(
+                        destination: d,
+                        selected: _isSelected(d.path),
+                        size: itemSize,
+                        focusNode: d == _railItems.first ? _tvSidebarFocusNode : null,
+                      ),
                     ),
                 ],
               ),
           ),
-          Expanded(child: child),
+          Expanded(
+            child: Focus(
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                  _tvSidebarFocusNode.requestFocus();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: child,
+            ),
+          ),
         ],
       ),
     );
@@ -123,11 +142,12 @@ class AppShell extends ConsumerWidget {
 }
 
 class _RailItem extends StatelessWidget {
-  const _RailItem({required this.destination, required this.selected, required this.size});
+  const _RailItem({required this.destination, required this.selected, required this.size, this.focusNode});
 
   final _Destination destination;
   final bool selected;
   final double size;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) => Tooltip(
@@ -136,6 +156,7 @@ class _RailItem extends StatelessWidget {
       onPressed: () => context.go(destination.path),
       borderRadius: size * 0.25,
       focusScale: 1.08,
+      focusNode: focusNode,
       semanticLabel: destination.label,
       child: Container(
         width: size,
