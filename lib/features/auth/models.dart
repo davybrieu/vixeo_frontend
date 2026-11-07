@@ -77,6 +77,7 @@ class Profile {
     this.allowUnrated = false,
     this.audioLanguage,
     this.subtitleLanguage,
+    this.noSpoiler = false,
     this.skipIntro = false,
     this.skipRecap = false,
     this.skipCredits = false,
@@ -96,6 +97,7 @@ class Profile {
     allowUnrated: json['allow_unrated'] as bool? ?? false,
     audioLanguage: json['audio_language'] as String?,
     subtitleLanguage: json['subtitle_language'] as String?,
+    noSpoiler: json['no_spoiler'] as bool? ?? false,
     skipIntro: json['skip_intro'] as bool? ?? false,
     skipRecap: json['skip_recap'] as bool? ?? false,
     skipCredits: json['skip_credits'] as bool? ?? false,
@@ -124,6 +126,9 @@ class Profile {
 
   /// Preferred subtitles ("fr", "pt-BR"…), null = none.
   final String? subtitleLanguage;
+
+  /// Hide episode artwork, titles and descriptions until selected.
+  final bool noSpoiler;
 
   /// Moments the player skips by itself; otherwise it shows a "Passer" button.
   final bool skipIntro;
