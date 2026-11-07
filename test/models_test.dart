@@ -33,6 +33,7 @@ void main() {
       'name': 'Léa',
       'audio_language': 'fr',
       'subtitle_language': 'pt-BR',
+      'no_spoiler': true,
       'skip_intro': true,
       'skip_recap': false,
       'skip_credits': true,
@@ -40,12 +41,14 @@ void main() {
     });
     expect(profile.audioLanguage, 'fr');
     expect(profile.subtitleLanguage, 'pt-BR');
+    expect(profile.noSpoiler, isTrue);
     expect(profile.skipIntro, isTrue);
     expect(profile.skipCredits, isTrue);
     expect(profile.skipRecap, isFalse);
 
     final older = Profile.fromJson({'id': 3, 'name': 'Léa'});
     expect(older.audioLanguage, isNull);
+    expect(older.noSpoiler, isFalse);
     expect(older.skipIntro, isFalse);
   });
 
