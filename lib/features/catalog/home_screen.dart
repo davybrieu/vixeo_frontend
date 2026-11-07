@@ -26,7 +26,7 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(homeProvider(type));
     final resume = ref.watch(libraryProvider).value?.continueWatching ?? const <ProfileItem>[];
-    final channels = ref.watch(homeChannelsProvider).value ?? const [];
+    final channels = ref.watch(homeChannelsProvider).value ?? const <TvChannel>[];
     final layout = Layout.of(context);
 
     Future<void> refresh() async {
@@ -111,7 +111,7 @@ class _LargeHome extends StatefulWidget {
 
   final Home home;
   final List<ProfileItem> resume;
-  final List channels;
+  final List<TvChannel> channels;
   final MediaType? type;
 
   @override
