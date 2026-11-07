@@ -11,7 +11,6 @@ import '../auth/models.dart';
 import '../auth/session.dart';
 import 'avatars.dart';
 import 'profiles_screen.dart';
-import 'no_spoiler.dart';
 
 /// Saves profile fields with the API, refreshes the session and "Qui regarde ?", then
 /// confirms with an alert. [context] is only read before the request: the save may end
@@ -417,12 +416,17 @@ class _NoSpoilerSetting extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final enabled = ref.watch(noSpoilerProvider).value ?? false;
+    final enabled = ref.watch(noSpoilerProvider);
     return VxFocusable(
       borderRadius: 14 * scale,
       focusScale: 1.02,
       semanticLabel: 'No spoil, ${enabled ? 'activé' : 'désactivé'}',
-      onPressed: () => ref.read(noSpoilerProvider.notifier).setEnabled(!enabled),
+      onPressed: () => saveProfile(
+        context,
+        {'no_spoiler': !enabled},
+        done: !enabled ? 'No spoil activé' : 'No spoil désactivé',
+        icon: Icons.visibility_off_outlined,
+      ),
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 12 * scale),
         decoration: BoxDecoration(color: VxColors.surface, borderRadius: BorderRadius.circular(14 * scale)),
