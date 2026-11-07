@@ -108,13 +108,24 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
   }
 }
 
-class _FeaturedCard extends StatelessWidget {
+class _FeaturedCard extends ConsumerWidget {
   const _FeaturedCard({required this.item});
 
   final MediaItem item;
 
+  static String _ageLabel(int age) => age == 0 ? 'Tous publics' : '$age+';
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final details = ref.watch(titleProvider((item.type, item.id))).value;
+    final rating = details?.voteAverage ?? item.voteAverage;
+    final year = details?.year ?? item.year;
+    final duration = switch (details) {
+      final d? when d.type == MediaType.movie && d.runtime != null => formatRuntime(d.runtime),
+      final d? when d.type == MediaType.tv && d.numberOfSeasons > 0 => '${d.numberOfSeasons} saison${d.numberOfSeasons > 1 ? 's' : ''}',
+      _ => null,
+    };
+    final genres = details?.genres.map((g) => g.name).join(' · ') ?? '';
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: Stack(
@@ -155,14 +166,29 @@ class _FeaturedCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  [
-                    item.type.label,
-                    if (item.year != null) '${item.year}',
-                    if (item.voteAverage > 0) '★ ${formatRating(item.voteAverage)}',
-                  ].join(' · '),
-                  style: VxText.body(14, color: VxColors.textSoft),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (rating > 0)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star_rounded, color: VxColors.accent, size: 17),
+                          const SizedBox(width: 3),
+                          Text(formatRating(rating), style: VxText.body(14, weight: FontWeight.w600)),
+                        ],
+                      ),
+                    if (year != null) Text('$year', style: VxText.body(14, color: VxColors.textSoft)),
+                    if (duration != null) Text(duration, style: VxText.body(14, color: VxColors.textSoft)),
+                    if (details?.ageRating != null) VxBadge(_ageLabel(details!.ageRating!), outlined: true),
+                  ],
                 ),
+                if (genres.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(genres, maxLines: 1, overflow: TextOverflow.ellipsis, style: VxText.body(14, color: VxColors.textSecondary)),
+                ],
                 const SizedBox(height: 14),
                 Row(
                   children: [
