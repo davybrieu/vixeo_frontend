@@ -29,8 +29,8 @@ const _phoneTabs = [
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
 ];
 
-/// Height reserved under scroll content so the last items clear the floating pill + safe area.
-const _phoneNavClearance = 72.0;
+/// Extra bottom inset so list content clears the floating pill (pill ~50 + margins).
+const _phoneNavClearance = 66.0;
 
 final _tvSidebarFocusNode = FocusNode(debugLabel: 'Navigation latérale');
 
@@ -63,18 +63,27 @@ class AppShell extends ConsumerWidget {
           : _phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
 
-      // Overlay the glass bar on top of the body (no Scaffold.bottomNavigationBar slot,
-      // which would paint an opaque black strip under a translucent pill).
+      // Content fills the screen so the glass bar can blur what is behind it.
+      // Scrollables that respect MediaQuery.padding get an extra bottom inset.
+      final media = MediaQuery.of(context);
+      final body = showNavigation
+          ? MediaQuery(
+              data: media.copyWith(
+                padding: media.padding.copyWith(
+                  bottom: media.padding.bottom + _phoneNavClearance,
+                ),
+              ),
+              child: child,
+            )
+          : child;
+
       return BackNavigationGuard(
         location: location,
         child: Scaffold(
           body: Stack(
             fit: StackFit.expand,
             children: [
-              Padding(
-                padding: EdgeInsets.only(bottom: showNavigation ? _phoneNavClearance : 0),
-                child: child,
-              ),
+              body,
               if (showNavigation)
                 Positioned(
                   left: 0,
