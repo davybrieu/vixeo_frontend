@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/focusable.dart';
+import '../auth/models.dart';
 import '../auth/session.dart';
 import '../profiles/avatars.dart';
 
@@ -65,7 +66,7 @@ class AppShell extends ConsumerWidget {
       );
     }
 
-    final railWidth    final railWidth = layout.isLarge ? layout.tv(120).clamp(64, 140).toDouble() : 80.0;
+    final railWidth = layout.isLarge ? layout.tv(120).clamp(64, 140).toDouble() : 80.0;
     final itemSize = layout.isLarge ? layout.tv(72).clamp(44, 84).toDouble() : 52.0;
     return Scaffold(
       body: Row(
@@ -165,7 +166,7 @@ class _PhoneNavigationBar extends StatelessWidget {
   });
 
   final int selectedIndex;
-  final dynamic profile;
+  final Profile? profile;
   final ValueChanged<int> onDestinationSelected;
 
   @override
