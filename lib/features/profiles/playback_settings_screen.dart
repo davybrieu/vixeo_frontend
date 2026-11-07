@@ -86,14 +86,8 @@ class PlaybackSettingsScreen extends ConsumerWidget {
           value: subtitleLanguageLabel(profile.subtitleLanguage),
           onPressed: pickSubtitles,
         ),
-        _Note('Les sous-titres viennent d’OpenSubtitles.', scale: s),
         SizedBox(height: 24 * s),
         _Heading('Passer automatiquement', scale: s),
-        _Note(
-          'Activé : le moment est sauté tout seul. Désactivé : un bouton « Passer » s’affiche. Les moments viennent '
-          'de TheIntroDB, une base tenue par ses utilisateurs : ils ne sont pas connus pour tous les titres.',
-          scale: s,
-        ),
         SizedBox(height: 8 * s),
         for (final (field, label, detail, value) in _skips(profile))
           _SwitchRow(label: label, detail: detail, value: value, onChanged: (v) => toggle(field, v, label)),
