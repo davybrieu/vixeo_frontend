@@ -6,6 +6,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
+import '../../core/widgets/expandable_text.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
 import 'widgets.dart';
@@ -44,8 +45,6 @@ class _PersonView extends ConsumerStatefulWidget {
 }
 
 class _PersonViewState extends ConsumerState<_PersonView> {
-  bool _expanded = false;
-
   @override
   Widget build(BuildContext context) {
     final p = widget.person;
@@ -84,7 +83,7 @@ class _PersonViewState extends ConsumerState<_PersonView> {
         ],
         if (p.biography != null && !layout.isPhone) ...[
           SizedBox(height: 16 * s),
-          _Biography(text: p.biography!, expanded: _expanded, onToggle: _toggle, maxWidth: layout.tv(1000)),
+          ExpandableText(text: p.biography!, maxWidth: layout.tv(1000)),
         ],
       ],
     );
@@ -128,7 +127,7 @@ class _PersonViewState extends ConsumerState<_PersonView> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, 24),
-              child: _Biography(text: p.biography!, expanded: _expanded, onToggle: _toggle),
+              child: ExpandableText(text: p.biography!),
             ),
           ),
         if (p.knownFor.isNotEmpty)
@@ -159,46 +158,9 @@ class _PersonViewState extends ConsumerState<_PersonView> {
     );
   }
 
-  void _toggle() => setState(() => _expanded = !_expanded);
-
   static String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     return parts.take(2).map((w) => String.fromCharCode(w.runes.first).toUpperCase()).join();
   }
 }
 
-class _Biography extends StatelessWidget {
-  const _Biography({required this.text, required this.expanded, required this.onToggle, this.maxWidth});
-
-  final String text;
-  final bool expanded;
-  final VoidCallback onToggle;
-  final double? maxWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final s = layout.isLarge ? layout.scale * 2 : 1.0;
-    final long = text.length > 300;
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            text,
-            maxLines: expanded || !long ? null : 5,
-            overflow: expanded || !long ? null : TextOverflow.ellipsis,
-            style: VxText.body(15 * s, color: VxColors.textSoft, height: 1.55),
-          ),
-          if (long)
-            TextButton(
-              onPressed: onToggle,
-              style: TextButton.styleFrom(padding: EdgeInsets.zero),
-              child: Text(expanded ? 'Réduire' : 'Lire la suite'),
-            ),
-        ],
-      ),
-    );
-  }
-}
