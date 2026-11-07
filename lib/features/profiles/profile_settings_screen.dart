@@ -7,11 +7,9 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
-import '../auth/models.dart';
 import '../auth/session.dart';
 import 'avatars.dart';
 import 'profiles_screen.dart';
-import 'no_spoiler.dart';
 
 /// Saves profile fields with the API, refreshes the session and "Qui regarde ?", then
 /// confirms with an alert. [context] is only read before the request: the save may end
@@ -49,51 +47,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     if (profile == null) return const SizedBox();
 
-    Future<void> pickFormat() async {
-      final choice = await showModalBottomSheet<PosterFormat>(
-        context: context,
-        backgroundColor: VxColors.surface,
-        showDragHandle: true,
-        builder: (sheet) => SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(20 * s, 4, 20 * s, 20 * s),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Format des affiches', style: VxText.title(20 * s)),
-                SizedBox(height: 6 * s),
-                Text(
-                  'Comment les films et séries s’affichent dans les rangées et les listes.',
-                  style: VxText.body(14 * s, color: VxColors.textSecondary),
-                ),
-                SizedBox(height: 16 * s),
-                Wrap(
-                  spacing: 14 * s,
-                  runSpacing: 14 * s,
-                  children: [
-                    for (final format in PosterFormat.values)
-                      _FormatOption(
-                        format: format,
-                        selected: profile.posterFormat == format,
-                        scale: s,
-                        onPressed: () => Navigator.of(sheet).pop(format),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-      if (choice == null || choice == profile.posterFormat || !context.mounted) return;
-      await saveProfile(
-        context,
-        {'poster_format': choice.name},
-        done: 'Affiches au format ${choice.label.toLowerCase()}',
-        icon: Icons.view_carousel_rounded,
-      );
-    }
 
     return SafeArea(
       bottom: false,
@@ -152,18 +105,10 @@ class ProfileSettingsScreen extends ConsumerWidget {
             children: [
               _SettingsTile(
                 scale: s,
-                icon: Icons.palette_outlined,
-                title: 'Apparence',
-                subtitle: 'Affiches ${profile.posterFormat.label.toLowerCase()}. Ajustez la présentation de l’accueil.',
-                onPressed: pickFormat,
-              ),
-              _NoSpoilerTile(scale: s),
-              _SettingsTile(
-                scale: s,
-                icon: Icons.play_arrow_rounded,
-                title: 'Lecture',
-                subtitle: 'Lecteur, sous-titres et lecture automatique.',
-                onPressed: () => context.push('/profil/lecture'),
+                icon: Icons.tune_rounded,
+                title: 'Paramètres',
+                subtitle: 'Apparence, No spoil, langues et lecture automatique.',
+                onPressed: () => context.push('/profil/parametres'),
               ),
               _SettingsTile(
                 scale: s,
