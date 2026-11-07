@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import 'channel_search.dart';
@@ -30,6 +31,8 @@ class _TvHubScreenState extends ConsumerState<TvHubScreen> {
   Widget build(BuildContext context) {
     final categories = ref.watch(_categoriesProvider);
     final channels = ref.watch(_channelsProvider(_selectedCategoryId));
+    final layout = Layout.of(context);
+    final s = layout.isLarge ? layout.scale * 2 : 1.0;
 
     return Scaffold(
       body: SafeArea(
@@ -37,8 +40,8 @@ class _TvHubScreenState extends ConsumerState<TvHubScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text('TV en direct', style: VxText.title(22)),
+              padding: EdgeInsets.fromLTRB(layout.gutter, 16 * s, layout.gutter, 8 * s),
+              child: Text('TV en direct', style: VxText.title(28 * s)),
             ),
             SizedBox(
               height: 44,
@@ -46,10 +49,7 @@ class _TvHubScreenState extends ConsumerState<TvHubScreen> {
                 loading: () => const Center(
                   child: SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2)),
                 ),
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text('$e', style: VxText.body(14, color: VxColors.error)),
-                ),
+                error: (e, _) => const SizedBox.shrink(),
                 data: (list) {
                   if (list.isEmpty) {
                     return Padding(
@@ -106,7 +106,7 @@ class _TvHubScreenState extends ConsumerState<TvHubScreen> {
                     return const EmptyState(
                       icon: Icons.live_tv_outlined,
                       title: 'Aucune chaîne',
-                      message: 'Choisis une autre catégorie ou configure le panel Xtream côté serveur.',
+                      message: 'Aucune chaîne disponible pour le moment.',
                     );
                   }
                   return GridView.builder(
