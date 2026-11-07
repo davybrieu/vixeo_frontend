@@ -485,16 +485,18 @@ SliverGridDelegate posterGridDelegate(Layout layout, PosterFormat format) {
 
 /// Grid of title cards (Ma liste, genres), following the profile's poster format.
 class PosterGrid extends ConsumerWidget {
-  const PosterGrid({super.key, required this.items, this.padding});
+  const PosterGrid({super.key, required this.items, this.padding, this.alwaysScrollable = false});
 
   final List<MediaItem> items;
   final EdgeInsetsGeometry? padding;
+  final bool alwaysScrollable;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final format = posterFormatOf(ref);
     return GridView.builder(
+      physics: alwaysScrollable ? const AlwaysScrollableScrollPhysics() : null,
       padding: padding ?? EdgeInsets.all(layout.gutter),
       gridDelegate: posterGridDelegate(layout, format),
       itemCount: items.length,
