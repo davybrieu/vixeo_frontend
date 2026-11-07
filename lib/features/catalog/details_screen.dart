@@ -170,7 +170,7 @@ class _EpisodesState extends ConsumerState<_Episodes> {
     final layout = Layout.of(context);
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     final season = ref.watch(seasonProvider((widget.title.id, _season)));
-    final noSpoiler = ref.watch(noSpoilerProvider).value ?? false;
+    final noSpoiler = ref.watch(noSpoilerProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
