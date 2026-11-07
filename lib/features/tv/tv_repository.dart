@@ -1,5 +1,8 @@
-import '../auth/session.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../core/api/api_client.dart';
+import '../../core/api/api_exception.dart';
+import '../auth/session.dart';
 import 'models.dart';
 
 class TvRepository {
@@ -8,7 +11,7 @@ class TvRepository {
   final ApiClient _api;
 
   Future<List<TvCategory>> categories() async {
-    final json = await _api.getJson('/tv/categories');
+    final json = await _api.get('/tv/categories');
     final data = json['data'];
     if (data is! List) return const [];
     return data
@@ -19,10 +22,10 @@ class TvRepository {
   }
 
   Future<List<TvChannel>> channels({String? categoryId, String? query}) async {
-    final params = <String, String>{};
+    final params = <String, dynamic>{};
     if (categoryId != null && categoryId.isNotEmpty) params['category_id'] = categoryId;
     if (query != null && query.trim().isNotEmpty) params['q'] = query.trim();
-    final json = await _api.getJson('/tv/channels', query: params);
+    final json = await _api.get('/tv/channels', query: params.isEmpty ? null : params);
     final data = json['data'];
     if (data is! List) return const [];
     return data
@@ -33,7 +36,7 @@ class TvRepository {
   }
 
   Future<TvStream> stream(String channelId) async {
-    final json = await _api.getJson('/tv/channels/$channelId/stream');
+    final json = await _api.get('/tv/channels/$channelId/stream');
     final data = json['data'];
     if (data is! Map) {
       throw ApiException('Flux indisponible.');
@@ -45,6 +48,5 @@ class TvRepository {
 }
 
 final tvRepositoryProvider = Provider<TvRepository>((ref) {
-  final api = ref.watch(apiClientProvider);
-  return TvRepository(api);
+  return TvRepository(ref.watch(apiClientProvider));
 });
