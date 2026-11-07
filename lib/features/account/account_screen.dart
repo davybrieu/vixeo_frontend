@@ -40,24 +40,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   @override
   Widget build(BuildContext context) {
     final s = uiScale(context);
-    final user = ref.watch(sessionProvider.select((state) => state.user));
-
     return InfoPage(
       title: 'Mon compte',
       fallback: '/profil',
       children: [
-        if (user != null)
-          Padding(
-            padding: EdgeInsets.fromLTRB(12 * s, 8 * s, 12 * s, 24 * s),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(user.name, style: VxText.title(24 * s)),
-                SizedBox(height: 4 * s),
-                Text(user.email, style: VxText.body(15 * s, color: VxColors.textSecondary)),
-              ],
-            ),
-          ),
         const InfoSection(
           title: 'Vos données',
           children: [
@@ -93,7 +79,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           child: VxButton(
             label: 'Supprimer mon compte',
             icon: Icons.delete_forever_outlined,
-            kind: VxButtonKind.outline,
+            kind: VxButtonKind.danger,
             onPressed: _delete,
           ),
         ),
