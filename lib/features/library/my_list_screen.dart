@@ -54,51 +54,23 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                 SizedBox(height: 16 * s),
                 ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: layout.isPhone ? double.infinity : 720 * s),
-                  child: ValueListenableBuilder(
-                    valueListenable: _searchController,
-                    builder: (_, value, _) => TextField(
-                      controller: _searchController,
-                      textInputAction: TextInputAction.search,
-                      style: VxText.body(16 * s),
-                      onChanged: (value) {
-                        final query = value.trim();
-                        setState(() {
-                          _query = query;
-                          _filters = _filters.forText(withText: false);
-                        });
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Films, séries, acteurs…',
-                        filled: true,
-                        fillColor: VxColors.background.withValues(alpha: 0.6),
-                        prefixIcon: const Icon(Icons.search_rounded, color: VxColors.textSecondary),
-                        suffixIcon: value.text.isEmpty
-                            ? null
-                            : IconButton(
-                                tooltip: 'Effacer',
-                                icon: const Icon(Icons.close_rounded),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() {
-                                    _query = '';
-                                    _filters = _filters.forText(withText: false);
-                                  });
-                                },
-                              ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(28),
-                          borderSide: const BorderSide(color: VxColors.line),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(28),
-                          borderSide: const BorderSide(color: VxColors.line),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(28),
-                          borderSide: const BorderSide(color: VxColors.accent, width: 2),
-                        ),
-                      ),
-                    ),
+                  child: VxSearchField(
+                    controller: _searchController,
+                    fontSize: 16 * s,
+                    onChanged: (value) {
+                      final query = value.trim();
+                      setState(() {
+                        _query = query;
+                        _filters = _filters.forText(withText: false);
+                      });
+                    },
+                    onClear: () {
+                      _searchController.clear();
+                      setState(() {
+                        _query = '';
+                        _filters = _filters.forText(withText: false);
+                      });
+                    },
                   ),
                 ),
               ],
