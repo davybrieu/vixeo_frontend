@@ -55,7 +55,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
       child: ListView(
         padding: EdgeInsets.fromLTRB(layout.gutter, 12 * s, layout.gutter, 48 * s),
         children: [
-          Text('Paramètres', style: VxText.title(34 * s, weight: FontWeight.w800)),
+          Text('Paramètres', style: VxText.title(28 * s, weight: FontWeight.w800)),
           SizedBox(height: 28 * s),
           _SettingsSection(
             label: 'Compte',
