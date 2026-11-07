@@ -31,7 +31,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
   }
 
   void _setFilters(SearchFilters filters) {
-    setState(() => _filters = filters.forText(withText: _query.isNotEmpty));
+    setState(() => _filters = filters.forText(withText: false));
   }
 
   @override
@@ -64,7 +64,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                         final query = value.trim();
                         setState(() {
                           _query = query;
-                          _filters = _filters.forText(withText: query.isNotEmpty);
+                          _filters = _filters.forText(withText: false);
                         });
                       },
                       decoration: InputDecoration(
@@ -106,7 +106,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
           ),
           SearchFilterBar(
             filters: _filters,
-            withText: _query.isNotEmpty,
+            withText: false,
             onChanged: _setFilters,
           ),
           Expanded(
@@ -157,13 +157,16 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                   ));
                 }
 
-                switch (_filters.sortFor(withText: _query.isNotEmpty)) {
+                switch (_filters.sortFor(withText: false)) {
                   case SearchSort.rating:
                     matching.sort((a, b) => b.rating.compareTo(a.rating));
+                    break;
                   case SearchSort.recent:
                     matching.sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));
+                    break;
                   case SearchSort.oldest:
                     matching.sort((a, b) => (a.year ?? 9999).compareTo(b.year ?? 9999));
+                    break;
                   case SearchSort.relevance:
                   case SearchSort.popularity:
                     // Keep the library's existing order (most recently favorited first).
