@@ -11,9 +11,8 @@ import 'languages.dart';
 import 'no_spoiler.dart';
 import 'profile_settings_screen.dart';
 
-/// "Lecture et sous-titres" (`/profil/lecture`): preferred audio and subtitle languages, and the
-/// moments the player skips by itself. Saved on the profile, so the same on all its devices
-/// (vixeo_backend/docs/lecture.md). Not a restriction: no parental PIN.
+/// General profile preferences: appearance, no-spoil, languages and automatic skips.
+/// Values are saved on the profile and synchronized between its devices.
 class ProfilePreferencesScreen extends ConsumerWidget {
   const ProfilePreferencesScreen({super.key});
 
@@ -42,6 +41,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
         icon: Icons.palette_outlined,
       );
     }
+
     Future<void> pickAudio() async {
       final choice = await showVxChoice<String>(
         context,
