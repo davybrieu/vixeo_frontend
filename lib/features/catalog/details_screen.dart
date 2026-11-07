@@ -7,6 +7,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
+import '../../core/widgets/expandable_text.dart';
 import '../library/actions.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
@@ -179,17 +180,16 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                 final item = widget.title.seasons[i];
                 final selected = item.number == _season;
                 return VxFocusable(
-                  borderRadius: 8 * s,
-                  focusScale: 1.02,
+                  borderRadius: 22 * s,
                   semanticLabel: item.name,
                   onPressed: () => setState(() => _season = item.number),
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 18 * s),
+                    padding: EdgeInsets.symmetric(horizontal: 16 * s),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      border: Border(bottom: BorderSide(color: selected ? VxColors.accent : Colors.transparent, width: 3 * s)),
-                      borderRadius: BorderRadius.circular(4 * s),
+                      color: selected ? VxColors.accent.withValues(alpha: 0.14) : Colors.transparent,
+                      border: selected ? null : Border.all(color: VxColors.lineStrong),
+                      borderRadius: BorderRadius.circular(22 * s),
                     ),
                     child: Text(
                       item.number == 0 ? 'Épisodes spéciaux' : 'Saison ${item.number}',
@@ -293,60 +293,6 @@ class _EpisodesState extends ConsumerState<_Episodes> {
   }
 }
 
-class _ExpandableOverview extends StatefulWidget {
-  const _ExpandableOverview({required this.text, this.maxLines = 5});
-
-  final String text;
-  final int maxLines;
-
-  @override
-  State<_ExpandableOverview> createState() => _ExpandableOverviewState();
-}
-
-class _ExpandableOverviewState extends State<_ExpandableOverview> {
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final scale = 1.0;
-    final long = widget.text.length > 300;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.text,
-          maxLines: _expanded || !long ? null : widget.maxLines,
-          overflow: _expanded || !long ? null : TextOverflow.ellipsis,
-          style: VxText.body(
-            (layout.isLarge ? layout.tv(25) : 15) * scale,
-            color: VxColors.textSoft,
-            height: 1.55,
-          ),
-        ),
-        if (long)
-          TextButton(
-            onPressed: () => setState(() => _expanded = !_expanded),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.only(top: layout.isLarge ? layout.tv(8) : 6, bottom: 2),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              foregroundColor: VxColors.accent,
-              overlayColor: Colors.transparent,
-            ),
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: VxColors.accent, width: 1)),
-              ),
-              child: Text(_expanded ? 'Réduire' : 'Lire la suite'),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 // ───────────────────────────── Phone ─────────────────────────────
 
 class _PhoneDetails extends StatefulWidget {
@@ -442,7 +388,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                   _Actions(title: t),
                   if (t.overview != null) ...[
                     const SizedBox(height: 16),
-                    _ExpandableOverview(text: t.overview!, maxLines: 5),
+                    ExpandableText(text: t.overview!, maxLines: 5),
                   ],
                 ],
               ),
