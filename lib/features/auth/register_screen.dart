@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
-import 'login_screen.dart' show LegalLinks;
 import 'session.dart';
 
 /// Account creation (also creates the first profile, named after the user).
@@ -119,12 +118,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ],
                     VxButton(label: 'Créer mon compte', onPressed: _submit, loading: _loading, expand: true),
                     const SizedBox(height: 12),
-                    Text(
-                      'En créant un compte, vous confirmez avoir lu la politique de confidentialité.',
-                      textAlign: TextAlign.center,
-                      style: VxText.body(13, color: VxColors.textMuted),
-                    ),
-                    const LegalLinks(),
                   ],
                 ),
               ),
