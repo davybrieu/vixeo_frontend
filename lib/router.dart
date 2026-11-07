@@ -25,6 +25,7 @@ import 'features/profiles/profile_settings_screen.dart';
 import 'features/profiles/profiles_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
+import 'features/shell/back_navigation_guard.dart';
 
 /// Navigator of the router, for dialogs opened from above it (update suggestion).
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -41,6 +42,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   String? pending;
 
   Page<void> tab(Widget child) => NoTransitionPage(child: child);
+  Widget guarded(String location, Widget child) => BackNavigationGuard(location: location, child: child);
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -84,16 +86,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/demarrage', builder: (_, _) => const SplashScreen()),
-      GoRoute(path: '/connexion', builder: (_, _) => const LoginScreen()),
-      GoRoute(path: '/inscription', builder: (_, _) => const RegisterScreen()),
+      GoRoute(path: '/demarrage', builder: (_, state) => guarded(state.uri.path, const SplashScreen())),
+      GoRoute(path: '/connexion', builder: (_, state) => guarded(state.uri.path, const LoginScreen())),
+      GoRoute(path: '/inscription', builder: (_, state) => guarded(state.uri.path, const RegisterScreen())),
       GoRoute(
         path: '/mot-de-passe-oublie',
-        builder: (_, state) => PasswordResetScreen(initialEmail: state.extra as String?),
+        builder: (_, state) => guarded(state.uri.path, PasswordResetScreen(initialEmail: state.extra as String?)),
       ),
-      GoRoute(path: '/confidentialite', builder: (_, _) => const PrivacyScreen()),
-      GoRoute(path: '/a-propos', builder: (_, _) => const AboutScreen()),
-      GoRoute(path: '/profils', builder: (_, _) => const ProfilesScreen()),
+      GoRoute(path: '/confidentialite', builder: (_, state) => guarded(state.uri.path, const PrivacyScreen())),
+      GoRoute(path: '/a-propos', builder: (_, state) => guarded(state.uri.path, const AboutScreen())),
+      GoRoute(path: '/profils', builder: (_, state) => guarded(state.uri.path, const ProfilesScreen())),
       ShellRoute(
         builder: (context, state, child) => AppShell(location: state.uri.path, child: child),
         routes: [
@@ -137,12 +139,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/lecture/:type/:id',
-        builder: (_, state) => PlayerScreen(
+        builder: (_, state) => guarded(state.uri.path, PlayerScreen(
           type: MediaType.parse(state.pathParameters['type']),
           id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
           season: int.tryParse(state.uri.queryParameters['saison'] ?? ''),
           episode: int.tryParse(state.uri.queryParameters['episode'] ?? ''),
-        ),
+        )),
       ),
     ],
     errorBuilder: (context, state) => const Scaffold(
