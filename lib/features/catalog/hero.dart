@@ -107,7 +107,9 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
           ),
         ],
       ),
-    );}
+    );
+  }
+}
 
 class _FeaturedCard extends ConsumerWidget {
   const _FeaturedCard({required this.item});
