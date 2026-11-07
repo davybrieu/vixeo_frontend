@@ -11,6 +11,7 @@ import '../auth/models.dart';
 import '../auth/session.dart';
 import 'avatars.dart';
 import 'profiles_screen.dart';
+import 'no_spoiler.dart';
 
 /// Saves profile fields with the API, refreshes the session and "Qui regarde ?", then
 /// confirms with an alert. [context] is only read before the request: the save may end
@@ -109,6 +110,10 @@ class ProfileSettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
+          SizedBox(height: 28 * s),
+          Text('Affichage', style: VxText.title(18 * s)),
+          SizedBox(height: 8 * s),
+          _NoSpoilerSetting(scale: s),
           SizedBox(height: 36 * s),
           Text('Profil', style: VxText.title(18 * s)),
           SizedBox(height: 14 * s),
@@ -402,4 +407,52 @@ class _AvatarChoice extends StatelessWidget {
       ],
     ),
   );
+}
+
+
+class _NoSpoilerSetting extends ConsumerWidget {
+  const _NoSpoilerSetting({required this.scale});
+
+  final double scale;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(noSpoilerProvider).value ?? false;
+    return VxFocusable(
+      borderRadius: 14 * scale,
+      focusScale: 1.02,
+      semanticLabel: 'No spoil, ${enabled ? 'activé' : 'désactivé'}',
+      onPressed: () => ref.read(noSpoilerProvider.notifier).setEnabled(!enabled),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 12 * scale),
+        decoration: BoxDecoration(color: VxColors.surface, borderRadius: BorderRadius.circular(14 * scale)),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('No spoil', style: VxText.body(15 * scale, weight: FontWeight.w600)),
+                  SizedBox(height: 2 * scale),
+                  Text(
+                    'Floute les images, titres et descriptions des épisodes.',
+                    style: VxText.body(13 * scale, color: VxColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 12 * scale),
+            IgnorePointer(
+              child: ExcludeFocus(
+                child: Transform.scale(
+                  scale: scale,
+                  child: Switch(value: enabled, onChanged: (_) {}, activeThumbColor: VxColors.accent),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
