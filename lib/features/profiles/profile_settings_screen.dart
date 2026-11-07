@@ -11,6 +11,7 @@ import '../auth/models.dart';
 import '../auth/session.dart';
 import 'avatars.dart';
 import 'profiles_screen.dart';
+import 'no_spoiler.dart';
 
 /// Saves profile fields with the API, refreshes the session and "Qui regarde ?", then
 /// confirms with an alert. [context] is only read before the request: the save may end
