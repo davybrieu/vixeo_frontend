@@ -13,6 +13,7 @@ import '../auth/models.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
 import '../library/library.dart';
+import 'catalog_repository.dart';
 import 'models.dart';
 import 'person_screen.dart';
 
@@ -50,6 +51,9 @@ class PosterCard extends ConsumerWidget {
     final watched = itemState?.isWatched ?? false;
     final favorite = itemState?.isFavorite ?? false;
     final landscape = format == PosterFormat.landscape;
+    final details = landscape ? ref.watch(titleProvider((item.type, item.id))).value : null;
+    final logoUrl = item.logoUrl ?? details?.logoUrl;
+    final logoAspectRatio = item.logoAspectRatio ?? details?.logoAspectRatio;
     final radius = landscape ? width * 0.05 : width * 0.086;
     final noImage = Align(
       alignment: Alignment.bottomLeft,
@@ -85,7 +89,7 @@ class PosterCard extends ConsumerWidget {
                 seed: item.id,
                 fallback: noImage,
               ),
-              if (landscape && item.logoUrl != null) ...[
+              if (landscape && logoUrl != null) ...[
                 const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -101,10 +105,10 @@ class PosterCard extends ConsumerWidget {
                   bottom: width * 0.045,
                   child: TitleLogo(
                     name: item.title,
-                    logoUrl: item.logoUrl,
+                    logoUrl: logoUrl,
                     size: TitleLogo.sizeFor(
-                      item.logoUrl,
-                      item.logoAspectRatio,
+                      logoUrl,
+                      logoAspectRatio,
                       maxWidth: width * 0.48,
                       maxHeight: width * 0.17,
                     ),
