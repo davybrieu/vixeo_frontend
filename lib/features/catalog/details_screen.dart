@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +11,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/expandable_text.dart';
 import '../library/actions.dart';
+import '../profiles/no_spoiler.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
 import 'widgets.dart';
@@ -145,6 +148,10 @@ class _PeopleRow extends StatelessWidget {
   }
 }
 
+Widget _episodeSpoiler(Widget child, bool enabled) => enabled
+    ? ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 7, sigmaY: 7), child: child)
+    : child;
+
 /// Season picker + episode list.
 class _Episodes extends ConsumerStatefulWidget {
   const _Episodes({required this.title});
@@ -163,6 +170,7 @@ class _EpisodesState extends ConsumerState<_Episodes> {
     final layout = Layout.of(context);
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     final season = ref.watch(seasonProvider((widget.title.id, _season)));
+    final noSpoiler = ref.watch(noSpoilerProvider).value ?? false;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,7 +240,9 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                             child: SizedBox(
                               width: 136 * s,
                               height: 77 * s,
-                              child: NetImage(url: e.stillUrl, seed: e.id),
+                              child: noSpoiler
+                                  ? ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), child: NetImage(url: e.stillUrl, seed: e.id))
+                                  : NetImage(url: e.stillUrl, seed: e.id),
                             ),
                           ),
                           SizedBox(width: 12 * s),
@@ -240,11 +250,14 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  '${e.number}. ${e.name}',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: VxText.body(14 * s, weight: FontWeight.w600, height: 1.3),
+                                _episodeSpoiler(
+                                  Text(
+                                    '${e.number}. ${e.name}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: VxText.body(14 * s, weight: FontWeight.w600, height: 1.3),
+                                  ),
+                                  noSpoiler,
                                 ),
                                 Wrap(
                                   spacing: 10 * s,
@@ -270,12 +283,15 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                                       ),
                                   ],
                                 ),
-                                if (e.overview != null && !layout.isPhone)
-                                  Text(
-                                    e.overview!,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: VxText.body(13 * s, color: VxColors.textSoft),
+                                if (e.overview != null && e.overview!.trim().isNotEmpty)
+                                  _episodeSpoiler(
+                                    Text(
+                                      e.overview!,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: VxText.body(13 * s, color: VxColors.textSoft),
+                                    ),
+                                    noSpoiler,
                                   ),
                               ],
                             ),
