@@ -57,7 +57,7 @@ class FeaturedCarousel extends StatefulWidget {
 }
 
 class _FeaturedCarouselState extends State<FeaturedCarousel> {
-  final _controller = PageController(viewportFraction: 0.9);
+  final _controller = PageController(viewportFraction: 1.0);
   int _page = 0;
 
   @override
@@ -68,45 +68,46 @@ class _FeaturedCarouselState extends State<FeaturedCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width * 0.9 - 12;
-    final height = (width * 1.3).clamp(320, 520).toDouble();
-    return Column(
-      children: [
-        SizedBox(
-          height: height,
-          child: PageView.builder(
+    // A full-bleed hero that uses most of the phone's first screen, like the native TV apps.
+    final height = MediaQuery.sizeOf(context).height * 0.58;
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          PageView.builder(
             controller: _controller,
             itemCount: widget.items.length,
             onPageChanged: (i) => setState(() => _page = i),
-            itemBuilder: (_, i) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: _FeaturedCard(item: widget.items[i]),
+            itemBuilder: (_, i) => _FeaturedCard(item: widget.items[i]),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 18,
+            child: ExcludeSemantics(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < widget.items.length; i++)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: i == _page ? 28 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: i == _page ? Colors.white : Colors.white.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 14),
-        ExcludeSemantics(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < widget.items.length; i++)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == _page ? 20 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == _page ? VxColors.accent : VxColors.lineStrong,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
+        ],
+      ),
+    );}
 
 class _FeaturedCard extends ConsumerWidget {
   const _FeaturedCard({required this.item});
@@ -127,12 +128,12 @@ class _FeaturedCard extends ConsumerWidget {
     };
     final genres = details?.genres.map((g) => g.name).join(' · ') ?? '';
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.zero,
       child: Stack(
         fit: StackFit.expand,
         children: [
           // The poster without text if there is one: the logo below is the title.
-          NetImage(url: item.cleanPoster('w780'), seed: item.id),
+          NetImage(url: item.backdrop('w1280'), seed: item.id),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -146,7 +147,7 @@ class _FeaturedCard extends ConsumerWidget {
           Positioned(
             left: 20,
             right: 20,
-            bottom: 20,
+            bottom: 62,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
