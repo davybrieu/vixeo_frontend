@@ -179,16 +179,17 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                 final item = widget.title.seasons[i];
                 final selected = item.number == _season;
                 return VxFocusable(
-                  borderRadius: 22 * s,
+                  borderRadius: 8 * s,
+                  focusScale: 1.02,
                   semanticLabel: item.name,
                   onPressed: () => setState(() => _season = item.number),
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16 * s),
+                    padding: EdgeInsets.symmetric(horizontal: 18 * s),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: selected ? VxColors.accent.withValues(alpha: 0.14) : Colors.transparent,
-                      border: selected ? null : Border.all(color: VxColors.lineStrong),
-                      borderRadius: BorderRadius.circular(22 * s),
+                      color: Colors.transparent,
+                      border: Border(bottom: BorderSide(color: selected ? VxColors.accent : Colors.transparent, width: 3 * s)),
+                      borderRadius: BorderRadius.circular(4 * s),
                     ),
                     child: Text(
                       item.number == 0 ? 'Épisodes spéciaux' : 'Saison ${item.number}',
@@ -319,7 +320,7 @@ class _ExpandableOverviewState extends State<_ExpandableOverview> {
           maxLines: _expanded || !long ? null : widget.maxLines,
           overflow: _expanded || !long ? null : TextOverflow.ellipsis,
           style: VxText.body(
-            (layout.isLarge ? layout.tv(16) : 15) * scale,
+            (layout.isLarge ? layout.tv(25) : 15) * scale,
             color: VxColors.textSoft,
             height: 1.55,
           ),
@@ -327,8 +328,19 @@ class _ExpandableOverviewState extends State<_ExpandableOverview> {
         if (long)
           TextButton(
             onPressed: () => setState(() => _expanded = !_expanded),
-            style: TextButton.styleFrom(padding: EdgeInsets.zero),
-            child: Text(_expanded ? 'Réduire' : 'Lire la suite'),
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.only(top: layout.isLarge ? layout.tv(8) : 6, bottom: 2),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: VxColors.accent,
+              overlayColor: Colors.transparent,
+            ),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: VxColors.accent, width: 1)),
+              ),
+              child: Text(_expanded ? 'Réduire' : 'Lire la suite'),
+            ),
           ),
       ],
     );
