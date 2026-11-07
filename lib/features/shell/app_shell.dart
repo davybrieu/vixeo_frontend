@@ -173,21 +173,21 @@ class _PhoneNavigationBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 4),
       child: Center(
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(40),
+          borderRadius: BorderRadius.circular(32),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: Container(
-              height: 72,
+              height: 58,
               constraints: const BoxConstraints(maxWidth: 440),
               decoration: BoxDecoration(
                 color: const Color(0x99070A08),
-                borderRadius: BorderRadius.circular(40),
+                borderRadius: BorderRadius.circular(32),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
               child: Row(
                 children: [
                   for (var i = 0; i < _phoneTabs.length + 1; i++)
@@ -196,10 +196,10 @@ class _PhoneNavigationBar extends StatelessWidget {
                         selected: selectedIndex == i,
                         onPressed: () => onDestinationSelected(i),
                         child: i == _phoneTabs.length
-                            ? ProfileAvatar(profile: profile, size: 34, radius: 18)
+                            ? ProfileAvatar(profile: profile, size: 28, radius: 15)
                             : Icon(
                                 selectedIndex == i ? _phoneTabs[i].selectedIcon : _phoneTabs[i].icon,
-                                size: 30,
+                                size: 24,
                               ),
                       ),
                     ),
@@ -234,8 +234,8 @@ class _PhoneNavigationItem extends StatelessWidget {
           onTap: onPressed,
           customBorder: const CircleBorder(),
           child: SizedBox(
-            width: 54,
-            height: 54,
+            width: 46,
+            height: 46,
             child: Center(
               child: IconTheme(
                 data: IconThemeData(
