@@ -35,6 +35,7 @@ const _railItems = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
   _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
+  _Destination('/tv-live', 'TV', Icons.live_tv_outlined, Icons.live_tv),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
 ];
 
@@ -51,7 +52,7 @@ class AppShell extends ConsumerWidget {
     final profile = ref.watch(sessionProvider).profile;
 
     if (layout.isPhone) {
-      const navigationPages = {'/accueil', '/recherche', '/ma-liste', '/films', '/series', '/profil'};
+      const navigationPages = {'/accueil', '/recherche', '/ma-liste', '/films', '/series', '/tv-live', '/profil'};
       final showNavigation = navigationPages.contains(location);
       final index = location == '/profil'
           ? _phoneTabs.length
