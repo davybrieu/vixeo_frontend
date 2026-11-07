@@ -126,7 +126,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Opened by the QR code of a TV: /tv?code=K7F29Q.
           GoRoute(
             path: '/tv',
-            builder: (_, state) => DeviceApproveScreen(initialCode: state.uri.queryParameters['code']),
+            builder: (_, state) => guarded(state.uri.path, DeviceApproveScreen(initialCode: state.uri.queryParameters['code'])),
           ),
           GoRoute(
             path: '/titre/:type/:id',
@@ -147,9 +147,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         )),
       ),
     ],
-    errorBuilder: (context, state) => const Scaffold(
+    errorBuilder: (context, state) => guarded(state.uri.path, const Scaffold(
       body: EmptyState(icon: Icons.explore_off_outlined, title: 'Page introuvable'),
-    ),
+    )),
   );
 });
 
