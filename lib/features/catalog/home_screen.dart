@@ -9,6 +9,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../library/library.dart';
 import '../tv/channel_row.dart';
+import '../tv/models.dart';
 import 'catalog_repository.dart';
 import 'hero.dart';
 import 'models.dart';
@@ -64,7 +65,7 @@ class _PhoneHome extends StatelessWidget {
 
   final Home home;
   final List<ProfileItem> resume;
-  final List channels;
+  final List<TvChannel> channels;
   final MediaType? type;
 
   @override
