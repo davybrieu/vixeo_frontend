@@ -68,7 +68,7 @@ class _VxFocusableState extends State<VxFocusable> {
       // `autofocus` can be lost when the screen appears (e.g. on the web with
       // accessibility on): take the focus if nobody else has it once built.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_node.hasFocus && !hasFocusedElement()) _node.requestFocus();
+        if (mounted && !_node.hasFocus) _node.requestFocus();
       });
     }
   }
