@@ -553,7 +553,7 @@ class _LargeDetails extends StatelessWidget {
                       SizedBox(height: layout.tv(22)),
                       SizedBox(
                         width: layout.tv(820),
-                        child: _ExpandableOverview(text: t.overview!, maxLines: 5),
+                        child: ExpandableText(text: t.overview!, maxLines: 5),
                       ),
                     ],
                     SizedBox(height: layout.tv(36)),
