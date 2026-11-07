@@ -173,23 +173,27 @@ class _PhoneNavigationBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-      child: Center(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: Container(
-              height: 58,
-              constraints: const BoxConstraints(maxWidth: 440),
-              decoration: BoxDecoration(
-                color: const Color(0x99070A08),
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-              child: Row(
-                children: [
+      minimum: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              child: Container(
+                width: double.infinity,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0x55070A08),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                child: Row(
+                  children: [
                   for (var i = 0; i < _phoneTabs.length + 1; i++)
                     Expanded(
                       child: _PhoneNavigationItem(
@@ -203,7 +207,8 @@ class _PhoneNavigationBar extends StatelessWidget {
                               ),
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -234,8 +239,8 @@ class _PhoneNavigationItem extends StatelessWidget {
           onTap: onPressed,
           customBorder: const CircleBorder(),
           child: SizedBox(
-            width: 46,
-            height: 46,
+            width: 42,
+            height: 42,
             child: Center(
               child: IconTheme(
                 data: IconThemeData(
