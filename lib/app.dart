@@ -42,13 +42,38 @@ class VixeoApp extends ConsumerWidget {
     theme: buildVixeoTheme(),
     themeMode: ThemeMode.dark,
     routerConfig: router,
-    // On TV, Back first returns to Home from any page. Back on Home can then exit Vixeo.
+    // Global back policy: every page returns to Home first. Only the explicit
+    // confirmation on Home is allowed to close the application.
     builder: (context, child) {
       final isHome = router.routeInformationProvider.value.uri.path == '/accueil';
       return PopScope<void>(
-        canPop: isHome,
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && !isHome) router.go('/accueil');
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+
+          if (!isHome) {
+            router.go('/accueil');
+            return;
+          }
+
+          final shouldQuit = await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text("Êtes-vous sûr de vouloir quitter l'application ?"),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Rester sur l’application'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Quitter'),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldQuit == true) await SystemNavigator.pop();
         },
         child: UpdateGate(navigatorKey: rootNavigatorKey, child: child ?? const SizedBox()),
       );
