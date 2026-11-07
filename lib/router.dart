@@ -4,10 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import 'core/theme.dart';
 import 'core/widgets/common.dart';
-import 'features/account/about_screen.dart';
 import 'features/account/account_screen.dart';
 import 'features/account/devices_screen.dart';
-import 'features/account/privacy_screen.dart';
 import 'features/auth/device_login.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/password_reset_screen.dart';
@@ -27,6 +25,7 @@ import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
 import 'features/tv/tv_hub_screen.dart';
+import 'features/updates/update_settings_screen.dart';
 
 /// Navigator of the router, for dialogs opened from above it (update suggestion).
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -53,10 +52,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       final session = ref.read(sessionProvider);
       final location = state.matchedLocation;
       const authPages = {'/connexion', '/inscription', '/mot-de-passe-oublie'};
-      // Readable by everyone, at any time (the privacy policy is also the link given to Apple).
-      const publicPages = {'/confidentialite', '/a-propos'};
-      if (publicPages.contains(location)) return null;
-
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
         if (location != '/demarrage') {
           if (!authPages.contains(location)) pending = state.uri.toString();
@@ -94,8 +89,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/mot-de-passe-oublie',
         builder: (_, state) => guarded(state.uri.path, PasswordResetScreen(initialEmail: state.extra as String?)),
       ),
-      GoRoute(path: '/confidentialite', builder: (_, state) => guarded(state.uri.path, const PrivacyScreen())),
-      GoRoute(path: '/a-propos', builder: (_, state) => guarded(state.uri.path, const AboutScreen())),
       GoRoute(path: '/profils', builder: (_, state) => guarded(state.uri.path, const ProfilesScreen())),
       ShellRoute(
         builder: (context, state, child) => AppShell(location: state.uri.path, child: child),
@@ -124,6 +117,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profil/lecture', builder: (_, _) => const PlaybackSettingsScreen()),
           GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
           GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
+          GoRoute(path: '/profil/mise-a-jour', builder: (_, _) => const UpdateSettingsScreen()),
           GoRoute(
             path: '/personne/:id',
             builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
