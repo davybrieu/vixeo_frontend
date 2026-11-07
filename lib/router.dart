@@ -18,7 +18,7 @@ import 'features/catalog/person_screen.dart';
 import 'features/library/my_list_screen.dart';
 import 'features/playback/player_screen.dart';
 import 'features/profiles/parental_control_screen.dart';
-import 'features/profiles/playback_settings_screen.dart';
+import 'features/profiles/profile_preferences_screen.dart';
 import 'features/profiles/profile_settings_screen.dart';
 import 'features/profiles/profiles_screen.dart';
 import 'features/search/search_screen.dart';
@@ -114,7 +114,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profil', pageBuilder: (_, _) => tab(const ProfileSettingsScreen())),
           GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
           GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),
-          GoRoute(path: '/profil/lecture', builder: (_, _) => const PlaybackSettingsScreen()),
+          GoRoute(path: '/profil/parametres', builder: (_, _) => const ProfilePreferencesScreen()),
           GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
           GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
           GoRoute(path: '/profil/mise-a-jour', builder: (_, _) => const UpdateSettingsScreen()),
