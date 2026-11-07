@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
-import '../playback/player_screen.dart';
+import 'channel_search.dart';
 import 'models.dart';
 import 'tv_repository.dart';
 
@@ -41,7 +40,9 @@ class TvHubScreen extends ConsumerWidget {
             SizedBox(
               height: 44,
               child: categories.when(
-                loading: () => const Center(child: SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2))),
+                loading: () => const Center(
+                  child: SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
                 error: (e, _) => Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Text('$e', style: VxText.body(14, color: VxColors.danger)),
@@ -81,7 +82,7 @@ class TvHubScreen extends ConsumerWidget {
                 error: (e, _) => EmptyState(
                   icon: Icons.live_tv_outlined,
                   title: 'TV indisponible',
-                  subtitle: '$e',
+                  message: '$e',
                   action: VxButton(
                     label: 'Réessayer',
                     onPressed: () {
@@ -95,22 +96,48 @@ class TvHubScreen extends ConsumerWidget {
                     return const EmptyState(
                       icon: Icons.live_tv_outlined,
                       title: 'Aucune chaîne',
-                      subtitle: 'Choisis une autre catégorie ou configure le panel Xtream côté serveur.',
+                      message: 'Choisis une autre catégorie ou configure le panel Xtream côté serveur.',
                     );
                   }
                   return GridView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 160,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 0.85,
-                    ),
+                    gridDelegate: const NumberedGridDelegate(),
                     itemCount: list.length,
-                    itemBuilder: (context, i) => _ChannelTile(
-                      channel: list[i],
-                      onPlay: () => _play(context, ref, list[i]),
-                    ),
+                    itemBuilder: (context, i) {
+                      final channel = list[i];
+                      return Material(
+                        color: VxColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: () => playLiveChannel(context, ref, channel),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: channel.logo != null && channel.logo!.isNotEmpty
+                                      ? Image.network(
+                                          channel.logo!,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (_, __, ___) => const Icon(Icons.live_tv, size: 40),
+                                        )
+                                      : const Icon(Icons.live_tv, size: 40),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  channel.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: VxText.body(13),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
@@ -120,110 +147,45 @@ class TvHubScreen extends ConsumerWidget {
       ),
     );
   }
-
-  Future<void> _play(BuildContext context, WidgetRef ref, TvChannel channel) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-    try {
-      final stream = await ref.read(tvRepositoryProvider).stream(channel.id);
-      if (!context.mounted) return;
-      Navigator.of(context).pop();
-      // Reuse the existing player route with a live URL via extra until a dedicated live route exists.
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => LivePlayerScreen(title: channel.name, stream: stream),
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
-    }
-  }
 }
 
-class _ChannelTile extends StatelessWidget {
-  const _ChannelTile({required this.channel, required this.onPlay});
-
-  final TvChannel channel;
-  final VoidCallback onPlay;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: VxColors.surface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onPlay,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            children: [
-              Expanded(
-                child: channel.logo != null && channel.logo!.isNotEmpty
-                    ? Image.network(
-                        channel.logo!,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Icon(Icons.live_tv, size: 40),
-                      )
-                    : const Icon(Icons.live_tv, size: 40),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                channel.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: VxText.body(13),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+class NumberedGridDelegate extends SliverGridDelegateWithMaxCrossAxisExtent {
+  const NumberedGridDelegate()
+      : super(
+          maxCrossAxisExtent: 160,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.85,
+        );
 }
 
 /// Minimal live player until the main PlayerScreen accepts arbitrary URLs.
-class LivePlayerScreen extends StatefulWidget {
+class LivePlayerScreen extends StatelessWidget {
   const LivePlayerScreen({super.key, required this.title, required this.stream});
 
   final String title;
   final TvStream stream;
 
   @override
-  State<LivePlayerScreen> createState() => _LivePlayerScreenState();
-}
-
-class _LivePlayerScreenState extends State<LivePlayerScreen> {
-  @override
   Widget build(BuildContext context) {
-    // Placeholder: open the existing player flow or media_kit/video_player with the URL.
-    // For now we surface the resolved URL so integration with PlayerScreen can be completed next.
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(title: Text(title)),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(widget.title, style: VxText.title(20)),
+              Text(title, style: VxText.title(20)),
               const SizedBox(height: 12),
               Text(
-                'Flux ${widget.stream.format.toUpperCase()} prêt.\n'
+                'Flux ${stream.format.toUpperCase()} prêt.\n'
                 'Brancher ici le lecteur existant (video_player / media_kit) avec :',
                 textAlign: TextAlign.center,
                 style: VxText.body(14, color: VxColors.textSoft),
               ),
               const SizedBox(height: 16),
-              SelectableText(widget.stream.url, style: VxText.body(12)),
+              SelectableText(stream.url, style: VxText.body(12)),
             ],
           ),
         ),
