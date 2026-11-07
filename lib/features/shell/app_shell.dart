@@ -125,6 +125,10 @@ class AppShell extends ConsumerWidget {
             child: Focus(
               onKeyEvent: (node, event) {
                 if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                  final current = FocusManager.instance.primaryFocus;
+                  if (current != null && current.focusInDirection(TraversalDirection.left)) {
+                    return KeyEventResult.handled;
+                  }
                   _tvSidebarFocusNode.requestFocus();
                   return KeyEventResult.handled;
                 }
