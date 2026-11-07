@@ -11,6 +11,7 @@ import '../../core/widgets/focusable.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
 import '../profiles/avatars.dart';
+import 'back_navigation_guard.dart';
 
 class _Destination {
   const _Destination(this.path, this.label, this.icon, this.selectedIcon);
@@ -57,7 +58,9 @@ class AppShell extends ConsumerWidget {
           : _phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
 
-      return Scaffold(
+      return BackNavigationGuard(
+        location: location,
+        child: Scaffold(
         extendBody: true,
         body: child,
         bottomNavigationBar: showNavigation
@@ -69,12 +72,15 @@ class AppShell extends ConsumerWidget {
                 },
               )
             : null,
+      ),
       );
     }
 
     final railWidth = layout.isLarge ? layout.tv(120).clamp(64, 140).toDouble() : 80.0;
     final itemSize = layout.isLarge ? layout.tv(72).clamp(44, 84).toDouble() : 52.0;
-    return Scaffold(
+    return BackNavigationGuard(
+      location: location,
+      child: Scaffold(
       body: Row(
         children: [
           Container(
@@ -121,6 +127,7 @@ class AppShell extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
