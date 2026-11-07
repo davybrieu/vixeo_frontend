@@ -112,28 +112,28 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/ma-liste', pageBuilder: (_, _) => tab(const MyListScreen())),
           GoRoute(path: '/profil', pageBuilder: (_, _) => tab(const ProfileSettingsScreen())),
+          GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
+          GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),
+          GoRoute(path: '/profil/lecture', builder: (_, _) => const PlaybackSettingsScreen()),
+          GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
+          GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
+          GoRoute(
+            path: '/personne/:id',
+            builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+          ),
+          // Opened by the QR code of a TV: /tv?code=K7F29Q.
+          GoRoute(
+            path: '/tv',
+            builder: (_, state) => DeviceApproveScreen(initialCode: state.uri.queryParameters['code']),
+          ),
+          GoRoute(
+            path: '/titre/:type/:id',
+            builder: (_, state) => DetailsScreen(
+              type: MediaType.parse(state.pathParameters['type']),
+              id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+            ),
+          ),
         ],
-      ),
-      GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
-      GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),
-      GoRoute(path: '/profil/lecture', builder: (_, _) => const PlaybackSettingsScreen()),
-      GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
-      GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
-      GoRoute(
-        path: '/personne/:id',
-        builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
-      ),
-      // Opened by the QR code of a TV: /tv?code=K7F29Q.
-      GoRoute(
-        path: '/tv',
-        builder: (_, state) => DeviceApproveScreen(initialCode: state.uri.queryParameters['code']),
-      ),
-      GoRoute(
-        path: '/titre/:type/:id',
-        builder: (_, state) => DetailsScreen(
-          type: MediaType.parse(state.pathParameters['type']),
-          id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
-        ),
       ),
       GoRoute(
         path: '/lecture/:type/:id',
