@@ -29,6 +29,9 @@ const _phoneTabs = [
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
 ];
 
+/// Height reserved under scroll content so the last items clear the floating pill + safe area.
+const _phoneNavClearance = 72.0;
+
 final _tvSidebarFocusNode = FocusNode(debugLabel: 'Navigation latérale');
 
 const _railItems = [
@@ -60,27 +63,34 @@ class AppShell extends ConsumerWidget {
           : _phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
 
+      // Overlay the glass bar on top of the body (no Scaffold.bottomNavigationBar slot,
+      // which would paint an opaque black strip under a translucent pill).
       return BackNavigationGuard(
         location: location,
         child: Scaffold(
-        extendBody: true,
-        // The floating navigation overlays the body (extendBody: true).
-        // Reserve its full height in the page viewport so scrollable content
-        // can reach the bottom without being hidden behind the navigation.
-        body: Padding(
-          padding: EdgeInsets.only(bottom: showNavigation ? 66 : 0),
-          child: child,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(bottom: showNavigation ? _phoneNavClearance : 0),
+                child: child,
+              ),
+              if (showNavigation)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _PhoneNavigationBar(
+                    selectedIndex: selectedIndex,
+                    profile: profile,
+                    onDestinationSelected: (i) {
+                      context.go(i < _phoneTabs.length ? _phoneTabs[i].path : '/profil');
+                    },
+                  ),
+                ),
+            ],
+          ),
         ),
-        bottomNavigationBar: showNavigation
-            ? _PhoneNavigationBar(
-                selectedIndex: selectedIndex,
-                profile: profile,
-                onDestinationSelected: (i) {
-                  context.go(i < _phoneTabs.length ? _phoneTabs[i].path : '/profil');
-                },
-              )
-            : null,
-      ),
       );
     }
 
@@ -89,9 +99,9 @@ class AppShell extends ConsumerWidget {
     return BackNavigationGuard(
       location: location,
       child: Scaffold(
-      body: Row(
-        children: [
-          Container(
+        body: Row(
+          children: [
+            Container(
               width: railWidth,
               color: const Color(0xE6070A08),
               padding: EdgeInsets.symmetric(vertical: layout.isLarge ? layout.tv(56) : 24),
@@ -117,25 +127,25 @@ class AppShell extends ConsumerWidget {
                     ),
                 ],
               ),
-          ),
-          Expanded(
-            child: Focus(
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                  final current = FocusManager.instance.primaryFocus;
-                  if (current != null && current.focusInDirection(TraversalDirection.left)) {
+            ),
+            Expanded(
+              child: Focus(
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                    final current = FocusManager.instance.primaryFocus;
+                    if (current != null && current.focusInDirection(TraversalDirection.left)) {
+                      return KeyEventResult.handled;
+                    }
+                    _tvSidebarFocusNode.requestFocus();
                     return KeyEventResult.handled;
                   }
-                  _tvSidebarFocusNode.requestFocus();
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
-              child: child,
+                  return KeyEventResult.ignored;
+                },
+                child: child,
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -153,32 +163,31 @@ class _RailItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: destination.label,
-    child: VxFocusable(
-      onPressed: () => context.go(destination.path),
-      borderRadius: size * 0.25,
-      focusScale: 1.08,
-      focusNode: focusNode,
-      semanticLabel: destination.label,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: selected ? VxColors.accent.withValues(alpha: 0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(size * 0.25),
+        message: destination.label,
+        child: VxFocusable(
+          onPressed: () => context.go(destination.path),
+          borderRadius: size * 0.25,
+          focusScale: 1.08,
+          focusNode: focusNode,
+          semanticLabel: destination.label,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: selected ? VxColors.accent.withValues(alpha: 0.12) : Colors.transparent,
+              borderRadius: BorderRadius.circular(size * 0.25),
+            ),
+            child: Icon(
+              selected ? destination.selectedIcon : destination.icon,
+              size: size * 0.45,
+              color: selected ? VxColors.accent : VxColors.textSecondary,
+            ),
+          ),
         ),
-        child: Icon(
-          selected ? destination.selectedIcon : destination.icon,
-          size: size * 0.45,
-          color: selected ? VxColors.accent : VxColors.textSecondary,
-        ),
-      ),
-    ),
-  );
+      );
 }
 
-
-/// Floating glass navigation for phones, using the same destinations and icons as before.
+/// Floating glass navigation for phones — overlays content, no opaque scaffold strip.
 class _PhoneNavigationBar extends StatelessWidget {
   const _PhoneNavigationBar({
     required this.selectedIndex,
@@ -215,19 +224,19 @@ class _PhoneNavigationBar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
                 child: Row(
                   children: [
-                  for (var i = 0; i < _phoneTabs.length + 1; i++)
-                    Expanded(
-                      child: _PhoneNavigationItem(
-                        selected: selectedIndex == i,
-                        onPressed: () => onDestinationSelected(i),
-                        child: i == _phoneTabs.length
-                            ? ProfileAvatar(profile: profile, size: 28, radius: 15)
-                            : Icon(
-                                selectedIndex == i ? _phoneTabs[i].selectedIcon : _phoneTabs[i].icon,
-                                size: 24,
-                              ),
+                    for (var i = 0; i < _phoneTabs.length + 1; i++)
+                      Expanded(
+                        child: _PhoneNavigationItem(
+                          selected: selectedIndex == i,
+                          onPressed: () => onDestinationSelected(i),
+                          child: i == _phoneTabs.length
+                              ? ProfileAvatar(profile: profile, size: 28, radius: 15)
+                              : Icon(
+                                  selectedIndex == i ? _phoneTabs[i].selectedIcon : _phoneTabs[i].icon,
+                                  size: 24,
+                                ),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
