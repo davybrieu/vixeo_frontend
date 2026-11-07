@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../library/library.dart';
+import '../tv/channel_row.dart';
 import 'catalog_repository.dart';
 import 'hero.dart';
 import 'models.dart';
@@ -24,6 +25,7 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(homeProvider(type));
     final resume = ref.watch(libraryProvider).value?.continueWatching ?? const <ProfileItem>[];
+    final channels = ref.watch(homeChannelsProvider).value ?? const [];
     final layout = Layout.of(context);
 
     Future<void> refresh() async {
@@ -35,7 +37,7 @@ class HomeScreen extends ConsumerWidget {
       value: home,
       onRetry: () => ref.invalidate(homeProvider(type)),
       data: (data) {
-        if (data.sections.isEmpty && data.featured.isEmpty) {
+        if (data.sections.isEmpty && data.featured.isEmpty && channels.isEmpty) {
           return const EmptyState(
             icon: Icons.movie_filter_outlined,
             title: 'Rien à afficher pour l’instant',
@@ -47,9 +49,9 @@ class HomeScreen extends ConsumerWidget {
         return layout.isPhone
             ? RefreshIndicator(
                 onRefresh: refresh,
-                child: _PhoneHome(home: data, resume: rows, type: type),
+                child: _PhoneHome(home: data, resume: rows, channels: channels, type: type),
               )
-            : _LargeHome(home: data, resume: rows, type: type);
+            : _LargeHome(home: data, resume: rows, channels: channels, type: type);
       },
     );
   }
@@ -58,10 +60,11 @@ class HomeScreen extends ConsumerWidget {
 // ───────────────────────────── Phone ─────────────────────────────
 
 class _PhoneHome extends StatelessWidget {
-  const _PhoneHome({required this.home, required this.resume, required this.type});
+  const _PhoneHome({required this.home, required this.resume, required this.channels, required this.type});
 
   final Home home;
   final List<ProfileItem> resume;
+  final List channels;
   final MediaType? type;
 
   @override
@@ -84,6 +87,10 @@ class _PhoneHome extends StatelessWidget {
             ),
           ),
         ],
+        if (channels.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          ChannelRow(channels: channels),
+        ],
         for (final section in home.sections) ...[
           const SizedBox(height: 24),
           PosterRow(
@@ -99,10 +106,11 @@ class _PhoneHome extends StatelessWidget {
 // ───────────────────────────── TV / large ─────────────────────────────
 
 class _LargeHome extends StatefulWidget {
-  const _LargeHome({required this.home, required this.resume, required this.type});
+  const _LargeHome({required this.home, required this.resume, required this.channels, required this.type});
 
   final Home home;
   final List<ProfileItem> resume;
+  final List channels;
   final MediaType? type;
 
   @override
@@ -179,6 +187,10 @@ class _LargeHomeState extends State<_LargeHome> {
                         ),
                       ),
                     ),
+                    SizedBox(height: layout.tv(36)),
+                  ],
+                  if (widget.channels.isNotEmpty) ...[
+                    ChannelRow(channels: widget.channels),
                     SizedBox(height: layout.tv(36)),
                   ],
                   for (final (index, section) in widget.home.sections.indexed) ...[
