@@ -70,7 +70,7 @@ lib/
   features/
     auth/        connexion (page d'accueil de l'appli), inscription, mot de passe oublié, session,
                  connexion TV par QR code (device_login.dart : carte TV + page /tv)
-    account/     Mon compte (export, suppression), appareils connectés, confidentialité, aide
+    account/     Mon compte (export, suppression), appareils connectés
     updates/     vérification des mises à jour Android / iOS (UpdateGate, écrans)
     profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
@@ -92,8 +92,7 @@ lib/
   Le routeur n'écoute que le statut de connexion et la présence d'un profil : modifier le profil
   (avatar…) ne doit pas reconstruire les pages. Exception : `/tv` (validation d'une TV) ne demande
   pas de profil ; ouvert sans être connecté, il est mémorisé et rouvert juste après la connexion.
-  `/confidentialite` et `/a-propos` sont lisibles par tous, à tout moment (la politique est aussi
-  l'URL donnée à Apple) ; `/mot-de-passe-oublie` est une page de connexion.
+  `/mot-de-passe-oublie` est une page de connexion.
 - **Connexion TV par QR code** (`features/auth/device_login.dart`, API : `vixeo_backend/docs/connexion-tv.md`) :
   sur grand écran, la page de connexion affiche `TvCodeCard` (QR code vers `<WEB_URL>/tv?code=…`
   + code court), qui interroge `/auth/device/token` toutes les `interval` secondes et demande un
@@ -104,10 +103,6 @@ lib/
   mémoire tant que la page est ouverte et envoyé (`parental_pin`) avec chaque modification de
   profil ; « Code oublié ? » désactive le contrôle avec le mot de passe du compte. Après une
   modification : invalider `profilesProvider` et `homeProvider` (le catalogue dépend des limites).
-- **Confidentialité** (`features/account/privacy_screen.dart`) : le texte décrit exactement ce que
-  l'appli et l'API font (`APPLE_NOTARIZATION.md` §5). Toute nouvelle donnée, tout nouveau service
-  tiers ou SDK : mettre à jour ce texte, `Legal.privacyPolicyDate`, `ios/Runner/PrivacyInfo.xcprivacy`
-  et l'audit. Pas de SDK de publicité, de suivi ou d'analytics ; aucune permission iOS sans besoin.
 - **Mises à jour** (`features/updates`, API : `vixeo_backend/docs/mise-a-jour.md`) : sur Android et
   iOS, `UpdateGate` (dans le `builder` de `MaterialApp.router`) interroge `GET /app/update` avec le
   **build** installé (`package_info_plus`) au lancement et au retour au premier plan (toutes les 6 h
@@ -183,7 +178,7 @@ lib/
   la fiche : l'image sans texte
   (`textless_backdrop_url`, via `TitleDetails.background(size)`), sinon `backdrop_url`. Le lecteur
   d'écran lit toujours le nom.
-- **Lecture et sous-titres** (`/profil/lecture`, `PlaybackSettingsScreen`, API :
+- **Paramètres du profil** (`/profil/parametres`, `ProfilePreferencesScreen`, API :
   `vixeo_backend/docs/lecture.md`) : langue audio préférée (null = version originale), langue des
   sous-titres (null = désactivés ; noms dans `profiles/languages.dart`, mêmes codes que l'API) et
   « Passer automatiquement » le générique de début, le résumé, le générique de fin, l'aperçu
@@ -216,7 +211,7 @@ lib/
   Vu), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (« Explorer », filtres type / genre / années /
   note, tri, grande image sur grand écran, résultats groupés, recherches récentes synchronisées),
-  Ma liste, « Mon profil » (avatar par licence, format des affiches, lecture et sous-titres,
+  Ma liste, « Mon profil » (avatar par licence, paramètres d’apparence, No spoil, langues et lecture automatique,
   contrôle parental, connecter une TV, changer de profil,
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   politique de confidentialité et « Aide et à propos », vérification des
