@@ -81,6 +81,7 @@ class _VxFocusableState extends State<VxFocusable> {
 
   @override
   Widget build(BuildContext context) {
+    final interactive = widget.onPressed != null || widget.onLongPress != null;
     final ringColor = widget.onAccent ? VxColors.text : VxColors.accent;
     final scale = _focused ? widget.focusScale : (_hovered ? 1.02 : 1.0);
 
@@ -88,6 +89,7 @@ class _VxFocusableState extends State<VxFocusable> {
       button: widget.onPressed != null,
       label: widget.semanticLabel,
       child: FocusableActionDetector(
+        enabled: interactive,
         focusNode: _node,
         autofocus: widget.autofocus,
         mouseCursor: widget.onPressed != null ? SystemMouseCursors.click : MouseCursor.defer,
