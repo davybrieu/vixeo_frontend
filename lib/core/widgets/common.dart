@@ -60,7 +60,7 @@ class NetImage extends StatelessWidget {
   }
 }
 
-enum VxButtonKind { primary, secondary, outline }
+enum VxButtonKind { primary, secondary, outline, danger }
 
 /// Button with the Vixeo look and a TV focus state.
 class VxButton extends StatelessWidget {
@@ -94,6 +94,7 @@ class VxButton extends StatelessWidget {
       VxButtonKind.primary => (VxColors.accent, VxColors.onAccent, null),
       VxButtonKind.secondary => (VxColors.text.withValues(alpha: 0.14), VxColors.text, null),
       VxButtonKind.outline => (Colors.transparent, VxColors.text, Border.all(color: VxColors.lineStrong, width: 1.5)),
+      VxButtonKind.danger => (const Color(0xFFB42318), Colors.white, null),
     };
     final enabled = onPressed != null && !loading;
 
@@ -101,7 +102,7 @@ class VxButton extends StatelessWidget {
       onPressed: enabled ? onPressed : null,
       autofocus: autofocus,
       borderRadius: radius,
-      onAccent: kind == VxButtonKind.primary,
+      onAccent: kind == VxButtonKind.primary || kind == VxButtonKind.danger,
       focusScale: 1.04,
       semanticLabel: label,
       child: Opacity(
