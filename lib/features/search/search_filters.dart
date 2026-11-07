@@ -7,6 +7,8 @@ enum SearchKind {
   all('Tout'),
   movie('Films'),
   tv('Séries'),
+  /// Live channels from the configured Xtream panel.
+  channels('Chaînes TV'),
 
   /// Only with a text: TMDb has no list of people to explore.
   person('Personnes');
@@ -15,12 +17,14 @@ enum SearchKind {
 
   final String label;
 
-  /// Movies or TV shows only (null for "Tout" and people).
+  /// Movies or TV shows only (null for "Tout", channels and people).
   MediaType? get mediaType => switch (this) {
     SearchKind.movie => MediaType.movie,
     SearchKind.tv => MediaType.tv,
     _ => null,
   };
+
+  bool get isChannels => this == SearchKind.channels;
 }
 
 /// Order of the results (API `sort`).

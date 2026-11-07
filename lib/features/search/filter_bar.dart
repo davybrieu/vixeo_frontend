@@ -28,7 +28,7 @@ String _fold(String s) => s
     .replaceAll('ç', 'c');
 
 /// Type, genre, years, rating and order of the search page, in one scrollable row of chips.
-/// Genre, years, rating and order don't apply to people: hidden for "Personnes".
+/// Genre, years, rating and order don't apply to people or live channels: hidden for those kinds.
 class SearchFilterBar extends ConsumerWidget {
   const SearchFilterBar({super.key, required this.filters, required this.withText, required this.onChanged});
 
@@ -43,7 +43,10 @@ class SearchFilterBar extends ConsumerWidget {
     final layout = Layout.of(context);
     final gap = layout.isLarge ? layout.tv(14) : 8.0;
     final genres = ref.watch(allGenresProvider).value;
-    final kinds = withText ? SearchKind.values : SearchKind.values.where((k) => k != SearchKind.person);
+    // Channels always available; people only with a text.
+    final kinds = withText
+        ? SearchKind.values
+        : SearchKind.values.where((k) => k != SearchKind.person);
     final order = filters.sortFor(withText: withText);
 
     void setKind(SearchKind kind) {
@@ -93,7 +96,7 @@ class SearchFilterBar extends ConsumerWidget {
       if (choice != null) onChanged(filters.copyWith(sort: () => choice.$1));
     }
 
-    final titles = filters.kind != SearchKind.person;
+    final titles = filters.kind != SearchKind.person && !filters.kind.isChannels;
 
     return FocusTraversalGroup(
       child: SingleChildScrollView(
