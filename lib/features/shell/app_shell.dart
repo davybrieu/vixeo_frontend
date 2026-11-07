@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,45 +53,19 @@ class AppShell extends ConsumerWidget {
           ? _phoneTabs.length
           : _phoneTabs.indexWhere((d) => location.startsWith(d.path));
       return Scaffold(
+        extendBody: true,
         body: child,
-        bottomNavigationBar: NavigationBarTheme(
-          data: NavigationBarThemeData(
-            backgroundColor: const Color(0xF0070A08),
-            indicatorColor: VxColors.accent.withValues(alpha: 0.14),
-            labelTextStyle: WidgetStateProperty.resolveWith(
-              (states) => VxText.body(
-                11,
-                weight: states.contains(WidgetState.selected) ? FontWeight.w600 : FontWeight.w500,
-                color: states.contains(WidgetState.selected) ? VxColors.accent : VxColors.textSecondary,
-              ),
-            ),
-            iconTheme: WidgetStateProperty.resolveWith(
-              (states) => IconThemeData(
-                color: states.contains(WidgetState.selected) ? VxColors.accent : VxColors.textSecondary,
-              ),
-            ),
-          ),
-          child: NavigationBar(
-            height: 68,
-            selectedIndex: index < 0 ? 0 : index,
-            onDestinationSelected: (i) {
-              context.go(i < _phoneTabs.length ? _phoneTabs[i].path : '/profil');
-            },
-            destinations: [
-              for (final d in _phoneTabs)
-                NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: d.label),
-              NavigationDestination(
-                icon: ProfileAvatar(profile: profile, size: 26, radius: 7),
-                label: 'Profil',
-                tooltip: 'Mon profil',
-              ),
-            ],
-          ),
+        bottomNavigationBar: _PhoneNavigationBar(
+          selectedIndex: index < 0 ? 0 : index,
+          profile: profile,
+          onDestinationSelected: (i) {
+            context.go(i < _phoneTabs.length ? _phoneTabs[i].path : '/profil');
+          },
         ),
       );
     }
 
-    final railWidth = layout.isLarge ? layout.tv(120).clamp(64, 140).toDouble() : 80.0;
+    final railWidth    final railWidth = layout.isLarge ? layout.tv(120).clamp(64, 140).toDouble() : 80.0;
     final itemSize = layout.isLarge ? layout.tv(72).clamp(44, 84).toDouble() : 52.0;
     return Scaffold(
       body: Row(
@@ -177,4 +153,100 @@ class _RailItem extends StatelessWidget {
       ),
     ),
   );
+}
+
+
+/// Floating glass navigation for phones, using the same destinations and icons as before.
+class _PhoneNavigationBar extends StatelessWidget {
+  const _PhoneNavigationBar({
+    required this.selectedIndex,
+    required this.profile,
+    required this.onDestinationSelected,
+  });
+
+  final int selectedIndex;
+  final dynamic profile;
+  final ValueChanged<int> onDestinationSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Center(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(40),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              height: 72,
+              constraints: const BoxConstraints(maxWidth: 440),
+              decoration: BoxDecoration(
+                color: const Color(0x99070A08),
+                borderRadius: BorderRadius.circular(40),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+              child: Row(
+                children: [
+                  for (var i = 0; i < _phoneTabs.length + 1; i++)
+                    Expanded(
+                      child: _PhoneNavigationItem(
+                        selected: selectedIndex == i,
+                        onPressed: () => onDestinationSelected(i),
+                        child: i == _phoneTabs.length
+                            ? ProfileAvatar(profile: profile, size: 34, radius: 18)
+                            : Icon(
+                                selectedIndex == i ? _phoneTabs[i].selectedIcon : _phoneTabs[i].icon,
+                                size: 30,
+                              ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhoneNavigationItem extends StatelessWidget {
+  const _PhoneNavigationItem({
+    required this.selected,
+    required this.onPressed,
+    required this.child,
+  });
+
+  final bool selected;
+  final VoidCallback onPressed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Material(
+        color: selected ? Colors.white.withValues(alpha: 0.13) : Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onPressed,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 54,
+            height: 54,
+            child: Center(
+              child: IconTheme(
+                data: IconThemeData(
+                  color: selected ? VxColors.text : VxColors.textSecondary,
+                  size: 30,
+                ),
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
