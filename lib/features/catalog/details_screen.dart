@@ -264,12 +264,12 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                                   runSpacing: 2 * s,
                                   crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
-                                    if (e.runtime != null)
+                                    if (!noSpoiler && e.runtime != null)
                                       Text(
                                         formatRuntime(e.runtime),
                                         style: VxText.body(12 * s, color: VxColors.textSecondary),
                                       ),
-                                    if (e.voteAverage > 0)
+                                    if (!noSpoiler && e.voteAverage > 0)
                                       Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
