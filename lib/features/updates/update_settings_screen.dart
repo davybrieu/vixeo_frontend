@@ -65,7 +65,21 @@ class UpdateSettingsScreen extends ConsumerWidget {
               kind: VxButtonKind.secondary,
               onPressed: () async {
                 try {
-                  await ref.read(updateProvider.notifier).check();
+                  final info = await ref.read(updateProvider.notifier).check();
+                  if (!context.mounted) return;
+                  final message = switch (info?.status) {
+                    UpdateStatus.upToDate => 'Vixeo est à jour.',
+                    UpdateStatus.updateAvailable => 'Une nouvelle mise à jour est disponible.',
+                    UpdateStatus.updateRequired => 'Une mise à jour est nécessaire.',
+                    null => 'Aucune information de mise à jour disponible.',
+                  };
+                  showVxSnack(
+                    context,
+                    message,
+                    icon: info?.status == UpdateStatus.upToDate
+                        ? Icons.check_circle_rounded
+                        : Icons.system_update_rounded,
+                  );
                 } catch (_) {
                   if (context.mounted) {
                     showVxSnack(context, 'Vérification impossible. Réessayez plus tard.');
