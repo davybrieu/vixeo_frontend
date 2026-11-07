@@ -110,7 +110,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
                 scale: s,
                 icon: Icons.group_outlined,
                 title: 'Changer de profil',
-                subtitle: profile.name + (profile.isKid ? ' · profil enfant' : '') + '. Basculer vers un profil différent.',
+                subtitle: 'Basculer vers un autre profil.',
                 onPressed: () => ref.read(sessionProvider.notifier).switchProfile(),
               ),
               _SettingsTile(
@@ -135,6 +135,14 @@ class ProfileSettingsScreen extends ConsumerWidget {
                   subtitle: 'Approuver le code affiché sur le téléviseur.',
                   onPressed: () => context.push('/tv'),
                 ),
+              _SettingsTile(
+                scale: s,
+                icon: Icons.logout_rounded,
+                title: 'Se déconnecter',
+                subtitle: 'Quitter ce compte sur cet appareil.',
+                foreground: const Color(0xFFEF4444),
+                onPressed: () => ref.read(sessionProvider.notifier).logout(),
+              ),
             ],
           ),
           SizedBox(height: 28 * s),
@@ -173,24 +181,10 @@ class ProfileSettingsScreen extends ConsumerWidget {
               ),
               _SettingsTile(
                 scale: s,
-                icon: Icons.privacy_tip_outlined,
-                title: 'Confidentialité',
-                subtitle: 'Données, historique et politique de confidentialité.',
-                onPressed: () => context.push('/confidentialite'),
-              ),
-              _SettingsTile(
-                scale: s,
-                icon: Icons.info_outline_rounded,
-                title: 'Aide et à propos',
-                subtitle: 'Version de l’application et contact.',
-                onPressed: () => context.push('/a-propos'),
-              ),
-              _SettingsTile(
-                scale: s,
-                icon: Icons.logout_rounded,
-                title: 'Se déconnecter',
-                subtitle: 'Quitter ce compte sur cet appareil.',
-                onPressed: () => ref.read(sessionProvider.notifier).logout(),
+                icon: Icons.system_update_alt_rounded,
+                title: 'Mise à jour',
+                subtitle: 'Vérifier et installer la dernière version de Vixeo.',
+                onPressed: () => context.push('/profil/mise-a-jour'),
               ),
             ],
           ),
@@ -255,6 +249,7 @@ class _SettingsTile extends StatelessWidget {
     required this.subtitle,
     required this.onPressed,
     this.trailing,
+    this.foreground,
   });
 
   final double scale;
@@ -263,6 +258,7 @@ class _SettingsTile extends StatelessWidget {
   final String subtitle;
   final VoidCallback onPressed;
   final Widget? trailing;
+  final Color? foreground;
 
   @override
   Widget build(BuildContext context) {
@@ -285,18 +281,18 @@ class _SettingsTile extends StatelessWidget {
                 color: const Color(0xFF2A2A2A),
                 borderRadius: BorderRadius.circular(14 * s),
               ),
-              child: Icon(icon, size: 22 * s, color: VxColors.text),
+              child: Icon(icon, size: 22 * s, color: foreground ?? VxColors.text),
             ),
             SizedBox(width: 14 * s),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: VxText.body(16 * s, weight: FontWeight.w600)),
+                  Text(title, style: VxText.body(16 * s, weight: FontWeight.w600, color: foreground ?? VxColors.text)),
                   SizedBox(height: 2 * s),
                   Text(
                     subtitle,
-                    style: VxText.body(13.5 * s, color: VxColors.textSecondary, height: 1.3),
+                    style: VxText.body(13.5 * s, color: foreground ?? VxColors.textSecondary, height: 1.3),
                   ),
                 ],
               ),
