@@ -159,7 +159,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
 
                 return RefreshIndicator(
                   onRefresh: () => ref.read(libraryProvider.notifier).refresh(),
-                  child: PosterGrid(items: items),
+                  child: PosterGrid(items: items, alwaysScrollable: true),
                 );
               },
             ),
