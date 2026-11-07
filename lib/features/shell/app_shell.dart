@@ -50,18 +50,53 @@ class AppShell extends ConsumerWidget {
     final profile = ref.watch(sessionProvider).profile;
 
     if (layout.isPhone) {
-      final index = location.startsWith('/profil')
+      const navigationPages = {'/accueil', '/recherche', '/ma-liste', '/films', '/series', '/profil'};
+      final showNavigation = navigationPages.contains(location);
+      final index = location == '/profil'
           ? _phoneTabs.length
-          : _phoneTabs.indexWhere((d) => location.startsWith(d.path));
-      return Scaffold(
-        extendBody: true,
-        body: child,
-        bottomNavigationBar: _PhoneNavigationBar(
-          selectedIndex: index < 0 ? 0 : index,
-          profile: profile,
-          onDestinationSelected: (i) {
-            context.go(i < _phoneTabs.length ? _phoneTabs[i].path : '/profil');
-          },
+          : _phoneTabs.indexWhere((d) => location == d.path);
+      final selectedIndex = index < 0 ? 0 : index;
+
+      return PopScope(
+        canPop: location != '/accueil' && location != '/ma-liste',
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+          if (location == '/ma-liste') {
+            context.go('/accueil');
+            return;
+          }
+          if (location == '/accueil') {
+            final shouldQuit = await showDialog<bool>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: const Text("Êtes-vous sûr de vouloir quitter l'application ?"),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                    child: const Text('Rester sur l’application'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                    child: const Text('Quitter'),
+                  ),
+                ],
+              ),
+            );
+            if (shouldQuit == true) await SystemNavigator.pop();
+          }
+        },
+        child: Scaffold(
+          extendBody: true,
+          body: child,
+          bottomNavigationBar: showNavigation
+              ? _PhoneNavigationBar(
+                  selectedIndex: selectedIndex,
+                  profile: profile,
+                  onDestinationSelected: (i) {
+                    context.go(i < _phoneTabs.length ? _phoneTabs[i].path : '/profil');
+                  },
+                )
+              : null,
         ),
       );
     }
