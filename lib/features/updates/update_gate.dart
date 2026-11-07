@@ -224,7 +224,7 @@ class _UpdateGateState extends ConsumerState<UpdateGate> {
 Future<void> showUpdateAvailableDialog(BuildContext context, UpdateInfo info) => showDialog<void>(
   context: context,
   builder: (dialogContext) => AlertDialog(
-    title: Text('Vixeo ${info.latest?.version ?? ''} est disponible'),
+    title: const Text('Une mise à jour est disponible'),
     content: SizedBox(
       width: 420,
       child: Column(
@@ -232,7 +232,9 @@ Future<void> showUpdateAvailableDialog(BuildContext context, UpdateInfo info) =>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            info.latest?.notes ?? 'Une nouvelle version de Vixeo est disponible.',
+            'Il est important de garder Vixeo à jour pour profiter d’une expérience plus fluide, '
+            'des dernières fonctionnalités et des améliorations de sécurité. '
+            'Nous vous recommandons d’installer cette mise à jour.',
             style: VxText.body(15, color: VxColors.textSoft),
           ),
           const SizedBox(height: 20),
