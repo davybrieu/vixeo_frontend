@@ -66,9 +66,8 @@ class _PhoneHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.paddingOf(context).top;
     return ListView(
-      padding: EdgeInsets.only(top: top + 8, bottom: 24),
+      padding: const EdgeInsets.only(bottom: 24),
       children: [
         if (home.featured.isNotEmpty) FeaturedCarousel(items: home.featured),
         if (resume.isNotEmpty) ...[
