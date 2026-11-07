@@ -125,8 +125,8 @@ class PosterCard extends ConsumerWidget {
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.favorite_rounded,
-                      color: Color(0xFFFF5B75),
+                      Icons.bookmark_added_rounded,
+                      color: VxColors.accent,
                       size: 17,
                     ),
                   ),
