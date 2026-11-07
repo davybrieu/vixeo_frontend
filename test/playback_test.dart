@@ -13,7 +13,7 @@ import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/playback/playback.dart';
-import 'package:vixeo/features/profiles/playback_settings_screen.dart';
+import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
 import 'package:vixeo/features/search/search_history.dart';
 
 const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
@@ -119,7 +119,7 @@ void main() {
             authRepositoryProvider.overrideWithValue(auth),
             sessionProvider.overrideWith(() => WithProfile(const Profile(id: 2, name: 'Léa'))),
           ],
-          child: MaterialApp(theme: buildVixeoTheme(), home: const PlaybackSettingsScreen()),
+          child: MaterialApp(theme: buildVixeoTheme(), home: const ProfilePreferencesScreen()),
         ),
       );
       await tester.pumpAndSettle();
