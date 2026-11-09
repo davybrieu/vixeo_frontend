@@ -101,6 +101,31 @@ class SubtitleOption {
 /// A movie, or an episode of a TV show.
 typedef PlaybackItem = ({MediaType type, int id, int? season, int? episode});
 
+/// A player link resolved into a playable stream by the API (through the scraper's extractors).
+@immutable
+class ResolvedStream {
+  const ResolvedStream({required this.stream, this.streamType, this.extractor, this.headers = const {}});
+
+  factory ResolvedStream.fromJson(Map<String, dynamic> json) => ResolvedStream(
+    stream: json['stream'] as String,
+    streamType: json['stream_type'] as String?,
+    extractor: json['extractor'] as String?,
+    headers: (json['headers'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? const {},
+  );
+
+  /// Playable URL: an HLS `.m3u8` playlist or a progressive `.mp4` file.
+  final String stream;
+
+  /// "m3u8" or "mp4", when the extractor says so.
+  final String? streamType;
+
+  /// Extractor that resolved the link ("voe"…), null for the generic one.
+  final String? extractor;
+
+  /// HTTP headers the player must send (Referer, Origin…).
+  final Map<String, String> headers;
+}
+
 class PlaybackRepository {
   PlaybackRepository(this._api);
 
@@ -112,6 +137,15 @@ class PlaybackRepository {
 
   Future<SkipSegments> segments(PlaybackItem item) async =>
       SkipSegments.fromJson((await _api.get('${_base(item)}/segments'))['data'] as Map<String, dynamic>? ?? const {});
+
+  /// Resolves a player link into a playable stream, through the API.
+  ///
+  /// Throws an [ApiException] when no extractor knows the link (502): the player then shows an
+  /// error instead of falling back to the raw player page, which cannot be played.
+  Future<ResolvedStream> resolve(String url) async {
+    final json = await _api.post('/catalog/resolve', body: {'url': url});
+    return ResolvedStream.fromJson(json['data'] as Map<String, dynamic>);
+  }
 
   /// Subtitles in [languages] (preferred first); without them, the profile's language.
   Future<List<SubtitleOption>> subtitles(PlaybackItem item, {List<String>? languages}) async {

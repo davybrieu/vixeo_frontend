@@ -70,9 +70,10 @@ class FakeHistory extends SearchHistoryRepository {
 
 /// Answers every request with [body] (JSON, or text) and records the requests.
 class FakeAdapter implements HttpClientAdapter {
-  FakeAdapter(this.body);
+  FakeAdapter(this.body, {this.status = 200});
 
   final Object body;
+  final int status;
   final requests = <RequestOptions>[];
 
   @override
@@ -81,7 +82,7 @@ class FakeAdapter implements HttpClientAdapter {
     final text = body is String ? body as String : jsonEncode(body);
     return ResponseBody.fromString(
       text,
-      200,
+      status,
       headers: {
         Headers.contentTypeHeader: [body is String ? 'text/vtt; charset=utf-8' : 'application/json'],
       },
@@ -270,6 +271,39 @@ void main() {
       final file = FakeAdapter('WEBVTT\n\n00:01.000 --> 00:02.000\nBonjour\n');
       expect(await repository(file).subtitleFile(7), startsWith('WEBVTT'));
       expect(file.requests.single.path, '/catalog/subtitles/7');
+    });
+
+    test('resolves a player link into a playable stream, with its headers', () async {
+      final adapter = FakeAdapter({
+        'data': {
+          'stream': 'https://delivery.voe.sx/hls/master.m3u8',
+          'stream_type': 'm3u8',
+          'extractor': 'voe',
+          'headers': {'Referer': 'https://voe.sx/', 'User-Agent': 'Vixeo'},
+          'subtitles': <Object>[],
+        },
+      });
+
+      final resolved = await repository(adapter).resolve('https://voe.sx/e/abc');
+
+      final request = adapter.requests.single;
+      expect(request.path, '/catalog/resolve');
+      expect(request.method, 'POST');
+      expect(request.data, {'url': 'https://voe.sx/e/abc'});
+      expect(resolved.stream, 'https://delivery.voe.sx/hls/master.m3u8');
+      expect(resolved.streamType, 'm3u8');
+      expect(resolved.extractor, 'voe');
+      expect(resolved.headers['Referer'], 'https://voe.sx/');
+    });
+
+    test('surfaces the API error when a link cannot be resolved', () async {
+      final adapter = FakeAdapter({'message': 'Cette source n’est pas lisible.'}, status: 502);
+
+      // A 502 from the API: the player shows the French message, no raw URL fallback.
+      await expectLater(
+        repository(adapter).resolve('https://unknown-host.tld/e/xyz'),
+        throwsA(isA<ApiException>().having((e) => e.message, 'message', 'Cette source n’est pas lisible.')),
+      );
     });
   });
 }
