@@ -27,6 +27,7 @@ const _phoneTabs = [
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _Destination('/tv-live', 'TV', Icons.live_tv_outlined, Icons.live_tv),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
+  _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
 ];
 
 /// Extra bottom inset so list content clears the floating pill (pill ~50 + margins).
@@ -41,6 +42,7 @@ const _railItems = [
   _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
   _Destination('/tv-live', 'TV', Icons.live_tv_outlined, Icons.live_tv),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
+  _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
 ];
 
 /// Main navigation: bottom tab bar on phones, left rail elsewhere (TV, tablet, desktop).
@@ -56,7 +58,16 @@ class AppShell extends ConsumerWidget {
     final profile = ref.watch(sessionProvider).profile;
 
     if (layout.isPhone) {
-      const navigationPages = {'/accueil', '/recherche', '/ma-liste', '/films', '/series', '/tv-live', '/profil'};
+      const navigationPages = {
+        '/accueil',
+        '/recherche',
+        '/ma-liste',
+        '/avis',
+        '/films',
+        '/series',
+        '/tv-live',
+        '/profil',
+      };
       final showNavigation = navigationPages.contains(location);
       final index = location == '/profil' ? _phoneTabs.length : _phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;

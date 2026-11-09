@@ -81,6 +81,15 @@ class ProfileSettingsScreen extends ConsumerWidget {
                 subtitle: 'Voir et déconnecter les appareils liés à ce compte.',
                 onPressed: () => context.push('/profil/appareils'),
               ),
+              _SettingsTile(
+                scale: s,
+                icon: Icons.link_rounded,
+                title: 'Connexions',
+                subtitle: tmdb?.linked ?? false
+                    ? 'Lier ou déconnecter un service. TMDb : ${tmdb!.displayName}'
+                    : 'Lier un service à ce profil (TMDb, pour noter).',
+                onPressed: () => context.push('/profil/connexions'),
+              ),
               if (!DeviceInfo.isTv)
                 _SettingsTile(
                   scale: s,
@@ -132,30 +141,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
                 subtitle: 'Changer l’image de ${profile.name}.',
                 onPressed: () => context.push('/profil/avatar'),
               ),
-            ],
-          ),
-          SizedBox(height: 28 * s),
-          _SettingsSection(
-            label: 'TMDb',
-            scale: s,
-            children: [
-              _SettingsTile(
-                scale: s,
-                icon: Icons.link_rounded,
-                title: 'Compte TMDb',
-                subtitle: tmdb?.linked ?? false
-                    ? 'Lié à ${tmdb!.displayName}.'
-                    : 'Liez votre compte pour noter films, séries et épisodes.',
-                onPressed: () => context.push('/profil/tmdb'),
-              ),
-              if (tmdb?.linked ?? false)
-                _SettingsTile(
-                  scale: s,
-                  icon: Icons.star_outline_rounded,
-                  title: 'Mes notes',
-                  subtitle: 'Vos notes de films, séries et épisodes, synchronisées avec TMDb.',
-                  onPressed: () => context.push('/profil/notes'),
-                ),
             ],
           ),
         ],

@@ -4,6 +4,10 @@ Appli **Vixeo** (media center) pour le web, Android, Android TV / Google TV et i
 seule base de code. L'API Laravel est dans
 [`davybrieu/vixeo_backend`](https://github.com/davybrieu/vixeo_backend).
 
+**Charte graphique : [`docs/charte-graphique.md`](docs/charte-graphique.md)** (couleurs, textes,
+espacements, composants, focus) : à suivre pour tout écran ; valeurs dans `core/theme.dart` et
+`core/design.dart`.
+
 **Lire d'abord [`docs/CONTEXT.md`](docs/CONTEXT.md)** (copie de celui de l'API) : décisions produit,
 périmètre légal (§3 : ce qui est hors périmètre ne doit pas être implémenté), sécurité (§6).
 
@@ -80,7 +84,8 @@ lib/
     playback/    pour le futur lecteur : moments à passer (TheIntroDB) et sous-titres (OpenSubtitles),
                  via l'API
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
-    tmdb/        compte TMDb du profil (liaison, QR code), notes (fenêtre, boutons, « Mes notes »)
+    tmdb/        compte TMDb du profil (page Connexions, QR code), notes et commentaires (fenêtre,
+                 boutons, onglet « Avis »)
 ```
 
 ## Conventions
@@ -170,19 +175,24 @@ lib/
   Chaque action se confirme par une alerte (`showVxSnack`) : « Ajouté à votre liste », « Supprimé
   de votre liste », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
   « Note enregistrée : 8/10 », « Note supprimée ».
-- **Compte TMDb et notes** (`features/tmdb`, API : `vixeo_backend/docs/compte-tmdb.md`) : chaque
-  profil peut lier un compte TMDb (`/profil/tmdb`, « Mon profil » → section TMDb) ; le même compte
-  TMDb peut être lié à plusieurs profils, même d'autres comptes Vixeo. Liaison : la page
-  d'autorisation de TMDb s'ouvre (téléphone, ordinateur) ou s'affiche en QR code (grand écran),
-  et la page interroge `link/complete` toutes les 5 s (et au retour au premier plan). Une fois
-  lié : bouton « Noter » sur la fiche (film, série) et étoile au bout de chaque épisode
-  (« Ma note : 8/10 » dans la ligne), seulement si un compte est lié (`canRateProvider`) ;
-  fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK) ;
-  « Mes notes » (`/profil/notes`) : onglets Films / Séries / Épisodes, pages suivantes en
-  défilant, Modifier et Supprimer. Les notes vivent sur TMDb (synchronisées partout) : toute
-  écriture passe par `TmdbRatings`, qui rafraîchit la fiche, les épisodes et « Mes notes ».
-  L'API de TMDb n'accepte que des notes (0,5 à 10), pas d'avis écrits. 409 de l'API → plus de
-  compte lié (`TmdbAccountController.lost`).
+- **Compte TMDb, notes et avis** (`features/tmdb`, API : `vixeo_backend/docs/compte-tmdb.md`) :
+  chaque profil peut lier un compte TMDb dans « Mon profil » → **Connexions**
+  (`/profil/connexions`, `ConnectionsScreen` ; pas de section TMDb ni « Mes notes » dans les
+  paramètres, demande du développeur) ; le même compte TMDb peut être lié à plusieurs profils,
+  même d'autres comptes Vixeo. Liaison : la page d'autorisation de TMDb s'ouvre (téléphone,
+  ordinateur) ou s'affiche en QR code (grand écran), et la page interroge `link/complete` toutes les
+  5 s (et au retour au premier plan) ; « Changer de compte », « Déconnecter » (supprime les
+  commentaires). Une fois lié : bouton « Noter » sur la fiche (film, série) et étoile au bout de
+  chaque épisode (« Ma note : 8/10 »), seulement si un compte est lié (`canRateProvider`) ;
+  fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK ;
+  **commentaire facultatif**, gardé par Vixeo, jamais envoyé à TMDb). **« Avis »** est un onglet de
+  la navigation (`/avis`, `ReviewsScreen`) : en-tête commun avec recherche (titre, épisode,
+  commentaire, sans accents ni casse), filtres Tout (par défaut) / Films / Séries / Épisodes, la
+  plus récente d'abord, Modifier et Supprimer. Toutes les notes sont chargées d'un coup
+  (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche, les
+  épisodes et « Avis ». L'API de TMDb n'accepte que des notes (0,5 à 10). 409 de l'API → plus de
+  compte lié (`TmdbAccountController.lost`). Anciennes adresses `/profil/tmdb` et `/profil/notes`
+  redirigées.
 - **Note TMDb** : la note moyenne de TMDb s'affiche partout avec `TmdbRating` (étoile, note, petit
   logo officiel TMDb `assets/images/tmdb_short.png`, « Primary short » de themoviedb.org converti
   en PNG sans modification). Pas de page de confidentialité ni de mention TMDb dans l'appli
@@ -232,8 +242,12 @@ lib/
   sans aucune image, et reste dans le libellé pour les lecteurs d'écran. En horizontal, le logo du
   titre s'affiche quand le titre le donne (rangées de l'accueil) : **jamais de requête de fiche par
   carte** (`titleProvider` dans `PosterCard` = une requête par titre affiché, au-delà de la limite
-  de l'API). Badge « Ma liste » sur l'affiche, « vu » dans le libellé. Titre de rangée et lien
-  « Voir tout » : `SectionHeader(title, onSeeAll: …)`.
+  de l'API). « Ma liste » demande tous ses titres en une requête (`titlesByIdProvider`, API
+  `/catalog/titles`). Sur une carte horizontale, le logo est demandé en w300 (`cardLogoUrl`) et
+  apparaît avec l'image (`ImagesTogether` : les deux une fois chargées), jamais après. Badge « Ma
+  liste » sur l'affiche, « vu » dans le libellé. Titre de rangée et lien « Voir tout » :
+  `SectionHeader(title, onSeeAll: …)`. Pages principales (Recherche, Ma liste, Avis) : même en-tête
+  `VxPageHeader` (titre, recherche, `FilterBar`) et `pageContentPadding` (charte, § 6).
 - **Avatars** : galerie `GET /avatars` regroupée par licence (`features/profiles/avatars.dart`,
   pixel art dessiné par `PixelAvatarPainter`, ou `image_url`) ; `ProfileAvatar` partout où le
   profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits.
@@ -258,9 +272,9 @@ lib/
   bande-annonce, Ma liste, Vu, notes TMDb du film, de la série et des épisodes), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (« Explorer », filtres type / genre / années /
   note, tri, grande image sur grand écran, résultats groupés, recherches récentes synchronisées),
-  Ma liste, « Mon profil » (avatar par licence, paramètres d’apparence, No spoil, langues et lecture automatique,
-  contrôle parental et code PIN (deux pages), connecter une TV, changer de profil, compte TMDb et
-  « Mes notes »,
+  Ma liste, « Avis » (notes TMDb et commentaires), « Mon profil » (avatar par licence, paramètres
+  d’apparence, No spoil, langues et lecture automatique, contrôle parental et code PIN (deux pages),
+  connecter une TV, changer de profil, Connexions (TMDb),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
   mises à jour (Android / iOS), mises en page téléphone et TV / grand écran, navigation à la

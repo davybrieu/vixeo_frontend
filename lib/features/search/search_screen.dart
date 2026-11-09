@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/page_header.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/hero.dart';
 import '../catalog/models.dart';
@@ -118,7 +120,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final s = layout.isLarge ? layout.scale * 2 : 1.0;
 
     // Explore with "Tout": a genre only movies (or only TV shows) have leaves the other type out.
     // Until the genres are loaded, both types are asked.
@@ -126,31 +127,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     bool hasGenre(MediaType type) =>
         _filters.genre == null || genres == null || (genres[type]?.contains(_filters.genre) ?? false);
 
-    final header = Padding(
-      padding: EdgeInsets.fromLTRB(layout.gutter, 16 * s, layout.gutter, 12 * s),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Recherche', style: VxText.title(28 * s)),
-          SizedBox(height: 16 * s),
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: layout.isPhone ? double.infinity : 720 * s),
-            child: VxSearchField(
-              controller: _controller,
-              autofocus: !layout.isPhone,
-              fontSize: 16 * s,
-              onChanged: _onChanged,
-              onSubmitted: (v) {
-                _debounce?.cancel();
-                _onChanged(v);
-              },
-              onClear: _clear,
-            ),
-          ),
-        ],
+    final header = VxPageHeader(
+      title: 'Recherche',
+      search: VxSearchField(
+        controller: _controller,
+        autofocus: !layout.isPhone,
+        fontSize: layout.size(16, tv: 24),
+        onChanged: _onChanged,
+        onSubmitted: (v) {
+          _debounce?.cancel();
+          _onChanged(v);
+        },
+        onClear: _clear,
       ),
+      filters: SearchFilterBar(filters: _filters, withText: _withText, onChanged: _setFilters),
     );
-    final filterBar = SearchFilterBar(filters: _filters, withText: _withText, onChanged: _setFilters);
     final results = _Results(
       query: _query,
       filters: _filters,
@@ -168,8 +159,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             header,
-            filterBar,
-            const SizedBox(height: 12),
             Expanded(child: results),
           ],
         ),
@@ -202,8 +191,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               header,
-              filterBar,
-              SizedBox(height: layout.tv(24)),
               ValueListenableBuilder(
                 valueListenable: _hero.item,
                 builder: (_, selected, _) {

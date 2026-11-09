@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/choice.dart';
@@ -41,7 +42,7 @@ class SearchFilterBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final gap = layout.isLarge ? layout.tv(14) : 8.0;
+    final gap = FilterBar.gapOf(layout);
     final genres = ref.watch(allGenresProvider).value;
     // Channels always available; people only with a text.
     final kinds = withText ? SearchKind.values : SearchKind.values.where((k) => k != SearchKind.person);
@@ -96,69 +97,93 @@ class SearchFilterBar extends ConsumerWidget {
 
     final titles = filters.kind != SearchKind.person && !filters.kind.isChannels;
 
+    return FilterBar(
+      child: Row(
+        children: [
+          for (final kind in kinds) ...[
+            FilterChipButton(label: kind.label, selected: filters.kind == kind, onPressed: () => setKind(kind)),
+            SizedBox(width: gap),
+          ],
+          if (titles) ...[
+            Container(
+              width: 1,
+              height: layout.isLarge ? layout.tv(40) : 24,
+              margin: EdgeInsets.only(right: gap),
+              color: VxColors.lineStrong,
+            ),
+            FilterChipButton(
+              label: filters.genre?.name ?? 'Genre',
+              semanticLabel: 'Genre : ${filters.genre?.name ?? 'tous'}',
+              selected: filters.genre != null,
+              dropdown: true,
+              onPressed: genres == null ? null : pickGenre,
+            ),
+            SizedBox(width: gap),
+            FilterChipButton(
+              label: filters.decade?.label ?? 'Années',
+              semanticLabel: 'Années : ${filters.decade?.label ?? 'toutes'}',
+              selected: filters.decade != null,
+              dropdown: true,
+              onPressed: pickDecade,
+            ),
+            SizedBox(width: gap),
+            FilterChipButton(
+              label: filters.minRating == null ? 'Note' : 'Note ${filters.minRating}+',
+              semanticLabel: 'Note minimale : ${filters.minRating == null ? 'toutes' : '${filters.minRating} et plus'}',
+              selected: filters.minRating != null,
+              dropdown: true,
+              onPressed: pickRating,
+            ),
+            SizedBox(width: gap),
+            FilterChipButton(
+              label: 'Tri : ${order.label}',
+              semanticLabel: 'Trier par : ${order.label}',
+              selected: filters.sort != null && order != filters.copyWith(sort: () => null).sortFor(withText: withText),
+              dropdown: true,
+              icon: Icons.swap_vert_rounded,
+              onPressed: pickSort,
+            ),
+            SizedBox(width: gap),
+          ],
+          if (!filters.isDefault)
+            FilterChipButton(
+              label: 'Réinitialiser',
+              icon: Icons.close_rounded,
+              outlined: false,
+              onPressed: () => onChanged(const SearchFilters()),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Row of filter chips under a page header (Recherche, Ma liste, Avis): scrolls sideways, with the
+/// page's side margins and room for the focus zoom on TV (docs/charte-graphique.md).
+class FilterBar extends StatelessWidget {
+  const FilterBar({super.key, required this.child});
+
+  final Widget child;
+
+  /// Between two chips: 8 on phones, 14 on TV.
+  static double gapOf(Layout layout) => layout.size(8, tv: 14);
+
+  /// A row of chips, [gapOf] apart.
+  static Widget chips(Layout layout, List<Widget> chips) => Row(
+    children: [
+      for (final (i, chip) in chips.indexed) ...[if (i > 0) SizedBox(width: gapOf(layout)), chip],
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
     return FocusTraversalGroup(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
-        padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.isLarge ? layout.tv(10) : 4),
-        child: Row(
-          children: [
-            for (final kind in kinds) ...[
-              FilterChipButton(label: kind.label, selected: filters.kind == kind, onPressed: () => setKind(kind)),
-              SizedBox(width: gap),
-            ],
-            if (titles) ...[
-              Container(
-                width: 1,
-                height: layout.isLarge ? layout.tv(40) : 24,
-                margin: EdgeInsets.only(right: gap),
-                color: VxColors.lineStrong,
-              ),
-              FilterChipButton(
-                label: filters.genre?.name ?? 'Genre',
-                semanticLabel: 'Genre : ${filters.genre?.name ?? 'tous'}',
-                selected: filters.genre != null,
-                dropdown: true,
-                onPressed: genres == null ? null : pickGenre,
-              ),
-              SizedBox(width: gap),
-              FilterChipButton(
-                label: filters.decade?.label ?? 'Années',
-                semanticLabel: 'Années : ${filters.decade?.label ?? 'toutes'}',
-                selected: filters.decade != null,
-                dropdown: true,
-                onPressed: pickDecade,
-              ),
-              SizedBox(width: gap),
-              FilterChipButton(
-                label: filters.minRating == null ? 'Note' : 'Note ${filters.minRating}+',
-                semanticLabel:
-                    'Note minimale : ${filters.minRating == null ? 'toutes' : '${filters.minRating} et plus'}',
-                selected: filters.minRating != null,
-                dropdown: true,
-                onPressed: pickRating,
-              ),
-              SizedBox(width: gap),
-              FilterChipButton(
-                label: 'Tri : ${order.label}',
-                semanticLabel: 'Trier par : ${order.label}',
-                selected:
-                    filters.sort != null && order != filters.copyWith(sort: () => null).sortFor(withText: withText),
-                dropdown: true,
-                icon: Icons.swap_vert_rounded,
-                onPressed: pickSort,
-              ),
-              SizedBox(width: gap),
-            ],
-            if (!filters.isDefault)
-              FilterChipButton(
-                label: 'Réinitialiser',
-                icon: Icons.close_rounded,
-                outlined: false,
-                onPressed: () => onChanged(const SearchFilters()),
-              ),
-          ],
-        ),
+        padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.size(4, tv: 10)),
+        child: child,
       ),
     );
   }

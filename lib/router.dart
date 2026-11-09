@@ -25,8 +25,8 @@ import 'features/profiles/profiles_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
-import 'features/tmdb/my_ratings_screen.dart';
-import 'features/tmdb/tmdb_link_screen.dart';
+import 'features/tmdb/connections_screen.dart';
+import 'features/tmdb/reviews_screen.dart';
 import 'features/tv/tv_hub_screen.dart';
 
 /// Routes. Sign-in is the entry page: every route redirects there while signed out,
@@ -106,6 +106,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, state) => tab(SearchScreen(initialType: state.extra as MediaType?)),
           ),
           GoRoute(path: '/ma-liste', pageBuilder: (_, _) => tab(const MyListScreen())),
+          // "Mes avis": ratings of the TMDb account and comments (vixeo_backend/docs/compte-tmdb.md).
+          GoRoute(path: '/avis', pageBuilder: (_, _) => tab(const ReviewsScreen())),
           GoRoute(path: '/profil', pageBuilder: (_, _) => tab(const ProfileSettingsScreen())),
           GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
           GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),
@@ -113,9 +115,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profil/parametres', builder: (_, _) => const ProfilePreferencesScreen()),
           GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
           GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
-          // TMDb account of the profile and its ratings (vixeo_backend/docs/compte-tmdb.md).
-          GoRoute(path: '/profil/tmdb', builder: (_, _) => const TmdbLinkScreen()),
-          GoRoute(path: '/profil/notes', builder: (_, _) => const MyRatingsScreen()),
+          // Services linked to the profile (TMDb). The former addresses lead to the new pages.
+          GoRoute(path: '/profil/connexions', builder: (_, _) => const ConnectionsScreen()),
+          GoRoute(path: '/profil/tmdb', redirect: (_, _) => '/profil/connexions'),
+          GoRoute(path: '/profil/notes', redirect: (_, _) => '/avis'),
           GoRoute(
             path: '/personne/:id',
             builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),

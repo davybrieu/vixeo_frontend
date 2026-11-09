@@ -23,6 +23,18 @@ class CatalogRepository {
   Future<Season> season(int showId, int number) async =>
       Season.fromJson((await _api.get('/catalog/tv/$showId/season/$number'))['data'] as Map<String, dynamic>);
 
+  /// Several titles at once (Ma liste…), with their logo, length, genres and age rating, in the
+  /// order asked: one request per 100 titles instead of one per title.
+  Future<List<MediaItem>> titlesById(List<TitleRef> titles) async {
+    final items = <MediaItem>[];
+    for (var i = 0; i < titles.length; i += 100) {
+      final ids = titles.skip(i).take(100).map((t) => '${t.type.name}:${t.id}').join(',');
+      final data = (await _api.get('/catalog/titles', query: {'ids': ids}))['data'];
+      if (data is List) items.addAll(data.whereType<Map<String, dynamic>>().map(MediaItem.fromJson));
+    }
+    return items;
+  }
+
   Future<PersonDetails> person(int id) async =>
       PersonDetails.fromJson((await _api.get('/catalog/person/$id'))['data'] as Map<String, dynamic>);
 
@@ -63,6 +75,25 @@ final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => CatalogRe
 /// Active profile id: catalog providers watch it so a profile switch refetches
 /// (the API filters titles with the profile's age limit).
 final _profileIdProvider = Provider<int?>((ref) => ref.watch(sessionProvider.select((s) => s.profile?.id)));
+
+/// A movie or TV show by id.
+typedef TitleRef = ({MediaType type, int id});
+
+/// Titles by id, fetched together (`/catalog/titles`): the key is the list of ids, e.g. "movie:550,tv:1399".
+final titlesByIdProvider = FutureProvider.autoDispose.family<Map<TitleRef, MediaItem>, String>((ref, ids) async {
+  ref.watch(_profileIdProvider);
+  final refs = [
+    for (final key in ids.split(',').where((k) => k.contains(':')))
+      (type: MediaType.parse(key.split(':').first), id: int.parse(key.split(':').last)),
+  ];
+  if (refs.isEmpty) return const {};
+  final items = await ref.read(catalogRepositoryProvider).titlesById(refs);
+  return {for (final item in items) (type: item.type, id: item.id): item};
+});
+
+/// Key of [titlesByIdProvider] for these titles (sorted: the same set, the same request).
+String titlesKey(Iterable<TitleRef> titles) =>
+    (titles.map((t) => '${t.type.name}:${t.id}').toSet().toList()..sort()).join(',');
 
 final homeProvider = FutureProvider.autoDispose.family<Home, MediaType?>((ref, type) {
   ref.watch(_profileIdProvider);

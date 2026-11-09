@@ -92,7 +92,28 @@ class RatingTarget {
   int get hashCode => path.hashCode;
 }
 
-/// A rating of "Mes notes" (API `RatedItemResource`).
+/// The profile's rating of a title and its comment (kept by Vixeo only, never sent to TMDb).
+@immutable
+class MyRating {
+  const MyRating(this.value, {this.comment});
+
+  factory MyRating.fromJson(Map<String, dynamic> json) => MyRating(
+    (json['value'] as num).toDouble(),
+    comment: (json['comment'] as String?)?.trim().isEmpty ?? true ? null : json['comment'] as String,
+  );
+
+  /// 0.5 to 10.
+  final double value;
+  final String? comment;
+
+  @override
+  bool operator ==(Object other) => other is MyRating && other.value == value && other.comment == comment;
+
+  @override
+  int get hashCode => Object.hash(value, comment);
+}
+
+/// A review of "Mes avis": rating and comment (API `RatedItemResource`).
 @immutable
 class RatedItem {
   const RatedItem({
@@ -100,6 +121,8 @@ class RatedItem {
     required this.id,
     required this.title,
     required this.value,
+    this.comment,
+    this.ratedAt,
     this.year,
     this.seasonNumber,
     this.episodeNumber,
@@ -115,6 +138,8 @@ class RatedItem {
     id: json['id'] as int,
     title: json['title'] as String? ?? '',
     value: (json['value'] as num?)?.toDouble() ?? 0,
+    comment: json['comment'] as String?,
+    ratedAt: DateTime.tryParse(json['rated_at'] as String? ?? '')?.toLocal(),
     year: json['year'] as int?,
     seasonNumber: json['season_number'] as int?,
     episodeNumber: json['episode_number'] as int?,
@@ -133,6 +158,12 @@ class RatedItem {
 
   /// The profile's rating, 0.5 to 10.
   final double value;
+
+  /// The profile's comment (Vixeo only).
+  final String? comment;
+
+  /// When it was rated (first seen by Vixeo for a rating given on themoviedb.org).
+  final DateTime? ratedAt;
   final int? year;
   final int? seasonNumber;
   final int? episodeNumber;
@@ -148,14 +179,26 @@ class RatedItem {
       ? RatingTarget.episode(id, seasonNumber ?? 0, episodeNumber ?? 0)
       : RatingTarget.title(mediaType, id);
 
+  MyRating get rating => MyRating(value, comment: comment);
+
   /// "Dune", "Les Hautes Terres · S1 · É2"…
   String get label => type == RatedType.episode ? '$title · S$seasonNumber · É$episodeNumber' : title;
 
-  RatedItem withValue(double value) => RatedItem(
+  /// Matches a search of "Mes avis": title, episode name or comment, whatever the case and accents.
+  bool matches(String query) {
+    final q = foldForSearch(query.trim());
+    if (q.isEmpty) return true;
+    return [title, episodeName, comment].any((text) => text != null && foldForSearch(text).contains(q));
+  }
+
+  /// The same review, rated again (now on top of "Mes avis").
+  RatedItem rated(MyRating rating) => RatedItem(
     type: type,
     id: id,
     title: title,
-    value: value,
+    value: rating.value,
+    comment: rating.comment,
+    ratedAt: rating.value == value ? ratedAt : DateTime.now(),
     year: year,
     seasonNumber: seasonNumber,
     episodeNumber: episodeNumber,
@@ -165,6 +208,22 @@ class RatedItem {
     stillUrl: stillUrl,
     voteAverage: voteAverage,
   );
+}
+
+/// Lowercase, without accents ("Épisode" → "episode"): searches ignore both.
+String foldForSearch(String text) {
+  const from = 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿœæ';
+  const to = 'aaaaaaceeeeiiiinooooouuuuyy';
+  final buffer = StringBuffer();
+  for (final char in text.toLowerCase().split('')) {
+    final i = from.indexOf(char);
+    buffer.write(switch (char) {
+      'œ' => 'oe',
+      'æ' => 'ae',
+      _ => i < 0 || i >= to.length ? char : to[i],
+    });
+  }
+  return buffer.toString();
 }
 
 /// A rating the way people say it: "8", "7,5".
@@ -192,32 +251,44 @@ class TmdbRepository {
 
   Future<void> unlink(int profileId) => _api.delete('/profiles/$profileId/tmdb');
 
-  /// Rating of a movie or TV show, null when not rated.
-  Future<double?> rating(int profileId, RatingTarget target) async {
+  /// Rating and comment of a movie or TV show, null when not rated.
+  Future<MyRating?> rating(int profileId, RatingTarget target) async {
     final data = (await _api.get('/profiles/$profileId/tmdb/ratings/${target.path}'))['data'];
-    return data is Map ? (data['value'] as num?)?.toDouble() : null;
+    return data is Map<String, dynamic> && data['value'] != null ? MyRating.fromJson(data) : null;
   }
 
-  /// Ratings of a season's episodes: episode number → rating.
-  Future<Map<int, double>> seasonRatings(int profileId, int showId, int season) async {
+  /// Ratings of a season's episodes: episode number → rating and comment.
+  Future<Map<int, MyRating>> seasonRatings(int profileId, int showId, int season) async {
     final data = (await _api.get('/profiles/$profileId/tmdb/ratings/tv/$showId/season/$season'))['data'];
     return {
       if (data is List)
-        for (final e in data.whereType<Map<String, dynamic>>())
-          e['episode_number'] as int: (e['value'] as num).toDouble(),
+        for (final e in data.whereType<Map<String, dynamic>>()) e['episode_number'] as int: MyRating.fromJson(e),
     };
   }
 
-  Future<void> rate(int profileId, RatingTarget target, double value) =>
-      _api.put('/profiles/$profileId/tmdb/ratings/${target.path}', body: {'value': value});
+  /// Saves the rating on TMDb and the comment at Vixeo (null removes it).
+  Future<void> rate(int profileId, RatingTarget target, MyRating rating) => _api.put(
+    '/profiles/$profileId/tmdb/ratings/${target.path}',
+    body: {'value': rating.value, 'comment': rating.comment},
+  );
 
   Future<void> unrate(int profileId, RatingTarget target) =>
       _api.delete('/profiles/$profileId/tmdb/ratings/${target.path}');
 
-  Future<Paged<RatedItem>> rated(int profileId, RatedType type, int page) async => Paged.fromJson(
-    await _api.get('/profiles/$profileId/tmdb/ratings', query: {'type': type.name, 'page': page}),
-    RatedItem.fromJson,
-  );
+  /// Every review of the profile, the most recently rated first.
+  Future<List<RatedItem>> reviews(int profileId) async {
+    final items = <RatedItem>[];
+    var page = 1;
+    while (true) {
+      final result = Paged.fromJson(
+        await _api.get('/profiles/$profileId/tmdb/ratings', query: {'per_page': 500, 'page': page}),
+        RatedItem.fromJson,
+      );
+      items.addAll(result.items);
+      if (!result.hasMore || page >= 20) return items;
+      page++;
+    }
+  }
 }
 
 final tmdbRepositoryProvider = Provider<TmdbRepository>((ref) => TmdbRepository(ref.read(apiClientProvider)));
@@ -235,14 +306,18 @@ class TmdbAccountController extends AsyncNotifier<TmdbAccount> {
     return ref.read(tmdbRepositoryProvider).account(profileId);
   }
 
-  /// Linked from the link page.
-  void linked(TmdbAccount account) => state = AsyncData(account);
+  /// Linked from the "Connexions" page.
+  void linked(TmdbAccount account) {
+    state = AsyncData(account);
+    ref.invalidate(reviewsProvider);
+  }
 
   Future<void> unlink() async {
     final profileId = _profileId(ref);
     if (profileId == null) return;
     await ref.read(tmdbRepositoryProvider).unlink(profileId);
     state = const AsyncData(TmdbAccount.none);
+    ref.invalidate(reviewsProvider);
   }
 
   /// The API answered 409: no account linked any more (access removed on TMDb…).
@@ -252,22 +327,22 @@ class TmdbAccountController extends AsyncNotifier<TmdbAccount> {
 /// The profile can rate: a TMDb account is linked.
 final canRateProvider = Provider<bool>((ref) => ref.watch(tmdbAccountProvider).value?.linked ?? false);
 
-/// The profile's rating of a movie or TV show (null: not rated, or no account).
-final titleRatingProvider = FutureProvider.autoDispose.family<double?, RatingTarget>((ref, target) async {
+/// The profile's rating and comment of a movie or TV show (null: not rated, or no account).
+final titleRatingProvider = FutureProvider.autoDispose.family<MyRating?, RatingTarget>((ref, target) async {
   final profileId = _profileId(ref);
   if (!ref.watch(canRateProvider) || profileId == null) return null;
   return ref.read(tmdbRepositoryProvider).rating(profileId, target);
 });
 
 /// The profile's ratings of a season's episodes, by episode number.
-final seasonRatingsProvider = FutureProvider.autoDispose.family<Map<int, double>, (int, int)>((ref, key) async {
+final seasonRatingsProvider = FutureProvider.autoDispose.family<Map<int, MyRating>, (int, int)>((ref, key) async {
   final profileId = _profileId(ref);
   if (!ref.watch(canRateProvider) || profileId == null) return const {};
   return ref.read(tmdbRepositoryProvider).seasonRatings(profileId, key.$1, key.$2);
 });
 
-/// Rates, updates or removes a rating, then refreshes what shows it (title page, episodes,
-/// "Mes notes").
+/// Rates, updates or removes a rating (and its comment), then refreshes what shows it (title
+/// page, episodes, "Mes avis").
 final tmdbRatingsProvider = Provider<TmdbRatings>(TmdbRatings.new);
 
 class TmdbRatings {
@@ -275,16 +350,16 @@ class TmdbRatings {
 
   final Ref _ref;
 
-  Future<void> rate(RatingTarget target, double value) => _write(target, value);
+  Future<void> rate(RatingTarget target, MyRating rating) => _write(target, rating);
 
   Future<void> remove(RatingTarget target) => _write(target, null);
 
-  Future<void> _write(RatingTarget target, double? value) async {
+  Future<void> _write(RatingTarget target, MyRating? rating) async {
     final profileId = _profileId(_ref);
     if (profileId == null) return;
     final repository = _ref.read(tmdbRepositoryProvider);
     try {
-      value == null ? await repository.unrate(profileId, target) : await repository.rate(profileId, target, value);
+      rating == null ? await repository.unrate(profileId, target) : await repository.rate(profileId, target, rating);
     } on ApiException catch (e) {
       if (e.status == 409) _ref.read(tmdbAccountProvider.notifier).lost();
       rethrow;
@@ -294,80 +369,38 @@ class TmdbRatings {
     } else {
       _ref.invalidate(titleRatingProvider(target));
     }
-    final list = myRatingsProvider(target.ratedType);
-    if (_ref.exists(list)) _ref.read(list.notifier).changed(target, value);
+    if (_ref.exists(reviewsProvider)) _ref.read(reviewsProvider.notifier).changed(target, rating);
   }
 }
 
-/// Ratings of one tab of "Mes notes", page by page.
-@immutable
-class RatedList {
-  const RatedList({required this.items, required this.page, required this.totalPages, this.loadingMore = false});
+/// Every review of the profile ("Mes avis"), the most recently rated first. Loaded at once: the
+/// page filters and searches them without asking the API again.
+final reviewsProvider = AsyncNotifierProvider.autoDispose<Reviews, List<RatedItem>>(Reviews.new);
 
-  final List<RatedItem> items;
-  final int page;
-  final int totalPages;
-  final bool loadingMore;
-
-  bool get hasMore => page < totalPages;
-}
-
-final myRatingsProvider = AsyncNotifierProvider.autoDispose.family<MyRatings, RatedList, RatedType>(MyRatings.new);
-
-class MyRatings extends AsyncNotifier<RatedList> {
-  MyRatings(this.type);
-
-  final RatedType type;
-
+class Reviews extends AsyncNotifier<List<RatedItem>> {
   @override
-  Future<RatedList> build() async {
+  Future<List<RatedItem>> build() async {
     final profileId = ref.watch(sessionProvider.select((s) => s.profile?.id));
-    if (profileId == null) return const RatedList(items: [], page: 1, totalPages: 1);
-    final page = await ref.read(tmdbRepositoryProvider).rated(profileId, type, 1);
-    return RatedList(items: page.items, page: 1, totalPages: page.totalPages);
+    if (profileId == null || !ref.watch(canRateProvider)) return const [];
+    return ref.read(tmdbRepositoryProvider).reviews(profileId);
   }
 
-  /// Next page, when the end of the list comes into view.
-  Future<void> loadMore() async {
-    final current = state.value;
-    final profileId = _profileId(ref);
-    if (current == null || !current.hasMore || current.loadingMore || profileId == null) return;
-    state = AsyncData(
-      RatedList(items: current.items, page: current.page, totalPages: current.totalPages, loadingMore: true),
-    );
-    try {
-      final next = await ref.read(tmdbRepositoryProvider).rated(profileId, type, current.page + 1);
-      if (!ref.mounted) return;
-      final known = {for (final i in current.items) i.target};
-      state = AsyncData(
-        RatedList(
-          items: [...current.items, ...next.items.where((i) => !known.contains(i.target))],
-          page: next.page,
-          totalPages: next.totalPages,
-        ),
-      );
-    } catch (_) {
-      // Shown again as "more to load": the next scroll retries.
-      if (ref.mounted) state = AsyncData(current);
-    }
-  }
-
-  /// A rating changed (here or on a title page): updated in place, removed, or (new rating) the
-  /// list is reloaded.
-  void changed(RatingTarget target, double? value) {
+  /// A rating changed (here or on a title page): moved on top, updated, removed, or (new
+  /// rating) the list is read again.
+  void changed(RatingTarget target, MyRating? rating) {
     final current = state.value;
     if (current == null) return;
-    final index = current.items.indexWhere((i) => i.target == target);
+    final index = current.indexWhere((i) => i.target == target);
     if (index < 0) {
-      if (value != null) ref.invalidateSelf();
+      if (rating != null) ref.invalidateSelf();
       return;
     }
-    final items = [...current.items];
-    if (value == null) {
-      items.removeAt(index);
-    } else {
-      items[index] = items[index].withValue(value);
+    final items = [...current];
+    final item = items.removeAt(index);
+    if (rating != null) {
+      final updated = item.rated(rating);
+      items.insert(updated.ratedAt == item.ratedAt ? index : 0, updated);
     }
-    state = AsyncData(RatedList(items: items, page: current.page, totalPages: current.totalPages));
+    state = AsyncData(items);
   }
 }

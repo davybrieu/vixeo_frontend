@@ -12,58 +12,74 @@ import '../../core/widgets/focusable.dart';
 import '../catalog/widgets.dart';
 import 'tmdb.dart';
 
-/// Rates [target] (or changes / removes its rating) in a dialog, saves it on TMDb through the API,
-/// then confirms with an alert ("Note enregistrée : 8/10", "Note supprimée").
+/// Rates [target] (or changes / removes its rating and comment) in a dialog, saves the rating on
+/// TMDb and the comment at Vixeo through the API, then confirms with an alert ("Note enregistrée :
+/// 8/10", "Note supprimée").
 Future<void> editRating(
   BuildContext context, {
   required RatingTarget target,
   required String name,
   String? subtitle,
-  double? current,
+  MyRating? current,
 }) async {
   final choice = await showRatingDialog(context, name: name, subtitle: subtitle, current: current);
   if (choice == null || !context.mounted) return;
-  final (value,) = choice;
+  final (rating,) = choice;
   final ratings = ProviderScope.containerOf(context, listen: false).read(tmdbRatingsProvider);
   final messenger = ScaffoldMessenger.of(context);
   try {
-    if (value == null) {
+    if (rating == null) {
       await ratings.remove(target);
       showVxSnackOn(messenger, 'Note supprimée', icon: Icons.star_outline_rounded);
     } else {
-      await ratings.rate(target, value);
-      showVxSnackOn(messenger, 'Note enregistrée : ${formatScore(value)}/10', icon: Icons.star_rounded);
+      await ratings.rate(target, rating);
+      showVxSnackOn(messenger, 'Note enregistrée : ${formatScore(rating.value)}/10', icon: Icons.star_rounded);
     }
   } on ApiException catch (e) {
     showVxSnackOn(messenger, e.message, icon: Icons.error_outline_rounded);
   }
 }
 
-/// Rating dialog: 10 stars, by half points (TMDb scale, 0.5 to 10). Returns `(value,)` to save,
-/// `(null,)` to remove the current rating, null when closed. TV: the stars have the focus, ← →
-/// change the rating, OK saves.
-Future<(double?,)?> showRatingDialog(BuildContext context, {required String name, String? subtitle, double? current}) =>
-    showDialog<(double?,)>(
-      context: context,
-      builder: (_) => _RatingDialog(name: name, subtitle: subtitle, current: current),
-    );
+/// Rating dialog: 10 stars, by half points (TMDb scale, 0.5 to 10), and an optional comment kept by
+/// Vixeo. Returns `(rating,)` to save, `(null,)` to remove the current rating, null when closed. TV:
+/// the stars have the focus, ← → change the rating, OK saves.
+Future<(MyRating?,)?> showRatingDialog(
+  BuildContext context, {
+  required String name,
+  String? subtitle,
+  MyRating? current,
+}) => showDialog<(MyRating?,)>(
+  context: context,
+  builder: (_) => _RatingDialog(name: name, subtitle: subtitle, current: current),
+);
 
 class _RatingDialog extends StatefulWidget {
   const _RatingDialog({required this.name, this.subtitle, this.current});
 
   final String name;
   final String? subtitle;
-  final double? current;
+  final MyRating? current;
 
   @override
   State<_RatingDialog> createState() => _RatingDialogState();
 }
 
 class _RatingDialogState extends State<_RatingDialog> {
-  late double _value = widget.current ?? 0;
+  /// Longest comment (the API's limit).
+  static const maxComment = 2000;
+
+  late double _value = widget.current?.value ?? 0;
+  late final _comment = TextEditingController(text: widget.current?.comment ?? '');
+
+  @override
+  void dispose() {
+    _comment.dispose();
+    super.dispose();
+  }
 
   void _save() {
-    if (_value > 0) Navigator.of(context).pop((_value,));
+    final comment = _comment.text.trim();
+    if (_value > 0) Navigator.of(context).pop((MyRating(_value, comment: comment.isEmpty ? null : comment),));
   }
 
   @override
@@ -82,7 +98,7 @@ class _RatingDialogState extends State<_RatingDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                widget.current == null ? 'Noter' : 'Modifier ma note',
+                widget.current == null ? 'Noter' : 'Modifier mon avis',
                 style: VxText.body(14 * s, color: VxColors.textSecondary),
               ),
               SizedBox(height: 4 * s),
@@ -119,7 +135,24 @@ class _RatingDialogState extends State<_RatingDialog> {
                   TmdbLogo(height: 9 * s),
                 ],
               ),
-              SizedBox(height: 22 * s),
+              SizedBox(height: 18 * s),
+              TextField(
+                controller: _comment,
+                minLines: 2,
+                maxLines: 5,
+                maxLength: maxComment,
+                textCapitalization: TextCapitalization.sentences,
+                style: VxText.body(15 * s),
+                decoration: InputDecoration(
+                  labelText: 'Commentaire (facultatif)',
+                  hintText: 'Ce que vous en avez pensé…',
+                  helperText: 'Gardé dans Vixeo, il n’est pas publié sur TMDb.',
+                  helperMaxLines: 2,
+                  counterText: '',
+                  alignLabelWithHint: true,
+                ),
+              ),
+              SizedBox(height: 18 * s),
               VxButton(
                 label: 'Enregistrer',
                 icon: Icons.check_rounded,
@@ -129,7 +162,7 @@ class _RatingDialogState extends State<_RatingDialog> {
               if (widget.current != null) ...[
                 SizedBox(height: 10 * s),
                 VxButton(
-                  label: 'Supprimer ma note',
+                  label: 'Supprimer mon avis',
                   icon: Icons.delete_outline_rounded,
                   kind: VxButtonKind.outline,
                   expand: true,

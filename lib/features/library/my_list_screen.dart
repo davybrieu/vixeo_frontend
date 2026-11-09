@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/page_header.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
 import '../catalog/widgets.dart';
@@ -25,6 +27,9 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
   String _query = '';
   SearchFilters _filters = const SearchFilters();
 
+  /// Titles already read (logo, rating, genres), kept while the list changes.
+  final _known = <TitleRef, MediaItem>{};
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -39,45 +44,34 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final library = ref.watch(libraryProvider);
-    final s = layout.isLarge ? layout.scale * 2 : 1.0;
 
     return SafeArea(
       bottom: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(layout.gutter, 16 * s, layout.gutter, 4 * s),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Ma liste', style: VxText.title(28 * s)),
-                SizedBox(height: 16 * s),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: layout.isPhone ? double.infinity : 720 * s),
-                  child: VxSearchField(
-                    controller: _searchController,
-                    fontSize: 16 * s,
-                    onChanged: (value) {
-                      final query = value.trim();
-                      setState(() {
-                        _query = query;
-                        _filters = _filters.forText(withText: false);
-                      });
-                    },
-                    onClear: () {
-                      _searchController.clear();
-                      setState(() {
-                        _query = '';
-                        _filters = _filters.forText(withText: false);
-                      });
-                    },
-                  ),
-                ),
-              ],
+          VxPageHeader(
+            title: 'Ma liste',
+            search: VxSearchField(
+              controller: _searchController,
+              fontSize: layout.size(16, tv: 24),
+              onChanged: (value) {
+                final query = value.trim();
+                setState(() {
+                  _query = query;
+                  _filters = _filters.forText(withText: false);
+                });
+              },
+              onClear: () {
+                _searchController.clear();
+                setState(() {
+                  _query = '';
+                  _filters = _filters.forText(withText: false);
+                });
+              },
             ),
+            filters: SearchFilterBar(filters: _filters, withText: false, onChanged: _setFilters),
           ),
-          SearchFilterBar(filters: _filters, withText: false, onChanged: _setFilters),
           Expanded(
             child: AsyncView(
               value: library,
@@ -158,6 +152,18 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                         },
                       );
                 }
+                // Every title of the list in one request (logo, rating, genres): never one per card.
+                final refs = [
+                  for (final favorite in state.favorites)
+                    if (favorite.tmdbTitle case final t?) (type: t.type, id: t.id),
+                ];
+                final batch = ref.watch(titlesByIdProvider(titlesKey(refs)));
+                _known.addAll(batch.value ?? const {});
+                // First visit: the cards come with their logo, not before it.
+                if (_known.isEmpty && refs.isNotEmpty && batch.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
                 final matching = <({ProfileItem favorite, MediaItem item, double rating, int? year})>[];
 
                 for (final favorite in state.favorites) {
@@ -166,7 +172,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                   if (_filters.kind.mediaType != null && title.type != _filters.kind.mediaType) continue;
                   if (_query.isNotEmpty && !favorite.title.toLowerCase().contains(_query.toLowerCase())) continue;
 
-                  final details = ref.watch(titleProvider((title.type, title.id))).value;
+                  final details = _known[(type: title.type, id: title.id)];
                   final year = details?.year ?? favorite.year;
                   final rating = details?.voteAverage ?? 0;
 
@@ -177,7 +183,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                   if (_filters.minRating != null && details != null && rating < _filters.minRating!) {
                     continue;
                   }
-                  if (_filters.genre != null && details != null && !details.genres.contains(_filters.genre)) {
+                  if (_filters.genre != null && details != null && !details.genreIds.contains(_filters.genre!.id)) {
                     continue;
                   }
 
@@ -193,6 +199,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                       backdropUrl: favorite.backdropUrl ?? details?.backdropUrl,
                       logoUrl: details?.logoUrl,
                       logoAspectRatio: details?.logoAspectRatio,
+                      summary: details?.summary,
                     ),
                     rating: rating,
                     year: year,
@@ -229,7 +236,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
 
                 return RefreshIndicator(
                   onRefresh: () => ref.read(libraryProvider.notifier).refresh(),
-                  child: PosterGrid(items: items, alwaysScrollable: true),
+                  child: PosterGrid(items: items, alwaysScrollable: true, padding: pageContentPadding(context)),
                 );
               },
             ),

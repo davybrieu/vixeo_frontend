@@ -34,6 +34,7 @@ class MediaItem {
     this.textlessPosterUrl,
     this.textlessPosterPath,
     this.summary,
+    this.genreIds = const [],
   });
 
   factory MediaItem.fromJson(Map<String, dynamic> json) => MediaItem(
@@ -54,6 +55,7 @@ class MediaItem {
     summary: json['summary'] is Map<String, dynamic>
         ? TitleSummary.fromJson(json['summary'] as Map<String, dynamic>)
         : null,
+    genreIds: [if (json['genre_ids'] is List) ...(json['genre_ids'] as List).whereType<int>()],
   );
 
   final int id;
@@ -78,6 +80,12 @@ class MediaItem {
   /// Length, genres and age rating, given with home and search items: the hero shows them at once.
   final TitleSummary? summary;
 
+  /// TMDb genre ids (filters of Ma liste).
+  final List<int> genreIds;
+
+  /// Title logo at the size of a card (w300: lighter than the hero's w500, so it comes with the image).
+  String? get cardLogoUrl => tmdbImageSize(logoUrl, 'w300');
+
   /// Identity used by the sync API (`source` = "tmdb").
   String get syncId => '${type.name}:$id';
 
@@ -99,6 +107,11 @@ String? resizeImage(String? url, String? path, String size) {
   final base = prefix.substring(0, prefix.lastIndexOf('/', prefix.length - 2) + 1);
   return '$base$size$path';
 }
+
+/// The same TMDb image at another size ("w300"): replaces the size segment of the URL
+/// (`…/t/p/w500/abc.png`). Other URLs are kept.
+String? tmdbImageSize(String? url, String size) =>
+    url?.replaceFirstMapped(RegExp(r'/(w\d+|original)/(?=[^/]+$)'), (_) => '/$size/');
 
 /// Home row (SectionResource).
 class Section {

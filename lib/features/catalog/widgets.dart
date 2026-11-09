@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -50,9 +51,10 @@ class PosterCard extends ConsumerWidget {
     final landscape = format == PosterFormat.landscape;
     // The logo comes with the title (home rows): never a title page request per card, which
     // meant up to 150 requests at once on the home page (API limit: 240 a minute).
-    final logoUrl = item.logoUrl;
+    final logoUrl = item.cardLogoUrl;
     final logoAspectRatio = item.logoAspectRatio;
     final radius = landscape ? width * 0.05 : width * 0.086;
+    final image = landscape ? (item.backdrop('w780') ?? item.posterUrl) : item.posterUrl;
     final noImage = Align(
       alignment: Alignment.bottomLeft,
       child: Padding(
@@ -83,34 +85,46 @@ class PosterCard extends ConsumerWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              NetImage(
-                url: landscape ? (item.backdrop('w780') ?? item.posterUrl) : item.posterUrl,
-                seed: item.id,
-                fallback: noImage,
+              // A landscape card shows its image and the logo together, once both are loaded:
+              // the logo never pops in after the image.
+              ImagesTogether(
+                urls: [?image, if (landscape) ?logoUrl],
+                placeholder: ColoredBox(color: VxColors.tone(item.id)),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    NetImage(url: image, seed: item.id, fallback: noImage),
+                    if (landscape && logoUrl != null) ...[
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Color(0xB8070A08)],
+                            stops: [0.48, 1],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: width * 0.045,
+                        bottom: width * 0.045,
+                        child: TitleLogo(
+                          name: item.title,
+                          logoUrl: logoUrl,
+                          size: TitleLogo.sizeFor(
+                            logoUrl,
+                            logoAspectRatio,
+                            maxWidth: width * 0.48,
+                            maxHeight: width * 0.17,
+                          ),
+                          style: VxText.title((width * 0.07).clamp(13, 30).toDouble()),
+                          maxLines: 2,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              if (landscape && logoUrl != null) ...[
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Color(0xB8070A08)],
-                      stops: [0.48, 1],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: width * 0.045,
-                  bottom: width * 0.045,
-                  child: TitleLogo(
-                    name: item.title,
-                    logoUrl: logoUrl,
-                    size: TitleLogo.sizeFor(logoUrl, logoAspectRatio, maxWidth: width * 0.48, maxHeight: width * 0.17),
-                    style: VxText.title((width * 0.07).clamp(13, 30).toDouble()),
-                    maxLines: 2,
-                  ),
-                ),
-              ],
               if (favorite)
                 Positioned(
                   top: width * 0.06,
@@ -617,4 +631,67 @@ class TmdbLogo extends StatelessWidget {
     filterQuality: FilterQuality.medium,
     excludeFromSemantics: true,
   );
+}
+
+/// Shows [child] once every image of [urls] is loaded (or failed), [placeholder] until then; images
+/// already loaded show at once. Used where two images make one picture (a card and its logo), so
+/// that one never appears after the other; with a single image, [child] shows as usual.
+class ImagesTogether extends StatefulWidget {
+  const ImagesTogether({super.key, required this.urls, required this.placeholder, required this.child});
+
+  final List<String> urls;
+  final Widget placeholder;
+  final Widget child;
+
+  @override
+  State<ImagesTogether> createState() => _ImagesTogetherState();
+}
+
+class _ImagesTogetherState extends State<ImagesTogether> {
+  bool _ready = false;
+  List<String>? _loading;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(ImagesTogether old) {
+    super.didUpdateWidget(old);
+    if (!listEquals(old.urls, widget.urls)) _load();
+  }
+
+  void _load() {
+    final urls = widget.urls;
+    if (listEquals(_loading, urls)) return;
+    _loading = urls;
+    final providers = [for (final url in urls) CachedNetworkImageProvider(url)];
+    final cache = PaintingBinding.instance.imageCache;
+    // Loaded already (not just asked for: a pending image is in the cache too).
+    bool loaded(ImageProvider p) {
+      final status = cache.statusForKey(p);
+      return status.keepAlive || (status.live && !status.pending);
+    }
+
+    if (urls.length < 2 || providers.every(loaded)) {
+      _ready = true;
+      return;
+    }
+    _ready = false;
+    Future.wait([for (final p in providers) precacheImage(p, context, onError: (_, _) {})]).then((_) {
+      if (mounted && listEquals(_loading, urls)) setState(() => _ready = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.urls.length < 2
+      ? widget.child
+      : AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: _ready
+              ? KeyedSubtree(key: const ValueKey(true), child: widget.child)
+              : KeyedSubtree(key: const ValueKey(false), child: widget.placeholder),
+        );
 }

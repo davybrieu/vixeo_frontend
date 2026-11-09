@@ -18,12 +18,12 @@ class RateTitleButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final target = RatingTarget.title(type, id);
-    final value = ref.watch(titleRatingProvider(target)).value;
+    final rating = ref.watch(titleRatingProvider(target)).value;
     return VxIconAction(
-      icon: value == null ? Icons.star_outline_rounded : Icons.star_rounded,
-      label: value == null ? 'Noter' : 'Ma note : ${formatScore(value)} sur 10, modifier',
-      active: value != null,
-      onPressed: () => editRating(context, target: target, name: name, current: value),
+      icon: rating == null ? Icons.star_outline_rounded : Icons.star_rounded,
+      label: rating == null ? 'Noter' : 'Ma note : ${formatScore(rating.value)} sur 10, modifier',
+      active: rating != null,
+      onPressed: () => editRating(context, target: target, name: name, current: rating),
     );
   }
 }
@@ -36,8 +36,8 @@ class RateEpisodeButton extends StatelessWidget {
   final String showName;
   final Episode episode;
 
-  /// The profile's rating, null when not rated.
-  final double? value;
+  /// The profile's rating and comment, null when not rated.
+  final MyRating? value;
 
   @override
   Widget build(BuildContext context) => VxIconAction(
@@ -45,7 +45,7 @@ class RateEpisodeButton extends StatelessWidget {
     icon: value == null ? Icons.star_outline_rounded : Icons.star_rounded,
     label: value == null
         ? 'Noter l’épisode ${episode.number}'
-        : 'Ma note de l’épisode ${episode.number} : ${formatScore(value!)} sur 10, modifier',
+        : 'Ma note de l’épisode ${episode.number} : ${formatScore(value!.value)} sur 10, modifier',
     active: value != null,
     onPressed: () => editRating(
       context,

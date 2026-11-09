@@ -258,7 +258,7 @@ class _EpisodesState extends ConsumerState<_Episodes> {
     );
   }
 
-  Widget _episodeRow(BuildContext context, Episode e, {required double s, required bool noSpoiler, double? rating}) =>
+  Widget _episodeRow(BuildContext context, Episode e, {required double s, required bool noSpoiler, MyRating? rating}) =>
       VxFocusable(
         borderRadius: 12 * s,
         semanticLabel: 'Épisode ${e.number}, ${e.name}',
@@ -306,7 +306,7 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                         TmdbRating(e.voteAverage, fontSize: 12 * s, color: VxColors.textSecondary),
                       if (rating != null)
                         Text(
-                          'Ma note : ${formatScore(rating)}/10',
+                          'Ma note : ${formatScore(rating.value)}/10',
                           style: VxText.body(12 * s, color: VxColors.accent, weight: FontWeight.w600),
                         ),
                     ],
