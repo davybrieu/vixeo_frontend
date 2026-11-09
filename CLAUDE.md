@@ -268,8 +268,11 @@ lib/
   principales. Paramètres du profil : chaque groupe passe par `_Section`
   (`profile_preferences_screen.dart`). Tests : `test/design_test.dart`.
 - **Logo** (`brand/README.md`) : V blanc, triangle vert, « Vixeo » en Sora ExtraBold, couleurs
-  de la charte. Dans l'appli : `VxLogo` le dessine (mêmes formes que `brand/vixeo-logo.svg`) ;
-  favicon et icônes web dans `web/` (générés par `brand/tools`).
+  de la charte, **le même partout** (demande du développeur) : `VxLogo` dans l'appli (mêmes
+  formes que `brand/vixeo-logo.svg`), favicon et icônes web (`web/`), icône Android adaptative
+  (`mipmap-anydpi-v26`, `drawable/ic_launcher_foreground.xml`) et PNG d'avant Android 8, bannière
+  Android TV (`drawable/tv_banner.xml`), icônes iOS (`AppIcon.appiconset`), site (`vixeo_web`) et
+  favicon de l'API. Tout est généré par `brand/tools` : changer le logo là, puis recopier.
 - **Images** : `NetImage` (cache, couleur de remplacement). Tailles TMDb via
   `MediaItem.poster('w780')` / `backdrop('original')`, dérivées des URL renvoyées par l'API.
 - Tests : `flutter test` ne charge pas les polices (texte de remplacement), sans réseau.

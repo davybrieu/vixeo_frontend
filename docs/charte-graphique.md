@@ -226,7 +226,8 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
   `VxLogo(size: …)` dans l'appli (`size` : taille du mot ; le logo fait environ 4,7 × `size` de
   large). Fichiers, proportions et favicon : `brand/README.md`.
 - Toujours sur un fond sombre (`background` ou `surface`). Le symbole seul sert d'icône : favicon,
-  icônes de l'appli web.
+  icônes de l'appli (web, Android, iOS) ; la bannière Android TV montre le logo complet. Le site
+  et l'API utilisent les mêmes fichiers.
 
 ## 11. Icônes et images
 
