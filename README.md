@@ -37,10 +37,10 @@ flutter build web --release \
 
 ## Publier une nouvelle version (Android, iOS)
 
-1. Augmenter `version:` dans `pubspec.yaml` (ex. `1.1.0+14`). Le build, après le `+`, doit
-   toujours augmenter.
+1. Si besoin, changer la version affichée : `version:` dans `pubspec.yaml` (ex. `1.1.0`). Le numéro
+   de build, lui, est donné par la CI (numéro du run, toujours croissant).
 2. Pousser sur `main` : la CI compile l'APK signé avec la clé de release et le publie en release
-   GitHub `android-<build>`. L'API la lit seule et la propose aux applis (pas de Play Store, pas de
+   GitHub `android-<n>`. L'API la lit seule et la propose aux applis (pas de Play Store, pas de
    commande à lancer). Pas d'appli iOS pour l'instant.
 3. Pour obliger les versions plus anciennes à se mettre à jour : ajouter `[obligatoire]` au titre
    de la release sur GitHub.

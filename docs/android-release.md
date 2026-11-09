@@ -52,8 +52,10 @@ Un seul APK sert aux téléphones, aux tablettes et aux TV.
 ## 3. Publier
 
 La CI s'en charge (`.github/workflows/build-web.yml`) : à chaque poussée sur `main`, elle compile
-l'APK signé (clé de release dans les secrets) et le publie en **release GitHub** `android-<build>`,
-avec l'APK et son fichier `.apk.sha256`. L'API lit ces releases (c'est sa seule source, voir
+l'APK signé (clé de release dans les secrets) et le publie en **release GitHub** `android-<n>`,
+avec l'APK et son fichier `.apk.sha256`. `<n>` est le numéro du run de la CI, utilisé aussi comme
+build de l'APK (`--build-number`) : il augmente tout seul. Le titre de la release reprend la
+version de `pubspec.yaml` (« Vixeo Android v1.0.0 - build 160 »). L'API lit ces releases (c'est sa seule source, voir
 `vixeo_backend/docs/mise-a-jour.md`) : il n'y a rien à déclarer à la main.
 
 - **Mise à jour obligatoire** (cas sérieux seulement) : sur GitHub, *Releases* → la release →

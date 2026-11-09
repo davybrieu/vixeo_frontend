@@ -20,8 +20,8 @@ travail sur `main`, pas de workflow GitHub Actions pour l'API) sont dans les `CL
 - [ ] S'enregistrer dans l'**Android Developer Console** de Google et y déclarer `app.vixeo.vixeo`
       et sa clé. C'est obligatoire hors Play Store dans 4 pays depuis le 30/09/2026, et prévu
       partout (France comprise) en 2027.
-- [ ] Première version : augmenter le build dans `pubspec.yaml` et pousser sur `main` ; la CI
-      publie la release GitHub `android-<build>` (APK et SHA-256), que l'API et le site lisent.
+- [ ] Première version : pousser sur `main` ; la CI publie la release GitHub `android-<n>` (APK
+      et SHA-256, `<n>` = numéro du run de la CI), que l'API et le site lisent.
 
 ### Tests sur de vrais appareils (impossibles dans le conteneur cloud)
 

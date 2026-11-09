@@ -129,8 +129,9 @@ lib/
   bouton ouvre la page d'installation du site. L'appli ne
   charge jamais de code qu'elle exécuterait elle-même. Publication : `docs/android-release.md`. Le web ne vérifie pas. Pour essayer dans un navigateur :
   version « profile » avec `--dart-define=UPDATE_PLATFORM=android`.
-- **Version et signature** : `version: x.y.z+build` dans `pubspec.yaml`. Le build doit augmenter à
-  chaque version publiée. La version Release est signée avec la clé de release
+- **Version et signature** : `version: x.y.z+build` dans `pubspec.yaml` (`x.y.z` : version
+  affichée). Les APK de la CI prennent comme build le numéro du run (`--build-number`), toujours
+  croissant ; un APK compilé à la main doit avoir un build plus grand que le dernier publié. La version Release est signée avec la clé de release
   (`android/key.properties` ou variables `VIXEO_KEYSTORE_*`, jamais dans le dépôt) ; sans clé, le
   build Release échoue. La CI publie chaque APK en release GitHub `android-<build>` (APK et
   SHA-256), **seule source** des mises à jour pour l'API (plus de commande `vixeo:release`) ;
