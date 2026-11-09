@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/design.dart';
+import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../auth/session.dart';
@@ -39,49 +41,45 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final s = uiScale(context);
+    final layout = Layout.of(context);
     return InfoPage(
       title: 'Mon compte',
       fallback: '/profil',
       children: [
-        const InfoSection(
+        InfoSection(
           title: 'Vos données',
           children: [
-            InfoText(
+            const InfoText(
               'Recevez par e-mail un fichier avec tout ce que Vixeo conserve sur votre compte : profils, liste, '
               'progression et appareils connectés.',
             ),
-          ],
-        ),
-        Padding(
-          padding: EdgeInsets.only(left: 12 * s),
-          child: VxButton(
-            label: 'Recevoir mes données',
-            icon: Icons.download_rounded,
-            kind: VxButtonKind.secondary,
-            autofocus: true,
-            loading: _exporting,
-            onPressed: _export,
-          ),
-        ),
-        SizedBox(height: 32 * s),
-        const InfoSection(
-          title: 'Supprimer le compte',
-          children: [
-            InfoText(
-              'Le compte, tous ses profils, leur liste et leur progression sont effacés définitivement, et tous '
-              'les appareils sont déconnectés. Il n’est pas possible de revenir en arrière.',
+            SizedBox(height: layout.space(VxSpace.xs)),
+            VxButton(
+              label: 'Recevoir mes données',
+              icon: Icons.download_rounded,
+              kind: VxButtonKind.secondary,
+              autofocus: true,
+              loading: _exporting,
+              onPressed: _export,
             ),
           ],
         ),
-        Padding(
-          padding: EdgeInsets.only(left: 12 * s),
-          child: VxButton(
-            label: 'Supprimer mon compte',
-            icon: Icons.delete_forever_outlined,
-            kind: VxButtonKind.danger,
-            onPressed: _delete,
-          ),
+        InfoSection(
+          title: 'Supprimer le compte',
+          last: true,
+          children: [
+            const InfoText(
+              'Le compte, tous ses profils, leur liste et leur progression sont effacés définitivement, et tous '
+              'les appareils sont déconnectés. Il n’est pas possible de revenir en arrière.',
+            ),
+            SizedBox(height: layout.space(VxSpace.xs)),
+            VxButton(
+              label: 'Supprimer mon compte',
+              icon: Icons.delete_forever_outlined,
+              kind: VxButtonKind.danger,
+              onPressed: _delete,
+            ),
+          ],
         ),
       ],
     );

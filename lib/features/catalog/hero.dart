@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
@@ -171,7 +172,7 @@ class _FeaturedCard extends ConsumerWidget {
                   genreFontSize: 14,
                   badgeFontSize: 12,
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: VxSpace.m),
                 Row(
                   children: [
                     Expanded(

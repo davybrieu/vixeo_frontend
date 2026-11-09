@@ -49,4 +49,21 @@ extension VxSizes on Layout {
 
   /// Captions (dates, durations…): 13 on phones, 18 on TV (never smaller on TV).
   double get captionSize => size(13, tv: 18);
+
+  // Gaps of a page (charte, § 5): the same everywhere.
+
+  /// Between two sections or two rows of a page: 24 (TV 36).
+  double get sectionGap => space(VxSpace.l);
+
+  /// Under a row or section title, before what it names: 12 (TV 22).
+  double get titleGap => size(12, tv: 22);
+
+  /// Under a page's introduction text, before its content: 16 (TV 24).
+  double get introGap => space(VxSpace.m);
+
+  /// Between two lines of a list (reviews, devices, episodes, profiles): 12 (TV 18).
+  double get listGap => space(VxSpace.s);
+
+  /// Between two cards of a row or a grid (posters, people, avatars): 10 (TV 28).
+  double get cardGap => size(10, tv: 28);
 }

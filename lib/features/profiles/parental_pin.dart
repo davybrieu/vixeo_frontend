@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../account/info_page.dart';
 import '../auth/session.dart';
@@ -173,7 +174,6 @@ class _PinSettings extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final layout = Layout.of(context);
     final s = uiScale(context);
     final enabled = ref.watch(sessionProvider.select((s) => s.user?.parentalControl ?? false));
     final auth = ref.read(authRepositoryProvider);
@@ -229,89 +229,60 @@ class _PinSettings extends ConsumerWidget {
       }
     }
 
-    return ListView(
-      padding: EdgeInsets.fromLTRB(layout.gutter, 8 * s, layout.gutter, 40 * s),
+    // The same column as the other secondary pages (InfoBody), with the charter's card.
+    return InfoBody(
       children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 760 * s),
-            child: ParentalCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        VxCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        enabled ? Icons.shield_rounded : Icons.shield_outlined,
-                        size: 24 * s,
-                        color: enabled ? VxColors.accent : VxColors.textMuted,
-                      ),
-                      SizedBox(width: 10 * s),
-                      Expanded(child: Text('Code PIN parental', style: VxText.title(18 * s))),
-                      VxBadge(enabled ? 'Activé' : 'Désactivé', accent: enabled, fontSize: 12 * s),
-                    ],
+                  Icon(
+                    enabled ? Icons.shield_rounded : Icons.shield_outlined,
+                    size: 24 * s,
+                    color: enabled ? VxColors.accent : VxColors.textMuted,
                   ),
-                  SizedBox(height: 10 * s),
-                  Text(
-                    enabled
-                        ? 'Le code est demandé pour créer ou supprimer un profil et pour modifier ses restrictions.'
-                        : 'Sans code, n’importe qui peut créer un profil ou retirer les restrictions d’un profil enfant.',
-                    style: VxText.body(14 * s, color: VxColors.textSecondary),
-                  ),
-                  SizedBox(height: 16 * s),
-                  Wrap(
-                    spacing: 12 * s,
-                    runSpacing: 12 * s,
-                    children: enabled
-                        ? [
-                            VxButton(
-                              label: 'Changer le code',
-                              icon: Icons.password_rounded,
-                              kind: VxButtonKind.secondary,
-                              autofocus: true,
-                              onPressed: change,
-                            ),
-                            VxButton(label: 'Désactiver', kind: VxButtonKind.outline, onPressed: disable),
-                          ]
-                        : [
-                            VxButton(
-                              label: 'Activer le contrôle parental',
-                              icon: Icons.shield_rounded,
-                              autofocus: true,
-                              onPressed: enable,
-                            ),
-                          ],
-                  ),
+                  SizedBox(width: 10 * s),
+                  Expanded(child: Text('Code PIN parental', style: VxText.title(18 * s))),
+                  VxBadge(enabled ? 'Activé' : 'Désactivé', accent: enabled, fontSize: 12 * s),
                 ],
               ),
-            ),
+              SizedBox(height: 10 * s),
+              Text(
+                enabled
+                    ? 'Le code est demandé pour créer ou supprimer un profil et pour modifier ses restrictions.'
+                    : 'Sans code, n’importe qui peut créer un profil ou retirer les restrictions d’un profil enfant.',
+                style: VxText.body(14 * s, color: VxColors.textSecondary),
+              ),
+              SizedBox(height: 16 * s),
+              Wrap(
+                spacing: 12 * s,
+                runSpacing: 12 * s,
+                children: enabled
+                    ? [
+                        VxButton(
+                          label: 'Changer le code',
+                          icon: Icons.password_rounded,
+                          kind: VxButtonKind.secondary,
+                          autofocus: true,
+                          onPressed: change,
+                        ),
+                        VxButton(label: 'Désactiver', kind: VxButtonKind.outline, onPressed: disable),
+                      ]
+                    : [
+                        VxButton(
+                          label: 'Activer le contrôle parental',
+                          icon: Icons.shield_rounded,
+                          autofocus: true,
+                          onPressed: enable,
+                        ),
+                      ],
+              ),
+            ],
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Card of the parental pages.
-class ParentalCard extends StatelessWidget {
-  const ParentalCard({super.key, required this.child});
-
-  final Widget child;
-
-  // A Material (not a colored box): the switches inside draw their ink on it.
-  @override
-  Widget build(BuildContext context) {
-    final s = uiScale(context);
-    return Material(
-      color: VxColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20 * s),
-        side: const BorderSide(color: VxColors.surfaceHigh),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(20 * s),
-        child: SizedBox(width: double.infinity, child: child),
-      ),
     );
   }
 }

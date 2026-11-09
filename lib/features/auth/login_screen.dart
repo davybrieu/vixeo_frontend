@@ -102,7 +102,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: layout.isPhone
                 ? LayoutBuilder(
                     builder: (context, c) => SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+                      padding: EdgeInsets.fromLTRB(layout.gutter, 12, layout.gutter, 32),
                       child: ConstrainedBox(
                         constraints: BoxConstraints(minHeight: c.maxHeight - 40),
                         child: Column(

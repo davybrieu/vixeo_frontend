@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/design.dart';
+import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import 'session.dart';
@@ -98,7 +100,7 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          padding: EdgeInsets.fromLTRB(Layout.of(context).gutter, 8, Layout.of(context).gutter, 32),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
             child: _codeSent ? _resetStep(generalError) : _emailStep(generalError),
@@ -119,7 +121,7 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
           'Saisissez l’adresse de votre compte : nous vous enverrons un code pour choisir un nouveau mot de passe.',
           style: VxText.body(15, color: VxColors.textSecondary),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: VxSpace.l),
         TextFormField(
           controller: _email,
           autofocus: true,
@@ -152,7 +154,7 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
             'Saisissez le code à 6 chiffres envoyé à ${_email.text.trim()}. Il est valable 15 minutes.',
             style: VxText.body(15, color: VxColors.textSecondary),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: VxSpace.l),
           TextFormField(
             controller: _code,
             autofocus: true,

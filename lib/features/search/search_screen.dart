@@ -255,8 +255,9 @@ class _Results extends ConsumerWidget {
           gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: PersonCard.widthOf(layout) * 1.1,
             mainAxisExtent: PersonCard.heightOf(layout, withRole: false),
-            crossAxisSpacing: 8,
-            mainAxisSpacing: layout.isLarge ? layout.tv(24) : 16,
+            // A grid of cards: the same gaps as the poster grids.
+            crossAxisSpacing: layout.cardGap,
+            mainAxisSpacing: layout.cardGap,
           ),
           itemBuilder: (_, person) => Center(child: PersonCard(person: person)),
           empty: _Empty(title: 'Aucun résultat', message: emptyMessage),
@@ -314,7 +315,8 @@ class _Results extends ConsumerWidget {
       slivers: [
         if (!_withText && !filters.kind.isChannels) _RecentSearches(onPick: onPickRecent),
         ...content,
-        SliverToBoxAdapter(child: SizedBox(height: layout.isLarge ? layout.tv(80) : 32)),
+        // The end of the page clear of the tab bar.
+        SliverToBoxAdapter(child: SizedBox(height: pageBottomPadding(context))),
       ],
     );
   }
@@ -333,7 +335,7 @@ class _RecentSearches extends ConsumerWidget {
     if (recent.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
 
     return SliverPadding(
-      padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, 20),
+      padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, layout.sectionGap),
       sliver: NumberedSliverList(recent: recent, onPick: onPick),
     );
   }
@@ -431,7 +433,7 @@ class _ExploreRows extends ConsumerWidget {
     return SliverList.list(
       children: [
         for (final (index, (title, items)) in rows.indexed) ...[
-          if (index > 0) SizedBox(height: layout.isLarge ? layout.tv(36) : 24),
+          if (index > 0) SizedBox(height: layout.sectionGap),
           PosterRow(title: title, items: items, onFocused: onFocused, onHovered: onHovered),
         ],
       ],
@@ -462,7 +464,7 @@ class _SearchRows extends ConsumerWidget {
     final layout = Layout.of(context);
     final key = (query, filters);
     final results = ref.watch(searchProvider(key));
-    final gap = SizedBox(height: layout.isLarge ? layout.tv(36) : 24);
+    final gap = SizedBox(height: layout.sectionGap);
 
     return switch (results) {
       AsyncData(:final value) when value.isEmpty => SliverFillRemaining(
@@ -491,7 +493,7 @@ class _SearchRows extends ConsumerWidget {
                     vertical: layout.isLarge ? layout.tv(16) : 0,
                   ),
                   itemCount: value.people.length,
-                  separatorBuilder: (_, _) => SizedBox(width: layout.isLarge ? layout.tv(24) : 8),
+                  separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
                   itemBuilder: (_, i) => PersonCard(person: value.people[i]),
                 ),
               ),

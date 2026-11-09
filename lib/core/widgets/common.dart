@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_exception.dart';
 import '../device/layout.dart';
+import '../design.dart';
 import '../theme.dart';
 import 'focusable.dart';
 
@@ -258,7 +259,7 @@ class SectionHeader extends StatelessWidget {
     final large = layout.isLarge;
     final heading = Text(title, style: VxText.title(large ? layout.tv(30) : 18));
     return Padding(
-      padding: padding ?? EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, large ? layout.tv(22) : 12),
+      padding: padding ?? EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, layout.titleGap),
       child: onSeeAll == null
           ? heading
           : Row(

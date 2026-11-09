@@ -260,9 +260,13 @@ lib/
   (demande du développeur). Choisir un avatar l'enregistre et **reste sur la page** (pas de
   retour en arrière, demande du développeur). L'initiale reste affichée pour un ancien profil sans
   avatar. La tuile « Avatar » des paramètres n'écrit pas le nom du profil.
-- **Paramètres du profil, mise en page** : chaque groupe passe par `_Section`
-  (`profile_preferences_screen.dart`) : 12 sous le titre, 8 entre deux lignes, 24 entre deux
-  groupes (charte, § 5 ; un test le vérifie).
+- **Espacements** (charte, § 5) : les écarts d'une page ont un nom dans `core/design.dart`
+  (`layout.sectionGap`, `titleGap`, `introGap`, `listGap`, `cardGap`) et le bas d'une page qui
+  défile passe par `pageBottomPadding(context)` (place de la barre d'onglets comprise). Pages
+  secondaires : `InfoPage` / `InfoBody`, `InfoIntro`, `InfoSection`, `VxCard`, tout aligné sur
+  la colonne (pas de retrait). « Paramètres » (onglet) a le `VxPageHeader` des pages
+  principales. Paramètres du profil : chaque groupe passe par `_Section`
+  (`profile_preferences_screen.dart`). Tests : `test/design_test.dart`.
 - **Images** : `NetImage` (cache, couleur de remplacement). Tailles TMDb via
   `MediaItem.poster('w780')` / `backdrop('original')`, dérivées des URL renvoyées par l'API.
 - Tests : `flutter test` ne charge pas les polices (texte de remplacement), sans réseau.

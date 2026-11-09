@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
+import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../tmdb/tmdb.dart';
 import 'avatars.dart';
@@ -49,105 +51,106 @@ class ProfileSettingsScreen extends ConsumerWidget {
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     if (profile == null) return const SizedBox();
 
+    // A main page (phone tab): the same header and margins as Recherche, Ma liste and Avis.
     return SafeArea(
       bottom: false,
-      child: ListView(
-        // Bottom: clear of the phone's tab bar (in the media padding), like the other pages.
-        padding: EdgeInsets.fromLTRB(
-          layout.gutter,
-          12 * s,
-          layout.gutter,
-          48 * s + MediaQuery.paddingOf(context).bottom,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Paramètres', style: VxText.title(28 * s, weight: FontWeight.w800)),
-          SizedBox(height: 28 * s),
-          _SettingsSection(
-            label: 'Compte',
-            scale: s,
-            children: [
-              _SettingsTile(
-                scale: s,
-                icon: Icons.group_outlined,
-                title: 'Changer de profil',
-                subtitle: 'Basculer vers un autre profil.',
-                onPressed: () => ref.read(sessionProvider.notifier).switchProfile(),
-              ),
-              _SettingsTile(
-                scale: s,
-                icon: Icons.person_outline_rounded,
-                title: 'Compte',
-                subtitle: 'Gérez votre compte, déconnectez-vous ou supprimez-le.',
-                onPressed: () => context.push('/profil/compte'),
-              ),
-              _SettingsTile(
-                scale: s,
-                icon: Icons.devices_rounded,
-                title: 'Appareils',
-                subtitle: 'Voir et déconnecter les appareils liés à ce compte.',
-                onPressed: () => context.push('/profil/appareils'),
-              ),
-              _SettingsTile(
-                scale: s,
-                icon: Icons.link_rounded,
-                title: 'Connexions',
-                subtitle: tmdb?.linked ?? false
-                    ? 'Lier ou déconnecter un service. TMDb : ${tmdb!.displayName}'
-                    : 'Lier un service à ce profil (TMDb, pour noter).',
-                onPressed: () => context.push('/profil/connexions'),
-              ),
-              if (!DeviceInfo.isTv)
-                _SettingsTile(
+          const VxPageHeader(title: 'Paramètres'),
+          Expanded(
+            child: ListView(
+              padding: pageContentPadding(context),
+              children: [
+                _SettingsSection(
+                  label: 'Compte',
                   scale: s,
-                  icon: Icons.qr_code_scanner_rounded,
-                  title: 'Connecter une TV',
-                  subtitle: 'Approuver le code affiché sur le téléviseur.',
-                  onPressed: () => context.push('/tv'),
+                  children: [
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.group_outlined,
+                      title: 'Changer de profil',
+                      subtitle: 'Basculer vers un autre profil.',
+                      onPressed: () => ref.read(sessionProvider.notifier).switchProfile(),
+                    ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.person_outline_rounded,
+                      title: 'Compte',
+                      subtitle: 'Gérez votre compte, déconnectez-vous ou supprimez-le.',
+                      onPressed: () => context.push('/profil/compte'),
+                    ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.devices_rounded,
+                      title: 'Appareils',
+                      subtitle: 'Voir et déconnecter les appareils liés à ce compte.',
+                      onPressed: () => context.push('/profil/appareils'),
+                    ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.link_rounded,
+                      title: 'Connexions',
+                      subtitle: tmdb?.linked ?? false
+                          ? 'Lier ou déconnecter un service. TMDb : ${tmdb!.displayName}'
+                          : 'Lier un service à ce profil (TMDb, pour noter).',
+                      onPressed: () => context.push('/profil/connexions'),
+                    ),
+                    if (!DeviceInfo.isTv)
+                      _SettingsTile(
+                        scale: s,
+                        icon: Icons.qr_code_scanner_rounded,
+                        title: 'Connecter une TV',
+                        subtitle: 'Approuver le code affiché sur le téléviseur.',
+                        onPressed: () => context.push('/tv'),
+                      ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.logout_rounded,
+                      title: 'Se déconnecter',
+                      subtitle: 'Quitter ce compte sur cet appareil.',
+                      foreground: VxColors.dangerText,
+                      onPressed: () => ref.read(sessionProvider.notifier).logout(),
+                    ),
+                  ],
                 ),
-              _SettingsTile(
-                scale: s,
-                icon: Icons.logout_rounded,
-                title: 'Se déconnecter',
-                subtitle: 'Quitter ce compte sur cet appareil.',
-                foreground: VxColors.dangerText,
-                onPressed: () => ref.read(sessionProvider.notifier).logout(),
-              ),
-            ],
-          ),
-          SizedBox(height: 28 * s),
-          _SettingsSection(
-            label: 'Général',
-            scale: s,
-            children: [
-              _SettingsTile(
-                scale: s,
-                icon: Icons.tune_rounded,
-                title: 'Paramètres',
-                subtitle: 'Apparence, No spoil, langues et lecture automatique.',
-                onPressed: () => context.push('/profil/parametres'),
-              ),
-              _SettingsTile(
-                scale: s,
-                icon: Icons.shield_outlined,
-                title: 'Contrôle parental',
-                subtitle: 'Profil enfant, âge maximum et titres sans classification.',
-                onPressed: () => context.push('/profil/controle-parental'),
-              ),
-              _SettingsTile(
-                scale: s,
-                icon: Icons.password_rounded,
-                title: 'Code PIN',
-                subtitle: 'Code parental demandé pour créer un profil ou changer ses restrictions.',
-                onPressed: () => context.push('/profil/code-pin'),
-              ),
-              _SettingsTile(
-                scale: s,
-                icon: Icons.face_rounded,
-                title: 'Avatar',
-                subtitle: 'Changer l’image de votre profil.',
-                onPressed: () => context.push('/profil/avatar'),
-              ),
-            ],
+                SizedBox(height: layout.sectionGap),
+                _SettingsSection(
+                  label: 'Général',
+                  scale: s,
+                  children: [
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.tune_rounded,
+                      title: 'Paramètres',
+                      subtitle: 'Apparence, No spoil, langues et lecture automatique.',
+                      onPressed: () => context.push('/profil/parametres'),
+                    ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.shield_outlined,
+                      title: 'Contrôle parental',
+                      subtitle: 'Profil enfant, âge maximum et titres sans classification.',
+                      onPressed: () => context.push('/profil/controle-parental'),
+                    ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.password_rounded,
+                      title: 'Code PIN',
+                      subtitle: 'Code parental demandé pour créer un profil ou changer ses restrictions.',
+                      onPressed: () => context.push('/profil/code-pin'),
+                    ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.face_rounded,
+                      title: 'Avatar',
+                      subtitle: 'Changer l’image de votre profil.',
+                      onPressed: () => context.push('/profil/avatar'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -176,7 +179,7 @@ class _SettingsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.only(left: 4 * s, bottom: 10 * s),
+          padding: EdgeInsets.only(bottom: Layout.of(context).titleGap),
           child: Text(
             label.toUpperCase(),
             style: VxText.body(13 * s, weight: FontWeight.w700, color: VxColors.textMuted).copyWith(letterSpacing: 1.2),
@@ -270,7 +273,7 @@ class AvatarPickerScreen extends ConsumerWidget {
     final catalog = ref.watch(avatarCatalogProvider);
     final profile = ref.watch(sessionProvider).profile;
     final size = layout.isLarge ? layout.tv(140) : (layout.isPhone ? 84.0 : 100.0);
-    final gap = layout.isLarge ? layout.tv(28) : 14.0;
+    final gap = layout.cardGap;
 
     // The page stays open (the developer's choice): the new avatar is marked selected at once.
     void pick(String avatarId) {
@@ -290,10 +293,10 @@ class AvatarPickerScreen extends ConsumerWidget {
         data: (licenses) {
           final hasCurrent = licenses.any((l) => l.avatars.any((a) => a.id == profile?.avatar));
           return ListView(
-            padding: EdgeInsets.only(bottom: 40, top: layout.isLarge ? layout.tv(16) : 8),
+            padding: EdgeInsets.only(top: layout.space(VxSpace.xs), bottom: pageBottomPadding(context)),
             children: [
               for (final (i, license) in licenses.indexed) ...[
-                if (i > 0) SizedBox(height: layout.isLarge ? layout.tv(36) : 24),
+                if (i > 0) SizedBox(height: layout.sectionGap),
                 SectionHeader(license.name),
                 FocusTraversalGroup(
                   child: Padding(

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
@@ -71,16 +72,16 @@ class ProfilesScreen extends ConsumerWidget {
                 onRetry: () => ref.invalidate(profilesProvider),
                 data: (list) => Center(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
+                    padding: EdgeInsets.symmetric(vertical: layout.space(VxSpace.l), horizontal: layout.gutter),
                     child: Column(
                       children: [
                         Text('Qui regarde ?', style: VxText.title(layout.isLarge ? layout.tv(64) : 28)),
-                        SizedBox(height: layout.isLarge ? layout.tv(80) : 40),
+                        SizedBox(height: layout.space(VxSpace.xxl)),
                         FocusTraversalGroup(
                           child: Wrap(
                             alignment: WrapAlignment.center,
-                            spacing: layout.isLarge ? layout.tv(64) : 28,
-                            runSpacing: layout.isLarge ? layout.tv(48) : 28,
+                            spacing: layout.space(VxSpace.xl),
+                            runSpacing: layout.space(VxSpace.xl),
                             children: [
                               for (var i = 0; i < list.length; i++)
                                 _ProfileTile(
@@ -104,7 +105,7 @@ class ProfilesScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 36),
+                        SizedBox(height: layout.space(VxSpace.xl)),
                         Text(
                           'Les profils protégés par un code demandent le PIN à l’ouverture.',
                           textAlign: TextAlign.center,

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/expandable_text.dart';
+import '../../core/widgets/page_header.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
 import 'widgets.dart';
@@ -71,18 +73,18 @@ class _PersonViewState extends ConsumerState<_PersonView> {
       children: [
         Text(p.name, style: VxText.title(layout.isLarge ? layout.tv(72) : 28, weight: FontWeight.w800)),
         if (p.department != null) ...[
-          SizedBox(height: 8 * s),
+          SizedBox(height: layout.space(VxSpace.xs)),
           Text(
             p.department!,
             style: VxText.body(15 * s, weight: FontWeight.w600, color: VxColors.accent),
           ),
         ],
         if (p.lifeLine != null) ...[
-          SizedBox(height: 8 * s),
+          SizedBox(height: layout.space(VxSpace.xs)),
           Text(p.lifeLine!, style: VxText.body(14 * s, color: VxColors.textSecondary)),
         ],
         if (p.biography != null && !layout.isPhone) ...[
-          SizedBox(height: 16 * s),
+          SizedBox(height: layout.space(VxSpace.m)),
           ExpandableText(text: p.biography!, maxWidth: layout.tv(1000)),
         ],
       ],
@@ -92,7 +94,7 @@ class _PersonViewState extends ConsumerState<_PersonView> {
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(layout.gutter, 8 * s, layout.gutter, 0),
+            padding: EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.xs), layout.gutter, 0),
             child: Align(
               alignment: Alignment.centerLeft,
               child: VxFocusable(
@@ -112,12 +114,13 @@ class _PersonViewState extends ConsumerState<_PersonView> {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(layout.gutter, 16 * s, layout.gutter, 24 * s),
+            padding: EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.m), layout.gutter, layout.sectionGap),
             child: Row(
               crossAxisAlignment: layout.isPhone ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 photo,
-                SizedBox(width: (layout.isPhone ? 18 : 40) * s),
+                // Between the photo and its text.
+                SizedBox(width: layout.space(VxSpace.l)),
                 Expanded(child: info),
               ],
             ),
@@ -126,21 +129,27 @@ class _PersonViewState extends ConsumerState<_PersonView> {
         if (p.biography != null && layout.isPhone)
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, 24),
+              padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, layout.sectionGap),
               child: ExpandableText(text: p.biography!),
             ),
           ),
         if (p.knownFor.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.only(bottom: 24 * s),
+              padding: EdgeInsets.only(bottom: layout.sectionGap),
               child: PosterRow(title: 'Connu pour', items: p.knownFor),
             ),
           ),
         if (p.filmography.isNotEmpty) ...[
           const SliverToBoxAdapter(child: SectionHeader('Filmographie')),
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, 40 * s),
+            // Room for the focus zoom on TV; the end of the page clear of the tab bar.
+            padding: EdgeInsets.fromLTRB(
+              layout.gutter,
+              layout.size(0, tv: 16),
+              layout.gutter,
+              pageBottomPadding(context),
+            ),
             sliver: SliverGrid.builder(
               gridDelegate: posterGridDelegate(layout, format),
               itemCount: p.filmography.length,

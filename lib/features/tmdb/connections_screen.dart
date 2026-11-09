@@ -141,19 +141,14 @@ class _ConnectionsScreenState extends ConsumerState<ConnectionsScreen> {
   @override
   Widget build(BuildContext context) {
     final account = ref.watch(tmdbAccountProvider);
-    final s = uiScale(context);
 
     return InfoPage(
       title: 'Connexions',
       fallback: '/profil',
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(12 * s, 0, 12 * s, 16 * s),
-          child: Text(
-            'Les services liés à ce profil. Vixeo ne voit jamais vos mots de passe : vous autorisez Vixeo sur le '
-            'site du service.',
-            style: VxText.body(15 * s, color: VxColors.textSecondary),
-          ),
+        const InfoIntro(
+          'Les services liés à ce profil. Vixeo ne voit jamais vos mots de passe : vous autorisez Vixeo sur le '
+          'site du service.',
         ),
         VxCard(
           child: AsyncView(
@@ -201,7 +196,7 @@ class _NotLinked extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TmdbLogo(height: 22 * s),
-        SizedBox(height: 18 * s),
+        SizedBox(height: 16 * s),
         Text('Notez films, séries et épisodes', style: VxText.title(22 * s)),
         SizedBox(height: 8 * s),
         Text(
@@ -255,7 +250,7 @@ class _Waiting extends StatelessWidget {
               : '1. Connectez-vous à TMDb sur la page qui vient de s’ouvrir.\n2. Autorisez Vixeo.\n3. Revenez ici.',
           style: VxText.body(16 * s, color: VxColors.textSoft, height: 1.6),
         ),
-        SizedBox(height: 18 * s),
+        SizedBox(height: 16 * s),
         Row(
           children: [
             SizedBox.square(dimension: 18 * s, child: const CircularProgressIndicator(strokeWidth: 2.4)),
@@ -275,7 +270,7 @@ class _Waiting extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Autorisez Vixeo sur TMDb', style: VxText.title(22 * s)),
-        SizedBox(height: 18 * s),
+        SizedBox(height: 16 * s),
         if (large)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,7 +296,7 @@ class _Waiting extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(width: 28 * s),
+              SizedBox(width: 24 * s),
               Expanded(child: steps),
             ],
           )

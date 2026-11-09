@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/design.dart';
+import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
@@ -120,7 +122,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           )
         else ...[
           VxCard(child: _ReviewTitle(item: item)),
-          SizedBox(height: 16 * s),
+          SizedBox(height: Layout.of(context).sectionGap),
           VxCard(
             child: RatingForm(
               current: item.rating,
@@ -170,7 +172,8 @@ class _ReviewTitle extends StatelessWidget {
                 child: NetImage(url: episode ? (item.stillUrl ?? item.backdropUrl) : item.posterUrl, seed: item.id),
               ),
             ),
-            SizedBox(width: 14 * s),
+            // Between an image and its text.
+            SizedBox(width: Layout.of(context).space(VxSpace.s)),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

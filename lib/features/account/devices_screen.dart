@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
@@ -44,27 +46,23 @@ class DevicesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = uiScale(context);
     final devices = ref.watch(devicesProvider);
 
     return InfoPage(
       title: 'Appareils connectés',
       fallback: '/profil',
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(12 * s, 8 * s, 12 * s, 16 * s),
-          child: Text(
-            'Chaque appareil reste connecté 180 jours. Déconnectez ceux que vous n’utilisez plus ou que vous ne '
-            'reconnaissez pas.',
-            style: VxText.body(15 * s, color: VxColors.textSecondary),
-          ),
+        const InfoIntro(
+          'Chaque appareil reste connecté 180 jours. Déconnectez ceux que vous n’utilisez plus ou que vous ne '
+          'reconnaissez pas.',
         ),
         AsyncView(
           value: devices,
           onRetry: () => ref.invalidate(devicesProvider),
           data: (list) => Column(
             children: [
-              for (final (i, device) in list.indexed)
+              for (final (i, device) in list.indexed) ...[
+                if (i > 0) SizedBox(height: Layout.of(context).listGap),
                 _DeviceTile(
                   device: device,
                   autofocus: i == 0,
@@ -72,6 +70,7 @@ class DevicesScreen extends ConsumerWidget {
                       ? () => ref.read(sessionProvider.notifier).logout()
                       : () => _signOut(context, ref, device),
                 ),
+              ],
             ],
           ),
         ),
@@ -134,41 +133,31 @@ class _DeviceTile extends StatelessWidget {
       onPressed: onSignOut,
     );
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12 * s),
-      child: Material(
-        color: VxColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18 * s),
-          side: const BorderSide(color: VxColors.surfaceHigh),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(16 * s),
-          child: phone
-              ? Column(
+    // A card of the charter (VxCard), the devices a list gap apart.
+    return VxCard(
+      child: phone
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        icon,
-                        Expanded(child: text),
-                      ],
-                    ),
-                    SizedBox(height: 12 * s),
-                    Align(alignment: Alignment.centerRight, child: button),
-                  ],
-                )
-              : Row(
                   children: [
                     icon,
                     Expanded(child: text),
-                    SizedBox(width: 12 * s),
-                    button,
                   ],
                 ),
-        ),
-      ),
+                SizedBox(height: 12 * s),
+                Align(alignment: Alignment.centerRight, child: button),
+              ],
+            )
+          : Row(
+              children: [
+                icon,
+                Expanded(child: text),
+                SizedBox(width: 12 * s),
+                button,
+              ],
+            ),
     );
   }
 }

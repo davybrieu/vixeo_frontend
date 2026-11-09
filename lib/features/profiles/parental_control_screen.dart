@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../account/info_page.dart';
@@ -49,68 +51,58 @@ class _Restrictions extends ConsumerWidget {
     final profiles = ref.watch(profilesProvider);
     final protected = ref.watch(sessionProvider.select((s) => s.user?.parentalControl ?? false));
 
-    return ListView(
-      padding: EdgeInsets.fromLTRB(layout.gutter, 8 * s, layout.gutter, 40 * s),
+    // The same column as the other secondary pages (InfoBody), with the charter's cards and gaps.
+    return InfoBody(
       children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 760 * s),
+        if (!protected) ...[
+          VxCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (!protected) ...[
-                  ParentalCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.shield_outlined, size: 24 * s, color: VxColors.textMuted),
-                            SizedBox(width: 10 * s),
-                            Expanded(child: Text('Aucun code PIN parental', style: VxText.title(18 * s))),
-                          ],
-                        ),
-                        SizedBox(height: 10 * s),
-                        Text(
-                          'N’importe qui peut modifier ces restrictions. Définissez un code pour les protéger.',
-                          style: VxText.body(14 * s, color: VxColors.textSecondary),
-                        ),
-                        SizedBox(height: 16 * s),
-                        VxButton(
-                          label: 'Définir un code PIN',
-                          icon: Icons.password_rounded,
-                          kind: VxButtonKind.secondary,
-                          autofocus: true,
-                          onPressed: () => context.push('/profil/code-pin'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 28 * s),
-                ],
-                Text('Restrictions des profils', style: VxText.title(18 * s)),
-                SizedBox(height: 6 * s),
+                Row(
+                  children: [
+                    Icon(Icons.shield_outlined, size: 24 * s, color: VxColors.textMuted),
+                    SizedBox(width: 10 * s),
+                    Expanded(child: Text('Aucun code PIN parental', style: VxText.title(18 * s))),
+                  ],
+                ),
+                SizedBox(height: 10 * s),
                 Text(
-                  'Les titres au-dessus de l’âge choisi sont masqués du catalogue et de la recherche.',
+                  'N’importe qui peut modifier ces restrictions. Définissez un code pour les protéger.',
                   style: VxText.body(14 * s, color: VxColors.textSecondary),
                 ),
-                SizedBox(height: 14 * s),
-                AsyncView(
-                  value: profiles,
-                  onRetry: () => ref.invalidate(profilesProvider),
-                  data: (list) => Column(
-                    children: [
-                      for (final (i, profile) in list.indexed)
-                        Padding(
-                          padding: EdgeInsets.only(bottom: 14 * s),
-                          // TV: the first switch has the focus when there is no button above.
-                          child: _ProfileRestrictions(profile: profile, pin: pin, autofocus: protected && i == 0),
-                        ),
-                    ],
-                  ),
+                SizedBox(height: 16 * s),
+                VxButton(
+                  label: 'Définir un code PIN',
+                  icon: Icons.password_rounded,
+                  kind: VxButtonKind.secondary,
+                  autofocus: true,
+                  onPressed: () => context.push('/profil/code-pin'),
                 ),
               ],
             ),
+          ),
+          SizedBox(height: layout.sectionGap),
+        ],
+        Text('Restrictions des profils', style: VxText.title(18 * s)),
+        SizedBox(height: layout.space(VxSpace.xxs)),
+        Text(
+          'Les titres au-dessus de l’âge choisi sont masqués du catalogue et de la recherche.',
+          style: VxText.body(14 * s, color: VxColors.textSecondary),
+        ),
+        SizedBox(height: layout.titleGap),
+        AsyncView(
+          value: profiles,
+          onRetry: () => ref.invalidate(profilesProvider),
+          data: (list) => Column(
+            children: [
+              for (final (i, profile) in list.indexed)
+                Padding(
+                  padding: EdgeInsets.only(top: i == 0 ? 0 : layout.listGap),
+                  // TV: the first switch has the focus when there is no button above.
+                  child: _ProfileRestrictions(profile: profile, pin: pin, autofocus: protected && i == 0),
+                ),
+            ],
           ),
         ),
       ],
@@ -165,7 +157,7 @@ class _ProfileRestrictionsState extends ConsumerState<_ProfileRestrictions> {
     final p = _profile;
     final restricted = p.isKid || p.maxAgeRating != null;
     final s = uiScale(context);
-    return ParentalCard(
+    return VxCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design.dart';
+import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/choice.dart';
 import '../../core/widgets/focusable.dart';
@@ -82,12 +84,8 @@ class ProfilePreferencesScreen extends ConsumerWidget {
       title: 'Paramètres',
       fallback: '/profil',
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(12 * s, 4 * s, 12 * s, _Section.gap * s),
-          child: Text(
-            'Personnalisez l’apparence et la lecture de votre profil. Ces préférences sont synchronisées entre vos appareils.',
-            style: VxText.body(14 * s, color: VxColors.textSecondary),
-          ),
+        const InfoIntro(
+          'Personnalisez l’apparence et la lecture de votre profil. Ces préférences sont synchronisées entre vos appareils.',
         ),
         _Section(
           'Apparence',
@@ -158,13 +156,11 @@ class ProfilePreferencesScreen extends ConsumerWidget {
   ];
 }
 
-/// A titled group of settings, with the same gaps everywhere (charte graphique, § 5): 12 under
-/// the title, 8 between two rows, 24 before the next group.
+/// A titled group of settings, with the same gaps everywhere (charte graphique, § 5): 12 (TV 22)
+/// under the title, 8 (TV 12) between two rows, 24 (TV 36) before the next group. Lined up on the
+/// page's column, like the other secondary pages.
 class _Section extends StatelessWidget {
   const _Section(this.title, {required this.scale, required this.children, this.last = false});
-
-  /// Between two groups.
-  static const gap = 24.0;
 
   final String title;
   final double scale;
@@ -175,17 +171,15 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = scale;
+    final layout = Layout.of(context);
     return Padding(
-      padding: EdgeInsets.only(bottom: last ? 0 : gap * s),
+      padding: EdgeInsets.only(bottom: last ? 0 : layout.sectionGap),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(12 * s, 0, 12 * s, 12 * s),
-            child: Text(title, style: VxText.title(18 * s)),
-          ),
-          for (final (i, row) in children.indexed) ...[if (i > 0) SizedBox(height: 8 * s), row],
+          Text(title, style: VxText.title(18 * scale)),
+          SizedBox(height: layout.titleGap),
+          for (final (i, row) in children.indexed) ...[if (i > 0) SizedBox(height: layout.space(VxSpace.xs)), row],
         ],
       ),
     );

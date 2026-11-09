@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
+import '../../core/widgets/page_header.dart';
 import '../../core/widgets/common.dart';
 import '../library/library.dart';
 import '../tv/channel_row.dart';
@@ -68,29 +70,29 @@ class _PhoneHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final gap = SizedBox(height: layout.sectionGap);
     return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
+      // The last row ends above the tab bar.
+      padding: EdgeInsets.only(bottom: pageBottomPadding(context)),
       children: [
         if (home.featured.isNotEmpty) FeaturedCarousel(items: home.featured),
         if (resume.isNotEmpty) ...[
-          const SizedBox(height: 28),
+          gap,
           const SectionHeader('Continuer à regarder'),
           SizedBox(
             height: 124 + 56,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: layout.gutter),
               itemCount: resume.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
               itemBuilder: (_, i) => ResumeCard(item: resume[i], width: 220),
             ),
           ),
         ],
-        if (channels.isNotEmpty) ...[const SizedBox(height: 24), ChannelRow(channels: channels)],
-        for (final section in home.sections) ...[
-          const SizedBox(height: 24),
-          PosterRow(title: section.title, items: section.items),
-        ],
+        if (channels.isNotEmpty) ...[gap, ChannelRow(channels: channels)],
+        for (final section in home.sections) ...[gap, PosterRow(title: section.title, items: section.items)],
       ],
     );
   }
@@ -157,7 +159,7 @@ class _LargeHomeState extends State<_LargeHome> {
             ),
             Expanded(
               child: ListView(
-                padding: EdgeInsets.only(bottom: layout.tv(80)),
+                padding: EdgeInsets.only(bottom: pageBottomPadding(context)),
                 children: [
                   if (widget.resume.isNotEmpty) ...[
                     const SectionHeader('Continuer à regarder'),
@@ -169,7 +171,7 @@ class _LargeHomeState extends State<_LargeHome> {
                           clipBehavior: Clip.none,
                           padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.tv(16)),
                           itemCount: widget.resume.length,
-                          separatorBuilder: (_, _) => SizedBox(width: layout.tv(32)),
+                          separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
                           itemBuilder: (_, i) => ResumeCard(
                             item: widget.resume[i],
                             width: layout.tv(384),
@@ -180,11 +182,11 @@ class _LargeHomeState extends State<_LargeHome> {
                         ),
                       ),
                     ),
-                    SizedBox(height: layout.tv(36)),
+                    SizedBox(height: layout.sectionGap),
                   ],
                   if (widget.channels.isNotEmpty) ...[
                     ChannelRow(channels: widget.channels),
-                    SizedBox(height: layout.tv(36)),
+                    SizedBox(height: layout.sectionGap),
                   ],
                   for (final (index, section) in widget.home.sections.indexed) ...[
                     PosterRow(
@@ -195,7 +197,7 @@ class _LargeHomeState extends State<_LargeHome> {
                       // Nothing to resume: the first card of the first list takes the focus.
                       autofocusFirst: index == 0 && widget.resume.isEmpty,
                     ),
-                    if (index < widget.home.sections.length - 1) SizedBox(height: layout.tv(36)),
+                    if (index < widget.home.sections.length - 1) SizedBox(height: layout.sectionGap),
                   ],
                 ],
               ),

@@ -54,10 +54,10 @@ class VxPageHeader extends StatelessWidget {
 /// what the tab bar covers.
 EdgeInsets pageContentPadding(BuildContext context) {
   final layout = Layout.of(context);
-  return EdgeInsets.fromLTRB(
-    layout.gutter,
-    layout.size(0, tv: 16),
-    layout.gutter,
-    layout.space(VxSpace.xl) + MediaQuery.paddingOf(context).bottom,
-  );
+  return EdgeInsets.fromLTRB(layout.gutter, layout.size(0, tv: 16), layout.gutter, pageBottomPadding(context));
 }
+
+/// Under the last element of a scrolling page: 32 (TV 48), plus what the phone's tab bar covers
+/// (in the media padding), so nothing ends under it.
+double pageBottomPadding(BuildContext context) =>
+    Layout.of(context).space(VxSpace.xl) + MediaQuery.paddingOf(context).bottom;

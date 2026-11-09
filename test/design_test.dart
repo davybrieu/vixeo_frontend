@@ -3,14 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/app.dart';
+import 'package:vixeo/core/design.dart';
+import 'package:vixeo/core/device/layout.dart';
 import 'package:vixeo/core/theme.dart';
+import 'package:vixeo/core/widgets/card.dart';
 import 'package:vixeo/core/widgets/common.dart';
+import 'package:vixeo/core/widgets/focusable.dart';
 import 'package:vixeo/core/widgets/page_header.dart';
+import 'package:vixeo/features/account/devices_screen.dart';
+import 'package:vixeo/features/auth/models.dart';
+import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/library/my_list_screen.dart';
+import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
+import 'package:vixeo/features/profiles/profile_settings_screen.dart';
 import 'package:vixeo/features/search/filter_bar.dart';
 import 'package:vixeo/features/search/search_screen.dart';
 import 'package:vixeo/features/tmdb/reviews_screen.dart';
@@ -43,18 +52,35 @@ class NoReviews extends Reviews {
   Future<List<RatedItem>> build() async => const [];
 }
 
+/// Signed in with a profile, no storage, no network.
+class WithProfile extends SessionController {
+  @override
+  SessionState build() => const SessionState(
+    status: SessionStatus.signedIn,
+    token: 't',
+    profile: Profile(id: 1, name: 'Davy'),
+  );
+}
+
 /// Title pages asked one by one (there should be none), and batches of titles.
 final titleRequests = <(MediaType, int)>[];
 final batches = <String>[];
 
-Future<void> pumpPage(WidgetTester tester, Widget page, {List<Override> overrides = const []}) async {
-  tester.view.physicalSize = const Size(390, 844);
+Future<void> pumpPage(
+  WidgetTester tester,
+  Widget page, {
+  List<Override> overrides = const [],
+  Size size = const Size(390, 844),
+}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   titleRequests.clear();
   batches.clear();
   await tester.pumpWidget(
     ProviderScope(
+      // A new scope per page: the overrides differ from one page to the next.
+      key: UniqueKey(),
       overrides: [
         allGenresProvider.overrideWith((ref) async => const {MediaType.movie: <Genre>[], MediaType.tv: <Genre>[]}),
         titlesProvider.overrideWith((ref, q) async => const Paged(items: <MediaItem>[])),
@@ -169,5 +195,88 @@ void main() {
       logoUrl: 'https://image.tmdb.org/t/p/w500/l.png',
     );
     expect(item.cardLogoUrl, 'https://image.tmdb.org/t/p/w300/l.png');
+  });
+
+  testWidgets('the gaps of the charter, on a phone and on a TV', (tester) async {
+    Future<Layout> layoutAt(double width) async {
+      late Layout layout;
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(size: Size(width, 900)),
+          child: Builder(
+            builder: (context) {
+              layout = Layout.of(context);
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      return layout;
+    }
+
+    final phone = await layoutAt(390);
+    expect(
+      [phone.sectionGap, phone.titleGap, phone.introGap, phone.listGap, phone.cardGap, phone.gutter],
+      [24, 12, 16, 12, 10, 20],
+    );
+    final tv = await layoutAt(1920);
+    expect([tv.sectionGap, tv.titleGap, tv.introGap, tv.listGap, tv.cardGap, tv.gutter], [36, 22, 24, 18, 28, 96]);
+  });
+
+  testWidgets('the end of a page stays clear of the tab bar', (tester) async {
+    late double bottom;
+    await tester.pumpWidget(
+      MediaQuery(
+        // A phone, with the 66 px of the tab bar in the media padding.
+        data: const MediaQueryData(size: Size(390, 844), padding: EdgeInsets.only(bottom: 66)),
+        child: Builder(
+          builder: (context) {
+            bottom = pageBottomPadding(context);
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    expect(bottom, 32 + 66);
+  });
+
+  testWidgets('Paramètres starts like the other main pages', (tester) async {
+    await pumpPage(tester, const SearchScreen());
+    final search = tester.getTopLeft(find.text('Recherche'));
+
+    await pumpPage(tester, const ProfileSettingsScreen(), overrides: [sessionProvider.overrideWith(WithProfile.new)]);
+    expect(find.byType(VxPageHeader), findsOneWidget);
+    // The page title (the first one: a tile is also called « Paramètres »).
+    expect(tester.getTopLeft(find.text('Paramètres').first), search);
+  });
+
+  testWidgets('secondary pages: texts on the same edge as the cards', (tester) async {
+    // A phone wide enough for the test font (wider than Inter).
+    const phone = Size(520, 1200);
+    await pumpPage(
+      tester,
+      const ProfilePreferencesScreen(),
+      overrides: [sessionProvider.overrideWith(WithProfile.new)],
+      size: phone,
+    );
+    final intro = tester.getTopLeft(find.textContaining('Personnalisez')).dx;
+    expect(tester.getTopLeft(find.text('Apparence')).dx, intro);
+    expect(
+      tester
+          .getTopLeft(find.ancestor(of: find.text('Format des affiches'), matching: find.byType(VxFocusable)).first)
+          .dx,
+      intro,
+    );
+
+    await pumpPage(
+      tester,
+      const DevicesScreen(),
+      overrides: [
+        sessionProvider.overrideWith(WithProfile.new),
+        devicesProvider.overrideWith((ref) async => const [Device(id: 1, name: 'Vixeo Web', current: true)]),
+      ],
+      size: phone,
+    );
+    expect(tester.getTopLeft(find.byType(VxCard)).dx, tester.getTopLeft(find.textContaining('180 jours')).dx);
   });
 }

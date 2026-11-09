@@ -94,18 +94,35 @@ Sur TV, jamais moins de 18 px.
 Une seule échelle : **4 · 8 · 12 · 16 · 24 · 32 · 48 · 64** (`xxs`, `xs`, `s`, `m`, `l`, `xl`,
 `xxl`, `xxxl`).
 
-| Usage | Téléphone | TV |
-| --- | --- | --- |
-| Marge de page (`layout.gutter`) | 20 (tablette 32) | 96, soit 5 % de marge de sécurité |
-| Entre deux puces (`FilterBar.gapOf`) | 8 | 14 |
-| Entre deux lignes d'une liste (« Mes avis ») | 12 | 18 |
-| Entre une image et son texte | 12 | 18 |
-| Entre un titre de rangée et ses cartes | 12 | 22 |
-| Entre deux rangées ou deux sections | 24 | 36 |
-| Bas d'une liste | 32 + barre d'onglets | 48 |
+Les écarts d'une page ont un nom (`design.dart`, extension `VxSizes`) : on écrit le nom, jamais le
+nombre.
 
-À ne pas faire : des marges au hasard (14, 18, 22…) dans une page. Si une valeur manque, on l'ajoute
-à l'échelle ici et dans `design.dart`.
+| Usage | Téléphone | TV | Dans le code |
+| --- | --- | --- | --- |
+| Marge de page | 20 (tablette 32) | 96, soit 5 % de marge de sécurité | `layout.gutter` |
+| Entre deux rangées ou deux sections | 24 | 36 | `layout.sectionGap` |
+| Sous un titre de rangée ou de section | 12 | 22 | `layout.titleGap` (`SectionHeader`) |
+| Sous le texte d'introduction d'une page | 16 | 24 | `layout.introGap` (`InfoIntro`) |
+| Entre deux lignes d'une liste (avis, appareils, épisodes, profils) | 12 | 18 | `layout.listGap` |
+| Entre deux cartes d'une rangée ou d'une grille (affiches, personnes, avatars) | 10 | 28 | `layout.cardGap` |
+| Entre deux puces | 8 | 14 | `FilterBar.gapOf` |
+| Entre des puces et ce qu'elles filtrent | 16 | 24 | `layout.space(VxSpace.m)` |
+| Entre une image et son texte | 12 | 18 | `layout.space(VxSpace.s)` |
+| Bas d'une page qui défile | 32 + barre d'onglets | 48 | `pageBottomPadding(context)` |
+
+- **Bas de page** : `pageBottomPadding` ajoute la place de la barre d'onglets du téléphone
+  (`MediaQuery.padding.bottom`) : le dernier élément n'est jamais caché dessous. Une `ListView` à
+  qui l'on donne un `padding` n'ajoute plus cette place toute seule : il faut passer par
+  `pageBottomPadding` (ou `pageContentPadding`).
+- **Formulaires** (connexion, inscription, mot de passe oublié, connexion d'une TV) : 8 entre le
+  titre et sa phrase, 24 avant les champs et avant le bouton, 16 entre deux champs, 12 entre deux
+  boutons.
+- À l'intérieur d'un bloc (titre, note et genres d'une grande image, contenu d'une carte), les
+  petits écarts entre deux lignes d'un même texte (2 à 10) suivent le texte, pas ce tableau.
+
+À ne pas faire : des marges au hasard (14, 18, 22, 28…) dans une page. Si une valeur manque, on
+l'ajoute à l'échelle ici et dans `design.dart`. Des tests vérifient les valeurs et les alignements
+(`test/design_test.dart`).
 
 ## 6. Pages principales
 
@@ -138,12 +155,21 @@ Contenu                            pageContentPadding(context)
 - **Tablette, ordinateur, TV** : un rail à gauche, avec l'avatar puis les icônes (Recherche,
   Accueil, Films, Séries, TV, Ma liste, Avis). L'icône active est verte sur fond vert à 12 %.
 
+### Pages principales sans recherche
+
+« Paramètres » (onglet du profil) commence par le même `VxPageHeader` (titre seul), puis
+`pageContentPadding` : son titre est à la même place que celui de Recherche, Ma liste et Mes avis.
+
 ### Pages secondaires
 
-Les pages secondaires (compte, appareils, connexions, contrôle parental) utilisent `InfoPage` :
+Les pages secondaires (Paramètres du profil, compte, appareils, connexions, Mon avis, contrôle
+parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre de titre :
 - une barre de titre ;
-- une largeur de lecture limitée à 720 ;
-- des cartes `VxCard`.
+- une colonne de lecture centrée (720 au plus), aux marges de page, 8 (TV 12) sous la barre ;
+- **tout est aligné sur les bords de la colonne** : texte d'introduction (`InfoIntro`), titres
+  de section (`InfoSection`), cartes. Pas de retrait de 12 pour les textes ;
+- des cartes `VxCard` (marge intérieure 20, TV 30), espacées comme des sections (24, TV 36) ou
+  comme des lignes de liste (12, TV 18) quand elles se répètent (appareils, profils).
 
 ## 7. Composants
 

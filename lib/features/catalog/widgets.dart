@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
@@ -181,7 +182,7 @@ class PosterRow extends ConsumerWidget {
     final layout = Layout.of(context);
     final format = posterFormatOf(ref);
     final width = rowCardWidth(layout, format);
-    final gap = layout.isLarge ? layout.tv(28) : 10.0;
+    final gap = layout.cardGap;
     // Room for the focus zoom on TV.
     final vPad = layout.isLarge ? layout.tv(16) : 0.0;
 
@@ -451,7 +452,7 @@ class PersonCard extends StatelessWidget {
 
 /// Grid layout for title cards, by screen and format.
 SliverGridDelegate posterGridDelegate(Layout layout, PosterFormat format) {
-  final gap = layout.isLarge ? layout.tv(28) : 10.0;
+  final gap = layout.cardGap;
   return SliverGridDelegateWithMaxCrossAxisExtent(
     maxCrossAxisExtent: rowCardWidth(layout, format) * 1.15,
     childAspectRatio: format == PosterFormat.portrait ? 2 / 3 : 16 / 9,

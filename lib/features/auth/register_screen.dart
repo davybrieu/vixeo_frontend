@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/design.dart';
+import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import 'session.dart';
@@ -64,7 +66,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          padding: EdgeInsets.fromLTRB(Layout.of(context).gutter, 8, Layout.of(context).gutter, 32),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
             child: Form(
@@ -79,7 +81,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       'Un compte pour toute la famille : chacun aura ensuite son profil.',
                       style: VxText.body(15, color: VxColors.textSecondary),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: VxSpace.l),
                     TextFormField(
                       controller: _name,
                       autofillHints: const [AutofillHints.givenName],

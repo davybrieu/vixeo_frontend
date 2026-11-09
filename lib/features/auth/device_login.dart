@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/design.dart';
+import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import 'auth_repository.dart';
@@ -110,7 +112,7 @@ class _TvCodeCardState extends ConsumerState<TvCodeCard> {
               ),
             ),
           ),
-          SizedBox(width: 28 * k),
+          SizedBox(width: 24 * k),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,9 +160,9 @@ class _TvCodeCardState extends ConsumerState<TvCodeCard> {
         mainAxisSize: MainAxisSize.min,
         children: [
           VxBadge('Le plus simple', accent: true, fontSize: 14 * k),
-          SizedBox(height: 14 * k),
+          SizedBox(height: 16 * k),
           Text('Avec votre téléphone', style: VxText.title(30 * k)),
-          SizedBox(height: 22 * k),
+          SizedBox(height: 24 * k),
           body,
         ],
       ),
@@ -247,7 +249,7 @@ class _DeviceApproveScreenState extends ConsumerState<DeviceApproveScreen> {
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.symmetric(horizontal: Layout.of(context).gutter, vertical: VxSpace.l),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
             child: switch (_step) {
@@ -268,7 +270,7 @@ class _DeviceApproveScreenState extends ConsumerState<DeviceApproveScreen> {
                     onSubmitted: (_) => _lookup(),
                     decoration: InputDecoration(hintText: 'ABC-123', errorText: _error),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: VxSpace.l),
                   VxButton(label: 'Continuer', onPressed: _lookup, loading: _loading, expand: true),
                 ],
               ),
@@ -282,7 +284,7 @@ class _DeviceApproveScreenState extends ConsumerState<DeviceApproveScreen> {
                     style: VxText.title(22),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: VxSpace.xs),
                   Text(
                     'Il aura accès au compte ${account?.email ?? ''} et à tous ses profils. '
                     'N’autorisez que vos propres appareils.',
@@ -299,7 +301,7 @@ class _DeviceApproveScreenState extends ConsumerState<DeviceApproveScreen> {
                   ],
                   const SizedBox(height: 24),
                   VxButton(label: 'Autoriser', onPressed: _approve, loading: _loading, expand: true, autofocus: true),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: VxSpace.s),
                   VxButton(
                     label: 'Annuler',
                     kind: VxButtonKind.outline,

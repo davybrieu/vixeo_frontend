@@ -5,13 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
+import '../../core/widgets/page_header.dart';
 import '../../core/widgets/expandable_text.dart';
 import '../library/actions.dart';
 import '../profiles/no_spoiler.dart';
+import '../search/filter_bar.dart';
 import '../tmdb/rating_buttons.dart';
 import '../tmdb/tmdb.dart';
 import 'catalog_repository.dart';
@@ -140,7 +143,7 @@ class _PeopleRow extends StatelessWidget {
               // Room for the focus zoom on TV.
               padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.isLarge ? layout.tv(16) : 0),
               itemCount: people.length,
-              separatorBuilder: (_, _) => SizedBox(width: layout.isLarge ? layout.tv(24) : 8),
+              separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
               itemBuilder: (_, i) => PersonCard(person: people[i].$1, role: people[i].$2),
             ),
           ),
@@ -186,7 +189,7 @@ class _EpisodesState extends ConsumerState<_Episodes> {
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: layout.gutter),
               itemCount: widget.title.seasons.length,
-              separatorBuilder: (_, _) => SizedBox(width: 8 * s),
+              separatorBuilder: (_, _) => SizedBox(width: FilterBar.gapOf(layout)),
               itemBuilder: (_, i) {
                 final item = widget.title.seasons[i];
                 final selected = item.number == _season;
@@ -216,7 +219,8 @@ class _EpisodesState extends ConsumerState<_Episodes> {
             ),
           ),
         ),
-        SizedBox(height: 14 * s),
+        // Chips, then their content: as under a page header's filters.
+        SizedBox(height: layout.space(VxSpace.m)),
         AsyncView(
           value: season,
           onRetry: () => ref.invalidate(seasonProvider((widget.title.id, _season))),
@@ -228,9 +232,9 @@ class _EpisodesState extends ConsumerState<_Episodes> {
             padding: EdgeInsets.symmetric(horizontal: layout.gutter),
             child: Column(
               children: [
-                for (final e in data.episodes)
+                for (final (i, e) in data.episodes.indexed)
                   Padding(
-                    padding: EdgeInsets.only(bottom: 12 * s),
+                    padding: EdgeInsets.only(top: i == 0 ? 0 : layout.listGap),
                     // The row plays the episode; the star on its right rates it (TMDb account).
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,7 +283,8 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                     : NetImage(url: e.stillUrl, seed: e.id),
               ),
             ),
-            SizedBox(width: 12 * s),
+            // Between an image and its text.
+            SizedBox(width: Layout.of(context).space(VxSpace.s)),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,8 +355,9 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
       maxWidth: MediaQuery.sizeOf(context).width * 0.72,
       maxHeight: 96,
     );
+    final layout = Layout.of(context);
     return ListView(
-      padding: const EdgeInsets.only(bottom: 32),
+      padding: EdgeInsets.only(bottom: pageBottomPadding(context)),
       children: [
         Stack(
           children: [
@@ -377,7 +383,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
             ),
             Padding(
               // The title overlaps the bottom of the backdrop; a logo sits on it.
-              padding: EdgeInsets.fromLTRB(20, logo == null ? 276 : 330 - logo.height, 20, 8),
+              padding: EdgeInsets.fromLTRB(layout.gutter, logo == null ? 276 : 330 - logo.height, layout.gutter, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -405,7 +411,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                       style: VxText.body(14, color: VxColors.textSecondary),
                     ),
                   ],
-                  const SizedBox(height: 18),
+                  const SizedBox(height: VxSpace.m),
                   VxButton(
                     label: 'Lecture',
                     icon: Icons.play_arrow_rounded,
@@ -424,20 +430,21 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
             const Positioned(left: 0, top: 0, child: _BackButton()),
           ],
         ),
-        ..._lowerSections(t),
+        ..._lowerSections(layout, t),
       ],
     );
   }
 }
 
-List<Widget> _lowerSections(TitleDetails t) => [
-  if (t.type == MediaType.tv && t.seasons.isNotEmpty) ...[const SizedBox(height: 8), _Episodes(title: t)],
-  if (t.cast.isNotEmpty || t.crew.isNotEmpty) ...[const SizedBox(height: 16), _PeopleRow(title: t)],
-  if (t.recommended.isNotEmpty) ...[
-    const SizedBox(height: 16),
-    PosterRow(title: 'Vous pourriez aussi aimer', items: t.recommended),
-  ],
-];
+/// Episodes, people and recommendations, a section gap apart (24, TV 36).
+List<Widget> _lowerSections(Layout layout, TitleDetails t) {
+  final gap = SizedBox(height: layout.sectionGap);
+  return [
+    if (t.type == MediaType.tv && t.seasons.isNotEmpty) ...[gap, _Episodes(title: t)],
+    if (t.cast.isNotEmpty || t.crew.isNotEmpty) ...[gap, _PeopleRow(title: t)],
+    if (t.recommended.isNotEmpty) ...[gap, PosterRow(title: 'Vous pourriez aussi aimer', items: t.recommended)],
+  ];
+}
 
 // ───────────────────────────── TV / large ─────────────────────────────
 
@@ -485,7 +492,7 @@ class _LargeDetails extends StatelessWidget {
           ),
         ),
         ListView(
-          padding: EdgeInsets.only(bottom: layout.tv(80)),
+          padding: EdgeInsets.only(bottom: pageBottomPadding(context)),
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(layout.gutter, layout.tv(64), layout.gutter, 0),
@@ -515,7 +522,7 @@ class _LargeDetails extends StatelessWidget {
             ),
             Padding(
               // Same left edge as the sections below ("Créateur et distribution", rows).
-              padding: EdgeInsets.fromLTRB(layout.gutter, layout.tv(60), layout.gutter, layout.tv(48)),
+              padding: EdgeInsets.fromLTRB(layout.gutter, layout.tv(60), layout.gutter, 0),
               child: SizedBox(
                 width: layout.tv(1100),
                 child: Column(
@@ -557,7 +564,7 @@ class _LargeDetails extends StatelessWidget {
                         child: ExpandableText(text: t.overview!, maxLines: 5),
                       ),
                     ],
-                    SizedBox(height: layout.tv(36)),
+                    SizedBox(height: layout.sectionGap),
                     Row(
                       children: [
                         VxButton(
@@ -574,7 +581,7 @@ class _LargeDetails extends StatelessWidget {
                 ),
               ),
             ),
-            ..._lowerSections(t),
+            ..._lowerSections(layout, t),
           ],
         ),
       ],
