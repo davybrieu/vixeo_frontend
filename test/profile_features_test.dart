@@ -10,6 +10,7 @@ import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/actions.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
+import 'package:vixeo/features/profiles/profile_settings_screen.dart';
 
 /// In-memory library: records favorites / watched like the sync API would.
 class FakeLibrary extends LibraryController {
@@ -175,5 +176,45 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('D'), findsOneWidget);
+  });
+
+  testWidgets('the avatar picker only offers avatars: no "initial" choice at the top', (tester) async {
+    const licenses = [
+      AvatarLicense(
+        id: 'vixeo-arcade',
+        name: 'Vixeo Arcade',
+        avatars: [
+          AvatarDef(id: 'arcade-cat', name: 'Chat', background: Color(0xFF2A2112)),
+          AvatarDef(id: 'arcade-fox', name: 'Renard', background: Color(0xFF2A2112)),
+        ],
+      ),
+    ];
+    Future<void> open(Profile profile) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          key: ValueKey(profile.avatar),
+          overrides: [
+            avatarCatalogProvider.overrideWith((ref) async => licenses),
+            sessionProvider.overrideWith(() => FakeSession(profile)),
+          ],
+          child: MaterialApp(theme: buildVixeoTheme(), home: const AvatarPickerScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    String? focused() => FocusManager.instance.primaryFocus?.debugLabel;
+
+    // A profile without an avatar yet (made before avatars were given): the first one has the focus.
+    await open(const Profile(id: 1, name: 'Davy'));
+    expect(find.text('Initiale'), findsNothing);
+    expect(find.text('D'), findsNothing);
+    expect(find.text('Chat'), findsOneWidget);
+    expect(find.text('Renard'), findsOneWidget);
+    expect(focused(), contains('Chat'));
+
+    // With an avatar: that one has the focus.
+    await open(const Profile(id: 1, name: 'Davy', avatar: 'arcade-fox'));
+    expect(focused(), contains('Renard'));
   });
 }

@@ -250,7 +250,10 @@ lib/
   `VxPageHeader` (titre, recherche, `FilterBar`) et `pageContentPadding` (charte, § 6).
 - **Avatars** : galerie `GET /avatars` regroupée par licence (`features/profiles/avatars.dart`,
   pixel art dessiné par `PixelAvatarPainter`, ou `image_url`) ; `ProfileAvatar` partout où le
-  profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits.
+  profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits. Chaque
+  nouveau profil (y compris celui créé à l'inscription) reçoit un avatar du catalogue au hasard
+  (côté API) ; la page « Choisir un avatar » ne propose que des avatars, plus de choix « Initiale »
+  (demande du développeur). L'initiale reste affichée pour un ancien profil sans avatar.
 - **Images** : `NetImage` (cache, couleur de remplacement). Tailles TMDb via
   `MediaItem.poster('w780')` / `backdrop('original')`, dérivées des URL renvoyées par l'API.
 - Tests : `flutter test` ne charge pas les polices (texte de remplacement), sans réseau.

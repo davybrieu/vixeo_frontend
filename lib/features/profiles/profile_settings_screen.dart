@@ -253,7 +253,8 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
-/// Avatar picker, grouped by license.
+/// Avatar picker, grouped by license. Every profile has one (a new profile gets one at random):
+/// no "initial only" choice.
 class AvatarPickerScreen extends ConsumerWidget {
   const AvatarPickerScreen({super.key});
 
@@ -265,14 +266,9 @@ class AvatarPickerScreen extends ConsumerWidget {
     final size = layout.isLarge ? layout.tv(140) : (layout.isPhone ? 84.0 : 100.0);
     final gap = layout.isLarge ? layout.tv(28) : 14.0;
 
-    void pick(String? avatarId) {
+    void pick(String avatarId) {
       if (avatarId != profile?.avatar) {
-        saveProfile(
-          context,
-          {'avatar': avatarId},
-          done: avatarId == null ? 'Avatar retiré' : 'Avatar mis à jour',
-          icon: Icons.face_rounded,
-        );
+        saveProfile(context, {'avatar': avatarId}, done: 'Avatar mis à jour', icon: Icons.face_rounded);
       }
       context.pop();
     }
@@ -285,46 +281,39 @@ class AvatarPickerScreen extends ConsumerWidget {
       body: AsyncView(
         value: catalog,
         onRetry: () => ref.invalidate(avatarCatalogProvider),
-        data: (licenses) => ListView(
-          padding: EdgeInsets.only(bottom: 40, top: layout.isLarge ? layout.tv(16) : 8),
-          children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: layout.gutter),
-              child: _AvatarChoice(
-                label: 'Initiale',
-                selected: profile?.avatar == null,
-                size: size,
-                autofocus: profile?.avatar == null,
-                onPressed: () => pick(null),
-                child: AvatarTile(avatarId: null, initial: profile?.initial ?? '?', size: size),
-              ),
-            ),
-            for (final license in licenses) ...[
-              SizedBox(height: layout.isLarge ? layout.tv(36) : 24),
-              SectionHeader(license.name),
-              FocusTraversalGroup(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: layout.gutter),
-                  child: Wrap(
-                    spacing: gap,
-                    runSpacing: gap,
-                    children: [
-                      for (final avatar in license.avatars)
-                        _AvatarChoice(
-                          label: avatar.name,
-                          selected: profile?.avatar == avatar.id,
-                          size: size,
-                          autofocus: profile?.avatar == avatar.id,
-                          onPressed: () => pick(avatar.id),
-                          child: AvatarTile(avatarId: avatar.id, initial: '?', size: size),
-                        ),
-                    ],
+        data: (licenses) {
+          final hasCurrent = licenses.any((l) => l.avatars.any((a) => a.id == profile?.avatar));
+          return ListView(
+            padding: EdgeInsets.only(bottom: 40, top: layout.isLarge ? layout.tv(16) : 8),
+            children: [
+              for (final (i, license) in licenses.indexed) ...[
+                if (i > 0) SizedBox(height: layout.isLarge ? layout.tv(36) : 24),
+                SectionHeader(license.name),
+                FocusTraversalGroup(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: layout.gutter),
+                    child: Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: [
+                        for (final (j, avatar) in license.avatars.indexed)
+                          _AvatarChoice(
+                            label: avatar.name,
+                            selected: profile?.avatar == avatar.id,
+                            size: size,
+                            // TV: the current avatar, else (none yet) the first one.
+                            autofocus: hasCurrent ? profile?.avatar == avatar.id : i == 0 && j == 0,
+                            onPressed: () => pick(avatar.id),
+                            child: AvatarTile(avatarId: avatar.id, initial: '?', size: size),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
-          ],
-        ),
+          );
+        },
       ),
     );
   }
