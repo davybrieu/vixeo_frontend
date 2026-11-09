@@ -92,3 +92,45 @@ class ApkInstaller {
 }
 
 final apkInstallerProvider = Provider<ApkInstaller>((ref) => ApkInstaller());
+
+/// Download and installation of the new APK, shared by the update banner and the blocking
+/// "Mise à jour nécessaire" screen: both show the same progress.
+class UpdateDownload {
+  const UpdateDownload({this.busy = false, this.progress, this.result});
+
+  final bool busy;
+
+  /// 0 to 1 once the size of the file is known.
+  final double? progress;
+
+  /// Outcome of the last attempt (null before the first one).
+  final ApkInstallResult? result;
+
+  /// The last attempt didn't open Android's installer: the button becomes "Réessayer".
+  bool get failed => result != null && result != ApkInstallResult.started;
+}
+
+class UpdateDownloadController extends Notifier<UpdateDownload> {
+  @override
+  UpdateDownload build() => const UpdateDownload();
+
+  Future<void> install(AppRelease release) async {
+    if (state.busy) return;
+    state = const UpdateDownload(busy: true);
+    final result = await ref
+        .read(apkInstallerProvider)
+        .install(
+          release,
+          onProgress: (value) {
+            // Whole percents: no rebuild for every received chunk.
+            final previous = state.progress;
+            if (ref.mounted && (previous == null || (value * 100).round() != (previous * 100).round())) {
+              state = UpdateDownload(busy: true, progress: value);
+            }
+          },
+        );
+    if (ref.mounted) state = UpdateDownload(result: result);
+  }
+}
+
+final updateDownloadProvider = NotifierProvider<UpdateDownloadController, UpdateDownload>(UpdateDownloadController.new);

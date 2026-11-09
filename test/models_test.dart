@@ -226,6 +226,22 @@ void main() {
     expect(show.seasons.map((s) => s.number), [1, 0]);
   });
 
+  test('reads the episodes of a season and their air date', () {
+    final season = Season.fromJson({
+      'show_id': 1399,
+      'season_number': 1,
+      'name': 'Saison 1',
+      'episodes': [
+        {'id': 63056, 'season_number': 1, 'episode_number': 1, 'name': 'L’hiver vient', 'air_date': '2011-04-17'},
+        {'id': 63057, 'season_number': 1, 'episode_number': 2, 'name': 'La route royale', 'air_date': null},
+      ],
+    });
+
+    expect(season.episodes.first.airDate, DateTime(2011, 4, 17));
+    expect(formatFrenchDate(season.episodes.first.airDate!), '17 avril 2011');
+    expect(season.episodes.last.airDate, isNull);
+  });
+
   test('formats ratings and durations the French way', () {
     expect(formatRating(8.44), '8,4');
     expect(formatRuntime(45), '45 min');

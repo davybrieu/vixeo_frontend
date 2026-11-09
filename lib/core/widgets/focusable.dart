@@ -164,13 +164,16 @@ bool hasFocusedElement() {
 /// give it to the first element of the screen instead of doing nothing.
 class DirectionalFocusOrFirstAction extends Action<DirectionalFocusIntent> {
   @override
-  void invoke(DirectionalFocusIntent intent) {
+  void invoke(DirectionalFocusIntent intent) => move(intent);
+
+  /// Moves the focus; false when nothing is in that direction (edge of the screen).
+  bool move(DirectionalFocusIntent intent) {
     final primary = FocusManager.instance.primaryFocus;
-    if (primary == null) return;
+    if (primary == null) return false;
     if (primary is FocusScopeNode && primary.focusedChild == null) {
       primary.nextFocus();
-      return;
+      return true;
     }
-    primary.focusInDirection(intent.direction);
+    return primary.focusInDirection(intent.direction);
   }
 }

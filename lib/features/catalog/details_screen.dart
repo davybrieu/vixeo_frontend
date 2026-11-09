@@ -265,6 +265,11 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                                   runSpacing: 2 * s,
                                   crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
+                                    if (!noSpoiler && e.airDate != null)
+                                      Text(
+                                        formatFrenchDate(e.airDate!),
+                                        style: VxText.body(12 * s, color: VxColors.textSecondary),
+                                      ),
                                     if (!noSpoiler && e.runtime != null)
                                       Text(
                                         formatRuntime(e.runtime),

@@ -123,13 +123,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
                 subtitle: 'Changer l’image de ${profile.name}.',
                 onPressed: () => context.push('/profil/avatar'),
               ),
-              _SettingsTile(
-                scale: s,
-                icon: Icons.system_update_alt_rounded,
-                title: 'Mise à jour',
-                subtitle: 'Vérifier et installer la dernière version de Vixeo.',
-                onPressed: () => context.push('/profil/mise-a-jour'),
-              ),
             ],
           ),
         ],

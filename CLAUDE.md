@@ -107,12 +107,16 @@ lib/
   iOS, `UpdateGate` (dans le `builder` de `MaterialApp.router`) interroge `GET /app/update` avec le
   **build** installé (`package_info_plus`) au lancement et au retour au premier plan (toutes les 6 h
   au plus). `update_required` → écran « Mise à jour nécessaire » à la place de l'appli ;
-  `update_available` → proposition une fois par lancement. Une vérification qui échoue ne bloque
-  jamais. Sur Android (pas de Play Store), « Mettre à jour » (`UpdateButton`) télécharge l'APK
-  (`latest.download_url`, https uniquement, sans le jeton Vixeo), vérifie son SHA-256, puis ouvre
-  l'installateur d'Android (`ApkInstaller`, canal `app.vixeo/updates` dans `MainActivity.kt`,
+  `update_available` → barre `UpdateBanner` tout en haut des pages (« Une nouvelle mise à jour est
+  disponible », bouton « Télécharger » à droite ; elle prend la marge de la barre d'état, les pages
+  sont dessous). Pas de fenêtre ni de page « Mise à jour » dans les paramètres (demande du
+  développeur). Une vérification qui échoue ne bloque jamais. Sur Android (pas de Play Store),
+  « Télécharger » (barre) et « Mettre à jour » (écran bloquant, `UpdateButton`) téléchargent l'APK
+  (`latest.download_url`, https uniquement, sans le jeton Vixeo), vérifient son SHA-256, puis
+  ouvrent l'installateur d'Android (`ApkInstaller`, canal `app.vixeo/updates` dans `MainActivity.kt`,
   `FileProvider` sur `cache/updates`, permission `REQUEST_INSTALL_PACKAGES`), qui demande une
-  confirmation. Sans APK, ou sur iOS, le bouton ouvre la page d'installation du site. L'appli ne
+  confirmation ; la progression est partagée (`updateDownloadProvider`). Sans APK, ou sur iOS, le
+  bouton ouvre la page d'installation du site. L'appli ne
   charge jamais de code qu'elle exécuterait elle-même. Publication : `docs/android-release.md`. Le web ne vérifie pas. Pour essayer dans un navigateur :
   version « profile » avec `--dart-define=UPDATE_PLATFORM=android`.
 - **Version et signature** : `version: x.y.z+build` dans `pubspec.yaml`. Le build doit augmenter à
@@ -134,7 +138,9 @@ lib/
     élément vert, léger zoom ; appui long ou touche menu = menu contextuel) ;
   - chaque écran donne le focus à un élément à l'arrivée (`autofocus: true` sur un seul élément) ;
     `VxFocusable` ne vole jamais le focus à un élément du même écran ou de la même fenêtre (champ
-    de texte…), mais une fenêtre (mise à jour) le prend même si la page dessous l'avait ;
+    de texte…), mais une fenêtre (choix, confirmation) le prend même si la page dessous l'avait ;
+  - barre de mise à jour : flèche Haut en haut d'une page (rien au-dessus) → bouton « Télécharger »,
+    flèche Bas → retour à l'élément de la page ; jamais depuis une fenêtre ou un menu ;
   - seul ce qui se presse prend le focus (`VxFocusable` sans `onPressed` ni `onLongPress` : non
     focalisable ; `InfoSection` est du texte simple) ;
   - touche Retour (`BackNavigationGuard`) : d'une sous-page vers l'accueil (ou vers la connexion

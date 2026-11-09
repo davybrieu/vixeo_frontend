@@ -335,6 +335,7 @@ class Episode {
     this.runtime,
     this.stillUrl,
     this.voteAverage = 0,
+    this.airDate,
   });
 
   factory Episode.fromJson(Map<String, dynamic> json) => Episode(
@@ -346,6 +347,7 @@ class Episode {
     runtime: json['runtime'] as int?,
     stillUrl: json['still_url'] as String?,
     voteAverage: _double(json['vote_average']),
+    airDate: DateTime.tryParse(json['air_date'] as String? ?? ''),
   );
 
   final int id;
@@ -356,6 +358,9 @@ class Episode {
   final int? runtime;
   final String? stillUrl;
   final double voteAverage;
+
+  /// First broadcast (null when TMDb doesn't know it yet).
+  final DateTime? airDate;
 }
 
 class Season {

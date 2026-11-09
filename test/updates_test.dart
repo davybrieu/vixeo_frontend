@@ -8,11 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vixeo/app.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/api/api_exception.dart';
 import 'package:vixeo/core/theme.dart';
-import 'package:vixeo/features/auth/session.dart';
+import 'package:vixeo/core/widgets/common.dart';
 import 'package:vixeo/features/updates/apk_installer.dart';
+import 'package:vixeo/features/updates/update_banner.dart';
+import 'package:vixeo/features/updates/update_button.dart';
 import 'package:vixeo/features/updates/update_gate.dart';
 import 'package:vixeo/features/updates/updates.dart';
 
@@ -32,36 +35,38 @@ class FakeUpdates extends UpdateRepository {
 
 UpdateInfo info(UpdateStatus status, {String version = '1.2.0', int build = 14, String? notes}) => UpdateInfo(
   status: status,
-  latest: AppRelease(version: version, build: build, notes: notes),
-  updateUrl: 'https://play.google.com/store/apps/details?id=app.vixeo.vixeo',
+  latest: AppRelease(
+    version: version,
+    build: build,
+    notes: notes,
+    downloadUrl: 'https://vixeo.test/vixeo-$version.apk',
+    sha256: 'x',
+  ),
+  updateUrl: 'https://vixeo.test/installer',
 );
-
-/// The saved session is restored: the gate may show its dialog (not over the start screen).
-class Restored extends SessionController {
-  @override
-  SessionState build() => const SessionState(status: SessionStatus.signedOut);
-}
 
 Future<FakeUpdates> pumpApp(
   WidgetTester tester,
   UpdateInfo Function() next, {
   UpdatePlatform? platform = UpdatePlatform.android,
+  ApkInstaller? installer,
+  Widget home = const Scaffold(body: Text('Accueil')),
 }) async {
   final updates = FakeUpdates(next);
-  final key = GlobalKey<NavigatorState>();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         updatePlatformProvider.overrideWithValue(platform),
         installedVersionProvider.overrideWith((ref) async => const InstalledVersion(version: '1.0.0', build: 3)),
         updateRepositoryProvider.overrideWithValue(updates),
-        sessionProvider.overrideWith(Restored.new),
+        if (installer != null) apkInstallerProvider.overrideWithValue(installer),
       ],
       child: MaterialApp(
         theme: buildVixeoTheme(),
-        navigatorKey: key,
-        builder: (context, child) => UpdateGate(navigatorKey: key, child: child!),
-        home: const Scaffold(body: Text('Accueil')),
+        shortcuts: remoteShortcuts,
+        actions: remoteActions,
+        builder: (context, child) => UpdateGate(child: child!),
+        home: home,
       ),
     ),
   );
@@ -104,23 +109,105 @@ void main() {
     expect(find.text('Accueil'), findsOneWidget);
   });
 
-  testWidgets('suggests a newer version once', (tester) async {
+  testWidgets('a newer version: a bar at the top of the pages, no dialog', (tester) async {
     final updates = await pumpApp(tester, () => info(UpdateStatus.updateAvailable, notes: 'Page acteur.'));
 
     expect(find.text('Accueil'), findsOneWidget);
-    // A generic message: GitHub release notes are lists of commits, not meant for viewers.
-    expect(find.text('Une mise à jour est disponible'), findsOneWidget);
-    expect(find.textContaining('garder Vixeo à jour'), findsOneWidget);
-    await tester.tap(find.text('Plus tard'));
-    await tester.pumpAndSettle();
+    expect(find.text('Une nouvelle mise à jour est disponible'), findsOneWidget);
+    expect(find.text('Télécharger'), findsOneWidget);
+    // GitHub release notes are lists of commits, not meant for viewers.
+    expect(find.text('Page acteur.'), findsNothing);
     expect(find.byType(AlertDialog), findsNothing);
+    // At the very top, the page underneath; the button on the right.
+    final bar = tester.getRect(find.byType(UpdateBanner));
+    expect(bar.top, 0);
+    expect(tester.getTopLeft(find.text('Accueil')).dy, greaterThanOrEqualTo(bar.bottom));
+    expect(tester.getCenter(find.text('Télécharger')).dx, greaterThan(bar.width / 2));
 
-    // Same release again (back to the foreground…): not suggested twice.
+    // Checked again (back to the foreground…): still one bar.
     final container = ProviderScope.containerOf(tester.element(find.text('Accueil')));
     await container.read(updateProvider.notifier).check();
     await tester.pumpAndSettle();
     expect(updates.asked, hasLength(2));
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(UpdateBanner), findsOneWidget);
+  });
+
+  testWidgets('"Télécharger" in the bar downloads and installs the APK', (tester) async {
+    final installer = FakeApkInstaller(ApkInstallResult.started);
+    await pumpApp(tester, () => info(UpdateStatus.updateAvailable), installer: installer);
+
+    await tester.tap(find.text('Télécharger'));
+    await tester.pump();
+    expect(find.text('Téléchargement… 40 %'), findsOneWidget);
+
+    installer.finish();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Confirmez l’installation'), findsOneWidget);
+    expect(installer.installed, ['1.2.0']);
+  });
+
+  testWidgets('the bar keeps clear of the status bar, the page does not add it again', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 30);
+    addTearDown(tester.view.reset);
+    late EdgeInsets pagePadding;
+    await pumpApp(
+      tester,
+      () => info(UpdateStatus.updateAvailable),
+      home: Builder(
+        builder: (context) {
+          pagePadding = MediaQuery.paddingOf(context);
+          return const Scaffold(body: Text('Accueil'));
+        },
+      ),
+    );
+
+    expect(tester.getTopLeft(find.text('Télécharger')).dy, greaterThan(30));
+    expect(pagePadding.top, 0);
+  });
+
+  testWidgets('TV remote: Up from the top of the page reaches "Télécharger", Down goes back', (tester) async {
+    final page = FocusNode(debugLabel: 'page');
+    addTearDown(page.dispose);
+    await pumpApp(
+      tester,
+      () => info(UpdateStatus.updateAvailable),
+      home: Scaffold(
+        body: Center(
+          child: VxButton(label: 'Lecture', autofocus: true, onPressed: () {}, focusNode: page),
+        ),
+      ),
+    );
+    expect(page.hasPrimaryFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Update banner');
+
+    // Left / right stay on the button (nothing else in the bar).
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Update banner');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(page.hasPrimaryFocus, isTrue);
+  });
+
+  testWidgets('TV remote: a dialog keeps the focus', (tester) async {
+    await pumpApp(tester, () => info(UpdateStatus.updateAvailable));
+    showDialog<void>(
+      context: tester.element(find.text('Accueil')),
+      builder: (_) => AlertDialog(
+        content: VxButton(label: 'OK', autofocus: true, onPressed: () {}),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final dialogButton = FocusManager.instance.primaryFocus;
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus, dialogButton);
   });
 
   testWidgets('never blocks when the check fails (offline…)', (tester) async {
@@ -139,6 +226,7 @@ void main() {
 
   testWidgets('checks again when the app comes back after a while', (tester) async {
     final updates = await pumpApp(tester, () => info(UpdateStatus.upToDate));
+    expect(find.byType(UpdateBanner), findsNothing);
     final container = ProviderScope.containerOf(tester.element(find.text('Accueil')));
 
     await container.read(updateProvider.notifier).checkIfStale();

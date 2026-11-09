@@ -63,8 +63,9 @@ php artisan vixeo:release android 1.2.0 14 \
 ```
 
 Ensuite, automatiquement :
-- les applis installées proposent la mise à jour à leur prochaine ouverture (`--required` pour
-  l'imposer) ;
+- les applis installées affichent, à leur prochaine ouverture ou au retour au premier plan, la
+  barre « Une nouvelle mise à jour est disponible » avec le bouton « Télécharger » (`--required`
+  pour l'imposer : écran « Mise à jour nécessaire ») ;
 - le bouton « Télécharger l'APK » du site pointe vers ce fichier.
 
 ## 4. Vérifications sur un appareil

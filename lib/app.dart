@@ -42,7 +42,7 @@ class VixeoApp extends ConsumerWidget {
       theme: buildVixeoTheme(),
       themeMode: ThemeMode.dark,
       routerConfig: router,
-      builder: (context, child) => UpdateGate(navigatorKey: rootNavigatorKey, child: child ?? const SizedBox()),
+      builder: (context, child) => UpdateGate(child: child ?? const SizedBox()),
       shortcuts: remoteShortcuts,
       actions: remoteActions,
       locale: const Locale('fr', 'FR'),

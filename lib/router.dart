@@ -25,10 +25,6 @@ import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
 import 'features/tv/tv_hub_screen.dart';
-import 'features/updates/update_settings_screen.dart';
-
-/// Navigator of the router, for dialogs opened from above it (update suggestion).
-final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Routes. Sign-in is the entry page: every route redirects there while signed out,
 /// then to "Qui regarde ?" until a profile is chosen.
@@ -45,7 +41,6 @@ final routerProvider = Provider<GoRouter>((ref) {
   Widget guarded(String location, Widget child) => BackNavigationGuard(location: location, child: child);
 
   return GoRouter(
-    navigatorKey: rootNavigatorKey,
     initialLocation: '/connexion',
     refreshListenable: refresh,
     redirect: (context, state) {
@@ -114,7 +109,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profil/parametres', builder: (_, _) => const ProfilePreferencesScreen()),
           GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
           GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
-          GoRoute(path: '/profil/mise-a-jour', builder: (_, _) => const UpdateSettingsScreen()),
           GoRoute(
             path: '/personne/:id',
             builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),

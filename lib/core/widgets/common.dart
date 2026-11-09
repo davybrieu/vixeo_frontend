@@ -73,6 +73,8 @@ class VxButton extends StatelessWidget {
     this.expand = false,
     this.loading = false,
     this.autofocus = false,
+    this.dense = false,
+    this.focusNode,
   });
 
   final String label;
@@ -83,12 +85,18 @@ class VxButton extends StatelessWidget {
   final bool loading;
   final bool autofocus;
 
+  /// Smaller, for a bar (update banner…).
+  final bool dense;
+  final FocusNode? focusNode;
+
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final height = layout.isLarge ? layout.tv(76) : 52.0;
-    final fontSize = layout.isLarge ? layout.tv(24) : 16.0;
-    final radius = layout.isLarge ? layout.tv(18) : 12.0;
+    final large = layout.isLarge;
+    final height = dense ? (large ? layout.tv(56) : 40.0) : (large ? layout.tv(76) : 52.0);
+    final fontSize = dense ? (large ? layout.tv(20) : 14.0) : (large ? layout.tv(24) : 16.0);
+    final radius = dense ? (large ? layout.tv(14) : 10.0) : (large ? layout.tv(18) : 12.0);
+    final padding = dense ? (large ? layout.tv(24) : 16.0) : (large ? layout.tv(36) : 24.0);
 
     final (bg, fg, border) = switch (kind) {
       VxButtonKind.primary => (VxColors.accent, VxColors.onAccent, null),
@@ -101,6 +109,7 @@ class VxButton extends StatelessWidget {
     return VxFocusable(
       onPressed: enabled ? onPressed : null,
       autofocus: autofocus,
+      focusNode: focusNode,
       borderRadius: radius,
       onAccent: kind == VxButtonKind.primary || kind == VxButtonKind.danger,
       focusScale: 1.04,
@@ -109,7 +118,7 @@ class VxButton extends StatelessWidget {
         opacity: onPressed == null ? 0.5 : 1,
         child: Container(
           height: height,
-          padding: EdgeInsets.symmetric(horizontal: layout.isLarge ? layout.tv(36) : 24),
+          padding: EdgeInsets.symmetric(horizontal: padding),
           decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(radius), border: border),
           child: Row(
             mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,

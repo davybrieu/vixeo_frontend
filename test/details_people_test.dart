@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/catalog/catalog_repository.dart';
@@ -8,6 +9,7 @@ import 'package:vixeo/features/catalog/details_screen.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
+import 'package:vixeo/features/profiles/no_spoiler.dart';
 
 class EmptyLibrary extends LibraryController {
   @override
@@ -19,7 +21,12 @@ const cast = [
   Person(id: 2, name: 'Théo Rivière', role: 'Karl'),
 ];
 
-Future<void> pumpDetails(WidgetTester tester, TitleDetails title, {Size size = const Size(390, 844)}) async {
+Future<void> pumpDetails(
+  WidgetTester tester,
+  TitleDetails title, {
+  Size size = const Size(390, 844),
+  List<Override> overrides = const [],
+}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -28,6 +35,7 @@ Future<void> pumpDetails(WidgetTester tester, TitleDetails title, {Size size = c
       overrides: [
         titleProvider.overrideWith((ref, key) async => title),
         libraryProvider.overrideWith(EmptyLibrary.new),
+        ...overrides,
       ],
       child: MaterialApp(
         theme: buildVixeoTheme(),
@@ -124,5 +132,45 @@ void main() {
     await tester.scrollUntilVisible(find.text('Distribution'), 200, scrollable: pageScroll);
     expect(find.text('Créateur et distribution'), findsNothing);
     expect(cardNames(tester).first, 'Alma Meyer-Lindqvist (Ingrid)');
+  });
+
+  group('episodes', () {
+    const show = TitleDetails(
+      id: 1399,
+      type: MediaType.tv,
+      title: 'Les Hautes Terres',
+      seasons: [SeasonSummary(number: 1, name: 'Saison 1', episodeCount: 1)],
+    );
+    final season = Season(
+      showId: 1399,
+      number: 1,
+      name: 'Saison 1',
+      episodes: [
+        Episode(id: 1, seasonNumber: 1, number: 1, name: 'Le départ', runtime: 52, airDate: DateTime(2024, 3, 1)),
+      ],
+    );
+
+    Future<void> scrollToEpisodes(WidgetTester tester) =>
+        tester.scrollUntilVisible(find.textContaining('Le départ'), 300, scrollable: pageScroll);
+
+    testWidgets('show their air date', (tester) async {
+      await pumpDetails(tester, show, overrides: [seasonProvider.overrideWith((ref, key) async => season)]);
+      await scrollToEpisodes(tester);
+
+      expect(find.text('1er mars 2024'), findsOneWidget);
+      expect(find.text('52 min'), findsOneWidget);
+    });
+
+    testWidgets('hide the air date with No spoil', (tester) async {
+      await pumpDetails(
+        tester,
+        show,
+        overrides: [seasonProvider.overrideWith((ref, key) async => season), noSpoilerProvider.overrideWithValue(true)],
+      );
+      await scrollToEpisodes(tester);
+
+      expect(find.text('1er mars 2024'), findsNothing);
+      expect(find.text('52 min'), findsNothing);
+    });
   });
 }
