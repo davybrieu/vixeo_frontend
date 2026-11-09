@@ -77,6 +77,8 @@ flutter:
   assets:
     - assets/fonts/OFL-Sora.txt
     - assets/fonts/OFL-Inter.txt
+    # Official TMDb logo ("Primary short", themoviedb.org/about/logos-attribution), as a PNG.
+    - assets/images/tmdb_short.png
   fonts:
     - family: Sora
       fonts:

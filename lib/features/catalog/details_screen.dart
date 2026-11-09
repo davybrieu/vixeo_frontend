@@ -12,6 +12,8 @@ import '../../core/widgets/focusable.dart';
 import '../../core/widgets/expandable_text.dart';
 import '../library/actions.dart';
 import '../profiles/no_spoiler.dart';
+import '../tmdb/rating_buttons.dart';
+import '../tmdb/tmdb.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
 import 'widgets.dart';
@@ -83,15 +85,15 @@ class _BackButton extends StatelessWidget {
   );
 }
 
-/// Ma liste / Vu / Bande-annonce: the same round icon-only button for each action.
-/// Each click confirms with an alert ("Supprimé de votre liste"…).
-class _Actions extends StatelessWidget {
+/// Ma liste / Vu / Noter / Bande-annonce: the same round icon-only button for each action.
+/// Each click confirms with an alert ("Supprimé de votre liste"…). "Noter" needs a TMDb account.
+class _Actions extends ConsumerWidget {
   const _Actions({required this.title});
 
   final TitleDetails title;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final item = title.asItem;
     return Wrap(
@@ -100,6 +102,7 @@ class _Actions extends StatelessWidget {
       children: [
         FavoriteButton(item: item),
         if (title.type == MediaType.movie) WatchedButton(item: item),
+        if (ref.watch(canRateProvider)) RateTitleButton(type: title.type, id: title.id, name: title.title),
         if (title.trailer != null)
           VxIconAction(
             icon: Icons.smart_display_outlined,
@@ -169,6 +172,8 @@ class _EpisodesState extends ConsumerState<_Episodes> {
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     final season = ref.watch(seasonProvider((widget.title.id, _season)));
     final noSpoiler = ref.watch(noSpoilerProvider);
+    final canRate = ref.watch(canRateProvider);
+    final ratings = canRate ? ref.watch(seasonRatingsProvider((widget.title.id, _season))).value ?? const {} : const {};
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,88 +231,23 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                 for (final e in data.episodes)
                   Padding(
                     padding: EdgeInsets.only(bottom: 12 * s),
-                    child: VxFocusable(
-                      borderRadius: 12 * s,
-                      semanticLabel: 'Épisode ${e.number}, ${e.name}',
-                      onPressed: () => _play(context, widget.title, season: _season, episode: e.number),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10 * s),
-                            child: SizedBox(
-                              width: 136 * s,
-                              height: 77 * s,
-                              child: noSpoiler
-                                  ? ImageFiltered(
-                                      imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                                      child: NetImage(url: e.stillUrl, seed: e.id),
-                                    )
-                                  : NetImage(url: e.stillUrl, seed: e.id),
-                            ),
-                          ),
-                          SizedBox(width: 12 * s),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _episodeSpoiler(
-                                  Text(
-                                    '${e.number}. ${e.name}',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: VxText.body(14 * s, weight: FontWeight.w600, height: 1.3),
-                                  ),
-                                  noSpoiler,
-                                ),
-                                Wrap(
-                                  spacing: 10 * s,
-                                  runSpacing: 2 * s,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    if (!noSpoiler && e.airDate != null)
-                                      Text(
-                                        formatFrenchDate(e.airDate!),
-                                        style: VxText.body(12 * s, color: VxColors.textSecondary),
-                                      ),
-                                    if (!noSpoiler && e.runtime != null)
-                                      Text(
-                                        formatRuntime(e.runtime),
-                                        style: VxText.body(12 * s, color: VxColors.textSecondary),
-                                      ),
-                                    if (!noSpoiler && e.voteAverage > 0)
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.star_rounded, color: VxColors.accent, size: 14 * s),
-                                          SizedBox(width: 3 * s),
-                                          Text(
-                                            formatRating(e.voteAverage),
-                                            style: VxText.body(
-                                              12 * s,
-                                              color: VxColors.textSecondary,
-                                              weight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                  ],
-                                ),
-                                if (e.overview != null && e.overview!.trim().isNotEmpty)
-                                  _episodeSpoiler(
-                                    Text(
-                                      e.overview!,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: VxText.body(13 * s, color: VxColors.textSoft),
-                                    ),
-                                    noSpoiler,
-                                  ),
-                              ],
-                            ),
+                    // The row plays the episode; the star on its right rates it (TMDb account).
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _episodeRow(context, e, s: s, noSpoiler: noSpoiler, rating: ratings[e.number]),
+                        ),
+                        if (canRate) ...[
+                          SizedBox(width: 8 * s),
+                          RateEpisodeButton(
+                            target: RatingTarget.episode(widget.title.id, _season, e.number),
+                            showName: widget.title.title,
+                            episode: e,
+                            value: ratings[e.number],
                           ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
               ],
@@ -317,6 +257,76 @@ class _EpisodesState extends ConsumerState<_Episodes> {
       ],
     );
   }
+
+  Widget _episodeRow(BuildContext context, Episode e, {required double s, required bool noSpoiler, double? rating}) =>
+      VxFocusable(
+        borderRadius: 12 * s,
+        semanticLabel: 'Épisode ${e.number}, ${e.name}',
+        onPressed: () => _play(context, widget.title, season: _season, episode: e.number),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10 * s),
+              child: SizedBox(
+                width: 136 * s,
+                height: 77 * s,
+                child: noSpoiler
+                    ? ImageFiltered(
+                        imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: NetImage(url: e.stillUrl, seed: e.id),
+                      )
+                    : NetImage(url: e.stillUrl, seed: e.id),
+              ),
+            ),
+            SizedBox(width: 12 * s),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _episodeSpoiler(
+                    Text(
+                      '${e.number}. ${e.name}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: VxText.body(14 * s, weight: FontWeight.w600, height: 1.3),
+                    ),
+                    noSpoiler,
+                  ),
+                  Wrap(
+                    spacing: 10 * s,
+                    runSpacing: 2 * s,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (!noSpoiler && e.airDate != null)
+                        Text(formatFrenchDate(e.airDate!), style: VxText.body(12 * s, color: VxColors.textSecondary)),
+                      if (!noSpoiler && e.runtime != null)
+                        Text(formatRuntime(e.runtime), style: VxText.body(12 * s, color: VxColors.textSecondary)),
+                      if (!noSpoiler && e.voteAverage > 0)
+                        TmdbRating(e.voteAverage, fontSize: 12 * s, color: VxColors.textSecondary),
+                      if (rating != null)
+                        Text(
+                          'Ma note : ${formatScore(rating)}/10',
+                          style: VxText.body(12 * s, color: VxColors.accent, weight: FontWeight.w600),
+                        ),
+                    ],
+                  ),
+                  if (e.overview != null && e.overview!.trim().isNotEmpty)
+                    _episodeSpoiler(
+                      Text(
+                        e.overview!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: VxText.body(13 * s, color: VxColors.textSoft),
+                      ),
+                      noSpoiler,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 // ───────────────────────────── Phone ─────────────────────────────
@@ -383,15 +393,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                     runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      if (t.voteAverage > 0)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.star_rounded, color: VxColors.accent, size: 17),
-                            const SizedBox(width: 3),
-                            Text(formatRating(t.voteAverage), style: VxText.body(14, weight: FontWeight.w600)),
-                          ],
-                        ),
+                      if (t.voteAverage > 0) TmdbRating(t.voteAverage),
                       for (final m in _meta(t)) Text(m, style: VxText.body(14, color: VxColors.textSoft)),
                       if (t.ageRating != null) VxBadge(_ageLabel(t.ageRating!), outlined: true),
                     ],
@@ -537,18 +539,7 @@ class _LargeDetails extends StatelessWidget {
                       runSpacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        if (t.voteAverage > 0)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.star_rounded, color: VxColors.accent, size: layout.tv(26)),
-                              SizedBox(width: layout.tv(6)),
-                              Text(
-                                formatRating(t.voteAverage),
-                                style: VxText.body(layout.tv(22), weight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
+                        if (t.voteAverage > 0) TmdbRating(t.voteAverage, fontSize: layout.tv(22)),
                         for (final m in _meta(t)) Text(m, style: VxText.body(layout.tv(22), color: VxColors.textSoft)),
                         if (t.genres.isNotEmpty)
                           Text(

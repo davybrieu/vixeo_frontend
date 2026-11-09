@@ -24,6 +24,8 @@ import 'features/profiles/profiles_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
+import 'features/tmdb/my_ratings_screen.dart';
+import 'features/tmdb/tmdb_link_screen.dart';
 import 'features/tv/tv_hub_screen.dart';
 
 /// Routes. Sign-in is the entry page: every route redirects there while signed out,
@@ -109,6 +111,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profil/parametres', builder: (_, _) => const ProfilePreferencesScreen()),
           GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
           GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
+          // TMDb account of the profile and its ratings (vixeo_backend/docs/compte-tmdb.md).
+          GoRoute(path: '/profil/tmdb', builder: (_, _) => const TmdbLinkScreen()),
+          GoRoute(path: '/profil/notes', builder: (_, _) => const MyRatingsScreen()),
           GoRoute(
             path: '/personne/:id',
             builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),

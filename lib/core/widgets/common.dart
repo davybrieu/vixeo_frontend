@@ -156,6 +156,7 @@ class VxIconAction extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.active = false,
+    this.dense = false,
   });
 
   final IconData icon;
@@ -163,10 +164,13 @@ class VxIconAction extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool active;
 
+  /// Smaller, in a list row (episodes, "Mes notes").
+  final bool dense;
+
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final size = layout.isLarge ? layout.tv(76) : 52.0;
+    final size = dense ? (layout.isLarge ? layout.tv(56) : 40.0) : (layout.isLarge ? layout.tv(76) : 52.0);
     return VxFocusable(
       onPressed: onPressed,
       borderRadius: size,
@@ -342,11 +346,14 @@ class AsyncView<T> extends StatelessWidget {
 
 /// Centered message for empty lists.
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.icon, required this.title, this.message});
+  const EmptyState({super.key, required this.icon, required this.title, this.message, this.action});
 
   final IconData icon;
   final String title;
   final String? message;
+
+  /// A button under the message ("Lier mon compte TMDb"…).
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -366,6 +373,7 @@ class EmptyState extends StatelessWidget {
               style: VxText.body(15, color: VxColors.textSecondary),
             ),
           ],
+          if (action != null) ...[const SizedBox(height: 24), action!],
         ],
       ),
     ),

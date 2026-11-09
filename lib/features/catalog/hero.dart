@@ -175,15 +175,7 @@ class _FeaturedCard extends ConsumerWidget {
                   runSpacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (rating > 0)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.star_rounded, color: VxColors.accent, size: 17),
-                          const SizedBox(width: 3),
-                          Text(formatRating(rating), style: VxText.body(14, weight: FontWeight.w600)),
-                        ],
-                      ),
+                    if (rating > 0) TmdbRating(rating),
                     if (year != null) Text('$year', style: VxText.body(14, color: VxColors.textSoft)),
                     if (duration != null) Text(duration, style: VxText.body(14, color: VxColors.textSoft)),
                     if (details?.ageRating != null) VxBadge(_ageLabel(details!.ageRating!), outlined: true),
@@ -374,15 +366,7 @@ class _HeroTextState extends ConsumerState<HeroText> {
                 runSpacing: layout.tv(8),
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  if (rating > 0)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.star_rounded, color: VxColors.accent, size: layout.tv(26)),
-                        SizedBox(width: layout.tv(6)),
-                        Text(formatRating(rating), style: VxText.body(layout.tv(22), weight: FontWeight.w600)),
-                      ],
-                    ),
+                  if (rating > 0) TmdbRating(rating, fontSize: layout.tv(22)),
                   if (year != null) Text('$year', style: meta),
                   if (length != null) Text(length, style: meta),
                   if (details?.ageRating != null)

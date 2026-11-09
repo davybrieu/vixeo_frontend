@@ -568,3 +568,53 @@ class _MenuTile extends StatelessWidget {
     contentPadding: const EdgeInsets.symmetric(horizontal: 24),
   );
 }
+
+/// TMDb's average rating: star, "7,1" and the TMDb logo in small (the source of the rating).
+/// Read as "Note TMDb : 7,1 sur 10" by screen readers.
+class TmdbRating extends StatelessWidget {
+  const TmdbRating(this.value, {super.key, this.fontSize = 14, this.color = VxColors.text});
+
+  final double value;
+  final double fontSize;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    label: 'Note TMDb : ${formatRating(value)} sur 10',
+    excludeSemantics: true,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.star_rounded, color: VxColors.accent, size: fontSize * 1.2),
+        SizedBox(width: fontSize * 0.25),
+        Text(
+          formatRating(value),
+          style: VxText.body(fontSize, color: color, weight: FontWeight.w600),
+        ),
+        SizedBox(width: fontSize * 0.45),
+        // As high as the capital letters of the rating.
+        TmdbLogo(height: fontSize * 0.7),
+      ],
+    ),
+  );
+}
+
+/// Official TMDb logo ("Primary short", assets/images/tmdb_short.png), [height] high.
+class TmdbLogo extends StatelessWidget {
+  const TmdbLogo({super.key, required this.height});
+
+  final double height;
+
+  /// Width / height of the image.
+  static const aspectRatio = 820 / 106;
+
+  @override
+  Widget build(BuildContext context) => Image.asset(
+    'assets/images/tmdb_short.png',
+    height: height,
+    width: height * aspectRatio,
+    filterQuality: FilterQuality.medium,
+    excludeFromSemantics: true,
+  );
+}

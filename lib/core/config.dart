@@ -20,7 +20,7 @@ class AppConfig {
       checkApiUrl(apiUrl, given: _apiUrlGiven, release: kReleaseMode) ??
       checkLegal(publisher: Legal.publisher, supportEmail: Legal.supportEmail, release: kReleaseMode);
 
-  /// The privacy policy and the contact page need the publisher and a support address.
+  /// A published app names its publisher and a support address.
   @visibleForTesting
   static String? checkLegal({required String publisher, required String supportEmail, required bool release}) {
     if (!release) return null;
@@ -46,7 +46,4 @@ class AppConfig {
 
   /// Base URL of the v1 API, e.g. `https://api.vixeo.app/api/v1`.
   static String get apiBase => '${apiUrl.replaceAll(RegExp(r'/+$'), '')}/api/v1';
-
-  /// Mandatory TMDb notice (shown in "À propos").
-  static const String tmdbAttribution = 'This product uses the TMDB API but is not endorsed or certified by TMDB.';
 }

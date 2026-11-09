@@ -80,6 +80,7 @@ lib/
     playback/    pour le futur lecteur : moments à passer (TheIntroDB) et sous-titres (OpenSubtitles),
                  via l'API
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
+    tmdb/        compte TMDb du profil (liaison, QR code), notes (fenêtre, boutons, « Mes notes »)
 ```
 
 ## Conventions
@@ -156,11 +157,29 @@ lib/
     le focus et occupe la grande image : pas de « titre à la une » (`featured`) sur grand écran,
     ni de bouton « Plus d'infos » ; OK ou un clic sur la carte ouvre la fiche. Le carrousel du
     téléphone garde les titres à la une.
-- **Actions sur un titre** (Ma liste, Vu / non vu, Bande-annonce) : toujours le même bouton
-  rond **icône seule** (`VxIconAction`, `FavoriteButton`, `WatchedButton`), sans texte visible
-  (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire. Chaque action
-  se confirme par une alerte (`showVxSnack`) : « Ajouté à votre liste », « Supprimé de votre
-  liste », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`).
+- **Actions sur un titre** (Ma liste, Vu / non vu, Noter, Bande-annonce) : toujours le même bouton
+  rond **icône seule** (`VxIconAction`, `FavoriteButton`, `WatchedButton`, `RateTitleButton`), sans
+  texte visible (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire.
+  Chaque action se confirme par une alerte (`showVxSnack`) : « Ajouté à votre liste », « Supprimé
+  de votre liste », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
+  « Note enregistrée : 8/10 », « Note supprimée ».
+- **Compte TMDb et notes** (`features/tmdb`, API : `vixeo_backend/docs/compte-tmdb.md`) : chaque
+  profil peut lier un compte TMDb (`/profil/tmdb`, « Mon profil » → section TMDb) ; le même compte
+  TMDb peut être lié à plusieurs profils, même d'autres comptes Vixeo. Liaison : la page
+  d'autorisation de TMDb s'ouvre (téléphone, ordinateur) ou s'affiche en QR code (grand écran),
+  et la page interroge `link/complete` toutes les 5 s (et au retour au premier plan). Une fois
+  lié : bouton « Noter » sur la fiche (film, série) et étoile au bout de chaque épisode
+  (« Ma note : 8/10 » dans la ligne), seulement si un compte est lié (`canRateProvider`) ;
+  fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK) ;
+  « Mes notes » (`/profil/notes`) : onglets Films / Séries / Épisodes, pages suivantes en
+  défilant, Modifier et Supprimer. Les notes vivent sur TMDb (synchronisées partout) : toute
+  écriture passe par `TmdbRatings`, qui rafraîchit la fiche, les épisodes et « Mes notes ».
+  L'API de TMDb n'accepte que des notes (0,5 à 10), pas d'avis écrits. 409 de l'API → plus de
+  compte lié (`TmdbAccountController.lost`).
+- **Note TMDb** : la note moyenne de TMDb s'affiche partout avec `TmdbRating` (étoile, note, petit
+  logo officiel TMDb `assets/images/tmdb_short.png`, « Primary short » de themoviedb.org converti
+  en PNG sans modification). Pas de page de confidentialité ni de mention TMDb dans l'appli
+  (décision du développeur).
 - **Recherche** (`features/search`, API : filtres de `/catalog/{type}/discover` et `/catalog/search`) :
   barre de filtres `SearchFilterBar` (Tout / Films / Séries / Personnes, genre, années, note
   minimale, tri) ; `SearchFilters` donne les paramètres de l'API. Sans texte : « Explorer » tout le
@@ -228,12 +247,12 @@ lib/
 - Fait : connexion, inscription, session persistante (jeton chiffré), connexion TV par QR code
   (validée depuis le téléphone), « Qui regarde ? » (PIN de profil, ajout avec PIN parental si
   activé), accueil (carrousel / grande image, « Continuer à regarder », rangées), Films / Séries,
-  fiche film et série (saisons, épisodes, distribution, recommandations, bande-annonce, Ma liste,
-  Vu), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
+  fiche film et série (saisons, épisodes avec date de diffusion, distribution, recommandations,
+  bande-annonce, Ma liste, Vu, notes TMDb du film, de la série et des épisodes), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (« Explorer », filtres type / genre / années /
   note, tri, grande image sur grand écran, résultats groupés, recherches récentes synchronisées),
   Ma liste, « Mon profil » (avatar par licence, paramètres d’apparence, No spoil, langues et lecture automatique,
-  contrôle parental, connecter une TV, changer de profil,
+  contrôle parental, connecter une TV, changer de profil, compte TMDb et « Mes notes »,
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
   mises à jour (Android / iOS), mises en page téléphone et TV / grand écran, navigation à la

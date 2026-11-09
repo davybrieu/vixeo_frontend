@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../auth/session.dart';
+import '../tmdb/tmdb.dart';
 import 'avatars.dart';
 import 'profiles_screen.dart';
 
@@ -44,6 +45,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final profile = ref.watch(sessionProvider).profile;
+    final tmdb = ref.watch(tmdbAccountProvider).value;
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     if (profile == null) return const SizedBox();
 
@@ -123,6 +125,30 @@ class ProfileSettingsScreen extends ConsumerWidget {
                 subtitle: 'Changer l’image de ${profile.name}.',
                 onPressed: () => context.push('/profil/avatar'),
               ),
+            ],
+          ),
+          SizedBox(height: 28 * s),
+          _SettingsSection(
+            label: 'TMDb',
+            scale: s,
+            children: [
+              _SettingsTile(
+                scale: s,
+                icon: Icons.link_rounded,
+                title: 'Compte TMDb',
+                subtitle: tmdb?.linked ?? false
+                    ? 'Lié à ${tmdb!.displayName}.'
+                    : 'Liez votre compte pour noter films, séries et épisodes.',
+                onPressed: () => context.push('/profil/tmdb'),
+              ),
+              if (tmdb?.linked ?? false)
+                _SettingsTile(
+                  scale: s,
+                  icon: Icons.star_outline_rounded,
+                  title: 'Mes notes',
+                  subtitle: 'Vos notes de films, séries et épisodes, synchronisées avec TMDb.',
+                  onPressed: () => context.push('/profil/notes'),
+                ),
             ],
           ),
         ],
