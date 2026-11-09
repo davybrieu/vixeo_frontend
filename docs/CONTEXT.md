@@ -1,348 +1,599 @@
-# Contexte projet : Vixeo
+Contexte projet : Vixeo
 
-> Ce fichier sert de point de départ à une nouvelle session Claude Code.
-> Il résume les décisions déjà prises, l'architecture visée, la mise en place
-> technique (Claude Code cloud, GitHub Actions, Laravel Forge) et ce qui a été
-> appris en analysant l'application ONYX. Les décisions marquées « décidé »
-> ne sont pas à rediscuter sans raison ; celles marquées « à valider » sont des pistes.
+«Ce document sert de point de départ à une nouvelle session Claude Code.
+Il décrit les décisions prises, l'architecture visée, l'environnement technique et les prochaines étapes du projet.
 
----
-
-## 1. Le développeur
-
-- Développeur PHP / Laravel et JavaScript / Vue. **Débutant en Flutter et Dart** :
-  explique les concepts Flutter quand ils apparaissent (widgets, état, focus, plateformes),
-  et fais le parallèle avec Vue/Laravel quand c'est utile.
-- Langue de travail : **français** (échanges, commentaires de PR, UI).
-  Le code (noms de variables, classes, commits) peut rester en anglais.
-- Travaille principalement via **Claude Code cloud** (navigateur et appli mobile),
-  donc sans écran sur la machine de build : le rendu se vérifie via des URL de
-  prévisualisation (voir §8).
+Les décisions marquées « décidé » ne sont pas à rediscuter sans raison. Celles marquées « à valider » sont des pistes à étudier.»
 
 ---
 
-## 2. Objectif produit
+1. Le développeur
 
-Une application de type « media center » multiplateforme, inspirée de l'ergonomie
-d'ONYX (voir annexe), avec **une seule base de code** pour :
-
-- Web
-- Android (téléphone, tablette)
-- Android TV / Google TV (navigation à la télécommande)
-- Chromebook (via l'APK Android ou la version web)
-- iOS (et éventuellement Apple TV plus tard)
-
-**Priorité absolue : l'esthétique et la fluidité.** Interface sur mesure soignée
-(style plateforme de streaming), animations fluides, y compris sur les petites box TV.
-
-### Fonctionnalités visées (reprises de l'UX d'ONYX, avec des sources légales)
-
-- Écran des **sources** organisé en onglets (ex. Films/Séries, TV en direct).
-- **Accueil** par source : grand carrousel mis en avant + rangées thématiques,
-  avec **« Continuer à regarder »** en tête (barre de progression, reprise exacte).
-- **Fiches** film / série : note, année, durée, genres, synopsis, distribution
-  (acteurs cliquables → filmographie), bande-annonce, saisons et épisodes,
-  « Vous pourriez aussi aimer ». Métadonnées via **TMDb**.
-- **Recherche globale** sur toutes les sources à la fois, résultats groupés par source,
-  historique des recherches ; raccourcis par genre.
-- **Lecteur** : plusieurs flux possibles par contenu, choix du flux, bascule automatique
-  en cas d'échec, flux favoris (❤) essayés en premier, qualité auto, pistes audio,
-  sous-titres, vitesse 0,5×–2×, verrouillage, Picture-in-Picture, Chromecast,
-  ouverture dans un lecteur externe (VLC, MX Player) avec reprise de position,
-  « passer l'intro », épisode suivant.
-- **TV en direct** : chaînes gratuites officielles (FAST), dossiers favoris,
-  guide des programmes (EPG) si dispo.
-- **Profils** (« Qui regarde ? ») : favoris, historique, reprise et téléchargements séparés.
-- **Favoris** avec filtres (films, séries, épisodes, vus…) et tris (récent, A→Z, année…).
-- **Appui long** partout = menu contextuel (favori, marquer vu, vu jusqu'ici,
-  retirer de « Continuer à regarder »). Sur TV : appui long sur OK.
-- **Contrôle parental** : code PIN, âge maximum, sources/dossiers verrouillés,
-  recherche qui respecte les verrous.
-- **Sauvegarde / synchronisation** entre appareils (compte utilisateur côté API).
-- **Mode léger** automatique pour les appareils peu puissants (voir §5.8).
-- Thèmes, fond d'écran personnalisable, mode immersif.
+- Développeur PHP / Laravel et JavaScript / Vue.
+- Débutant en Flutter et Dart : expliquer les concepts Flutter lorsqu'ils apparaissent (widgets, état, focus, plateformes) et faire le parallèle avec Vue/Laravel lorsque c'est utile.
+- Langue de travail : français (échanges, commentaires de PR, UI).
+- Le code (noms de variables, classes, commits) peut rester en anglais.
+- Travaille principalement via Claude Code cloud (navigateur et application mobile), donc sans écran sur la machine de build.
+- Le rendu doit être vérifié via des URL de prévisualisation (voir §8).
 
 ---
 
-## 3. Périmètre et limites (important)
+2. Objectif produit
 
-### Sources de contenu autorisées
+Créer une application multiplateforme de type « media center », avec une seule base de code pour :
 
-- Chaînes **FAST** gratuites et officielles (Pluto TV, Samsung TV Plus, Plex, etc.),
-  via leurs flux publics, **en respectant leurs conditions d'utilisation**.
-- **Serveurs média personnels** de l'utilisateur : Jellyfin, Plex, Emby (via leurs API).
-- **Métadonnées** : TMDb (clé API, attribution « This product uses the TMDB API… » obligatoire).
-- **Sous-titres** : OpenSubtitles, avec la clé Vixeo (décision du développeur, 07/11/2026 :
-  l'API interroge OpenSubtitles pour les applis et garde les fichiers en cache, voir
-  `docs/lecture.md`). Moments à passer (génériques, résumé) : TheIntroDB.
-- Vidéos locales de l'appareil.
+- Web.
+- Android (téléphone et tablette).
+- Android TV / Google TV (navigation à la télécommande).
+- Chromebook (via APK Android ou version web).
+- iOS (et éventuellement Apple TV plus tard).
 
-### Écarté par décision du développeur (ne pas proposer ni implémenter)
+Priorité absolue : l'esthétique et la fluidité. Interface sur mesure soignée, inspirée des plateformes de streaming, animations fluides, y compris sur les petites box TV.
 
-- Import de listes **IPTV / M3U / Xtream**.
-- **Radio**.
-- **Replays**.
+Fonctionnalités visées
 
-### Hors périmètre (ne pas implémenter, ne pas aider à implémenter)
-
-- Scraping de sites de streaming sans droits sur les contenus.
-- « Extracteurs » qui récupèrent les liens vidéo directs chez des hébergeurs de fichiers.
-- Contournement des blocages (suivi automatique des domaines miroirs, DNS de contournement,
-  tunnels VPN dédiés), restreams de chaînes payantes ou de sport.
-
-Note : l'App Store et le Play Store refusent les applis qui donnent accès à des contenus
-non autorisés ; hors App Store, la distribution iOS est très limitée.
+- Écran des sources organisé en onglets (ex. Films/Séries, TV en direct).
+- Accueil avec grand carrousel mis en avant et rangées thématiques.
+- Section « Continuer à regarder » en tête, avec barre de progression et reprise exacte.
+- Fiches film / série :
+  - Note, année, durée, genres.
+  - Synopsis.
+  - Distribution (acteurs cliquables vers leur filmographie).
+  - Bande-annonce.
+  - Saisons et épisodes.
+  - Suggestions similaires (« Vous pourriez aussi aimer »).
+  - Métadonnées via TMDb.
+- Recherche globale sur les contenus, résultats organisés par catégorie, historique des recherches et raccourcis par genre.
+- Lecteur vidéo :
+  - Plusieurs flux possibles par contenu.
+  - Choix du flux.
+  - Bascule automatique en cas d'échec.
+  - Flux favoris (❤) essayés en premier.
+  - Qualité automatique.
+  - Pistes audio et sous-titres.
+  - Vitesse de lecture de 0,5× à 2×.
+  - Verrouillage des commandes.
+  - Picture-in-Picture.
+  - Chromecast.
+  - Ouverture dans un lecteur externe (VLC, MX Player) avec reprise de position.
+  - Fonction « Passer l'intro ».
+  - Lecture automatique de l'épisode suivant.
+- TV en direct :
+  - Affichage des chaînes disponibles.
+  - Organisation par catégories.
+  - Chaînes favorites.
+  - Guide des programmes (EPG) si disponible.
+  - Interface adaptée à la navigation TV.
+- Profils (« Qui regarde ? ») :
+  - Favoris indépendants.
+  - Historique indépendant.
+  - Reprise de lecture indépendante.
+  - Téléchargements indépendants.
+- Favoris avec filtres (films, séries, épisodes, vus…) et tris (récent, A→Z, année…).
+- Appui long partout = menu contextuel :
+  - Ajouter/retirer des favoris.
+  - Marquer comme vu.
+  - Marquer comme vu jusqu'ici.
+  - Retirer de « Continuer à regarder ».
+- Sur TV : appui long sur OK pour afficher le menu contextuel.
+- Contrôle parental :
+  - Code PIN.
+  - Âge maximum.
+  - Sources et dossiers verrouillés.
+  - Recherche respectant les restrictions.
+- Sauvegarde et synchronisation entre appareils via un compte utilisateur côté API.
+- Mode léger automatique pour les appareils peu puissants (voir §5.7).
+- Thèmes, fond d'écran personnalisable et mode immersif.
 
 ---
 
-## 4. Stack et organisation (décidé)
+3. API et services externes
 
-### Client : Flutter (Dart), canal stable — **décidé**
+3.1 Métadonnées : TMDb
 
-Raisons : moteur de rendu unique (rendu identique partout, animations fluides),
-une base pour mobile, TV, web et desktop, Dart facile à prendre depuis JS/PHP.
+- Utilisation de l'API TMDb pour les films, séries, acteurs, genres, images et autres métadonnées.
 
-Pistes de paquets — **à valider** (vérifier maintenance et compatibilité web/TV avant de choisir) :
+- Attribution obligatoire :
+  
+  « This product uses the TMDB API but is not endorsed or certified by TMDB. »
 
-| Besoin | Piste |
-| - | - |
-| Gestion d'état | Riverpod |
-| Navigation | go_router |
-| HTTP | dio |
-| Base locale (mobile + web) | drift |
-| Stockage sécurisé des jetons | flutter_secure_storage (moins fort sur le web) |
-| Vidéo | video_player (officiel : ExoPlayer / AVPlayer / HTML5) ; évaluer media_kit (basé sur mpv) pour la largeur de codecs ; sur le web, HLS demande un lecteur basé sur hls.js |
-| Navigation D-pad TV | système de focus Flutter (`Focus`, `FocusTraversalGroup`, `Shortcuts`/`Actions`) + paquet `dpad` |
-| Chromecast | pas de plugin officiel : plugin communautaire à évaluer |
-| Client API | généré depuis la spec OpenAPI de l'API (ex. openapi-generator, générateur dart-dio) |
+3.2 Sous-titres : OpenSubtitles
 
-### Backend : Laravel (API REST) — **décidé**
+- Utilisation d'OpenSubtitles avec la clé API Vixeo.
+- Le backend Laravel interroge OpenSubtitles pour les applications.
+- Les fichiers récupérés sont convertis en WebVTT si nécessaire et conservés en cache.
+- Langue préférée définie dans le profil utilisateur.
+- Détails techniques dans "docs/lecture.md".
 
-- Dernière version stable de Laravel, PHP 8.3+.
-- API versionnée : `/api/v1/...` (les applis mobiles installées ne se mettent pas à jour
-  en même temps que l'API : garder la rétrocompatibilité).
-- Authentification par jetons (Laravel Sanctum).
-- Base PostgreSQL (ou MySQL), Redis pour cache et files d'attente.
-- Spec **OpenAPI générée automatiquement** (paquet Scramble) → source de vérité du contrat ;
-  le client Dart est généré à partir d'elle.
-- Rôles de l'API : comptes et profils, synchronisation (favoris, historique, réglages,
-  serveurs média de l'utilisateur), cache des métadonnées TMDb, configuration distante
-  (listes de chaînes FAST, catégories) modifiable sans republier l'appli.
-- Pour la version web : un **proxy de flux** côté serveur sera nécessaire pour les flux
-  qui exigent des en-têtes (Referer, User-Agent) ou n'ont pas de CORS
-  (le navigateur ne peut pas envoyer ces en-têtes). Attention au coût en bande passante.
+3.3 Moments à passer : TheIntroDB
 
-### Dépôts : deux dépôts séparés — **décidé**
+- Utilisation de TheIntroDB pour récupérer les moments à passer (génériques, résumés, intros, etc.), lorsque les données sont disponibles.
 
-- `vixeo_frontend` : l'appli Flutter.
-- `vixeo_backend` : l'API Laravel.
-- Chaque dépôt a un `CLAUDE.md` (commandes de test/build, conventions, lien vers l'autre dépôt).
-- Pour une fonctionnalité qui touche les deux, ouvrir une session Claude Code cloud
-  avec les deux dépôts et faire une PR dans chacun.
+3.4 Principe général
 
-### Hébergement : Laravel Forge + GitHub Actions — **décidé**
+Toutes les intégrations externes sont gérées exclusivement par le backend Laravel.
+
+Le frontend Flutter ne communique jamais directement avec ces services, sauf décision technique explicitement justifiée.
+
+---
+
+4. Stack et organisation (décidé)
+
+4.1 Client : Flutter (Dart) — décidé
+
+Utilisation du canal stable de Flutter.
+
+Raisons :
+
+- Moteur de rendu unique.
+- Rendu cohérent sur les différentes plateformes.
+- Animations fluides.
+- Une seule base de code pour mobile, TV, web et desktop.
+- Dart accessible depuis une expérience JavaScript/PHP.
+
+Pistes de paquets — à valider :
+
+Besoin| Piste
+Gestion d'état| Riverpod
+Navigation| go_router
+HTTP| dio
+Base locale (mobile + web)| drift
+Stockage sécurisé des jetons| flutter_secure_storage (moins sécurisé sur le web)
+Vidéo| video_player (officiel : ExoPlayer / AVPlayer / HTML5) ; évaluer media_kit pour la largeur de codecs
+Lecture HLS sur le web| Lecteur basé sur hls.js si nécessaire
+Navigation D-pad TV| Focus, FocusTraversalGroup, Shortcuts / Actions + paquet dpad à évaluer
+Chromecast| Plugin communautaire à évaluer
+Client API| Généré depuis la spec OpenAPI de Laravel (ex. openapi-generator, générateur dart-dio)
+
+4.2 Backend : Laravel (API REST) — décidé
+
+- Dernière version stable de Laravel.
+- PHP 8.3+.
+- API versionnée : "/api/v1/...".
+- Authentification par jetons avec Laravel Sanctum.
+- Base de données PostgreSQL ou MySQL.
+- Redis pour le cache et les files d'attente.
+
+OpenAPI :
+
+- Génération automatique de la documentation OpenAPI via Scramble.
+- La documentation OpenAPI constitue la source de vérité du contrat API.
+- Le client Dart est généré à partir de cette spécification.
+
+Responsabilités du backend :
+
+- Gestion des comptes et profils.
+- Synchronisation des favoris, historiques, réglages et progressions.
+- Gestion intégrale des serveurs et des configurations de contenus.
+- Communication avec les services et API externes.
+- Recherche et récupération des contenus.
+- Récupération et normalisation des flux disponibles.
+- Gestion des erreurs et indisponibilités.
+- Cache des métadonnées TMDb.
+- Gestion des sous-titres OpenSubtitles.
+- Gestion des moments à passer via TheIntroDB.
+- Configuration distante (listes de contenus, chaînes, catégories, etc.) modifiable sans republier l'application.
+- Gestion des données nécessaires à la TV en direct.
+
+Le backend est entièrement responsable de la logique métier et des traitements nécessaires à la récupération des contenus et des flux.
+
+Pour le frontend, le fonctionnement interne du backend doit rester totalement transparent.
+
+Pour la version web, un proxy de flux côté serveur pourra être nécessaire pour les flux qui exigent des en-têtes HTTP ou ne disposent pas de CORS.
+
+Attention au coût en bande passante et aux ressources serveur si le backend relaie directement les vidéos.
+
+4.3 Dépôts : deux dépôts séparés — décidé
+
+- "vixeo_frontend" : application Flutter.
+- "vixeo_backend" : API Laravel.
+
+Chaque dépôt dispose de son propre "CLAUDE.md" contenant :
+
+- Commandes de test et de build.
+- Conventions de développement.
+- Architecture du projet.
+- Lien vers l'autre dépôt.
+
+Pour une fonctionnalité qui touche les deux dépôts :
+
+- Ouvrir une session Claude Code cloud avec les deux dépôts.
+- Développer les modifications nécessaires.
+- Créer une PR dans chacun des dépôts.
+
+4.4 Hébergement : Laravel Forge + GitHub Actions — décidé
 
 Détails en §8.
 
 ---
 
-## 5. Architecture à reprendre (patterns observés dans ONYX)
+5. Architecture frontend et lecteur vidéo
 
-ONYX est une appli Kotlin dont l'architecture est bien pensée côté ergonomie et robustesse.
-Ces patterns sont réutilisables avec des sources légales.
+5.1 Principe architectural fondamental
 
-### 5.1 Abstraction « Source »
+Flutter communique exclusivement avec l'API Laravel de Vixeo.
 
-Chaque source (un serveur Jellyfin / Plex / Emby, un catalogue FAST, les vidéos locales…)
-implémente la même interface. Équivalent Dart suggéré :
+Le frontend ne doit connaître aucune information concernant les mécanismes internes de récupération des contenus.
 
-```dart
-abstract class MediaSource {
-  String get id;
-  String get name;
-  SourceGroup get group;          // ex. filmsSeries, live
-  SourceCapabilities get caps;    // films, séries, direct, mobileOnly, etc.
+Il ne doit notamment pas connaître :
 
-  Future<List<HomeSection>> home();
-  Future<List<MediaItem>> search(String query, {int page = 1});
-  Future<List<MediaItem>> movies({int page = 1});
-  Future<List<MediaItem>> shows({int page = 1});
-  Future<MovieDetails> movie(String id);
-  Future<ShowDetails> show(String id);
-  Future<List<Episode>> episodes(String seasonId);
-  Future<List<StreamOption>> streams(String itemId, MediaType type); // les « serveurs »
-  Future<PlayableStream> resolve(StreamOption option);              // URL finale + en-têtes
-}
+- Les fournisseurs de contenus.
+- Les serveurs utilisés.
+- Les protocoles de communication internes.
+- Les méthodes de recherche.
+- Les méthodes de récupération ou d'extraction.
+- Les API externes utilisées pour récupérer les flux.
 
-class PlayableStream {
-  final Uri url;
-  final Map<String, String> headers; // Referer, User-Agent…
-  final StreamFormat format;         // hls, dash, progressive
-  final List<SubtitleTrack> subtitles;
-  final DrmConfig? drm;
-}
-```
+Toutes ces responsabilités appartiennent exclusivement au backend Laravel.
 
-- Un **registre** déclare toutes les sources avec leur onglet et leurs capacités.
-- La source choisie est mémorisée **par profil**.
+Fonctionnement :
 
-### 5.2 Chargement progressif des flux
+1. Flutter effectue une requête HTTP vers l'API Vixeo.
+2. Le backend traite la demande.
+3. Le backend effectue les opérations nécessaires en interne.
+4. Laravel retourne une réponse JSON normalisée.
+5. Flutter exploite les données reçues et les affiche.
+6. Lorsque l'utilisateur sélectionne un contenu, Flutter utilise les informations de lecture retournées par l'API.
 
-- Les options de lecture arrivent par lots ; la liste s'affiche dès le premier lot.
-- Plafond de temps pour la collecte ; si rien n'arrive, message clair
-  (« Aucune source disponible pour ce contenu… ») et purge des caches.
+Architecture :
 
-### 5.3 Tri des options de lecture
+┌──────────────────────────────┐
+│           Flutter            │
+│                              │
+│  Interface utilisateur       │
+│  Recherche                   │
+│  Catalogue                   │
+│  Gestion des interactions    │
+│  Lecteur vidéo               │
+└──────────────┬───────────────┘
+               │
+               │ Requêtes HTTP
+               ▼
+┌──────────────────────────────┐
+│         Laravel API          │
+│                              │
+│  Authentification            │
+│  Traitement des demandes     │
+│  Recherche des contenus      │
+│  Récupération des flux       │
+│  Normalisation des données   │
+│  Gestion des erreurs         │
+└──────────────┬───────────────┘
+               │
+               │ Traitements internes
+               ▼
+┌──────────────────────────────┐
+│       Services backend       │
+│                              │
+│  Gestion des serveurs        │
+│  Services externes           │
+│  Récupération des flux       │
+│  Traitement des résultats    │
+└──────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│        Réponse JSON          │
+│                              │
+│  Données normalisées         │
+│  Flux disponibles            │
+│  Métadonnées utiles          │
+└──────────────┬───────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│           Flutter            │
+│                              │
+│  Affichage des résultats     │
+│  Sélection du flux           │
+│  Lecture vidéo               │
+└──────────────────────────────┘
 
-Dans l'ordre : favoris de l'utilisateur (❤), dernier flux qui a fonctionné pour ce titre,
-puis langue préférée (ex. VF, puis VOSTFR, puis VO), puis qualité.
-Mémoriser « dernier flux qui a fonctionné » par contenu.
+Le frontend doit uniquement connaître les endpoints et les structures de données définis dans la documentation OpenAPI.
 
-### 5.4 Bascule automatique en cas d'erreur
+5.2 Communication avec l'API et chargement des résultats
 
-Classer l'erreur du lecteur et réagir :
+Lorsqu'une recherche de contenus ou de flux est effectuée :
 
-| Erreur | Réaction |
-| - | - |
-| Format/codec non supporté (ex. Dolby Vision) | flux suivant, sinon proposer le lecteur externe |
-| Réseau / DNS | nouvel essai |
-| Lien expiré (HTTP 403) | redemander une URL fraîche à la source (`resolve`) |
-| Délai dépassé | flux suivant ; plus rien → « Connexion impossible » |
-| Direct (chaîne TV) | relancer la même chaîne si elle avait déjà marché, puis flux de secours |
+- Flutter envoie une requête à l'API Vixeo.
+- Le backend traite la demande et effectue les opérations nécessaires.
+- Les résultats sont retournés sous forme de données JSON normalisées.
+- Flutter affiche les résultats reçus.
+- L'interface doit pouvoir afficher les premiers résultats disponibles sans attendre inutilement les traitements secondaires, si le contrat API prévoit une réponse progressive.
+- Les erreurs sont traitées et présentées clairement à l'utilisateur.
 
-Garder un cache des flux morts (écartés plus vite) et un cache des résolutions avec durée de vie.
+Le mécanisme de communication progressive (SSE, streaming HTTP ou autre) reste à définir selon les contraintes techniques.
 
-### 5.5 Lecteur
+Si aucun résultat n'est disponible, afficher un message clair :
 
-- Couche HTTP adaptée, en-têtes par flux, détection HLS / DASH / MP4.
+« Aucune source disponible pour ce contenu. »
+
+Important : Flutter ne doit jamais reproduire les traitements internes du backend pour obtenir les résultats.
+
+5.3 Tri des options de lecture
+
+Ordre de priorité :
+
+1. Flux favoris de l'utilisateur (❤).
+2. Dernier flux ayant fonctionné pour ce contenu.
+3. Langue préférée (ex. VF, puis VOSTFR, puis VO).
+4. Qualité vidéo.
+
+Mémoriser le dernier flux fonctionnel par contenu et par profil.
+
+Le frontend applique les préférences utilisateur aux résultats normalisés reçus du backend.
+
+5.4 Bascule automatique en cas d'erreur
+
+Classer les erreurs du lecteur et réagir :
+
+Erreur| Réaction
+Format / codec non supporté| Essayer le flux suivant, sinon proposer un lecteur externe
+Réseau / DNS| Nouvel essai
+Lien expiré (HTTP 403)| Demander au backend de nouvelles informations de lecture
+Délai dépassé| Essayer le flux suivant
+Plus aucun flux disponible| Afficher « Connexion impossible »
+Direct (chaîne TV)| Relancer la lecture ou demander de nouvelles informations de lecture au backend
+
+Garder :
+
+- Un cache des flux en échec pour les écarter plus rapidement.
+- Un cache des résolutions avec durée de vie, si nécessaire.
+- Un historique des flux fonctionnels par contenu.
+
+5.5 Lecteur vidéo
+
+Fonctionnalités attendues :
+
+- Couche HTTP adaptée.
+- Gestion des en-têtes nécessaires à la lecture, selon les informations retournées par l'API.
+- Détection HLS / DASH / MP4.
 - Sous-titres externes attachés au média.
-- DRM uniquement pour des services officiels qui le fournissent avec le compte de l'utilisateur.
-- Lecteur externe : envoyer l'URL + en-têtes à VLC / MX Player en demandant un résultat,
-  récupérer la position au retour et la sauvegarder.
-- Chromecast : le Chromecast ne peut pas envoyer d'en-têtes ; ONYX passe par un mini serveur
-  HTTP local sur le réseau Wi-Fi qui relaie le flux avec les bons en-têtes.
+- Gestion des pistes audio.
+- Sélection de la qualité.
+- Vitesse de lecture de 0,5× à 2×.
+- Picture-in-Picture.
+- Verrouillage des commandes.
+- Chromecast.
+- Lecteur externe (VLC, MX Player).
+- Reprise de lecture après retour d'un lecteur externe.
+- Passage automatique à l'épisode suivant.
+- Fonction « Passer l'intro ».
 
-### 5.6 Données locales et reprise
+DRM uniquement pour les services qui le fournissent avec le compte de l'utilisateur.
 
-- Base locale **par couple profil + source** (ONYX : un fichier `profil_source.db`).
-- Champs utiles : `lastPlaybackPositionMillis`, `durationMillis`, `lastEngagementTimeUtcMillis`,
-  `isWatched`, `watchedDate`.
-- « Continuer à regarder » = éléments avec `lastEngagement` non nul, triés du plus récent.
-- Film terminé → marqué vu ; bandeau « épisode suivant ».
+Lecteur externe :
 
-### 5.7 TV
+- Envoyer l'URL et les informations de lecture au lecteur externe.
+- Demander un résultat lorsque la plateforme le permet.
+- Récupérer la position de lecture au retour.
+- Sauvegarder la progression.
 
-- Détection auto de l'interface TV : fonctionnalité `android.software.leanback`,
-  type `android.hardware.type.television`, mode UI télévision, ou absence d'écran tactile ;
-  plus un **réglage manuel** (Auto / TV / Mobile) pour les box mal reconnues.
-- Menu vertical à gauche, navigation aux flèches, OK pour valider, Retour pour remonter,
-  **appui long sur OK = menu contextuel**.
-- Côté Android : `LEANBACK_LAUNCHER`, bannière TV, `uses-feature` touchscreen non requis.
+Chromecast :
 
-### 5.8 Mode léger
+- Le Chromecast ne peut pas toujours transmettre les en-têtes HTTP nécessaires.
+- Évaluer un mini serveur HTTP local sur le réseau Wi-Fi qui relaie le flux avec les bons en-têtes, si nécessaire.
 
-- Activé automatiquement si la RAM totale est inférieure à ~1,7 Go ou si la mémoire
-  par appli (memory class) est ≤ 128 Mo ; désactivable dans les réglages.
-- Effets : moins de requêtes en parallèle (ex. 3 sources à la fois), mémoire tampon
-  du lecteur réduite, libération des écrans et caches inutilisés.
+5.6 Données locales et reprise de lecture
 
-### 5.9 Sous-titres
+Les données de lecture sont conservées localement et synchronisées avec le backend.
 
-- Recherche OpenSubtitles par l'API, avec la clé Vixeo (fichiers convertis en WebVTT et mis en
-  cache), langue préférée réglée dans le profil.
-- Traduction sur l'appareil (ONYX : ML Kit de Google).
-- Calage automatique (fonction avancée, plus tard) : ONYX analyse le son décodé du film
-  (pas le micro) avec un détecteur de voix (TEN VAD) et aligne les sous-titres sur
-  les passages parlés.
+Champs utiles :
 
-### 5.10 Démarrage de l'appli (séquence observée)
+- "lastPlaybackPositionMillis"
+- "durationMillis"
+- "lastEngagementTimeUtcMillis"
+- "isWatched"
+- "watchedDate"
 
-1. Choix de l'interface (TV / mobile).
+Règles :
+
+- « Continuer à regarder » = éléments avec "lastEngagement" non nul.
+- Trier par dernière activité.
+- Film terminé = marqué comme vu.
+- Pour les séries : afficher un bandeau « Épisode suivant ».
+- La progression doit être indépendante par profil.
+- Synchroniser les données entre appareils via l'API.
+
+5.7 Mode léger
+
+Activé automatiquement si :
+
+- La RAM totale est inférieure à environ 1,7 Go.
+- Ou la mémoire disponible par application ("memory class") est inférieure ou égale à 128 Mo.
+
+Le mode léger doit pouvoir être désactivé dans les réglages.
+
+Effets :
+
+- Réduire le nombre de requêtes parallèles.
+- Réduire la mémoire tampon du lecteur.
+- Libérer les écrans et caches inutilisés.
+- Limiter les animations coûteuses.
+- Éviter les chargements simultanés trop importants.
+
+5.8 Sous-titres
+
+- Recherche OpenSubtitles via l'API Laravel.
+- Utilisation de la clé API Vixeo.
+- Conversion des fichiers en WebVTT si nécessaire.
+- Mise en cache des fichiers.
+- Langue préférée définie dans le profil.
+- Traduction sur l'appareil (ex. ML Kit de Google).
+
+Fonction avancée à envisager plus tard : calage automatique des sous-titres à partir de l'audio décodé du film (et non du microphone), avec détection des passages parlés.
+
+5.9 Démarrage de l'application
+
+Séquence souhaitée :
+
+1. Détection ou choix de l'interface (TV / mobile).
 2. Initialisations en arrière-plan (réseau, caches, Chromecast différé).
-3. Après ~30 min d'inactivité : retour à l'écran des sources et redemande du profil.
-4. Profil → source mémorisée → accueil de la source, sinon écran des sources.
-5. Vérification des mises à jour (pour une distribution hors store).
+3. Après environ 30 minutes d'inactivité : retour à l'écran des sources et redemande du profil.
+4. Sélection du profil.
+5. Ouverture de la dernière source utilisée, si disponible.
+6. Sinon, affichage de l'écran des sources.
+7. Vérification des mises à jour (pour une distribution hors store).
 
 ---
 
-## 6. Sécurité : erreurs d'ONYX à ne pas reproduire
+6. Sécurité
 
-| Observé dans ONYX | À faire à la place |
-| - | - |
-| Identifiants de services tiers (email + mot de passe) stockés en clair | `flutter_secure_storage` (Keystore / Keychain) ; préférer des jetons à des mots de passe |
-| Transfert entre appareils : tout le profil (y compris mots de passe) envoyé en JSON lisible au serveur | Synchro via le compte utilisateur de l'API, chiffrement de bout en bout pour les données sensibles, jamais de mots de passe tiers |
-| Sauvegarde « chiffrée » avec une clé fixe identique pour tous | Clé dérivée d'un secret de l'utilisateur (Argon2 / PBKDF2), ou exclure les secrets de la sauvegarde |
-| Vérification des certificats TLS désactivée sur une partie du réseau | Ne jamais désactiver la vérification TLS |
-| Interrupteur à distance qui bloque l'appli sans explication | Mode maintenance transparent, sans bloquer les fonctions locales |
-| Permissions très larges (accès à tous les fichiers, etc.) | Demander chaque permission au moment où elle sert, au minimum |
+Principes à respecter :
 
-Points positifs à garder : aucun SDK de pub ni de pistage, rapports de plantage
-envoyés seulement si l'utilisateur le décide. Si des statistiques sont ajoutées :
-consentement explicite (RGPD).
+Risque| À faire
+Identifiants sensibles stockés en clair| "flutter_secure_storage" (Keystore / Keychain) ; préférer les jetons aux mots de passe
+Données sensibles envoyées en JSON lisible| Synchronisation via le compte utilisateur de l'API et chiffrement des données sensibles
+Sauvegarde chiffrée avec une clé fixe identique pour tous| Clé dérivée d'un secret utilisateur (Argon2 / PBKDF2), ou exclusion des secrets de la sauvegarde
+Vérification des certificats TLS désactivée| Ne jamais désactiver la vérification TLS
+Interrupteur à distance bloquant l'application sans explication| Mode maintenance transparent, sans bloquer les fonctions locales
+Permissions trop larges| Demander chaque permission uniquement au moment où elle est nécessaire
+
+Points positifs à conserver :
+
+- Aucun SDK publicitaire.
+- Aucun SDK de pistage.
+- Rapports de plantage envoyés uniquement si l'utilisateur le décide.
+- Si des statistiques sont ajoutées : consentement explicite conformément au RGPD.
 
 ---
 
-## 7. Environnement Claude Code cloud
+7. Environnement Claude Code cloud
 
-- Sessions lancées depuis claude.ai/code ou l'onglet Code de l'appli Claude.
-- Machine Ubuntu 24.04 temporaire (≈ 4 vCPU, 16 Go RAM, 30 Go disque), sans écran.
-- Préinstallés : PHP 8.3 + Composer, Node 20/21/22, PostgreSQL 16, Redis 7, Docker, git, gh, jq.
-  PostgreSQL et Redis ne tournent pas par défaut : `service postgresql start`, `service redis-server start`.
-- **Flutter n'est pas préinstallé** : environnement cloud dédié « flutter »,
-  accès réseau **Trusted** (autorise GitHub, pub.dev, storage.googleapis.com),
-  avec ce script dans « Setup script » (mis en cache ~7 jours s'il finit en moins de ~5 min) :
+7.1 Environnement
 
-```bash
+- Sessions lancées depuis "claude.ai/code" ou l'onglet Code de l'application Claude.
+- Machine Ubuntu 24.04 temporaire.
+- Environ 4 vCPU, 16 Go RAM et 30 Go de disque.
+- Préinstallés :
+  - PHP 8.3 + Composer.
+  - Node 20 / 21 / 22.
+  - PostgreSQL 16.
+  - Redis 7.
+  - Docker.
+  - Git.
+  - GitHub CLI ("gh").
+  - jq.
+
+PostgreSQL et Redis ne tournent pas par défaut :
+
+service postgresql start
+service redis-server start
+
+7.2 Installation de Flutter
+
+Flutter n'est pas préinstallé.
+
+Utiliser un environnement cloud dédié « flutter » avec accès réseau Trusted autorisant :
+
+- GitHub.
+- pub.dev.
+- storage.googleapis.com.
+
+Script à utiliser dans « Setup script » :
+
 #!/bin/bash
 set -euo pipefail
+
 FLUTTER_DIR=/opt/flutter
+
 if [ ! -x "$FLUTTER_DIR/bin/flutter" ]; then
   git clone --depth 1 --branch stable https://github.com/flutter/flutter.git "$FLUTTER_DIR"
 fi
+
 git config --global --add safe.directory "$FLUTTER_DIR"
+
 ln -sf "$FLUTTER_DIR/bin/flutter" /usr/local/bin/flutter
 ln -sf "$FLUTTER_DIR/bin/dart" /usr/local/bin/dart
+
 export CI=true
+
 flutter --disable-analytics || true
 flutter config --no-cli-animations --enable-web
 flutter precache --web --no-android --no-ios
 flutter --version
-```
 
-  État : le clone a été testé (quelques secondes, version détectée correctement) ;
-  la suite (téléchargement du SDK Dart depuis storage.googleapis.com) n'a pas pu être
-  testée dans l'environnement d'origine mais ce domaine est autorisé en Trusted.
-- **Secrets** : ne pas mettre de clés de déploiement dans les variables de l'environnement
-  cloud (lisibles par la session) → secrets GitHub.
-- Pas d'écran : vérifier le rendu via les URL de prévisualisation / le site de staging.
-- Auto-fix : Claude peut surveiller une PR et corriger les échecs de CI et les commentaires de revue.
+État :
+
+- Le clone a été testé.
+- La version Flutter est correctement détectée.
+- Le téléchargement du SDK Dart depuis "storage.googleapis.com" reste à valider dans l'environnement d'origine.
+
+7.3 Secrets
+
+Ne jamais placer de clés de déploiement dans les variables de l'environnement cloud, car elles sont accessibles à la session.
+
+Utiliser les secrets GitHub.
+
+7.4 Prévisualisation
+
+La machine cloud ne dispose pas d'écran.
+
+Le rendu doit être vérifié via :
+
+- URL de staging.
+- URL de prévisualisation de PR.
+- Site de production si nécessaire.
+
+Claude peut également surveiller les PR et corriger les échecs de CI ou les commentaires de revue.
 
 ---
 
-## 8. CI/CD et hébergement
+8. CI/CD et hébergement
 
-### 8.1 API Laravel sur Forge
+8.1 API Laravel sur Forge
 
-- Site Forge (ex. `api.[domaine]`) : type « General PHP / Laravel », dépôt `vixeo_backend`,
-  branche `main`, **Push to deploy** activé, **Zero-downtime deployments** activé.
-- Script de déploiement : macros Forge `$CREATE_RELEASE()` / `$ACTIVATE_RELEASE()` /
-  `$RESTART_QUEUES()`, `composer install --no-dev`, `php artisan migrate --force`, caches.
-- Limite Forge : un déploiement est coupé au-delà de 10 minutes.
-- CORS : autoriser le domaine du Flutter web (et celui du staging).
+Configuration du site Forge :
 
-### 8.2 Flutter web sur Forge
+- Type : General PHP / Laravel.
+- Dépôt : "vixeo_backend".
+- Branche : "main".
+- Push to deploy : activé.
+- Zero-downtime deployments : activé.
 
-- **Ne pas compiler sur le serveur** (RAM, limite de 10 min) : GitHub Actions compile,
-  puis pousse uniquement `build/web` sur une branche `web-dist`.
-- Site Forge (ex. `[domaine]`) : type « static HTML site », dépôt `vixeo_frontend`,
-  branche `web-dist`, « Web Directory » = `/`, Push to deploy + Zero-downtime activés
-  (la branche est réécrite à chaque build).
-- Si l'appli utilise des URL sans `#` (`usePathUrlStrategy`), Nginx doit renvoyer vers l'index :
-  `try_files $uri $uri/ /index.html;`
+Script de déploiement utilisant les macros Forge :
 
-Workflow `.github/workflows/deploy-web.yml` du dépôt Flutter :
+- "$CREATE_RELEASE()"
+- "$ACTIVATE_RELEASE()"
+- "$RESTART_QUEUES()"
 
-```yaml
+Étapes :
+
+- "composer install --no-dev"
+- Migrations : "php artisan migrate --force"
+- Mise en cache des configurations et routes.
+- Redémarrage des workers si nécessaire.
+
+Limite Forge : un déploiement est interrompu au-delà de 10 minutes.
+
+CORS :
+
+- Autoriser le domaine Flutter web.
+- Autoriser le domaine de staging.
+
+8.2 Flutter web sur Forge
+
+Ne pas compiler sur le serveur Forge.
+
+GitHub Actions compile Flutter web puis publie uniquement "build/web" sur une branche "web-dist".
+
+Configuration du site Forge :
+
+- Type : Static HTML site.
+- Dépôt : "vixeo_frontend".
+- Branche : "web-dist".
+- Web Directory : "/".
+- Push to deploy : activé.
+- Zero-downtime deployments : activé.
+
+Si l'application utilise des URL sans "#" ("usePathUrlStrategy"), Nginx doit renvoyer vers "index.html" :
+
+try_files $uri $uri/ /index.html;
+
+8.3 Workflow GitHub Actions
+
+Fichier : ".github/workflows/deploy-web.yml"
+
 name: Flutter web (Forge)
 
 on:
@@ -355,15 +606,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+
       - run: flutter pub get
+
       - run: flutter test
+
       - run: flutter build web --release --dart-define=API_URL=${{ vars.API_URL }}
+
       - name: Publier le build sur la branche web-dist
         if: github.event_name == 'push'
         env:
@@ -376,92 +633,161 @@ jobs:
           git add -A
           git commit -qm "Build web ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" web-dist
-```
 
-Variable GitHub à définir : `API_URL`.
+Variable GitHub à définir :
 
-### 8.3 Prévisualisations
+- "API_URL"
 
-Forge ne crée pas d'URL par PR. Options :
+8.4 Prévisualisations
 
-1. Site Forge de **staging** qui déploie une branche `staging` (le plus simple).
-2. **Firebase Hosting** uniquement pour les prévisualisations de PR (gratuit au départ) :
-   action `FirebaseExtended/action-hosting-deploy@v0` sans `channelId` sur `pull_request`
-   (URL commentée sur la PR, `expires: 7d`), secrets `FIREBASE_SERVICE_ACCOUNT` et
-   variable `FIREBASE_PROJECT_ID` (la commande `firebase init hosting:github` les crée).
-   `firebase.json` :
+Forge ne crée pas automatiquement d'URL par PR.
 
-```json
+Trois solutions envisagées :
+
+1. Site Forge de staging
+
+- Déployer une branche "staging".
+- Solution la plus simple.
+
+2. Firebase Hosting
+
+- Utiliser Firebase Hosting uniquement pour les prévisualisations de PR.
+- Action : "FirebaseExtended/action-hosting-deploy@v0".
+- URL commentée automatiquement sur la PR.
+- Expiration : 7 jours.
+- Secrets :
+  - "FIREBASE_SERVICE_ACCOUNT"
+  - Variable : "FIREBASE_PROJECT_ID".
+
+Configuration "firebase.json" :
+
 {
   "hosting": {
     "public": "build/web",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
   }
 }
-```
 
-3. Outil tiers forge-previewer (Kirschbaum) qui crée un site Forge par PR :
-   vérifier qu'il suit la version actuelle de Forge.
+3. forge-previewer
 
-### 8.4 Applis mobiles
+- Outil tiers de Kirschbaum.
+- Crée un site Forge par PR.
+- Vérifier sa compatibilité avec la version actuelle de Forge avant utilisation.
 
-- Android : **pas de Play Store** (décision du développeur). APK signé avec une clé de release
-  stable (hors du dépôt), distribué depuis le site `vixeo_web` ; mises à jour par la vérification
-  intégrée à l'appli. Vérification des développeurs Android (Google) obligatoire hors Play Store
-  dans 4 pays depuis le 30/09/2026, prévue partout en 2027.
-- iOS : exige macOS → runner macOS de GitHub Actions ; compte Apple Developer.
+8.5 Applications mobiles
 
----
+Android :
 
-## 9. Conventions
+- Pas de Play Store (décision du développeur).
+- APK signé avec une clé de release stable, conservée hors du dépôt.
+- Distribution depuis le site Vixeo.
+- Mises à jour via la vérification intégrée :
+  "GET /app/update".
 
-- Dart : `flutter analyze` propre, `flutter test` pour les widgets et la logique.
-- Laravel : tests Pest ou PHPUnit, Resources JSON pour les réponses, Form Requests pour la validation.
-- Contrat API : spec OpenAPI (Scramble) → client Dart généré ; ne pas recopier les modèles à la main.
-- i18n Flutter avec fichiers ARB, français par défaut.
-- Branches de fonctionnalité + PR ; `main` = production.
-- Chaque PR : description en français, captures ou URL de prévisualisation pour l'UI.
+iOS :
+
+- Distribution à définir.
+- Une solution de distribution web Apple est envisagée, mais les modalités techniques restent à étudier.
 
 ---
 
-## 10. Feuille de route suggérée (MVP)
+9. Conventions de développement
 
-1. **Socle** : projet Flutter (thème, navigation, focus TV, détection TV/mobile),
-   API Laravel (auth Sanctum, profils), CI/CD et déploiements Forge en place.
-2. **Catalogue** : intégration TMDb (via l'API pour le cache), accueil, fiches, recherche.
-3. **Lecteur** : lecture de flux (HLS/DASH/MP4), sous-titres, bascule automatique,
-   reprise et « Continuer à regarder ».
-4. **TV en direct** : chaînes FAST officielles, favoris, EPG.
-5. **Comptes et synchro** : favoris, historique et réglages synchronisés via l'API,
-   contrôle parental.
-6. **Finitions** : polish TV, Chromecast, mode léger, PiP, lecteur externe.
-7. **Publication** : builds Android / iOS, fiches stores.
+- Code (noms de variables, classes, commits) en anglais.
+- Échanges et interface utilisateur en français.
+- API versionnée "/api/v1".
+- Aucun breaking change dans la v1.
+- OpenAPI généré avec Scramble = contrat de référence du client Dart.
+- Tests backend avec Pest.
+- Formatage backend avec Pint.
+- Secrets jamais dans le dépôt ni dans les variables cloud visibles.
+- Privilégier les solutions simples et maintenables.
+- Éviter les packages inutiles.
+- Expliquer les concepts Flutter et Dart au développeur lorsqu'ils apparaissent.
+- Toujours prendre en compte les performances des appareils Android TV peu puissants.
+
+Règle fondamentale concernant le frontend
+
+Le frontend Flutter doit rester indépendant de l'implémentation interne du backend.
+
+Il doit uniquement :
+
+- Effectuer des requêtes HTTP vers l'API Vixeo.
+- Envoyer les paramètres nécessaires aux recherches.
+- Recevoir des réponses JSON normalisées.
+- Afficher les données reçues.
+- Gérer les interactions utilisateur.
+- Lancer la lecture des flux retournés.
+- Gérer les préférences et la progression de lecture.
+
+Toute nouvelle intégration externe ou modification des mécanismes de récupération doit être réalisée côté backend, sans imposer de modification frontend tant que le contrat API reste identique.
 
 ---
 
-## 11. Annexe : analyse d'ONYX (référence)
+10. Feuille de route suggérée (MVP)
 
-- Dépôt : https://github.com/warbix-prog/ONYX — ne contient **aucun code source**,
-  seulement un README et un guide PDF de 61 pages (v1.8.6). L'appli est distribuée en APK
-  via les Releases (variantes universelle, TV, x86).
-- APK v1.8.6 décompilé (jadx) : package `com.streamfr.app`, **Kotlin 2.2** (cible Java 17),
-  UI en XML Android (ViewBinding) + Leanback pour la TV, pas de Compose.
-- Base : **StreamFlix Reborn** (open source, Apache 2.0), lui-même suite de StreamFlix :
-  - https://github.com/stantanasi/streamflix (projet d'origine)
-  - https://github.com/streamflix-reborn2/streamflix (versions récentes de Reborn)
-- Bibliothèques principales : Media3 / ExoPlayer (+ FFmpeg et dav1d pour le décodage
-  logiciel), Cronet, OkHttp / Retrofit, Jsoup, Room, Leanback, Cast, ZXing (QR),
-  ML Kit Translate, TEN VAD (détection de voix), NanoHTTPD (serveur local),
-  Android for Cars (Android Auto).
-- Fonctionnement général : agrégateur. Chaque « source » lit un site tiers, chaque
-  « serveur » est un lien vers un hébergeur, puis un module dédié retrouve le flux
-  vidéo final avant la lecture. Le catalogue films / séries / animés et une partie
-  de la TV proviennent de sources sans droits → **hors périmètre** (voir §3).
-  Ce sont l'ergonomie et les patterns de robustesse (§5) qui sont repris.
-- Côté serveur, ONYX utilise un petit backend (Cloudflare Workers) pour : un interrupteur
-  à distance, le transfert entre appareils par code, des votes de notes et de langue.
-  Les listes de chaînes sont des fichiers JSON / M3U hébergés sur GitHub (mise à jour
-  sans nouvelle version).
-- Mises à jour : l'appli interroge l'API GitHub Releases, choisit l'APK selon le
-  processeur et lance l'installeur Android.
+Étape 1 — Base de l'application
+
+- Comptes utilisateurs.
+- Profils.
+- Synchronisation.
+- Catalogue TMDb.
+- Lecteur VOD.
+
+État : fait.
+
+Étape 2 — TV en direct
+
+- Récupération des chaînes via l'API Vixeo.
+- Affichage des catégories.
+- Gestion des favoris.
+- Interface TV Hub.
+- Navigation optimisée à la télécommande.
+
+Étape 3 — Amélioration du lecteur
+
+- Gestion avancée des flux.
+- Bascule automatique.
+- Favoris de flux.
+- Gestion avancée des pistes audio et sous-titres.
+- Chromecast.
+- Lecteur externe.
+- Optimisation des performances.
+
+Étape 4 — EPG et personnalisation
+
+- Guide électronique des programmes.
+- Favoris des chaînes.
+- Dossiers personnalisés.
+- Mode léger affiné.
+- Synchronisation avancée entre appareils.
+
+---
+
+11. Consignes pour Claude Code
+
+Lorsqu'une nouvelle session Claude Code démarre :
+
+1. Lire intégralement ce document.
+2. Lire le "CLAUDE.md" du dépôt concerné.
+3. Examiner l'architecture existante avant de proposer des modifications.
+4. Respecter les décisions déjà prises.
+5. Ne pas réintroduire d'anciennes architectures ou fonctionnalités supprimées.
+6. Ne pas ajouter de dépendances sans raison valable.
+7. Privilégier les implémentations simples et performantes.
+8. Vérifier les tests avant de considérer une fonctionnalité comme terminée.
+9. Pour les modifications frontend, fournir une URL de prévisualisation lorsque possible.
+10. Pour les modifications backend, vérifier la compatibilité avec le contrat OpenAPI.
+11. Pour les fonctionnalités touchant les deux dépôts, coordonner les changements et maintenir la compatibilité entre les deux PR.
+12. Toujours garder à l'esprit que l'esthétique, la fluidité et l'expérience TV sont des priorités absolues.
+13. Ne jamais implémenter de logique spécifique aux fournisseurs ou aux mécanismes de récupération dans Flutter.
+14. Toute récupération de contenus doit passer par l'API Vixeo.
+15. Ne jamais effectuer directement d'appels aux services externes depuis Flutter lorsque ces opérations relèvent du backend.
+16. Considérer l'API Laravel comme l'unique contrat de communication entre le frontend et le backend.
+17. Ne pas exposer à l'utilisateur les détails techniques internes de récupération des contenus.
