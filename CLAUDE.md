@@ -267,6 +267,9 @@ lib/
   la colonne (pas de retrait). « Paramètres » (onglet) a le `VxPageHeader` des pages
   principales. Paramètres du profil : chaque groupe passe par `_Section`
   (`profile_preferences_screen.dart`). Tests : `test/design_test.dart`.
+- **Logo** (`brand/README.md`) : V blanc, triangle vert, « Vixeo » en Sora ExtraBold, couleurs
+  de la charte. Dans l'appli : `VxLogo` le dessine (mêmes formes que `brand/vixeo-logo.svg`) ;
+  favicon et icônes web dans `web/` (générés par `brand/tools`).
 - **Images** : `NetImage` (cache, couleur de remplacement). Tailles TMDb via
   `MediaItem.poster('w780')` / `backdrop('original')`, dérivées des URL renvoyées par l'API.
 - Tests : `flutter test` ne charge pas les polices (texte de remplacement), sans réseau.

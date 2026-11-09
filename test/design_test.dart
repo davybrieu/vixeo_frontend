@@ -279,4 +279,13 @@ void main() {
     );
     expect(tester.getTopLeft(find.byType(VxCard)).dx, tester.getTopLeft(find.textContaining('180 jours')).dx);
   });
+
+  testWidgets('the logo is drawn at the size of its word and read « Vixeo »', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: Center(child: VxLogo(size: 40))));
+    expect(find.bySemanticsLabel('Vixeo'), findsOneWidget);
+    final size = tester.getSize(find.descendant(of: find.byType(VxLogo), matching: find.byType(CustomPaint)));
+    // brand/vixeo-logo.svg is 360 × 80, its word set at 76.1.
+    expect(size.width, closeTo(360 * 40 / 76.1, 0.01));
+    expect(size.height, closeTo(80 * 40 / 76.1, 0.01));
+  });
 }

@@ -220,14 +220,22 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
 - Les rangées et les barres de filtres sont dans un `FocusTraversalGroup`.
 - Sur TV, la place du zoom est prévue au-dessus des grilles (16 en haut) et autour des rangées.
 
-## 10. Icônes et images
+## 10. Logo
+
+- Le V blanc, le triangle vert le long de sa branche droite, puis « Vixeo » en Sora ExtraBold :
+  `VxLogo(size: …)` dans l'appli (`size` : taille du mot ; le logo fait environ 4,7 × `size` de
+  large). Fichiers, proportions et favicon : `brand/README.md`.
+- Toujours sur un fond sombre (`background` ou `surface`). Le symbole seul sert d'icône : favicon,
+  icônes de l'appli web.
+
+## 11. Icônes et images
 
 - **Icônes** : Material « rounded ». Contour quand l'élément est inactif, plein quand il est actif
   (`bookmark_add_outlined` puis `bookmark_added_rounded`).
 - **Images** : `NetImage` (cache, couleur de remplacement `VxColors.tone(id)` pendant le chargement,
   repli si l'image manque).
 
-## 11. Accessibilité
+## 12. Accessibilité
 
 - Chaque bouton à icône seule a un libellé (`semanticLabel`).
 - Les blocs d'informations ont un libellé complet, par exemple `TmdbRating` lu « Note TMDb : 7,1
@@ -235,7 +243,7 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
 - Les zones tactiles font au moins 44 px.
 - Les couleurs qui doivent se distinguer diffèrent aussi par leur clarté.
 
-## 12. Ajouter un écran : la liste à vérifier
+## 13. Ajouter un écran : la liste à vérifier
 
 1. Page principale : `VxPageHeader` (titre, recherche, `FilterBar`), puis `pageContentPadding`.
    Page secondaire : `InfoPage` et `VxCard`.

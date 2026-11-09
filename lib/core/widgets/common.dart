@@ -8,34 +8,85 @@ import '../design.dart';
 import '../theme.dart';
 import 'focusable.dart';
 
-/// "VIXEO" wordmark, the X in green.
+/// The Vixeo logo (brand/vixeo-logo.svg): the V, its green triangle and « Vixeo » in Sora
+/// ExtraBold, drawn here so it stays sharp at every size. [size]: the font size of the word; the
+/// logo is about 4.7 × [size] wide and 1.05 × [size] high.
 class VxLogo extends StatelessWidget {
   const VxLogo({super.key, this.size = 22});
 
   final double size;
 
+  /// In the logo's own units (the mark is 80 high): the word's font size, as in the SVG.
+  static const _fontSize = 76.1;
+
   @override
   Widget build(BuildContext context) {
-    final style = VxText.title(size, weight: FontWeight.w800).copyWith(letterSpacing: size * 0.06, height: 1);
+    final scale = size / _fontSize;
     return Semantics(
       label: 'Vixeo',
-      child: ExcludeSemantics(
-        child: Text.rich(
-          TextSpan(
-            style: style,
-            children: const [
-              TextSpan(text: 'VI'),
-              TextSpan(
-                text: 'X',
-                style: TextStyle(color: VxColors.accent),
-              ),
-              TextSpan(text: 'EO'),
-            ],
-          ),
-        ),
-      ),
+      image: true,
+      child: CustomPaint(size: Size(360 * scale, 80 * scale), painter: _LogoPainter(scale)),
     );
   }
+}
+
+class _LogoPainter extends CustomPainter {
+  _LogoPainter(this.scale);
+
+  final double scale;
+
+  // The same shapes as brand/vixeo-logo.svg (brand/tools/make_logo.py): the V is an outer
+  // triangle minus an inner one; the triangle's left edge runs along the V's right arm.
+  static const _v = [Offset(0, 0), Offset(26, 0), Offset(53, 40.75), Offset(80, 0), Offset(106, 0), Offset(53, 80)];
+  static const _vRound = [2.2, 1.6, 1.4, 1.6, 2.2, 3.2];
+  static const _triangle = [Offset(104.1, 24), Offset(117, 45.5), Offset(73, 71)];
+  static const _triangleRound = [2.6, 2.6, 2.6];
+
+  /// A polygon with rounded corners (a quadratic curve at each corner).
+  static Path _rounded(List<Offset> points, List<double> radii) {
+    Offset towards(Offset p, Offset q, double d) => p + (q - p) / (q - p).distance * d;
+    final path = Path();
+    final n = points.length;
+    for (var i = 0; i <= n; i++) {
+      final p = points[i % n];
+      final before = towards(p, points[(i - 1 + n) % n], radii[i % n]);
+      final after = towards(p, points[(i + 1) % n], radii[i % n]);
+      if (i == 0) {
+        path.moveTo(after.dx, after.dy);
+      } else {
+        path
+          ..lineTo(before.dx, before.dy)
+          ..quadraticBezierTo(p.dx, p.dy, after.dx, after.dy);
+      }
+    }
+    return path..close();
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(scale);
+    canvas.drawPath(_rounded(_v, _vRound), Paint()..color = VxColors.text);
+    canvas.drawPath(_rounded(_triangle, _triangleRound), Paint()..color = VxColors.accent);
+    canvas.restore();
+
+    // « Vixeo »: its ink starts 20 after the mark (117 wide), on a baseline at 67.1 of the 80.
+    final fontSize = VxLogo._fontSize * scale;
+    final word = TextPainter(
+      text: TextSpan(
+        text: 'Vixeo',
+        style: VxText.title(fontSize, weight: FontWeight.w800, color: VxColors.text).copyWith(height: 1),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final baseline = word.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+    // Sora's V starts 0.02 em after its pen position.
+    word.paint(canvas, Offset(137 * scale - 0.02 * fontSize, 67.1 * scale - baseline));
+    word.dispose();
+  }
+
+  @override
+  bool shouldRepaint(_LogoPainter old) => old.scale != scale;
 }
 
 /// Network image with a toned placeholder; [fallback] shows when there is no image.
