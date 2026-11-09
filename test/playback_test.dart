@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -13,6 +14,7 @@ import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/playback/playback.dart';
+import 'package:vixeo/features/playback/player_screen.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
 import 'package:vixeo/features/search/search_history.dart';
 
@@ -99,6 +101,40 @@ PlaybackRepository repository(FakeAdapter adapter) => PlaybackRepository(
     profileId: () => 2,
     dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
   ),
+);
+
+/// Answers each request with the response whose path matches, so one adapter can serve
+/// the provider list and several per-provider calls.
+class RoutingAdapter implements HttpClientAdapter {
+  RoutingAdapter(this.routes);
+
+  final List<(String, Object, int)> routes;
+  final requests = <RequestOptions>[];
+
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancel) async {
+    requests.add(options);
+    final match = routes.firstWhere(
+      (r) => options.path.contains(r.$1),
+      orElse: () => ('', {'message': 'not found'}, 404),
+    );
+    return ResponseBody.fromString(
+      jsonEncode(match.$2),
+      match.$3,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+ApiClient routingClient(RoutingAdapter adapter) => ApiClient(
+  token: () => 't',
+  profileId: () => 2,
+  dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
 );
 
 /// Scrolls to a row of the settings page, then taps it.
@@ -304,6 +340,115 @@ void main() {
         repository(adapter).resolve('https://unknown-host.tld/e/xyz'),
         throwsA(isA<ApiException>().having((e) => e.message, 'message', 'Cette source n’est pas lisible.')),
       );
+    });
+  });
+
+  group('stream providers', () {
+    const item = (type: MediaType.movie, id: 550, season: null, episode: null);
+
+    ProviderContainer containerWith(RoutingAdapter adapter) {
+      final container = ProviderContainer(
+        overrides: [apiClientProvider.overrideWithValue(routingClient(adapter))],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    // Riverpod 3 disposes a provider as soon as nothing listens to it. Keep a listener
+    // alive and wait for the value to settle, so a slow request is not cancelled.
+    Future<AsyncValue<T>> read<T>(ProviderContainer container, FutureProvider<T> provider) {
+      final completer = Completer<AsyncValue<T>>();
+      final sub = container.listen<AsyncValue<T>>(
+        provider,
+        (_, next) {
+          if (!completer.isCompleted && (next.hasValue || next.hasError)) {
+            completer.complete(next);
+          }
+        },
+        fireImmediately: true,
+      );
+      addTearDown(sub.close);
+      return completer.future;
+    }
+
+    Future<List<StreamSource>> linksOf(ProviderContainer c, FutureProvider<List<StreamSource>> p) async =>
+        (await read(c, p)).requireValue;
+
+    test('lists the providers the API declares', () async {
+      final adapter = RoutingAdapter([
+        ('/catalog/sources/providers', {
+          'data': [
+            {'id': 'frenchstream', 'name': 'FrenchStream'},
+            {'id': 'wiflix', 'name': 'Wiflix'},
+            {'id': 'frembed', 'name': 'Frembed'},
+          ],
+        }, 200),
+      ]);
+
+      final state = await read(containerWith(adapter), sourceProvidersProvider(item));
+
+      expect(state.requireValue.map((p) => p.id), ['frenchstream', 'wiflix', 'frembed']);
+      expect(adapter.requests.single.path, '/catalog/sources/providers');
+    });
+
+    test('falls back to the known providers when the API list fails', () async {
+      final adapter = RoutingAdapter([
+        ('/catalog/sources/providers', {'message': 'Boom'}, 500),
+      ]);
+
+      // The panel must still show every provider, even before the list is known.
+      final state = await read(containerWith(adapter), sourceProvidersProvider(item));
+      expect(state.hasError, isTrue);
+      expect(state.error, isA<ApiException>());
+      expect(kSourceProvidersFallback.map((p) => p.id), ['frenchstream', 'wiflix', 'frembed']);
+    });
+
+    test('asks the API for a single provider, and maps its links', () async {
+      final adapter = RoutingAdapter([
+        ('/catalog/movie/550/sources', {
+          'data': [
+            {'provider': 'wiflix', 'name': 'Wiflix (VF)', 'url': 'https://voe.sx/e/w'},
+          ],
+        }, 200),
+      ]);
+
+      final links = await linksOf(
+        containerWith(adapter),
+        providerSourcesProvider((item: item, provider: 'wiflix')),
+      );
+
+      expect(links.single.name, 'Wiflix (VF)');
+      final request = adapter.requests.single;
+      expect(request.path, '/catalog/movie/550/sources');
+      expect(request.queryParameters['provider'], 'wiflix');
+    });
+
+    test('an empty provider resolves to an empty list, not an error', () async {
+      final adapter = RoutingAdapter([
+        ('/catalog/movie/550/sources', {'data': <Object>[]}, 200),
+      ]);
+
+      final state = await read(
+        containerWith(adapter),
+        providerSourcesProvider((item: item, provider: 'frembed')),
+      );
+
+      expect(state.hasError, isFalse);
+      expect(state.requireValue, isEmpty);
+    });
+
+    test('a provider the API cannot reach surfaces as an error', () async {
+      final adapter = RoutingAdapter([
+        ('/catalog/movie/550/sources', {'message': 'Ce fournisseur est momentanément indisponible.'}, 503),
+      ]);
+
+      final state = await read(
+        containerWith(adapter),
+        providerSourcesProvider((item: item, provider: 'wiflix')),
+      );
+
+      expect(state.hasError, isTrue);
+      expect(state.error, isA<ApiException>());
     });
   });
 }
