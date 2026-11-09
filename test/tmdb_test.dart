@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:vixeo/app.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/theme.dart';
+import 'package:vixeo/core/widgets/common.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/catalog_repository.dart';
@@ -16,8 +17,9 @@ import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/tmdb/connections_screen.dart';
 import 'package:vixeo/features/tmdb/rating_dialog.dart';
-import 'package:vixeo/features/tmdb/tmdb.dart';
+import 'package:vixeo/features/tmdb/review_screen.dart';
 import 'package:vixeo/features/tmdb/reviews_screen.dart';
+import 'package:vixeo/features/tmdb/tmdb.dart';
 
 const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
 
@@ -125,6 +127,11 @@ Future<void> pumpPage(
       GoRoute(
         path: '/profil/connexions',
         builder: (_, _) => const Scaffold(body: Text('Page Connexions')),
+      ),
+      GoRoute(
+        path: '/avis/:type/:id',
+        builder: (_, state) =>
+            ReviewScreen(target: ReviewScreen.targetOf(state.pathParameters, state.uri.queryParameters)),
       ),
       GoRoute(
         path: '/titre/:type/:id',
@@ -451,7 +458,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Dune'), findsNothing);
       expect(find.text('Saison 1, épisode 2 · La route'), findsOneWidget);
-      expect(find.text('Ma note : 9,5/10'), findsOneWidget);
+      // The rating as stars (9 and a half), no button to change or remove it on the list.
+      expect(find.text('9,5/10'), findsOneWidget);
+      final stars = find.descendant(of: find.byType(StarRow), matching: find.byType(Icon));
+      expect(tester.widgetList<Icon>(stars).map((i) => i.icon), [
+        for (var i = 0; i < 9; i++) Icons.star_rounded,
+        Icons.star_half_rounded,
+      ]);
+      expect(find.byType(VxIconAction), findsNothing);
+      expect(find.text('Modifier'), findsNothing);
+      expect(find.text('Supprimer'), findsNothing);
 
       await tester.tap(find.text('Tout'));
       await tester.pumpAndSettle();
@@ -468,35 +484,72 @@ void main() {
       expect(find.text('Aucun résultat'), findsOneWidget);
     });
 
-    testWidgets('changes and removes a review', (tester) async {
+    testWidgets('a review opens its page, where it is changed or removed', (tester) async {
       final tmdb = FakeTmdb(current: linkedAccount)..ratedItems = [episode, dune];
       await pumpPage(tester, const Scaffold(body: ReviewsScreen()), tmdb: tmdb);
 
-      await tester.tap(find.bySemanticsLabel('Modifier mon avis sur Dune'));
+      await tester.tap(find.text('Dune'));
       await tester.pumpAndSettle();
+      expect(find.text('Mon avis'), findsOneWidget);
+      expect(find.text('Film · 2021'), findsOneWidget);
+      expect(find.text('8 / 10'), findsOneWidget);
       expect(find.text('Une claque visuelle.'), findsOneWidget);
       await tapStar(tester, 6);
-      await tester.enterText(find.byType(TextField).last, 'Moins bien revu.');
+      await tester.enterText(find.byType(TextField), 'Moins bien revu.');
       await tester.tap(find.text('Enregistrer'));
       await tester.pumpAndSettle();
       expect(tmdb.calls, ['rate movie/438631 6.0 « Moins bien revu. »']);
-      expect(find.text('Ma note : 6/10'), findsOneWidget);
+      // Back on the list: changed, and on top (rated again).
+      expect(find.text('Mon avis'), findsNothing);
+      expect(find.text('Note enregistrée : 6/10'), findsOneWidget);
+      expect(find.text('6/10'), findsOneWidget);
       expect(find.text('« Moins bien revu. »'), findsOneWidget);
-      // Rated again: on top.
       expect(tester.getTopLeft(find.text('Dune')).dy, lessThan(tester.getTopLeft(find.text('Les Hautes Terres')).dy));
 
-      await tester.tap(find.bySemanticsLabel('Supprimer mon avis sur Dune'));
+      await tester.tap(find.text('Dune'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Supprimer l’avis'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('sera aussi supprimée sur TMDb'), findsOneWidget);
       await tester.tap(find.text('Supprimer'));
       await tester.pumpAndSettle();
       expect(tmdb.calls.last, 'unrate movie/438631');
+      expect(find.text('Mon avis'), findsNothing);
       expect(find.text('Dune'), findsNothing);
       expect(find.text('Avis supprimé'), findsOneWidget);
 
-      // The row opens the TV show's page.
+      // An episode's page opens the TV show.
       await tester.tap(find.text('Les Hautes Terres'));
       await tester.pumpAndSettle();
+      expect(find.text('Saison 1, épisode 2 · La route'), findsOneWidget);
+      await tester.tap(find.text('Voir la série'));
+      await tester.pumpAndSettle();
       expect(find.text('Fiche 1399'), findsOneWidget);
+    });
+
+    testWidgets('TV: on the page of a review, the stars have the focus', (tester) async {
+      final tmdb = FakeTmdb(current: linkedAccount)..ratedItems = [dune];
+      await pumpPage(
+        tester,
+        const Scaffold(body: ReviewsScreen()),
+        tmdb: tmdb,
+        size: const Size(1920, 1080),
+      );
+
+      await tester.tap(find.text('Dune'));
+      await tester.pumpAndSettle();
+      final focused = FocusManager.instance.primaryFocus!.context!;
+      expect(focused.findAncestorWidgetOfExactType<RatingStars>(), isNotNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(find.text('8,5 / 10'), findsOneWidget);
+    });
+
+    test('a review has an address', () {
+      expect(ReviewScreen.location(dune.target), '/avis/movie/438631');
+      expect(ReviewScreen.location(episode.target), '/avis/tv/1399?saison=1&episode=2');
+      expect(ReviewScreen.targetOf({'type': 'tv', 'id': '1399'}, {'saison': '1', 'episode': '2'}), episode.target);
+      expect(ReviewScreen.targetOf({'type': 'movie', 'id': '438631'}, {}), dune.target);
     });
 
     testWidgets('without a TMDb account: a way to link one in Connexions', (tester) async {

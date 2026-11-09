@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
@@ -11,11 +10,13 @@ import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../search/filter_bar.dart';
 import 'rating_dialog.dart';
+import 'review_screen.dart';
 import 'tmdb.dart';
 
 /// "Mes avis" (`/avis`, in the main navigation): the profile's ratings of its TMDb account and its
 /// comments, the most recent first. Filters (Tout by default, Films, Séries, Épisodes) and a search
-/// bar as on Ma liste; each review opens its page, and can be changed or removed.
+/// bar as on Ma liste. Each review shows its stars and opens « Mon avis » (`ReviewScreen`), where it
+/// is changed or removed: no button on the list.
 class ReviewsScreen extends ConsumerStatefulWidget {
   const ReviewsScreen({super.key});
 
@@ -153,145 +154,84 @@ class _ReviewsList extends ConsumerWidget {
   }
 }
 
-/// One review: image, title, "Ma note", the comment, then Modifier / Supprimer (TV: → from the row).
+/// One review: image, title, its stars and the comment. Opens « Mon avis » (`ReviewScreen`), where
+/// it is changed or removed.
 class ReviewRow extends StatelessWidget {
   const ReviewRow({super.key, required this.item});
 
   final RatedItem item;
-
-  Future<void> _remove(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Supprimer cet avis ?'),
-        content: Text(
-          'Votre note de « ${item.label} » sera aussi supprimée sur TMDb, et votre commentaire de Vixeo.',
-          style: VxText.body(15, color: VxColors.textSoft),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          VxButton(
-            label: 'Supprimer',
-            kind: VxButtonKind.danger,
-            autofocus: true,
-            onPressed: () => Navigator.pop(context, true),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !context.mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await ProviderScope.containerOf(context, listen: false).read(tmdbRatingsProvider).remove(item.target);
-      showVxSnackOn(messenger, 'Avis supprimé', icon: Icons.star_outline_rounded);
-    } on ApiException catch (e) {
-      showVxSnackOn(messenger, e.message, icon: Icons.error_outline_rounded);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final episode = item.type == RatedType.episode;
     final caption = layout.captionSize;
-    final subtitle = episode
-        ? 'Saison ${item.seasonNumber}, épisode ${item.episodeNumber}${item.episodeName == null ? '' : ' · ${item.episodeName}'}'
-        : [item.type.label.substring(0, item.type.label.length - 1), if (item.year != null) '${item.year}'].join(' · ');
     final imageWidth = layout.size(episode ? 112 : 64, tv: episode ? 200 : 112);
     final imageHeight = episode ? imageWidth * 9 / 16 : imageWidth * 1.5;
 
-    return Row(
-      children: [
-        Expanded(
-          child: VxFocusable(
-            borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
-            semanticLabel:
-                '${item.label}, ma note : ${formatScore(item.value)} sur 10${item.comment == null ? '' : ', ${item.comment}'}',
-            onPressed: () => context.push('/titre/${item.mediaType.name}/${item.id}'),
-            child: Padding(
-              padding: EdgeInsets.all(layout.space(VxSpace.xxs)),
-              child: Row(
+    return VxFocusable(
+      borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
+      semanticLabel:
+          '${item.label}, ma note : ${formatScore(item.value)} sur 10${item.comment == null ? '' : ', ${item.comment}'}',
+      onPressed: () => context.push(ReviewScreen.location(item.target)),
+      child: Padding(
+        padding: EdgeInsets.all(layout.space(VxSpace.xxs)),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(VxRadius.poster),
+              child: SizedBox(
+                width: imageWidth,
+                height: imageHeight,
+                child: NetImage(url: episode ? (item.stillUrl ?? item.backdropUrl) : item.posterUrl, seed: item.id),
+              ),
+            ),
+            SizedBox(width: layout.space(VxSpace.s)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(VxRadius.poster),
-                    child: SizedBox(
-                      width: imageWidth,
-                      height: imageHeight,
-                      child: NetImage(
-                        url: episode ? (item.stillUrl ?? item.backdropUrl) : item.posterUrl,
-                        seed: item.id,
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: VxText.body(layout.size(16, tv: 24), weight: FontWeight.w600, height: 1.3),
+                  ),
+                  Text(
+                    item.subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: VxText.body(caption, color: VxColors.textSecondary),
+                  ),
+                  SizedBox(height: layout.space(VxSpace.xxs)),
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: layout.space(VxSpace.xs),
+                    children: [
+                      StarRow(value: item.value, size: caption * 1.2),
+                      Text(
+                        '${formatScore(item.value)}/10',
+                        style: VxText.body(caption, color: VxColors.accent, weight: FontWeight.w600),
                       ),
-                    ),
+                    ],
                   ),
-                  SizedBox(width: layout.space(VxSpace.s)),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: VxText.body(layout.size(16, tv: 24), weight: FontWeight.w600, height: 1.3),
-                        ),
-                        Text(
-                          subtitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: VxText.body(caption, color: VxColors.textSecondary),
-                        ),
-                        SizedBox(height: layout.space(VxSpace.xxs)),
-                        Row(
-                          children: [
-                            Icon(Icons.star_rounded, size: caption * 1.25, color: VxColors.accent),
-                            SizedBox(width: layout.space(VxSpace.xxs)),
-                            Flexible(
-                              child: Text(
-                                'Ma note : ${formatScore(item.value)}/10',
-                                overflow: TextOverflow.ellipsis,
-                                style: VxText.body(caption, color: VxColors.accent, weight: FontWeight.w600),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (item.comment != null) ...[
-                          SizedBox(height: layout.space(VxSpace.xxs)),
-                          Text(
-                            '« ${item.comment} »',
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: VxText.body(layout.bodySize, color: VxColors.textSoft),
-                          ),
-                        ],
-                      ],
+                  if (item.comment != null) ...[
+                    SizedBox(height: layout.space(VxSpace.xxs)),
+                    Text(
+                      '« ${item.comment} »',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: VxText.body(layout.bodySize, color: VxColors.textSoft),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
-          ),
+            SizedBox(width: layout.space(VxSpace.xs)),
+            Icon(Icons.chevron_right_rounded, size: layout.size(22, tv: 34), color: VxColors.textMuted),
+          ],
         ),
-        SizedBox(width: layout.space(VxSpace.xs)),
-        VxIconAction(
-          dense: true,
-          icon: Icons.edit_rounded,
-          label: 'Modifier mon avis sur ${item.label}',
-          onPressed: () => editRating(
-            context,
-            target: item.target,
-            name: episode ? (item.episodeName ?? item.title) : item.title,
-            subtitle: episode ? '${item.title} · Saison ${item.seasonNumber}, épisode ${item.episodeNumber}' : null,
-            current: item.rating,
-          ),
-        ),
-        SizedBox(width: layout.space(VxSpace.xs)),
-        VxIconAction(
-          dense: true,
-          icon: Icons.delete_outline_rounded,
-          label: 'Supprimer mon avis sur ${item.label}',
-          onPressed: () => _remove(context),
-        ),
-      ],
+      ),
     );
   }
 }

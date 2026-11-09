@@ -53,34 +53,12 @@ Future<(MyRating?,)?> showRatingDialog(
   builder: (_) => _RatingDialog(name: name, subtitle: subtitle, current: current),
 );
 
-class _RatingDialog extends StatefulWidget {
+class _RatingDialog extends StatelessWidget {
   const _RatingDialog({required this.name, this.subtitle, this.current});
 
   final String name;
   final String? subtitle;
   final MyRating? current;
-
-  @override
-  State<_RatingDialog> createState() => _RatingDialogState();
-}
-
-class _RatingDialogState extends State<_RatingDialog> {
-  /// Longest comment (the API's limit).
-  static const maxComment = 2000;
-
-  late double _value = widget.current?.value ?? 0;
-  late final _comment = TextEditingController(text: widget.current?.comment ?? '');
-
-  @override
-  void dispose() {
-    _comment.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final comment = _comment.text.trim();
-    if (_value > 0) Navigator.of(context).pop((MyRating(_value, comment: comment.isEmpty ? null : comment),));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,88 +76,150 @@ class _RatingDialogState extends State<_RatingDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                widget.current == null ? 'Noter' : 'Modifier mon avis',
+                current == null ? 'Noter' : 'Modifier mon avis',
                 style: VxText.body(14 * s, color: VxColors.textSecondary),
               ),
               SizedBox(height: 4 * s),
-              Text(widget.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: VxText.title(22 * s)),
-              if (widget.subtitle != null) ...[
+              Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: VxText.title(22 * s)),
+              if (subtitle != null) ...[
                 SizedBox(height: 2 * s),
-                Text(widget.subtitle!, style: VxText.body(14 * s, color: VxColors.textSoft)),
+                Text(subtitle!, style: VxText.body(14 * s, color: VxColors.textSoft)),
               ],
               SizedBox(height: 22 * s),
-              Text(
-                _value == 0 ? '– / 10' : '${formatScore(_value)} / 10',
-                textAlign: TextAlign.center,
-                style: VxText.title(
-                  34 * s,
-                  weight: FontWeight.w800,
-                  color: _value == 0 ? VxColors.textMuted : VxColors.accent,
-                ),
-              ),
-              SizedBox(height: 10 * s),
-              RatingStars(
-                value: _value,
-                starSize: 30 * s,
-                autofocus: true,
-                onChanged: (value) => setState(() => _value = value),
-                onSubmitted: _save,
-              ),
-              SizedBox(height: 8 * s),
-              Wrap(
-                alignment: WrapAlignment.center,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 6 * s,
-                children: [
-                  Text('Votre note est enregistrée sur', style: VxText.body(12 * s, color: VxColors.textMuted)),
-                  TmdbLogo(height: 9 * s),
+              RatingForm(
+                current: current,
+                scale: s,
+                onSave: (rating) => Navigator.of(context).pop((rating,)),
+                actions: [
+                  if (current != null)
+                    VxButton(
+                      label: 'Supprimer mon avis',
+                      icon: Icons.delete_outline_rounded,
+                      kind: VxButtonKind.outline,
+                      expand: true,
+                      onPressed: () => Navigator.of(context).pop((null,)),
+                    ),
+                  VxButton(
+                    label: 'Annuler',
+                    kind: VxButtonKind.secondary,
+                    expand: true,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ],
-              ),
-              SizedBox(height: 18 * s),
-              TextField(
-                controller: _comment,
-                minLines: 2,
-                maxLines: 5,
-                maxLength: maxComment,
-                textCapitalization: TextCapitalization.sentences,
-                style: VxText.body(15 * s),
-                decoration: InputDecoration(
-                  labelText: 'Commentaire (facultatif)',
-                  hintText: 'Ce que vous en avez pensé…',
-                  helperText: 'Gardé dans Vixeo, il n’est pas publié sur TMDb.',
-                  helperMaxLines: 2,
-                  counterText: '',
-                  alignLabelWithHint: true,
-                ),
-              ),
-              SizedBox(height: 18 * s),
-              VxButton(
-                label: 'Enregistrer',
-                icon: Icons.check_rounded,
-                expand: true,
-                onPressed: _value > 0 ? _save : null,
-              ),
-              if (widget.current != null) ...[
-                SizedBox(height: 10 * s),
-                VxButton(
-                  label: 'Supprimer mon avis',
-                  icon: Icons.delete_outline_rounded,
-                  kind: VxButtonKind.outline,
-                  expand: true,
-                  onPressed: () => Navigator.of(context).pop((null,)),
-                ),
-              ],
-              SizedBox(height: 10 * s),
-              VxButton(
-                label: 'Annuler',
-                kind: VxButtonKind.secondary,
-                expand: true,
-                onPressed: () => Navigator.of(context).pop(),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The score, the stars (they have the focus), where the rating is saved and the optional comment,
+/// then « Enregistrer » and [actions] under it: in the rating dialog and on the page of a review
+/// (« Mon avis »). [scale]: 1 on phones, the TV factor on large screens.
+class RatingForm extends StatefulWidget {
+  const RatingForm({
+    super.key,
+    required this.onSave,
+    this.current,
+    this.actions = const [],
+    this.scale = 1,
+    this.saving = false,
+  });
+
+  final ValueChanged<MyRating> onSave;
+  final MyRating? current;
+  final List<Widget> actions;
+  final double scale;
+
+  /// Saving: « Enregistrer » shows it and waits.
+  final bool saving;
+
+  @override
+  State<RatingForm> createState() => _RatingFormState();
+}
+
+class _RatingFormState extends State<RatingForm> {
+  /// Longest comment (the API's limit).
+  static const maxComment = 2000;
+
+  late double _value = widget.current?.value ?? 0;
+  late final _comment = TextEditingController(text: widget.current?.comment ?? '');
+
+  @override
+  void dispose() {
+    _comment.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (_value == 0 || widget.saving) return;
+    final comment = _comment.text.trim();
+    widget.onSave(MyRating(_value, comment: comment.isEmpty ? null : comment));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.scale;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          _value == 0 ? '– / 10' : '${formatScore(_value)} / 10',
+          textAlign: TextAlign.center,
+          style: VxText.title(
+            34 * s,
+            weight: FontWeight.w800,
+            color: _value == 0 ? VxColors.textMuted : VxColors.accent,
+          ),
+        ),
+        SizedBox(height: 10 * s),
+        RatingStars(
+          value: _value,
+          starSize: 30 * s,
+          autofocus: true,
+          onChanged: (value) => setState(() => _value = value),
+          onSubmitted: _save,
+        ),
+        SizedBox(height: 8 * s),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 6 * s,
+          children: [
+            Text('Votre note est enregistrée sur', style: VxText.body(12 * s, color: VxColors.textMuted)),
+            TmdbLogo(height: 9 * s),
+          ],
+        ),
+        SizedBox(height: 18 * s),
+        TextField(
+          controller: _comment,
+          minLines: 2,
+          maxLines: 5,
+          maxLength: maxComment,
+          textCapitalization: TextCapitalization.sentences,
+          style: VxText.body(15 * s),
+          decoration: InputDecoration(
+            labelText: 'Commentaire (facultatif)',
+            hintText: 'Ce que vous en avez pensé…',
+            helperText: 'Gardé dans Vixeo, il n’est pas publié sur TMDb.',
+            helperMaxLines: 2,
+            counterText: '',
+            alignLabelWithHint: true,
+          ),
+        ),
+        SizedBox(height: 18 * s),
+        VxButton(
+          label: 'Enregistrer',
+          icon: Icons.check_rounded,
+          expand: true,
+          loading: widget.saving,
+          onPressed: _value > 0 ? _save : null,
+        ),
+        for (final action in widget.actions) ...[SizedBox(height: 10 * s), action],
+      ],
     );
   }
 }
@@ -284,19 +324,7 @@ class _RatingStarsState extends State<RatingStars> {
                 onHorizontalDragUpdate: (d) => _pick(d.localPosition.dx, width),
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: size * 0.2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var i = 1; i <= 10; i++)
-                        Icon(
-                          value >= i
-                              ? Icons.star_rounded
-                              : (value >= i - 0.5 ? Icons.star_half_rounded : Icons.star_outline_rounded),
-                          size: size,
-                          color: value >= i - 0.5 ? VxColors.accent : VxColors.lineStrong,
-                        ),
-                    ],
-                  ),
+                  child: StarRow(value: value, size: size),
                 ),
               ),
             ),
@@ -305,6 +333,28 @@ class _RatingStarsState extends State<RatingStars> {
       ),
     );
   }
+}
+
+/// 10 stars, filled by half points up to [value] (0 to 10), read only: the rating of a review in
+/// « Mes avis », the stars of [RatingStars].
+class StarRow extends StatelessWidget {
+  const StarRow({super.key, required this.value, required this.size});
+
+  final double value;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (var i = 1; i <= 10; i++)
+        Icon(
+          value >= i ? Icons.star_rounded : (value >= i - 0.5 ? Icons.star_half_rounded : Icons.star_outline_rounded),
+          size: size,
+          color: value >= i - 0.5 ? VxColors.accent : VxColors.lineStrong,
+        ),
+    ],
+  );
 }
 
 class _RatingArrows extends DirectionalFocusOrFirstAction {

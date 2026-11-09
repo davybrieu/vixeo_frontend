@@ -188,7 +188,11 @@ lib/
   **commentaire facultatif**, gardé par Vixeo, jamais envoyé à TMDb). **« Avis »** est un onglet de
   la navigation (`/avis`, `ReviewsScreen`) : en-tête commun avec recherche (titre, épisode,
   commentaire, sans accents ni casse), filtres Tout (par défaut) / Films / Séries / Épisodes, la
-  plus récente d'abord, Modifier et Supprimer. Toutes les notes sont chargées d'un coup
+  plus récente d'abord. Chaque avis montre ses étoiles (`StarRow`) et **aucun bouton** (demande
+  du développeur) : un appui ouvre « Mon avis » (`ReviewScreen`, `/avis/movie/550`,
+  `/avis/tv/1399?saison=1&episode=2`), où l'on change les étoiles et le commentaire (`RatingForm`,
+  le même formulaire que la fenêtre de note) ; « Enregistrer » et « Supprimer l’avis »
+  (confirmation) ramènent à la liste, « Voir la fiche » ouvre le titre. Toutes les notes sont chargées d'un coup
   (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche, les
   épisodes et « Avis ». L'API de TMDb n'accepte que des notes (0,5 à 10). 409 de l'API → plus de
   compte lié (`TmdbAccountController.lost`). Anciennes adresses `/profil/tmdb` et `/profil/notes`

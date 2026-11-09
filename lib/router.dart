@@ -26,6 +26,7 @@ import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
 import 'features/tmdb/connections_screen.dart';
+import 'features/tmdb/review_screen.dart';
 import 'features/tmdb/reviews_screen.dart';
 import 'features/tv/tv_hub_screen.dart';
 
@@ -108,6 +109,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/ma-liste', pageBuilder: (_, _) => tab(const MyListScreen())),
           // "Mes avis": ratings of the TMDb account and comments (vixeo_backend/docs/compte-tmdb.md).
           GoRoute(path: '/avis', pageBuilder: (_, _) => tab(const ReviewsScreen())),
+          // "Mon avis": one review, to change or remove (/avis/tv/1399?saison=1&episode=2 for an episode).
+          GoRoute(
+            path: '/avis/:type/:id',
+            builder: (_, state) =>
+                ReviewScreen(target: ReviewScreen.targetOf(state.pathParameters, state.uri.queryParameters)),
+          ),
           GoRoute(path: '/profil', pageBuilder: (_, _) => tab(const ProfileSettingsScreen())),
           GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
           GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),

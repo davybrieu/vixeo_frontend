@@ -181,6 +181,11 @@ class RatedItem {
 
   MyRating get rating => MyRating(value, comment: comment);
 
+  /// "Film · 2021", "Série", "Saison 1, épisode 2 · Le Départ"…
+  String get subtitle => type == RatedType.episode
+      ? 'Saison $seasonNumber, épisode $episodeNumber${episodeName == null ? '' : ' · $episodeName'}'
+      : [type == RatedType.movie ? 'Film' : 'Série', if (year != null) '$year'].join(' · ');
+
   /// "Dune", "Les Hautes Terres · S1 · É2"…
   String get label => type == RatedType.episode ? '$title · S$seasonNumber · É$episodeNumber' : title;
 
