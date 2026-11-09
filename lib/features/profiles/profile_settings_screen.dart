@@ -52,7 +52,13 @@ class ProfileSettingsScreen extends ConsumerWidget {
     return SafeArea(
       bottom: false,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(layout.gutter, 12 * s, layout.gutter, 48 * s),
+        // Bottom: clear of the phone's tab bar (in the media padding), like the other pages.
+        padding: EdgeInsets.fromLTRB(
+          layout.gutter,
+          12 * s,
+          layout.gutter,
+          48 * s + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           Text('Paramètres', style: VxText.title(28 * s, weight: FontWeight.w800)),
           SizedBox(height: 28 * s),
@@ -138,7 +144,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
                 scale: s,
                 icon: Icons.face_rounded,
                 title: 'Avatar',
-                subtitle: 'Changer l’image de ${profile.name}.',
+                subtitle: 'Changer l’image de votre profil.',
                 onPressed: () => context.push('/profil/avatar'),
               ),
             ],
@@ -254,7 +260,7 @@ class _SettingsTile extends StatelessWidget {
 }
 
 /// Avatar picker, grouped by license. Every profile has one (a new profile gets one at random):
-/// no "initial only" choice.
+/// no "initial only" choice. Choosing one saves it and stays on the page.
 class AvatarPickerScreen extends ConsumerWidget {
   const AvatarPickerScreen({super.key});
 
@@ -266,11 +272,11 @@ class AvatarPickerScreen extends ConsumerWidget {
     final size = layout.isLarge ? layout.tv(140) : (layout.isPhone ? 84.0 : 100.0);
     final gap = layout.isLarge ? layout.tv(28) : 14.0;
 
+    // The page stays open (the developer's choice): the new avatar is marked selected at once.
     void pick(String avatarId) {
       if (avatarId != profile?.avatar) {
         saveProfile(context, {'avatar': avatarId}, done: 'Avatar mis à jour', icon: Icons.face_rounded);
       }
-      context.pop();
     }
 
     return Scaffold(

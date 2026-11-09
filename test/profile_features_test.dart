@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/core/widgets/common.dart';
+import 'package:vixeo/core/widgets/focusable.dart';
+import 'package:vixeo/features/auth/auth_repository.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/models.dart';
@@ -10,6 +13,7 @@ import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/actions.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
+import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
 import 'package:vixeo/features/profiles/profile_settings_screen.dart';
 
 /// In-memory library: records favorites / watched like the sync API would.
@@ -47,6 +51,19 @@ class FakeSession extends SessionController {
 
   @override
   SessionState build() => SessionState(status: SessionStatus.signedIn, token: 't', profile: profile);
+}
+
+/// Saves profile fields without the API.
+class SavingAuth extends AuthRepository {
+  SavingAuth() : super(ApiClient(token: () => null, profileId: () => null));
+
+  final updates = <Map<String, Object?>>[];
+
+  @override
+  Future<Profile> updateProfile(int profileId, Map<String, Object?> fields) async {
+    updates.add(fields);
+    return Profile(id: profileId, name: 'Davy', avatar: fields['avatar'] as String?);
+  }
 }
 
 const movie = MediaItem(id: 550, type: MediaType.movie, title: 'Nord Sauvage');
@@ -216,5 +233,84 @@ void main() {
     // With an avatar: that one has the focus.
     await open(const Profile(id: 1, name: 'Davy', avatar: 'arcade-fox'));
     expect(focused(), contains('Renard'));
+  });
+
+  testWidgets('choosing an avatar saves it and stays on the page', (tester) async {
+    final auth = SavingAuth();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          avatarCatalogProvider.overrideWith(
+            (ref) async => const [
+              AvatarLicense(
+                id: 'vixeo-arcade',
+                name: 'Vixeo Arcade',
+                avatars: [
+                  AvatarDef(id: 'arcade-cat', name: 'Chat', background: Color(0xFF2A2112)),
+                  AvatarDef(id: 'arcade-fox', name: 'Renard', background: Color(0xFF2A2112)),
+                ],
+              ),
+            ],
+          ),
+          authRepositoryProvider.overrideWithValue(auth),
+          sessionProvider.overrideWith(() => FakeSession(const Profile(id: 1, name: 'Davy', avatar: 'arcade-cat'))),
+        ],
+        child: MaterialApp(
+          theme: buildVixeoTheme(),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () =>
+                    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AvatarPickerScreen())),
+                child: const Text('Paramètres'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Paramètres'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Renard'));
+    await tester.pumpAndSettle();
+    expect(auth.updates, [
+      {'avatar': 'arcade-fox'},
+    ]);
+    expect(find.text('Avatar mis à jour'), findsOneWidget);
+    // Still on the page, the new one selected.
+    expect(find.text('Choisir un avatar'), findsOneWidget);
+    expect(find.bySemanticsLabel('Renard, sélectionné'), findsOneWidget);
+    expect(find.bySemanticsLabel('Chat'), findsOneWidget);
+  });
+
+  testWidgets('Paramètres: the same gaps between every section', (tester) async {
+    // A phone (under 600 px), wide enough for the test font (wider than Inter).
+    tester.view.physicalSize = const Size(520, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith(() => FakeSession(const Profile(id: 1, name: 'Davy')))],
+        child: MaterialApp(theme: buildVixeoTheme(), home: const ProfilePreferencesScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Rect row(String label) =>
+        tester.getRect(find.ancestor(of: find.text(label), matching: find.byType(VxFocusable)).first);
+    Rect heading(String title) => tester.getRect(find.text(title));
+    // Each section: its title, its first row and its last row.
+    final sections = [
+      (heading('Apparence'), row('Format des affiches'), row('Format des affiches')),
+      (heading('No spoil'), row('Activer No spoil'), row('Activer No spoil')),
+      (heading('Langues'), row('Langue audio préférée'), row('Sous-titres')),
+      (heading('Passer automatiquement'), row('Générique de début'), row('Aperçu de la suite')),
+    ];
+    final underTitles = {for (final (title, first, _) in sections) first.top - title.bottom};
+    final betweenSections = {for (var i = 1; i < sections.length; i++) sections[i].$1.top - sections[i - 1].$3.bottom};
+    expect(underTitles, hasLength(1));
+    expect(betweenSections, hasLength(1));
+    expect(betweenSections.single, 24);
   });
 }

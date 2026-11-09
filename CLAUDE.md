@@ -257,7 +257,12 @@ lib/
   profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits. Chaque
   nouveau profil (y compris celui créé à l'inscription) reçoit un avatar du catalogue au hasard
   (côté API) ; la page « Choisir un avatar » ne propose que des avatars, plus de choix « Initiale »
-  (demande du développeur). L'initiale reste affichée pour un ancien profil sans avatar.
+  (demande du développeur). Choisir un avatar l'enregistre et **reste sur la page** (pas de
+  retour en arrière, demande du développeur). L'initiale reste affichée pour un ancien profil sans
+  avatar. La tuile « Avatar » des paramètres n'écrit pas le nom du profil.
+- **Paramètres du profil, mise en page** : chaque groupe passe par `_Section`
+  (`profile_preferences_screen.dart`) : 12 sous le titre, 8 entre deux lignes, 24 entre deux
+  groupes (charte, § 5 ; un test le vérifie).
 - **Images** : `NetImage` (cache, couleur de remplacement). Tailles TMDb via
   `MediaItem.poster('w780')` / `backdrop('original')`, dérivées des URL renvoyées par l'API.
 - Tests : `flutter test` ne charge pas les polices (texte de remplacement), sans réseau.

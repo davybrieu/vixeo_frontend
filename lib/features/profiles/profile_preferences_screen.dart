@@ -83,51 +83,69 @@ class ProfilePreferencesScreen extends ConsumerWidget {
       fallback: '/profil',
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(12 * s, 4 * s, 12 * s, 20 * s),
+          padding: EdgeInsets.fromLTRB(12 * s, 4 * s, 12 * s, _Section.gap * s),
           child: Text(
             'Personnalisez l’apparence et la lecture de votre profil. Ces préférences sont synchronisées entre vos appareils.',
             style: VxText.body(14 * s, color: VxColors.textSecondary),
           ),
         ),
-        _Heading('Apparence', scale: s),
-        _ChoiceRow(
-          icon: Icons.palette_outlined,
-          label: 'Format des affiches',
-          value: profile.posterFormat.label,
-          autofocus: true,
-          onPressed: pickAppearance,
+        _Section(
+          'Apparence',
+          scale: s,
+          children: [
+            _ChoiceRow(
+              icon: Icons.palette_outlined,
+              label: 'Format des affiches',
+              value: profile.posterFormat.label,
+              autofocus: true,
+              onPressed: pickAppearance,
+            ),
+          ],
         ),
-        _Heading('No spoil', scale: s),
-        _SwitchRow(
-          label: 'Activer No spoil',
-          detail: 'Masquer les informations et images des épisodes avant leur sélection.',
-          value: noSpoiler,
-          onChanged: (value) => saveProfile(
-            context,
-            {'no_spoiler': value},
-            done: value ? 'No spoil activé' : 'No spoil désactivé',
-            icon: Icons.visibility_off_outlined,
-          ),
+        _Section(
+          'No spoil',
+          scale: s,
+          children: [
+            _SwitchRow(
+              label: 'Activer No spoil',
+              detail: 'Masquer les informations et images des épisodes avant leur sélection.',
+              value: noSpoiler,
+              onChanged: (value) => saveProfile(
+                context,
+                {'no_spoiler': value},
+                done: value ? 'No spoil activé' : 'No spoil désactivé',
+                icon: Icons.visibility_off_outlined,
+              ),
+            ),
+          ],
         ),
-        SizedBox(height: 24 * s),
-        _Heading('Langues', scale: s),
-        _ChoiceRow(
-          icon: Icons.record_voice_over_outlined,
-          label: 'Langue audio préférée',
-          value: audioLanguageLabel(profile.audioLanguage),
-          onPressed: pickAudio,
+        _Section(
+          'Langues',
+          scale: s,
+          children: [
+            _ChoiceRow(
+              icon: Icons.record_voice_over_outlined,
+              label: 'Langue audio préférée',
+              value: audioLanguageLabel(profile.audioLanguage),
+              onPressed: pickAudio,
+            ),
+            _ChoiceRow(
+              icon: Icons.subtitles_outlined,
+              label: 'Sous-titres',
+              value: subtitleLanguageLabel(profile.subtitleLanguage),
+              onPressed: pickSubtitles,
+            ),
+          ],
         ),
-        _ChoiceRow(
-          icon: Icons.subtitles_outlined,
-          label: 'Sous-titres',
-          value: subtitleLanguageLabel(profile.subtitleLanguage),
-          onPressed: pickSubtitles,
+        _Section(
+          'Passer automatiquement',
+          scale: s,
+          last: true,
+          children: [
+            for (final (field, label, detail, value) in _skips(profile))
+              _SwitchRow(label: label, detail: detail, value: value, onChanged: (v) => toggle(field, v, label)),
+          ],
         ),
-        SizedBox(height: 24 * s),
-        _Heading('Passer automatiquement', scale: s),
-        SizedBox(height: 8 * s),
-        for (final (field, label, detail, value) in _skips(profile))
-          _SwitchRow(label: label, detail: detail, value: value, onChanged: (v) => toggle(field, v, label)),
       ],
     );
   }
@@ -140,17 +158,38 @@ class ProfilePreferencesScreen extends ConsumerWidget {
   ];
 }
 
-class _Heading extends StatelessWidget {
-  const _Heading(this.text, {required this.scale});
+/// A titled group of settings, with the same gaps everywhere (charte graphique, § 5): 12 under
+/// the title, 8 between two rows, 24 before the next group.
+class _Section extends StatelessWidget {
+  const _Section(this.title, {required this.scale, required this.children, this.last = false});
 
-  final String text;
+  /// Between two groups.
+  static const gap = 24.0;
+
+  final String title;
   final double scale;
+  final List<Widget> children;
+
+  /// The last group: nothing under it.
+  final bool last;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(12 * scale, 0, 12 * scale, 10 * scale),
-    child: Text(text, style: VxText.title(18 * scale)),
-  );
+  Widget build(BuildContext context) {
+    final s = scale;
+    return Padding(
+      padding: EdgeInsets.only(bottom: last ? 0 : gap * s),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(12 * s, 0, 12 * s, 12 * s),
+            child: Text(title, style: VxText.title(18 * s)),
+          ),
+          for (final (i, row) in children.indexed) ...[if (i > 0) SizedBox(height: 8 * s), row],
+        ],
+      ),
+    );
+  }
 }
 
 /// A setting whose value is picked in a list.
@@ -172,33 +211,30 @@ class _ChoiceRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = uiScale(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8 * s),
-      child: VxFocusable(
-        autofocus: autofocus,
-        borderRadius: 14 * s,
-        focusScale: 1.02,
-        semanticLabel: '$label : $value',
-        onPressed: onPressed,
-        child: ExcludeSemantics(
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 16 * s, vertical: 14 * s),
-            decoration: BoxDecoration(color: VxColors.surface, borderRadius: BorderRadius.circular(14 * s)),
-            child: Row(
-              children: [
-                Icon(icon, size: 22 * s, color: VxColors.textSoft),
-                SizedBox(width: 14 * s),
-                Expanded(
-                  child: Text(label, style: VxText.body(15 * s, weight: FontWeight.w600)),
-                ),
-                Text(
-                  value,
-                  style: VxText.body(15 * s, color: VxColors.accent, weight: FontWeight.w600),
-                ),
-                SizedBox(width: 6 * s),
-                Icon(Icons.chevron_right_rounded, size: 22 * s, color: VxColors.textMuted),
-              ],
-            ),
+    return VxFocusable(
+      autofocus: autofocus,
+      borderRadius: 14 * s,
+      focusScale: 1.02,
+      semanticLabel: '$label : $value',
+      onPressed: onPressed,
+      child: ExcludeSemantics(
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 16 * s, vertical: 14 * s),
+          decoration: BoxDecoration(color: VxColors.surface, borderRadius: BorderRadius.circular(14 * s)),
+          child: Row(
+            children: [
+              Icon(icon, size: 22 * s, color: VxColors.textSoft),
+              SizedBox(width: 14 * s),
+              Expanded(
+                child: Text(label, style: VxText.body(15 * s, weight: FontWeight.w600)),
+              ),
+              Text(
+                value,
+                style: VxText.body(15 * s, color: VxColors.accent, weight: FontWeight.w600),
+              ),
+              SizedBox(width: 6 * s),
+              Icon(Icons.chevron_right_rounded, size: 22 * s, color: VxColors.textMuted),
+            ],
           ),
         ),
       ),
@@ -218,43 +254,40 @@ class _SwitchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = uiScale(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8 * s),
-      child: Semantics(
-        toggled: value,
-        child: VxFocusable(
-          borderRadius: 14 * s,
-          focusScale: 1.02,
-          semanticLabel: '$label, ${value ? 'passé automatiquement' : 'bouton Passer'}',
-          onPressed: () => onChanged(!value),
-          child: ExcludeSemantics(
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 16 * s, vertical: 12 * s),
-              decoration: BoxDecoration(color: VxColors.surface, borderRadius: BorderRadius.circular(14 * s)),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(label, style: VxText.body(15 * s, weight: FontWeight.w600)),
-                        SizedBox(height: 2 * s),
-                        Text(detail, style: VxText.body(13 * s, color: VxColors.textSecondary)),
-                      ],
+    return Semantics(
+      toggled: value,
+      child: VxFocusable(
+        borderRadius: 14 * s,
+        focusScale: 1.02,
+        semanticLabel: '$label, ${value ? 'passé automatiquement' : 'bouton Passer'}',
+        onPressed: () => onChanged(!value),
+        child: ExcludeSemantics(
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 16 * s, vertical: 12 * s),
+            decoration: BoxDecoration(color: VxColors.surface, borderRadius: BorderRadius.circular(14 * s)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label, style: VxText.body(15 * s, weight: FontWeight.w600)),
+                      SizedBox(height: 2 * s),
+                      Text(detail, style: VxText.body(13 * s, color: VxColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 12 * s),
+                // The row handles taps and the remote: the switch only shows the state.
+                IgnorePointer(
+                  child: ExcludeFocus(
+                    child: Transform.scale(
+                      scale: s,
+                      child: Switch(value: value, onChanged: (_) {}, activeThumbColor: VxColors.accent),
                     ),
                   ),
-                  SizedBox(width: 12 * s),
-                  // The row handles taps and the remote: the switch only shows the state.
-                  IgnorePointer(
-                    child: ExcludeFocus(
-                      child: Transform.scale(
-                        scale: s,
-                        child: Switch(value: value, onChanged: (_) {}, activeThumbColor: VxColors.accent),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
