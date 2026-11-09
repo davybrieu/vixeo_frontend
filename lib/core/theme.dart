@@ -22,6 +22,10 @@ class VxColors {
   static const textSoft = Color(0xFFC9D1CB);
   static const error = Color(0xFFFF7A7A);
 
+  /// Destructive actions: filled button (delete the account), red text (sign out).
+  static const danger = Color(0xFFB42318);
+  static const dangerText = Color(0xFFEF4444);
+
   /// Placeholder tones for posters without an image (and decorative walls).
   static const posterTones = [
     Color(0xFF1B2A22),

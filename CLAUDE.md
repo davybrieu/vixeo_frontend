@@ -133,6 +133,13 @@ lib/
   - tout élément sélectionnable passe par `VxFocusable` (anneau de focus vert, blanc sur un
     élément vert, léger zoom ; appui long ou touche menu = menu contextuel) ;
   - chaque écran donne le focus à un élément à l'arrivée (`autofocus: true` sur un seul élément) ;
+    `VxFocusable` ne vole jamais le focus à un élément du même écran ou de la même fenêtre (champ
+    de texte…), mais une fenêtre (mise à jour) le prend même si la page dessous l'avait ;
+  - seul ce qui se presse prend le focus (`VxFocusable` sans `onPressed` ni `onLongPress` : non
+    focalisable ; `InfoSection` est du texte simple) ;
+  - touche Retour (`BackNavigationGuard`) : d'une sous-page vers l'accueil (ou vers la connexion
+    depuis l'inscription et le mot de passe oublié) ; depuis l'accueil, la connexion ou
+    « Qui regarde ? », confirmation avant de quitter l'appli ;
   - les tailles TV sont celles du design 1920×1080, converties avec `Layout.of(context).tv(px)` ;
   - les rangées horizontales sont dans un `FocusTraversalGroup` ;
   - accueil grand écran : la grande image et ses informations suivent la carte sélectionnée
@@ -173,8 +180,8 @@ lib/
   dimensionné avant son chargement (`logo_aspect_ratio`) ; sans logo, ou s'il ne se charge pas, le
   nom est écrit. L'accueil donne le logo avec chaque titre (logo tout de suite) ; ailleurs
   (recherche, « Continuer à regarder »), il vient de la fiche quand la sélection s'arrête, dans une
-  place de hauteur fixe (rien ne bouge). Carrousel du téléphone : l'affiche sans texte
-  (`MediaItem.cleanPoster`, `textless_poster_url` de l'accueil), sinon l'affiche habituelle. Fond de
+  place de hauteur fixe (rien ne bouge). Carrousel du téléphone : pleine largeur, image de fond
+  (`backdrop`), logo, informations de la fiche et bouton « Voir la fiche ». Fond de
   la fiche : l'image sans texte
   (`textless_backdrop_url`, via `TitleDetails.background(size)`), sinon `backdrop_url`. Le lecteur
   d'écran lit toujours le nom.
@@ -190,13 +197,21 @@ lib/
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
   horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Pas de nom sur les affiches**, dans
   les deux formats (demande du développeur : l'image suffit) ; le nom n'est écrit que pour un titre
-  sans aucune image, et reste dans le libellé pour les lecteurs d'écran.
+  sans aucune image, et reste dans le libellé pour les lecteurs d'écran. En horizontal, le logo du
+  titre s'affiche quand le titre le donne (rangées de l'accueil) : **jamais de requête de fiche par
+  carte** (`titleProvider` dans `PosterCard` = une requête par titre affiché, au-delà de la limite
+  de l'API). Badge « Ma liste » sur l'affiche, « vu » dans le libellé. Titre de rangée et lien
+  « Voir tout » : `SectionHeader(title, onSeeAll: …)`.
 - **Avatars** : galerie `GET /avatars` regroupée par licence (`features/profiles/avatars.dart`,
   pixel art dessiné par `PixelAvatarPainter`, ou `image_url`) ; `ProfileAvatar` partout où le
   profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits.
 - **Images** : `NetImage` (cache, couleur de remplacement). Tailles TMDb via
   `MediaItem.poster('w780')` / `backdrop('original')`, dérivées des URL renvoyées par l'API.
 - Tests : `flutter test` ne charge pas les polices (texte de remplacement), sans réseau.
+- **CI** (`.github/workflows/build-web.yml`) : `flutter analyze` (les erreurs bloquent) et
+  `flutter test` d'abord ; puis compilation web (commitée dans `build/web`, déploiement Forge) et
+  APK signé publié en release GitHub `android-<n>` (lue par l'API pour les mises à jour). Couleurs
+  des actions destructives : `VxColors.danger` / `dangerText`, `VxButtonKind.danger`.
 
 ## Branches
 
@@ -214,7 +229,7 @@ lib/
   Ma liste, « Mon profil » (avatar par licence, paramètres d’apparence, No spoil, langues et lecture automatique,
   contrôle parental, connecter une TV, changer de profil,
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
-  politique de confidentialité et « Aide et à propos », vérification des
+  vérification des
   mises à jour (Android / iOS), mises en page téléphone et TV / grand écran, navigation à la
   télécommande.
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.

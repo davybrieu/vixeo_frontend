@@ -6,10 +6,8 @@ import 'package:vixeo/core/api/api_exception.dart';
 import 'package:vixeo/core/api/session_storage.dart';
 import 'package:vixeo/core/config.dart';
 import 'package:vixeo/core/theme.dart';
-import 'package:vixeo/features/account/about_screen.dart';
 import 'package:vixeo/features/account/account_screen.dart';
 import 'package:vixeo/features/account/devices_screen.dart';
-import 'package:vixeo/features/account/privacy_screen.dart';
 import 'package:vixeo/features/auth/auth_repository.dart';
 import 'package:vixeo/features/auth/login_screen.dart';
 import 'package:vixeo/features/auth/models.dart';
@@ -227,7 +225,7 @@ void main() {
     expect(find.text('« Vixeo TV » a été déconnecté.'), findsOneWidget);
   });
 
-  testWidgets('privacy policy and help are readable without an account', (tester) async {
+  testWidgets('sign-in pages are open without an account, account pages are not', (tester) async {
     final (container, _, _) = setUpContainer(session: SignedOut.new);
     final router = container.read(routerProvider);
     await tester.pumpWidget(
@@ -238,16 +236,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byType(LoginScreen), findsOneWidget);
-
-    router.go('/confidentialite');
-    await tester.pumpAndSettle();
-    expect(find.byType(PrivacyScreen), findsOneWidget);
-    expect(find.text('Ce que nous ne faisons pas'), findsOneWidget);
-
-    router.go('/a-propos');
-    await tester.pumpAndSettle();
-    expect(find.byType(AboutScreen), findsOneWidget);
-    expect(find.text(AppConfig.tmdbAttribution), findsOneWidget);
 
     router.go('/mot-de-passe-oublie');
     await tester.pumpAndSettle();

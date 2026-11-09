@@ -29,6 +29,8 @@ final home = Home(
       logoAspectRatio: 3,
       posterPath: '/orbite.jpg',
       posterUrl: 'https://image.tmdb.org/t/p/w342/orbite.jpg',
+      backdropPath: '/orbite-wide.jpg',
+      backdropUrl: 'https://image.tmdb.org/t/p/w780/orbite-wide.jpg',
       textlessPosterPath: '/orbite-clean.jpg',
       textlessPosterUrl: 'https://image.tmdb.org/t/p/w500/orbite-clean.jpg',
     ),
@@ -161,8 +163,8 @@ void main() {
     await pumpHome(tester, const Size(430, 932));
 
     expect(logo(homeLogo), findsOneWidget);
-    // Under the logo, the poster without text.
-    expect(logo('https://image.tmdb.org/t/p/w780/orbite-clean.jpg'), findsOneWidget);
+    // Full-width card: the backdrop under the logo.
+    expect(logo('https://image.tmdb.org/t/p/w1280/orbite-wide.jpg'), findsOneWidget);
     // No logo given by the home for "Le Phare" (next card): its name.
     await tester.drag(find.byType(PageView), const Offset(-300, 0));
     await tester.pumpAndSettle();

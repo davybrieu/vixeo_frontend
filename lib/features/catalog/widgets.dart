@@ -13,7 +13,6 @@ import '../auth/models.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
 import '../library/library.dart';
-import 'catalog_repository.dart';
 import 'models.dart';
 import 'person_screen.dart';
 
@@ -45,15 +44,14 @@ class PosterCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final itemState = ref.watch(
-      libraryProvider.select((state) => state.value?.forItem(item)),
-    );
+    final itemState = ref.watch(libraryProvider.select((state) => state.value?.forItem(item)));
     final watched = itemState?.isWatched ?? false;
     final favorite = itemState?.isFavorite ?? false;
     final landscape = format == PosterFormat.landscape;
-    final details = landscape ? ref.watch(titleProvider((item.type, item.id))).value : null;
-    final logoUrl = item.logoUrl ?? details?.logoUrl;
-    final logoAspectRatio = item.logoAspectRatio ?? details?.logoAspectRatio;
+    // The logo comes with the title (home rows): never a title page request per card, which
+    // meant up to 150 requests at once on the home page (API limit: 240 a minute).
+    final logoUrl = item.logoUrl;
+    final logoAspectRatio = item.logoAspectRatio;
     final radius = landscape ? width * 0.05 : width * 0.086;
     final noImage = Align(
       alignment: Alignment.bottomLeft,
@@ -71,7 +69,8 @@ class PosterCard extends ConsumerWidget {
     return VxFocusable(
       autofocus: autofocus,
       borderRadius: radius,
-      semanticLabel: '${item.title}, ${item.type.label.toLowerCase()}${item.year != null ? ', ${item.year}' : ''}${watched ? ', vu' : ''}',
+      semanticLabel:
+          '${item.title}, ${item.type.label.toLowerCase()}${item.year != null ? ', ${item.year}' : ''}${watched ? ', vu' : ''}',
       onFocused: onFocused,
       onHovered: onHovered,
       onPressed: () => context.push(titlePath(item.type, item.id)),
@@ -106,12 +105,7 @@ class PosterCard extends ConsumerWidget {
                   child: TitleLogo(
                     name: item.title,
                     logoUrl: logoUrl,
-                    size: TitleLogo.sizeFor(
-                      logoUrl,
-                      logoAspectRatio,
-                      maxWidth: width * 0.48,
-                      maxHeight: width * 0.17,
-                    ),
+                    size: TitleLogo.sizeFor(logoUrl, logoAspectRatio, maxWidth: width * 0.48, maxHeight: width * 0.17),
                     style: VxText.title((width * 0.07).clamp(13, 30).toDouble()),
                     maxLines: 2,
                   ),
@@ -124,15 +118,8 @@ class PosterCard extends ConsumerWidget {
                   child: Container(
                     width: (width * 0.13).clamp(22, 32).toDouble(),
                     height: (width * 0.13).clamp(22, 32).toDouble(),
-                    decoration: const BoxDecoration(
-                      color: Color(0xB8070A08),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.bookmark_added_rounded,
-                      color: VxColors.accent,
-                      size: 17,
-                    ),
+                    decoration: const BoxDecoration(color: Color(0xB8070A08), shape: BoxShape.circle),
+                    child: const Icon(Icons.bookmark_added_rounded, color: VxColors.accent, size: 17),
                   ),
                 ),
             ],
@@ -187,31 +174,7 @@ class PosterRow extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, layout.isLarge ? layout.tv(22) : 12),
-          child: Row(
-            children: [
-              Expanded(child: Text(title, style: VxText.title(layout.isLarge ? layout.tv(30) : 18))),
-              if (onSeeAll != null)
-                VxFocusable(
-                  borderRadius: 8,
-                  semanticLabel: 'Voir tout $title',
-                  onPressed: onSeeAll,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Voir tout', style: VxText.body(layout.isLarge ? layout.tv(20) : 13, color: VxColors.accent, weight: FontWeight.w600)),
-                        SizedBox(width: layout.isLarge ? layout.tv(6) : 3),
-                        Icon(Icons.chevron_right_rounded, size: layout.isLarge ? layout.tv(24) : 18, color: VxColors.accent),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+        SectionHeader(title, onSeeAll: onSeeAll),
         FocusTraversalGroup(
           child: SizedBox(
             height: PosterCard.heightFor(width, format) + vPad * 2,

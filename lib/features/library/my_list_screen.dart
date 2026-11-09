@@ -10,8 +10,6 @@ import '../catalog/widgets.dart';
 import '../search/filter_bar.dart';
 import '../search/search_filters.dart';
 import '../tv/channel_search.dart';
-import '../tv/models.dart';
-import '../tv/tv_repository.dart';
 import 'library.dart';
 
 /// "Ma liste": the active profile's favorites (synced between devices).
@@ -79,11 +77,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
               ],
             ),
           ),
-          SearchFilterBar(
-            filters: _filters,
-            withText: false,
-            onChanged: _setFilters,
-          ),
+          SearchFilterBar(filters: _filters, withText: false, onChanged: _setFilters),
           Expanded(
             child: AsyncView(
               value: library,
@@ -94,75 +88,75 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                       .where((item) => item.type == 'channel')
                       .map((item) => item.itemId)
                       .toSet();
-                  return ref.watch(channelSearchProvider('')).when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (error, _) => ErrorPanel(
-                      error: error,
-                      onRetry: () => ref.invalidate(channelSearchProvider('')),
-                    ),
-                    data: (channels) {
-                      final favorites = channels.where((channel) => favoriteIds.contains(channel.id)).toList();
-                      if (favorites.isEmpty) {
-                        return const EmptyState(
-                          icon: Icons.live_tv_outlined,
-                          title: 'Aucune chaîne dans votre liste',
-                          message: 'Ajoutez des chaînes TV à vos favoris pour les retrouver ici.',
-                        );
-                      }
-                      return RefreshIndicator(
-                        onRefresh: () async {
-                          ref.invalidate(channelSearchProvider(''));
-                          await ref.read(channelSearchProvider('').future);
-                        },
-                        child: GridView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.fromLTRB(layout.gutter, 8, layout.gutter, 24),
-                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 160,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 0.85,
-                          ),
-                          itemCount: favorites.length,
-                          itemBuilder: (context, index) {
-                            final channel = favorites[index];
-                            return Material(
-                              color: VxColors.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () => playLiveChannel(context, ref, channel),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(10),
-                                  child: Column(
-                                    children: [
-                                      Expanded(
-                                        child: channel.logo != null && channel.logo!.isNotEmpty
-                                            ? Image.network(
-                                                channel.logo!,
-                                                fit: BoxFit.contain,
-                                                errorBuilder: (_, __, ___) => const Icon(Icons.live_tv, size: 40),
-                                              )
-                                            : const Icon(Icons.live_tv, size: 40),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        channel.name,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        textAlign: TextAlign.center,
-                                        style: VxText.body(13),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                  return ref
+                      .watch(channelSearchProvider(''))
+                      .when(
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (error, _) =>
+                            ErrorPanel(error: error, onRetry: () => ref.invalidate(channelSearchProvider(''))),
+                        data: (channels) {
+                          final favorites = channels.where((channel) => favoriteIds.contains(channel.id)).toList();
+                          if (favorites.isEmpty) {
+                            return const EmptyState(
+                              icon: Icons.live_tv_outlined,
+                              title: 'Aucune chaîne dans votre liste',
+                              message: 'Ajoutez des chaînes TV à vos favoris pour les retrouver ici.',
                             );
-                          },
-                        ),
+                          }
+                          return RefreshIndicator(
+                            onRefresh: () async {
+                              ref.invalidate(channelSearchProvider(''));
+                              await ref.read(channelSearchProvider('').future);
+                            },
+                            child: GridView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: EdgeInsets.fromLTRB(layout.gutter, 8, layout.gutter, 24),
+                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                maxCrossAxisExtent: 160,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                                childAspectRatio: 0.85,
+                              ),
+                              itemCount: favorites.length,
+                              itemBuilder: (context, index) {
+                                final channel = favorites[index];
+                                return Material(
+                                  color: VxColors.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () => playLiveChannel(context, ref, channel),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(10),
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+                                            child: channel.logo != null && channel.logo!.isNotEmpty
+                                                ? Image.network(
+                                                    channel.logo!,
+                                                    fit: BoxFit.contain,
+                                                    errorBuilder: (_, _, _) => const Icon(Icons.live_tv, size: 40),
+                                                  )
+                                                : const Icon(Icons.live_tv, size: 40),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            channel.name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            textAlign: TextAlign.center,
+                                            style: VxText.body(13),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
                       );
-                    },
-                  );
                 }
                 final matching = <({ProfileItem favorite, MediaItem item, double rating, int? year})>[];
 
@@ -177,15 +171,13 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                   final rating = details?.voteAverage ?? 0;
 
                   final decade = _filters.decade;
-                  if (decade != null && year != null &&
-                      (year < (decade.from ?? 0) || year > decade.to)) {
+                  if (decade != null && year != null && (year < (decade.from ?? 0) || year > decade.to)) {
                     continue;
                   }
                   if (_filters.minRating != null && details != null && rating < _filters.minRating!) {
                     continue;
                   }
-                  if (_filters.genre != null && details != null &&
-                      !details.genres.contains(_filters.genre)) {
+                  if (_filters.genre != null && details != null && !details.genres.contains(_filters.genre)) {
                     continue;
                   }
 

@@ -66,9 +66,14 @@ class _VxFocusableState extends State<VxFocusable> {
     super.initState();
     if (widget.autofocus) {
       // `autofocus` can be lost when the screen appears (e.g. on the web with
-      // accessibility on): take the focus if nobody else has it once built.
+      // accessibility on): take the focus once built, unless something of this screen or dialog
+      // already has it (a text field…). Only this route's scope counts: a dialog takes the focus
+      // even though the page under it had it.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_node.hasFocus) _node.requestFocus();
+        if (!mounted || _node.hasFocus) return;
+        final focused = FocusScope.of(context).focusedChild;
+        if (focused != null && focused.hasFocus) return;
+        _node.requestFocus();
       });
     }
   }

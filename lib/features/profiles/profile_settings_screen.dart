@@ -7,11 +7,9 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
-import '../auth/models.dart';
 import '../auth/session.dart';
 import 'avatars.dart';
 import 'profiles_screen.dart';
-import 'no_spoiler.dart';
 
 /// Saves profile fields with the API, refreshes the session and "Qui regarde ?", then
 /// confirms with an alert. [context] is only read before the request: the save may end
@@ -48,7 +46,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
     final profile = ref.watch(sessionProvider).profile;
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     if (profile == null) return const SizedBox();
-
 
     return SafeArea(
       bottom: false,
@@ -95,7 +92,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
                 icon: Icons.logout_rounded,
                 title: 'Se déconnecter',
                 subtitle: 'Quitter ce compte sur cet appareil.',
-                foreground: const Color(0xFFEF4444),
+                foreground: VxColors.dangerText,
                 onPressed: () => ref.read(sessionProvider.notifier).logout(),
               ),
             ],
@@ -165,11 +162,7 @@ class _SettingsSection extends StatelessWidget {
           padding: EdgeInsets.only(left: 4 * s, bottom: 10 * s),
           child: Text(
             label.toUpperCase(),
-            style: VxText.body(
-              13 * s,
-              weight: FontWeight.w700,
-              color: VxColors.textMuted,
-            ).copyWith(letterSpacing: 1.2),
+            style: VxText.body(13 * s, weight: FontWeight.w700, color: VxColors.textMuted).copyWith(letterSpacing: 1.2),
           ),
         ),
         DecoratedBox(
@@ -195,7 +188,6 @@ class _SettingsTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onPressed,
-    this.trailing,
     this.foreground,
   });
 
@@ -204,7 +196,6 @@ class _SettingsTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onPressed;
-  final Widget? trailing;
   final Color? foreground;
 
   @override
@@ -224,10 +215,7 @@ class _SettingsTile extends StatelessWidget {
             Container(
               width: iconBox,
               height: iconBox,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(14 * s),
-              ),
+              decoration: BoxDecoration(color: const Color(0xFF2A2A2A), borderRadius: BorderRadius.circular(14 * s)),
               child: Icon(icon, size: 22 * s, color: foreground ?? VxColors.text),
             ),
             SizedBox(width: 14 * s),
@@ -235,7 +223,10 @@ class _SettingsTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: VxText.body(16 * s, weight: FontWeight.w600, color: foreground ?? VxColors.text)),
+                  Text(
+                    title,
+                    style: VxText.body(16 * s, weight: FontWeight.w600, color: foreground ?? VxColors.text),
+                  ),
                   SizedBox(height: 2 * s),
                   Text(
                     subtitle,
@@ -243,107 +234,6 @@ class _SettingsTile extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-            if (trailing != null) ...[
-              SizedBox(width: 8 * s),
-              trailing!,
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NoSpoilerTile extends ConsumerWidget {
-  const _NoSpoilerTile({required this.scale});
-
-  final double scale;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final enabled = ref.watch(noSpoilerProvider);
-    return _SettingsTile(
-      scale: scale,
-      icon: Icons.visibility_off_outlined,
-      title: 'No spoil',
-      subtitle: 'Masque la note, la durée, le titre et l’image des épisodes.',
-      trailing: IgnorePointer(
-        child: ExcludeFocus(
-          child: Transform.scale(
-            scale: scale.clamp(0.9, 1.15),
-            child: Switch(value: enabled, onChanged: (_) {}, activeThumbColor: VxColors.accent),
-          ),
-        ),
-      ),
-      onPressed: () => saveProfile(
-        context,
-        {'no_spoiler': !enabled},
-        done: !enabled ? 'No spoil activé' : 'No spoil désactivé',
-        icon: Icons.visibility_off_outlined,
-      ),
-    );
-  }
-}
-
-/// Vertical / horizontal choice, with a small preview.
-class _FormatOption extends StatelessWidget {
-  const _FormatOption({required this.format, required this.selected, required this.scale, required this.onPressed});
-
-  final PosterFormat format;
-  final bool selected;
-  final double scale;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = scale;
-    final portrait = format == PosterFormat.portrait;
-    Widget tile(int i) => Container(
-      width: portrait ? 30 * s : 56 * s,
-      height: portrait ? 45 * s : 32 * s,
-      decoration: BoxDecoration(
-        color: VxColors.tone(i + (portrait ? 1 : 4)),
-        borderRadius: BorderRadius.circular(5 * s),
-      ),
-    );
-
-    return VxFocusable(
-      borderRadius: 16 * s,
-      semanticLabel: 'Format ${format.label.toLowerCase()}${selected ? ', sélectionné' : ''}',
-      onPressed: onPressed,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 170 * s,
-        padding: EdgeInsets.all(16 * s),
-        decoration: BoxDecoration(
-          color: selected ? VxColors.accent.withValues(alpha: 0.1) : VxColors.surface,
-          borderRadius: BorderRadius.circular(16 * s),
-          border: Border.all(color: selected ? VxColors.accent : VxColors.line, width: selected ? 2 : 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 48 * s,
-              child: Row(
-                children: [
-                  for (var i = 0; i < (portrait ? 3 : 2); i++) ...[if (i > 0) SizedBox(width: 6 * s), tile(i)],
-                ],
-              ),
-            ),
-            SizedBox(height: 12 * s),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(format.label, style: VxText.body(15 * s, weight: FontWeight.w600)),
-                ),
-                if (selected) Icon(Icons.check_circle_rounded, color: VxColors.accent, size: 20 * s),
-              ],
-            ),
-            Text(
-              portrait ? 'Affiche (par défaut)' : 'Image large',
-              style: VxText.body(12 * s, color: VxColors.textSecondary),
             ),
           ],
         ),

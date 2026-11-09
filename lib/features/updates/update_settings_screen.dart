@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../account/info_page.dart';
 import 'update_gate.dart';
@@ -40,18 +39,18 @@ class UpdateSettingsScreen extends ConsumerWidget {
       children: [
         InfoSection(
           title: 'Version installée',
-          autofocus: true,
           children: [
-            InfoText(installed.when(
-              data: (value) => 'Version ${value.version} (${value.build})',
-              loading: () => 'Chargement de la version…',
-              error: (_, _) => 'Version installée indisponible.',
-            )),
+            InfoText(
+              installed.when(
+                data: (value) => 'Version ${value.version} (${value.build})',
+                loading: () => 'Chargement de la version…',
+                error: (_, _) => 'Version installée indisponible.',
+              ),
+            ),
             InfoText(status),
           ],
         ),
-        if (update.value?.status == UpdateStatus.updateAvailable ||
-            update.value?.status == UpdateStatus.updateRequired)
+        if (update.value?.status == UpdateStatus.updateAvailable || update.value?.status == UpdateStatus.updateRequired)
           Padding(
             padding: EdgeInsets.only(left: 12 * scale, bottom: 16 * scale),
             child: UpdateButton(info: update.value!, autofocus: true, expand: true),

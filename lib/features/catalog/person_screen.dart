@@ -163,4 +163,3 @@ class _PersonViewState extends ConsumerState<_PersonView> {
     return parts.take(2).map((w) => String.fromCharCode(w.runes.first).toUpperCase()).join();
   }
 }
-

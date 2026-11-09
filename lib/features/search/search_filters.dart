@@ -7,6 +7,7 @@ enum SearchKind {
   all('Tout'),
   movie('Films'),
   tv('Séries'),
+
   /// Live channels from the configured Xtream panel.
   channels('Chaînes TV'),
 

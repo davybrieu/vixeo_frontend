@@ -44,9 +44,7 @@ class SearchFilterBar extends ConsumerWidget {
     final gap = layout.isLarge ? layout.tv(14) : 8.0;
     final genres = ref.watch(allGenresProvider).value;
     // Channels always available; people only with a text.
-    final kinds = withText
-        ? SearchKind.values
-        : SearchKind.values.where((k) => k != SearchKind.person);
+    final kinds = withText ? SearchKind.values : SearchKind.values.where((k) => k != SearchKind.person);
     final order = filters.sortFor(withText: withText);
 
     void setKind(SearchKind kind) {

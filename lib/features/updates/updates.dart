@@ -93,12 +93,12 @@ class UpdateRepository {
 
   final ApiClient _api;
 
-  Future<UpdateInfo> check(UpdatePlatform platform, InstalledVersion installed) async =>
-      UpdateInfo.fromJson(await _api.get('/app/update', query: {
-        'platform': platform.name,
-        'version': installed.version,
-        'build': installed.build,
-      }));
+  Future<UpdateInfo> check(UpdatePlatform platform, InstalledVersion installed) async => UpdateInfo.fromJson(
+    await _api.get(
+      '/app/update',
+      query: {'platform': platform.name, 'version': installed.version, 'build': installed.build},
+    ),
+  );
 }
 
 final updatePlatformProvider = Provider<UpdatePlatform?>((ref) => currentUpdatePlatform());

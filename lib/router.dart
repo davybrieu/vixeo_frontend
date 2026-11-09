@@ -102,10 +102,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/series',
             pageBuilder: (_, _) => tab(const HomeScreen(type: MediaType.tv)),
           ),
-          GoRoute(
-            path: '/tv-live',
-            pageBuilder: (_, _) => tab(const TvHubScreen()),
-          ),
+          GoRoute(path: '/tv-live', pageBuilder: (_, _) => tab(const TvHubScreen())),
           GoRoute(
             path: '/recherche',
             pageBuilder: (_, state) => tab(SearchScreen(initialType: state.extra as MediaType?)),
@@ -125,7 +122,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           // Opened by the QR code of a TV: /tv?code=K7F29Q.
           GoRoute(
             path: '/tv',
-            builder: (_, state) => guarded(state.uri.path, DeviceApproveScreen(initialCode: state.uri.queryParameters['code'])),
+            builder: (_, state) =>
+                guarded(state.uri.path, DeviceApproveScreen(initialCode: state.uri.queryParameters['code'])),
           ),
           GoRoute(
             path: '/titre/:type/:id',
@@ -138,17 +136,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/lecture/:type/:id',
-        builder: (_, state) => guarded(state.uri.path, PlayerScreen(
-          type: MediaType.parse(state.pathParameters['type']),
-          id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
-          season: int.tryParse(state.uri.queryParameters['saison'] ?? ''),
-          episode: int.tryParse(state.uri.queryParameters['episode'] ?? ''),
-        )),
+        builder: (_, state) => guarded(
+          state.uri.path,
+          PlayerScreen(
+            type: MediaType.parse(state.pathParameters['type']),
+            id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+            season: int.tryParse(state.uri.queryParameters['saison'] ?? ''),
+            episode: int.tryParse(state.uri.queryParameters['episode'] ?? ''),
+          ),
+        ),
       ),
     ],
-    errorBuilder: (context, state) => guarded(state.uri.path, const Scaffold(
-      body: EmptyState(icon: Icons.explore_off_outlined, title: 'Page introuvable'),
-    )),
+    errorBuilder: (context, state) => guarded(
+      state.uri.path,
+      const Scaffold(
+        body: EmptyState(icon: Icons.explore_off_outlined, title: 'Page introuvable'),
+      ),
+    ),
   );
 });
 

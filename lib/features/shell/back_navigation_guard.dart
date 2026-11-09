@@ -2,29 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
-/// Intercepts system Back inside a route, so the app can always return Home
-/// before showing the explicit exit confirmation.
+/// Intercepts system Back (Android, TV remote) inside a route: from a sub-page, back to the
+/// entry page (Home, or sign-in before signing in); from an entry page, the exit confirmation.
+/// Without it, Back from the sign-in page went to /accueil, which redirects to /connexion: the
+/// app could not be left with Back.
 class BackNavigationGuard extends StatelessWidget {
-  const BackNavigationGuard({
-    super.key,
-    required this.location,
-    required this.child,
-  });
+  const BackNavigationGuard({super.key, required this.location, required this.child});
 
   final String location;
   final Widget child;
 
+  /// Pages Back leaves the app from (after confirmation).
+  static const _entryPages = {'/accueil', '/connexion', '/profils', '/demarrage'};
+
+  /// Sign-in pages Back returns to the sign-in form from.
+  static const _signInPages = {'/inscription', '/mot-de-passe-oublie'};
+
   @override
   Widget build(BuildContext context) {
-    final isHome = Uri.parse(location).path == '/accueil';
+    final path = Uri.parse(location).path;
+    final isEntry = _entryPages.contains(path);
 
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
 
-        if (!isHome) {
-          context.go('/accueil');
+        if (!isEntry) {
+          context.go(_signInPages.contains(path) ? '/connexion' : '/accueil');
           return;
         }
 
@@ -37,10 +42,7 @@ class BackNavigationGuard extends StatelessWidget {
                 onPressed: () => Navigator.of(dialogContext).pop(false),
                 child: const Text('Rester sur l’application'),
               ),
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Quitter'),
-              ),
+              TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Quitter')),
             ],
           ),
         );

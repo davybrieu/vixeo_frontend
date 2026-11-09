@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
-import '../../core/widgets/focusable.dart';
 
 /// Phone sizes × this factor on large screens (about the 1920 design's sizes).
 double uiScale(BuildContext context) {
@@ -52,35 +51,26 @@ class InfoPage extends StatelessWidget {
   }
 }
 
-/// Titled block of text. Focusable, so that on a TV the remote moves from block to block and
-/// the page scrolls (plain text can't take the focus).
+/// Titled block of text. Not focusable (VxFocusable only focuses what can be pressed): on a TV,
+/// the remote goes from button to button and the page scrolls with them.
 class InfoSection extends StatelessWidget {
-  const InfoSection({super.key, required this.title, required this.children, this.autofocus = false});
+  const InfoSection({super.key, required this.title, required this.children});
 
   final String title;
   final List<Widget> children;
-  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     final s = uiScale(context);
     return Padding(
-      padding: EdgeInsets.only(bottom: 12 * s),
-      child: VxFocusable(
-        autofocus: autofocus,
-        borderRadius: 16 * s,
-        focusScale: 1,
-        child: Padding(
-          padding: EdgeInsets.all(12 * s),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: VxText.title(18 * s)),
-              SizedBox(height: 8 * s),
-              ...children,
-            ],
-          ),
-        ),
+      padding: EdgeInsets.fromLTRB(12 * s, 12 * s, 12 * s, 24 * s),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: VxText.title(18 * s)),
+          SizedBox(height: 8 * s),
+          ...children,
+        ],
       ),
     );
   }

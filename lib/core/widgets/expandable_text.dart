@@ -35,11 +35,7 @@ class _ExpandableTextState extends State<ExpandableText> {
             widget.text,
             maxLines: _expanded || !long ? null : widget.maxLines,
             overflow: _expanded || !long ? null : TextOverflow.ellipsis,
-            style: VxText.body(
-              layout.isLarge ? layout.tv(25) : 15 * scale,
-              color: VxColors.textSoft,
-              height: 1.55,
-            ),
+            style: VxText.body(layout.isLarge ? layout.tv(25) : 15 * scale, color: VxColors.textSoft, height: 1.55),
           ),
           if (long)
             Focus(

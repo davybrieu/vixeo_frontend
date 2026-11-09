@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/api/api_exception.dart';
 import 'package:vixeo/core/theme.dart';
+import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/updates/apk_installer.dart';
 import 'package:vixeo/features/updates/update_gate.dart';
 import 'package:vixeo/features/updates/updates.dart';
@@ -23,8 +24,8 @@ class FakeUpdates extends UpdateRepository {
   final asked = <String>[];
 
   @override
-  Future<UpdateInfo> check(UpdatePlatform platform, int build) async {
-    asked.add('${platform.name} $build');
+  Future<UpdateInfo> check(UpdatePlatform platform, InstalledVersion installed) async {
+    asked.add('${platform.name} ${installed.build}');
     return next();
   }
 }
@@ -34,6 +35,12 @@ UpdateInfo info(UpdateStatus status, {String version = '1.2.0', int build = 14, 
   latest: AppRelease(version: version, build: build, notes: notes),
   updateUrl: 'https://play.google.com/store/apps/details?id=app.vixeo.vixeo',
 );
+
+/// The saved session is restored: the gate may show its dialog (not over the start screen).
+class Restored extends SessionController {
+  @override
+  SessionState build() => const SessionState(status: SessionStatus.signedOut);
+}
 
 Future<FakeUpdates> pumpApp(
   WidgetTester tester,
@@ -48,6 +55,7 @@ Future<FakeUpdates> pumpApp(
         updatePlatformProvider.overrideWithValue(platform),
         installedVersionProvider.overrideWith((ref) async => const InstalledVersion(version: '1.0.0', build: 3)),
         updateRepositoryProvider.overrideWithValue(updates),
+        sessionProvider.overrideWith(Restored.new),
       ],
       child: MaterialApp(
         theme: buildVixeoTheme(),
@@ -100,8 +108,9 @@ void main() {
     final updates = await pumpApp(tester, () => info(UpdateStatus.updateAvailable, notes: 'Page acteur.'));
 
     expect(find.text('Accueil'), findsOneWidget);
-    expect(find.text('Vixeo 1.2.0 est disponible'), findsOneWidget);
-    expect(find.text('Page acteur.'), findsOneWidget);
+    // A generic message: GitHub release notes are lists of commits, not meant for viewers.
+    expect(find.text('Une mise à jour est disponible'), findsOneWidget);
+    expect(find.textContaining('garder Vixeo à jour'), findsOneWidget);
     await tester.tap(find.text('Plus tard'));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);

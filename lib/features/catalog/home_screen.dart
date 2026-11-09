@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/device/layout.dart';
-import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
-import '../../core/widgets/focusable.dart';
 import '../library/library.dart';
 import '../tv/channel_row.dart';
 import '../tv/models.dart';
@@ -88,16 +86,10 @@ class _PhoneHome extends StatelessWidget {
             ),
           ),
         ],
-        if (channels.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          ChannelRow(channels: channels),
-        ],
+        if (channels.isNotEmpty) ...[const SizedBox(height: 24), ChannelRow(channels: channels)],
         for (final section in home.sections) ...[
           const SizedBox(height: 24),
-          PosterRow(
-            title: section.title,
-            items: section.items,
-          ),
+          PosterRow(title: section.title, items: section.items),
         ],
       ],
     );

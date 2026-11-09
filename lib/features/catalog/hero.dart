@@ -125,7 +125,8 @@ class _FeaturedCard extends ConsumerWidget {
     final year = details?.year ?? item.year;
     final duration = switch (details) {
       final d? when d.type == MediaType.movie && d.runtime != null => formatRuntime(d.runtime),
-      final d? when d.type == MediaType.tv && d.numberOfSeasons > 0 => '${d.numberOfSeasons} saison${d.numberOfSeasons > 1 ? 's' : ''}',
+      final d? when d.type == MediaType.tv && d.numberOfSeasons > 0 =>
+        '${d.numberOfSeasons} saison${d.numberOfSeasons > 1 ? 's' : ''}',
       _ => null,
     };
     final genres = details?.genres.map((g) => g.name).join(' · ') ?? '';
@@ -190,7 +191,12 @@ class _FeaturedCard extends ConsumerWidget {
                 ),
                 if (genres.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text(genres, maxLines: 1, overflow: TextOverflow.ellipsis, style: VxText.body(14, color: VxColors.textSecondary)),
+                  Text(
+                    genres,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: VxText.body(14, color: VxColors.textSecondary),
+                  ),
                 ],
                 const SizedBox(height: 14),
                 Row(

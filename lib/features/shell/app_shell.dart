@@ -58,9 +58,7 @@ class AppShell extends ConsumerWidget {
     if (layout.isPhone) {
       const navigationPages = {'/accueil', '/recherche', '/ma-liste', '/films', '/series', '/tv-live', '/profil'};
       final showNavigation = navigationPages.contains(location);
-      final index = location == '/profil'
-          ? _phoneTabs.length
-          : _phoneTabs.indexWhere((d) => location == d.path);
+      final index = location == '/profil' ? _phoneTabs.length : _phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
 
       // Content fills the screen so the glass bar can blur what is behind it.
@@ -68,11 +66,7 @@ class AppShell extends ConsumerWidget {
       final media = MediaQuery.of(context);
       final body = showNavigation
           ? MediaQuery(
-              data: media.copyWith(
-                padding: media.padding.copyWith(
-                  bottom: media.padding.bottom + _phoneNavClearance,
-                ),
-              ),
+              data: media.copyWith(padding: media.padding.copyWith(bottom: media.padding.bottom + _phoneNavClearance)),
               child: child,
             )
           : child;
@@ -172,37 +166,33 @@ class _RailItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-        message: destination.label,
-        child: VxFocusable(
-          onPressed: () => context.go(destination.path),
-          borderRadius: size * 0.25,
-          focusScale: 1.08,
-          focusNode: focusNode,
-          semanticLabel: destination.label,
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: selected ? VxColors.accent.withValues(alpha: 0.12) : Colors.transparent,
-              borderRadius: BorderRadius.circular(size * 0.25),
-            ),
-            child: Icon(
-              selected ? destination.selectedIcon : destination.icon,
-              size: size * 0.45,
-              color: selected ? VxColors.accent : VxColors.textSecondary,
-            ),
-          ),
+    message: destination.label,
+    child: VxFocusable(
+      onPressed: () => context.go(destination.path),
+      borderRadius: size * 0.25,
+      focusScale: 1.08,
+      focusNode: focusNode,
+      semanticLabel: destination.label,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: selected ? VxColors.accent.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(size * 0.25),
         ),
-      );
+        child: Icon(
+          selected ? destination.selectedIcon : destination.icon,
+          size: size * 0.45,
+          color: selected ? VxColors.accent : VxColors.textSecondary,
+        ),
+      ),
+    ),
+  );
 }
 
 /// Floating glass navigation for phones — overlays content, no opaque scaffold strip.
 class _PhoneNavigationBar extends StatelessWidget {
-  const _PhoneNavigationBar({
-    required this.selectedIndex,
-    required this.profile,
-    required this.onDestinationSelected,
-  });
+  const _PhoneNavigationBar({required this.selectedIndex, required this.profile, required this.onDestinationSelected});
 
   final int selectedIndex;
   final Profile? profile;
@@ -240,10 +230,7 @@ class _PhoneNavigationBar extends StatelessWidget {
                           onPressed: () => onDestinationSelected(i),
                           child: i == _phoneTabs.length
                               ? ProfileAvatar(profile: profile, size: 28, radius: 15)
-                              : Icon(
-                                  selectedIndex == i ? _phoneTabs[i].selectedIcon : _phoneTabs[i].icon,
-                                  size: 24,
-                                ),
+                              : Icon(selectedIndex == i ? _phoneTabs[i].selectedIcon : _phoneTabs[i].icon, size: 24),
                         ),
                       ),
                   ],
@@ -258,11 +245,7 @@ class _PhoneNavigationBar extends StatelessWidget {
 }
 
 class _PhoneNavigationItem extends StatelessWidget {
-  const _PhoneNavigationItem({
-    required this.selected,
-    required this.onPressed,
-    required this.child,
-  });
+  const _PhoneNavigationItem({required this.selected, required this.onPressed, required this.child});
 
   final bool selected;
   final VoidCallback onPressed;
@@ -282,10 +265,7 @@ class _PhoneNavigationItem extends StatelessWidget {
             height: 42,
             child: Center(
               child: IconTheme(
-                data: IconThemeData(
-                  color: selected ? VxColors.text : VxColors.textSecondary,
-                  size: 30,
-                ),
+                data: IconThemeData(color: selected ? VxColors.text : VxColors.textSecondary, size: 30),
                 child: child,
               ),
             ),

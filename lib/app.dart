@@ -37,26 +37,26 @@ class VixeoApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     return MaterialApp.router(
-    title: 'Vixeo',
-    debugShowCheckedModeBanner: false,
-    theme: buildVixeoTheme(),
-    themeMode: ThemeMode.dark,
-    routerConfig: router,
-    builder: (context, child) => UpdateGate(navigatorKey: rootNavigatorKey, child: child ?? const SizedBox()),
-    shortcuts: remoteShortcuts,
-    actions: remoteActions,
-    locale: const Locale('fr', 'FR'),
-    supportedLocales: const [Locale('fr', 'FR')],
-    localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    // Rows can also be dragged with a mouse (web, Chromebook).
-    scrollBehavior: const MaterialScrollBehavior().copyWith(
-      dragDevices: {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-        PointerDeviceKind.stylus,
-      },
-    ),
-  );
+      title: 'Vixeo',
+      debugShowCheckedModeBanner: false,
+      theme: buildVixeoTheme(),
+      themeMode: ThemeMode.dark,
+      routerConfig: router,
+      builder: (context, child) => UpdateGate(navigatorKey: rootNavigatorKey, child: child ?? const SizedBox()),
+      shortcuts: remoteShortcuts,
+      actions: remoteActions,
+      locale: const Locale('fr', 'FR'),
+      supportedLocales: const [Locale('fr', 'FR')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      // Rows can also be dragged with a mouse (web, Chromebook).
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        dragDevices: {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.trackpad,
+          PointerDeviceKind.stylus,
+        },
+      ),
+    );
   }
 }

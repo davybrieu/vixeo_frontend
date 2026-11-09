@@ -41,7 +41,6 @@ class DetailsScreen extends ConsumerWidget {
   }
 }
 
-
 void _play(BuildContext context, TitleDetails title, {int? season, int? episode}) {
   final type = title.type == MediaType.movie ? 'movie' : 'tv';
   final path = '/lecture/$type/${title.id}';
@@ -148,9 +147,8 @@ class _PeopleRow extends StatelessWidget {
   }
 }
 
-Widget _episodeSpoiler(Widget child, bool enabled) => enabled
-    ? ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 7, sigmaY: 7), child: child)
-    : child;
+Widget _episodeSpoiler(Widget child, bool enabled) =>
+    enabled ? ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 7, sigmaY: 7), child: child) : child;
 
 /// Season picker + episode list.
 class _Episodes extends ConsumerStatefulWidget {
@@ -241,7 +239,10 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                               width: 136 * s,
                               height: 77 * s,
                               child: noSpoiler
-                                  ? ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), child: NetImage(url: e.stillUrl, seed: e.id))
+                                  ? ImageFiltered(
+                                      imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                      child: NetImage(url: e.stillUrl, seed: e.id),
+                                    )
                                   : NetImage(url: e.stillUrl, seed: e.id),
                             ),
                           ),
@@ -277,7 +278,11 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                                           SizedBox(width: 3 * s),
                                           Text(
                                             formatRating(e.voteAverage),
-                                            style: VxText.body(12 * s, color: VxColors.textSecondary, weight: FontWeight.w600),
+                                            style: VxText.body(
+                                              12 * s,
+                                              color: VxColors.textSecondary,
+                                              weight: FontWeight.w600,
+                                            ),
                                           ),
                                         ],
                                       ),

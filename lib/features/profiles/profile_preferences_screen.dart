@@ -28,10 +28,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
         context,
         title: 'Format des affiches',
         selected: profile.posterFormat,
-        options: const [
-          (PosterFormat.portrait, 'Vertical'),
-          (PosterFormat.landscape, 'Horizontal'),
-        ],
+        options: const [(PosterFormat.portrait, 'Vertical'), (PosterFormat.landscape, 'Horizontal')],
       );
       if (choice == null || !context.mounted || choice.$1 == profile.posterFormat) return;
       await saveProfile(
@@ -153,19 +150,6 @@ class _Heading extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: EdgeInsets.fromLTRB(12 * scale, 0, 12 * scale, 10 * scale),
     child: Text(text, style: VxText.title(18 * scale)),
-  );
-}
-
-class _Note extends StatelessWidget {
-  const _Note(this.text, {required this.scale});
-
-  final String text;
-  final double scale;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(12 * scale, 6 * scale, 12 * scale, 0),
-    child: Text(text, style: VxText.body(13 * scale, color: VxColors.textMuted)),
   );
 }
 
