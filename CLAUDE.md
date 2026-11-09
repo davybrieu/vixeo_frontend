@@ -132,8 +132,10 @@ lib/
 - **Version et signature** : `version: x.y.z+build` dans `pubspec.yaml`. Le build doit augmenter à
   chaque version publiée. La version Release est signée avec la clé de release
   (`android/key.properties` ou variables `VIXEO_KEYSTORE_*`, jamais dans le dépôt) ; sans clé, le
-  build Release échoue. Puis la version est déclarée côté API (`php artisan vixeo:release`, avec
-  `--apk` et `--sha256`). Détails : `docs/android-release.md`.
+  build Release échoue. La CI publie chaque APK en release GitHub `android-<build>` (APK et
+  SHA-256), **seule source** des mises à jour pour l'API (plus de commande `vixeo:release`) ;
+  `[obligatoire]` dans le titre de la release impose la mise à jour. Pas d'appli iOS pour
+  l'instant (l'API répond « à jour » pour iOS). Détails : `docs/android-release.md`.
 - **Polices** : Sora et Inter sont dans `assets/fonts` (licence OFL) ; rien n'est téléchargé au
   lancement (pas de `google_fonts`).
 - **API** : passer par `ApiClient` (jeton Bearer + en-tête `X-Profile-Id` ajoutés automatiquement,

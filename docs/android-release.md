@@ -51,21 +51,22 @@ Un seul APK sert aux téléphones, aux tablettes et aux TV.
 
 ## 3. Publier
 
-1. Déposer le fichier sur le site : `public/telechargements/vixeo-1.2.0.apk` dans `vixeo_web`
-   (dossier ignoré par Git, conservé entre les déploiements).
-2. Déclarer la version dans l'API (onglet Commands de Forge) :
+La CI s'en charge (`.github/workflows/build-web.yml`) : à chaque poussée sur `main`, elle compile
+l'APK signé (clé de release dans les secrets) et le publie en **release GitHub** `android-<build>`,
+avec l'APK et son fichier `.apk.sha256`. L'API lit ces releases (c'est sa seule source, voir
+`vixeo_backend/docs/mise-a-jour.md`) : il n'y a rien à déclarer à la main.
 
-```bash
-php artisan vixeo:release android 1.2.0 14 \
-  --apk=https://<domaine>/telechargements/vixeo-1.2.0.apk \
-  --sha256=<empreinte> \
-  --notes="Nouveautés de la version."
-```
+- **Mise à jour obligatoire** (cas sérieux seulement) : sur GitHub, *Releases* → la release →
+  *Edit*, ajouter `[obligatoire]` au titre. Les versions plus anciennes affichent alors « Mise à
+  jour nécessaire ». Le retirer rend la mise à jour facultative à nouveau.
+- **Retirer une version** : supprimer la release, ou la passer en pré-version.
+- APK compilé à la main (section 2) : pour qu'il soit proposé, créer une release GitHub avec le
+  tag `android-<build>`, l'APK et un fichier `.apk.sha256` contenant son empreinte.
 
-Ensuite, automatiquement :
+Ensuite, automatiquement (dans les 5 minutes : cache de l'API) :
 - les applis installées affichent, à leur prochaine ouverture ou au retour au premier plan, la
-  barre « Une nouvelle mise à jour est disponible » avec le bouton « Télécharger » (`--required`
-  pour l'imposer : écran « Mise à jour nécessaire ») ;
+  barre « Une nouvelle mise à jour est disponible » avec le bouton « Télécharger » (écran « Mise à
+  jour nécessaire » si la release est marquée `[obligatoire]`) ;
 - le bouton « Télécharger l'APK » du site pointe vers ce fichier.
 
 ## 4. Vérifications sur un appareil
