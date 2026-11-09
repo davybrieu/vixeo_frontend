@@ -115,8 +115,15 @@ class ProfileSettingsScreen extends ConsumerWidget {
                 scale: s,
                 icon: Icons.shield_outlined,
                 title: 'Contrôle parental',
-                subtitle: 'Code parental, profil enfant et âge maximum.',
+                subtitle: 'Profil enfant, âge maximum et titres sans classification.',
                 onPressed: () => context.push('/profil/controle-parental'),
+              ),
+              _SettingsTile(
+                scale: s,
+                icon: Icons.password_rounded,
+                title: 'Code PIN',
+                subtitle: 'Code parental demandé pour créer un profil ou changer ses restrictions.',
+                onPressed: () => context.push('/profil/code-pin'),
               ),
               _SettingsTile(
                 scale: s,

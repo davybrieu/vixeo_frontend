@@ -99,11 +99,15 @@ lib/
   + code court), qui interroge `/auth/device/token` toutes les `interval` secondes et demande un
   nouveau code sur un 410. Le téléphone valide sur `/tv` (« Mon profil » → « Connecter une TV »).
   Le `device_code` reste en mémoire, jamais dans une URL.
-- **Contrôle parental** (`features/profiles/parental_control_screen.dart`, route
-  `/profil/controle-parental`) : si un PIN parental existe, il est demandé à l'arrivée, gardé en
-  mémoire tant que la page est ouverte et envoyé (`parental_pin`) avec chaque modification de
-  profil ; « Code oublié ? » désactive le contrôle avec le mot de passe du compte. Après une
-  modification : invalider `profilesProvider` et `homeProvider` (le catalogue dépend des limites).
+- **Contrôle parental** : deux pages séparées dans « Mon profil » (demande du développeur).
+  « Contrôle parental » (`parental_control_screen.dart`, `/profil/controle-parental`) : les
+  restrictions de chaque profil (profil enfant, âge maximum, titres sans classification) ; sans
+  code, une carte invite à en définir un. « Code PIN » (`parental_pin.dart`, `/profil/code-pin`) :
+  activer, changer ou désactiver le code PIN parental. Les deux passent par `ParentalPinPage` : si
+  un PIN parental existe, il est demandé à l'arrivée (`ParentalPinGate`), gardé en mémoire tant
+  que la page est ouverte et envoyé (`parental_pin` / `current_pin`) avec chaque modification ;
+  « Code oublié ? » désactive le contrôle avec le mot de passe du compte. Après une modification
+  de restriction : invalider `profilesProvider` et `homeProvider` (le catalogue dépend des limites).
 - **Mises à jour** (`features/updates`, API : `vixeo_backend/docs/mise-a-jour.md`) : sur Android et
   iOS, `UpdateGate` (dans le `builder` de `MaterialApp.router`) interroge `GET /app/update` avec le
   **build** installé (`package_info_plus`) au lancement et au retour au premier plan (toutes les 6 h
@@ -151,8 +155,11 @@ lib/
   - les rangées horizontales sont dans un `FocusTraversalGroup` ;
   - accueil grand écran : la grande image et ses informations suivent la carte sélectionnée
     (focus : tout de suite) ou survolée à la souris (`onHovered`, après 150 ms), rangée
-    « Continuer à regarder » comprise. Quand la sélection reste 400 ms sur un titre, sa fiche
-    (`titleProvider`) ajoute genres, durée ou saisons et âge conseillé. À l'arrivée, la première
+    « Continuer à regarder » comprise. Les titres de l'accueil et de la recherche arrivent avec
+    leur résumé (`MediaItem.summary` : durée ou saisons, genres, âge conseillé) : tout s'affiche
+    d'un coup (`TitleFacts`), sans requête de fiche. Seuls ceux de « Continuer à regarder » n'en ont
+    pas : leur fiche (`titleProvider`) est lue quand la sélection reste 400 ms, et note, année,
+    durée, âge et genres apparaissent ensemble (place réservée, rien ne bouge). À l'arrivée, la première
     carte de la première rangée (« Continuer à regarder » s'il y en a, sinon la première liste) a
     le focus et occupe la grande image : pas de « titre à la une » (`featured`) sur grand écran,
     ni de bouton « Plus d'infos » ; OK ou un clic sur la carte ouvre la fiche. Le carrousel du
@@ -203,10 +210,10 @@ lib/
 - **Logo du titre** (`TitleLogo`, `catalog/widgets.dart`) : fiche, grande image (accueil et
   recherche) et carrousel du téléphone écrivent le titre avec le logo TMDb (`logo_url`),
   dimensionné avant son chargement (`logo_aspect_ratio`) ; sans logo, ou s'il ne se charge pas, le
-  nom est écrit. L'accueil donne le logo avec chaque titre (logo tout de suite) ; ailleurs
-  (recherche, « Continuer à regarder »), il vient de la fiche quand la sélection s'arrête, dans une
+  nom est écrit. L'accueil et la recherche donnent le logo avec chaque titre (logo tout de suite) ;
+  pour « Continuer à regarder », il vient de la fiche quand la sélection s'arrête, dans une
   place de hauteur fixe (rien ne bouge). Carrousel du téléphone : pleine largeur, image de fond
-  (`backdrop`), logo, informations de la fiche et bouton « Voir la fiche ». Fond de
+  (`backdrop`), logo, informations données avec le titre et bouton « Voir la fiche ». Fond de
   la fiche : l'image sans texte
   (`textless_backdrop_url`, via `TitleDetails.background(size)`), sinon `backdrop_url`. Le lecteur
   d'écran lit toujours le nom.
@@ -252,7 +259,8 @@ lib/
   la distribution et la recherche), recherche (« Explorer », filtres type / genre / années /
   note, tri, grande image sur grand écran, résultats groupés, recherches récentes synchronisées),
   Ma liste, « Mon profil » (avatar par licence, paramètres d’apparence, No spoil, langues et lecture automatique,
-  contrôle parental, connecter une TV, changer de profil, compte TMDb et « Mes notes »,
+  contrôle parental et code PIN (deux pages), connecter une TV, changer de profil, compte TMDb et
+  « Mes notes »,
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
   mises à jour (Android / iOS), mises en page téléphone et TV / grand écran, navigation à la

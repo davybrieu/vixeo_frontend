@@ -226,6 +226,36 @@ void main() {
     expect(show.seasons.map((s) => s.number), [1, 0]);
   });
 
+  test('reads the length, genres and age rating given with home and search items', () {
+    final movie = MediaItem.fromJson({
+      'id': 550,
+      'type': 'movie',
+      'title': 'Fight Club',
+      'summary': {
+        'runtime': 139,
+        'number_of_seasons': null,
+        'genres': ['Drame', 'Thriller'],
+        'age_rating': 16,
+      },
+    });
+    expect(movie.summary!.length, '2 h 19');
+    expect(movie.summary!.genres, ['Drame', 'Thriller']);
+    expect(movie.summary!.ageLabel, '16+');
+
+    final show = MediaItem.fromJson({
+      'id': 1399,
+      'type': 'tv',
+      'title': 'Game of Thrones',
+      'summary': {'runtime': null, 'number_of_seasons': 1, 'genres': [], 'age_rating': 0},
+    });
+    expect(show.summary!.length, '1 saison');
+    expect(show.summary!.ageLabel, 'Tous publics');
+    expect(const TitleSummary(numberOfSeasons: 8).length, '8 saisons');
+
+    // Other lists: the title page gives them.
+    expect(MediaItem.fromJson({'id': 1, 'type': 'movie', 'title': 'Dune', 'summary': null}).summary, isNull);
+  });
+
   test('reads the episodes of a season and their air date', () {
     final season = Season.fromJson({
       'show_id': 1399,

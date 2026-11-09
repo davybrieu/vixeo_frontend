@@ -116,20 +116,11 @@ class _FeaturedCard extends ConsumerWidget {
 
   final MediaItem item;
 
-  static String _ageLabel(int age) => age == 0 ? 'Tous publics' : '$age+';
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final details = ref.watch(titleProvider((item.type, item.id))).value;
-    final rating = details?.voteAverage ?? item.voteAverage;
-    final year = details?.year ?? item.year;
-    final duration = switch (details) {
-      final d? when d.type == MediaType.movie && d.runtime != null => formatRuntime(d.runtime),
-      final d? when d.type == MediaType.tv && d.numberOfSeasons > 0 =>
-        '${d.numberOfSeasons} saison${d.numberOfSeasons > 1 ? 's' : ''}',
-      _ => null,
-    };
-    final genres = details?.genres.map((g) => g.name).join(' · ') ?? '';
+    // Home items bring their length, genres and age rating; otherwise (TMDb failed) the title page.
+    final details = item.summary == null ? ref.watch(titleProvider((item.type, item.id))).value : null;
+    final summary = item.summary ?? (details == null ? null : TitleSummary.of(details));
     return ClipRRect(
       borderRadius: BorderRadius.zero,
       child: Stack(
@@ -170,26 +161,16 @@ class _FeaturedCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Wrap(
+                TitleFacts(
+                  rating: details?.voteAverage ?? item.voteAverage,
+                  year: details?.year ?? item.year,
+                  summary: summary,
+                  fontSize: 14,
                   spacing: 10,
-                  runSpacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    if (rating > 0) TmdbRating(rating),
-                    if (year != null) Text('$year', style: VxText.body(14, color: VxColors.textSoft)),
-                    if (duration != null) Text(duration, style: VxText.body(14, color: VxColors.textSoft)),
-                    if (details?.ageRating != null) VxBadge(_ageLabel(details!.ageRating!), outlined: true),
-                  ],
+                  gap: 6,
+                  genreFontSize: 14,
+                  badgeFontSize: 12,
                 ),
-                if (genres.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    genres,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: VxText.body(14, color: VxColors.textSecondary),
-                  ),
-                ],
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -297,30 +278,18 @@ class _HeroTextState extends ConsumerState<HeroText> {
     });
   }
 
-  static String _age(int age) => age == 0 ? 'Tous publics' : '$age+';
-
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final item = widget.item;
-    final details = _settled ? ref.watch(titleProvider((item.type, item.id))).value : null;
-    // Home rows give the logo at once; elsewhere (search, "Continuer à regarder") the title page
-    // brings it once the selection rests.
+    // Home and search items bring their logo, length, genres and age rating: shown at once.
+    // "Continuer à regarder" items don't: the title page brings them when the selection rests.
+    final details = item.summary == null && _settled ? ref.watch(titleProvider((item.type, item.id))).value : null;
+    final summary = item.summary ?? (details == null ? null : TitleSummary.of(details));
     final logoUrl = item.logoUrl ?? details?.logoUrl;
     final logoRatio = item.logoUrl != null ? item.logoAspectRatio : details?.logoAspectRatio;
     final slot = layout.tv(widget.compact ? 90 : 120);
-
-    final rating = details?.voteAverage ?? item.voteAverage;
-    final year = details?.year ?? item.year;
     final overview = details?.overview ?? item.overview;
-    final length = switch (details) {
-      final d? when d.type == MediaType.movie && d.runtime != null => formatRuntime(d.runtime),
-      final d? when d.type == MediaType.tv && d.numberOfSeasons > 0 =>
-        '${d.numberOfSeasons} saison${d.numberOfSeasons > 1 ? 's' : ''}',
-      _ => null,
-    };
-    final genres = details?.genres.take(3).map((g) => g.name).join(' · ') ?? '';
-    final meta = VxText.body(layout.tv(22), color: VxColors.textSoft);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(layout.gutter, layout.tv(widget.compact ? 0 : 110), layout.gutter, layout.tv(24)),
@@ -361,27 +330,17 @@ class _HeroTextState extends ConsumerState<HeroText> {
                 ),
               ),
               SizedBox(height: layout.tv(20)),
-              Wrap(
+              TitleFacts(
+                rating: details?.voteAverage ?? item.voteAverage,
+                year: details?.year ?? item.year,
+                summary: summary,
+                fontSize: layout.tv(22),
                 spacing: layout.tv(18),
-                runSpacing: layout.tv(8),
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (rating > 0) TmdbRating(rating, fontSize: layout.tv(22)),
-                  if (year != null) Text('$year', style: meta),
-                  if (length != null) Text(length, style: meta),
-                  if (details?.ageRating != null)
-                    VxBadge(_age(details!.ageRating!), outlined: true, fontSize: layout.tv(18)),
-                ],
+                gap: layout.tv(12),
+                genreFontSize: layout.tv(20),
+                badgeFontSize: layout.tv(18),
+                maxGenres: 3,
               ),
-              if (genres.isNotEmpty) ...[
-                SizedBox(height: layout.tv(12)),
-                Text(
-                  genres,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: VxText.body(layout.tv(20), color: VxColors.textSecondary),
-                ),
-              ],
               if (overview != null) ...[
                 SizedBox(height: layout.tv(20)),
                 Text(
@@ -395,6 +354,78 @@ class _HeroTextState extends ConsumerState<HeroText> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Rating, year, length and age rating, then the genres, shown together once the [summary] is
+/// known (with the list item, or from the title page): nothing appears piece by piece. Until then,
+/// an empty space of the same height keeps the lines below in place.
+class TitleFacts extends StatelessWidget {
+  const TitleFacts({
+    super.key,
+    required this.rating,
+    required this.year,
+    required this.summary,
+    required this.fontSize,
+    required this.spacing,
+    required this.gap,
+    required this.genreFontSize,
+    required this.badgeFontSize,
+    this.maxGenres,
+  });
+
+  final double rating;
+  final int? year;
+  final TitleSummary? summary;
+  final double fontSize;
+
+  /// Between the facts of the first line.
+  final double spacing;
+
+  /// Between the two lines.
+  final double gap;
+  final double genreFontSize;
+  final double badgeFontSize;
+  final int? maxGenres;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = this.summary;
+    final meta = VxText.body(fontSize, color: VxColors.textSoft);
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      layoutBuilder: (current, previous) => Stack(alignment: Alignment.topLeft, children: [...previous, ?current]),
+      child: summary == null
+          ? SizedBox(key: const ValueKey('waiting'), height: fontSize * 1.6 + gap + genreFontSize * 1.45)
+          : Column(
+              key: const ValueKey('facts'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Wrap(
+                  spacing: spacing,
+                  runSpacing: fontSize * 0.4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (rating > 0) TmdbRating(rating, fontSize: fontSize),
+                    if (year != null) Text('$year', style: meta),
+                    if (summary.length != null) Text(summary.length!, style: meta),
+                    if (summary.ageLabel != null) VxBadge(summary.ageLabel!, outlined: true, fontSize: badgeFontSize),
+                  ],
+                ),
+                if (summary.genres.isNotEmpty) ...[
+                  SizedBox(height: gap),
+                  Text(
+                    (maxGenres == null ? summary.genres : summary.genres.take(maxGenres!)).join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: VxText.body(genreFontSize, color: VxColors.textSecondary),
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }

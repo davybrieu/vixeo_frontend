@@ -15,6 +15,7 @@ import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/person_screen.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/parental_control_screen.dart';
+import 'package:vixeo/features/profiles/parental_pin.dart';
 import 'package:vixeo/features/profiles/profiles_screen.dart';
 
 const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: true);
@@ -60,8 +61,18 @@ class FakeAuth extends AuthRepository {
   @override
   Future<void> approveDeviceLogin(String userCode) async => approved.add(userCode);
 
+  /// What `GET /me` answers (parental control on or off).
+  User user = davy;
+  final pinsSet = <String>[];
+
   @override
-  Future<User> me() async => davy;
+  Future<User> me() async => user;
+
+  @override
+  Future<void> setParentalPin(String pin, {String? currentPin, String? password}) async {
+    pinsSet.add(currentPin == null ? pin : '$currentPin→$pin');
+    user = const User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: true);
+  }
 
   @override
   Future<List<Profile>> profiles() async => const [lea];
@@ -90,6 +101,13 @@ class FakeAuth extends AuthRepository {
 class SignedIn extends SessionController {
   @override
   SessionState build() => const SessionState(status: SessionStatus.signedIn, token: 't', user: davy);
+}
+
+const noParentalControl = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
+
+class SignedInWithoutPin extends SessionController {
+  @override
+  SessionState build() => const SessionState(status: SessionStatus.signedIn, token: 't', user: noParentalControl);
 }
 
 Widget wrap(Widget child, FakeAuth auth, {List overrides = const []}) => ProviderScope(
@@ -192,6 +210,64 @@ void main() {
     await tester.tap(find.text('12 ans'));
     await tester.pumpAndSettle();
     expect(auth.updates.last, {'max_age_rating': 12, 'parental_pin': '9999'});
+  });
+
+  testWidgets('"Code PIN" page: turns the parental PIN on, then offers to change it', (tester) async {
+    final auth = FakeAuth()..user = noParentalControl;
+    await tester.pumpWidget(
+      wrap(const ParentalPinScreen(), auth, overrides: [sessionProvider.overrideWith(SignedInWithoutPin.new)]),
+    );
+    await tester.pumpAndSettle();
+
+    // Only the PIN here: the restrictions are on "Contrôle parental".
+    expect(find.text('Restrictions des profils'), findsNothing);
+    expect(find.text('Désactivé'), findsOneWidget);
+
+    await tester.tap(find.text('Activer le contrôle parental'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), '1234');
+    await tester.enterText(find.byType(TextField).at(1), '1234');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    expect(auth.pinsSet, ['1234']);
+    expect(find.text('Contrôle parental activé'), findsOneWidget);
+    expect(find.text('Changer le code'), findsOneWidget);
+    expect(find.text('Activé'), findsOneWidget);
+  });
+
+  testWidgets('"Code PIN" page: asks the current PIN when one is set', (tester) async {
+    final auth = FakeAuth();
+    await tester.pumpWidget(
+      wrap(const ParentalPinScreen(), auth, overrides: [sessionProvider.overrideWith(SignedIn.new)]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Changer le code'), findsNothing);
+    await tester.enterText(find.byType(TextField), '9999');
+    await tester.tap(find.text('Valider'));
+    await tester.pumpAndSettle();
+    expect(find.text('Changer le code'), findsOneWidget);
+    expect(find.text('Désactiver'), findsOneWidget);
+  });
+
+  testWidgets('parental control without a PIN: the restrictions, and a way to set a code', (tester) async {
+    final auth = FakeAuth()..user = noParentalControl;
+    await tester.pumpWidget(
+      wrap(const ParentalControlScreen(), auth, overrides: [sessionProvider.overrideWith(SignedInWithoutPin.new)]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Aucun code PIN parental'), findsOneWidget);
+    expect(find.text('Définir un code PIN'), findsOneWidget);
+    expect(find.text('Activer le contrôle parental'), findsNothing);
+    expect(find.text('Restrictions des profils'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('12 ans'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('12 ans'));
+    await tester.pumpAndSettle();
+    expect(auth.updates.last, {'max_age_rating': 12});
   });
 
   test('reads a person and formats dates the French way', () {

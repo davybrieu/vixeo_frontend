@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 // Models mirroring the API's catalog resources (see vixeo_backend/docs/openapi.json).
 
 enum MediaType {
@@ -31,6 +33,7 @@ class MediaItem {
     this.logoAspectRatio,
     this.textlessPosterUrl,
     this.textlessPosterPath,
+    this.summary,
   });
 
   factory MediaItem.fromJson(Map<String, dynamic> json) => MediaItem(
@@ -48,6 +51,9 @@ class MediaItem {
     logoAspectRatio: (json['logo_aspect_ratio'] as num?)?.toDouble(),
     textlessPosterUrl: json['textless_poster_url'] as String?,
     textlessPosterPath: json['textless_poster_path'] as String?,
+    summary: json['summary'] is Map<String, dynamic>
+        ? TitleSummary.fromJson(json['summary'] as Map<String, dynamic>)
+        : null,
   );
 
   final int id;
@@ -68,6 +74,9 @@ class MediaItem {
   /// Poster without text, to show under the logo (phone carousel). Home rows only.
   final String? textlessPosterUrl;
   final String? textlessPosterPath;
+
+  /// Length, genres and age rating, given with home and search items: the hero shows them at once.
+  final TitleSummary? summary;
 
   /// Identity used by the sync API (`source` = "tmdb").
   String get syncId => '${type.name}:$id';
@@ -136,6 +145,47 @@ class Genre {
 }
 
 /// One page of a paginated list (`data` + `meta`: discover, search by type).
+/// What the hero shows besides the name: length, genres, age rating (API `summary` of home and
+/// search items, or taken from the title page).
+@immutable
+class TitleSummary {
+  const TitleSummary({this.runtime, this.numberOfSeasons, this.genres = const [], this.ageRating});
+
+  factory TitleSummary.fromJson(Map<String, dynamic> json) => TitleSummary(
+    runtime: json['runtime'] as int?,
+    numberOfSeasons: json['number_of_seasons'] as int?,
+    genres: [if (json['genres'] is List) ...(json['genres'] as List).whereType<String>()],
+    ageRating: json['age_rating'] as int?,
+  );
+
+  factory TitleSummary.of(TitleDetails title) => TitleSummary(
+    runtime: title.type == MediaType.movie ? title.runtime : null,
+    numberOfSeasons: title.type == MediaType.tv && title.numberOfSeasons > 0 ? title.numberOfSeasons : null,
+    genres: [for (final g in title.genres) g.name],
+    ageRating: title.ageRating,
+  );
+
+  /// Movie length in minutes.
+  final int? runtime;
+
+  /// TV show: number of seasons.
+  final int? numberOfSeasons;
+  final List<String> genres;
+
+  /// Minimum age (0 = all audiences).
+  final int? ageRating;
+
+  /// "2 h 19", "3 saisons".
+  String? get length => runtime != null
+      ? formatRuntime(runtime)
+      : numberOfSeasons == null
+      ? null
+      : '$numberOfSeasons saison${numberOfSeasons! > 1 ? 's' : ''}';
+
+  /// "Tous publics", "12+".
+  String? get ageLabel => ageRating == null ? null : (ageRating == 0 ? 'Tous publics' : '$ageRating+');
+}
+
 class Paged<T> {
   const Paged({required this.items, this.page = 1, this.totalPages = 1});
 

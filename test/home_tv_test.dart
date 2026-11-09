@@ -42,16 +42,27 @@ final home = Home(
   ],
 );
 
-Future<void> pumpHome(WidgetTester tester, {LibraryController Function() library = EmptyLibrary.new}) async {
+/// Title pages asked by the hero.
+final asked = <int>[];
+
+Future<void> pumpHome(
+  WidgetTester tester, {
+  LibraryController Function() library = EmptyLibrary.new,
+  Home? withHome,
+}) async {
+  asked.clear();
   tester.view.physicalSize = const Size(1920, 1080);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        homeProvider.overrideWith((ref, type) async => home),
+        homeProvider.overrideWith((ref, type) async => withHome ?? home),
         libraryProvider.overrideWith(library),
-        titleProvider.overrideWith((ref, key) async => details(key)),
+        titleProvider.overrideWith((ref, key) async {
+          asked.add(key.$2);
+          return details(key);
+        }),
       ],
       child: MaterialApp(
         shortcuts: remoteShortcuts,
@@ -137,6 +148,46 @@ void main() {
     expect(find.text('2 h 06'), findsOneWidget);
     expect(find.text('12+'), findsOneWidget);
     expect(find.text('Résumé complet du titre 3'), findsOneWidget);
+  });
+
+  testWidgets('home items bring their length, genres and age rating: shown at once, no title page', (tester) async {
+    const summary = TitleSummary(runtime: 139, genres: ['Drame', 'Thriller'], ageRating: 16);
+    MediaItem full(int id, String title) => MediaItem(
+      id: id,
+      type: MediaType.movie,
+      title: title,
+      year: 1999,
+      overview: 'Résumé de $title',
+      summary: summary,
+    );
+    await pumpHome(
+      tester,
+      withHome: Home(
+        featured: const [],
+        sections: [
+          Section(
+            key: 'movie_trending',
+            title: 'Films tendance',
+            type: MediaType.movie,
+            list: 'trending',
+            items: [full(2, 'Orbite 9'), full(3, 'Le Phare')],
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('2 h 19'), findsOneWidget);
+    expect(find.text('Drame · Thriller'), findsOneWidget);
+    expect(find.text('16+'), findsOneWidget);
+    expect(find.text('1999'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(find.text('Résumé de Le Phare'), findsOneWidget);
+    expect(find.text('2 h 19'), findsOneWidget, reason: 'at once, not after a pause');
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pumpAndSettle();
+    expect(asked, isEmpty);
   });
 
   testWidgets('the hero follows the mouse too', (tester) async {
