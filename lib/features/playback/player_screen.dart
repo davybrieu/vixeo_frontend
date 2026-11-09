@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
-import '../../core/api/api_client.dart';
+import '../../core/api/api_exception.dart';
 import '../auth/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
@@ -69,6 +69,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Timer? _hideTimer;
   String? _error;
 
+  /// A source is being resolved (extractor running): show a spinner, block the panel.
+  bool _resolving = false;
+
   PlaybackItem get _item => (type: widget.type, id: widget.id, season: widget.season, episode: widget.episode);
 
   @override
@@ -90,40 +93,59 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _scheduleHide();
   }
 
+  /// Resolves the link through the API, then plays the resulting stream.
+  ///
+  /// The player never loads the raw player page: it can't be played and would leak the
+  /// third-party page into the app. When the extractor fails, an error is shown instead.
   Future<void> _playSource(StreamSource source) async {
     setState(() {
       _error = null;
+      _resolving = true;
       _currentSource = source;
       _sourcesPanelOpen = false;
     });
-    _showControls();
+    _hideTimer?.cancel();
 
     await _controller?.dispose();
     _controller = null;
 
-    // Try to extract m3u8 via scraper if available, otherwise play direct
-    String playUrl = source.url;
+    final ResolvedStream resolved;
     try {
-      final api = ref.read(apiClientProvider);
-      final extracted = await api.post('/extract', body: {'url': source.url});
-      if (extracted is Map && extracted['url'] is String) {
-        playUrl = extracted['url'] as String;
-      }
+      resolved = await ref.read(playbackRepositoryProvider).resolve(source.url);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _resolving = false;
+        _error = e.message;
+      });
+      return;
     } catch (_) {
-      // No extract endpoint on Laravel yet — fall back to direct URL
+      if (!mounted) return;
+      setState(() {
+        _resolving = false;
+        _error = 'Impossible de lire cette source.';
+      });
+      return;
     }
 
-    final ctrl = VideoPlayerController.networkUrl(Uri.parse(playUrl));
+    if (!mounted) return;
+    final ctrl = VideoPlayerController.networkUrl(
+      Uri.parse(resolved.stream),
+      httpHeaders: resolved.headers,
+    );
     _controller = ctrl;
     try {
       await ctrl.initialize();
       if (!mounted) return;
-      setState(() {});
+      setState(() => _resolving = false);
       await ctrl.play();
       _scheduleHide();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Impossible de lire cette source.');
+      setState(() {
+        _resolving = false;
+        _error = 'Impossible de lire cette source.';
+      });
     }
   }
 
@@ -160,7 +182,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 ),
               )
             else
-              const Center(child: CircularProgressIndicator(color: VxColors.accent)),
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: VxColors.accent),
+                    if (_resolving) ...[
+                      const SizedBox(height: 16),
+                      Text('Extraction du flux…', style: VxText.body(15, color: VxColors.textSoft)),
+                    ],
+                  ],
+                ),
+              ),
 
             // Top gradient + title
             AnimatedOpacity(
@@ -447,6 +480,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             Expanded(
               child: AsyncView(
                 value: widget.sources,
+                loading: const _SourcesLoading(),
                 data: (list) {
                   if (list.isEmpty) {
                     return const Center(
@@ -582,6 +616,30 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shown while the API searches the providers (can take tens of seconds).
+class _SourcesLoading extends StatelessWidget {
+  const _SourcesLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(color: VxColors.accent),
+          const SizedBox(height: 16),
+          Text('Recherche des liens…', style: VxText.body(15, color: VxColors.textSoft)),
+          const SizedBox(height: 4),
+          Text(
+            'Cela peut prendre quelques secondes.',
+            style: VxText.body(12, color: VxColors.textMuted),
+          ),
+        ],
       ),
     );
   }
