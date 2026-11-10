@@ -79,9 +79,12 @@ class ChannelSearchResults extends ConsumerWidget {
 }
 
 /// Opens the live player at once; it asks for the stream itself (shared by hub and search).
+///
+/// On the root navigator: full screen, above the navigation (rail on large screens, tab bar on
+/// phones), not inside the content area of the shell.
 Future<void> playLiveChannel(BuildContext context, WidgetRef ref, TvChannel channel) {
   final repository = ref.read(tvRepositoryProvider);
-  return Navigator.of(context).push(
+  return Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute(
       builder: (_) => LivePlayerScreen(title: channel.name, loadStream: () => repository.stream(channel.id)),
     ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +8,7 @@ import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/tv/channel_row.dart';
 import 'package:vixeo/features/tv/channel_screen.dart';
+import 'package:vixeo/features/tv/live_player_screen.dart';
 import 'package:vixeo/features/tv/models.dart';
 import 'package:vixeo/features/tv/tv_repository.dart';
 
@@ -144,4 +147,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('page tf1 true'), findsOneWidget);
   });
+
+  testWidgets('« Regarder » opens the player full screen, above the navigation rail', (tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final router = GoRouter(
+      initialLocation: '/chaine/tf1',
+      routes: [
+        // Like AppShell on a large screen: a rail beside the pages.
+        ShellRoute(
+          builder: (_, _, child) => Scaffold(
+            body: Row(
+              children: [
+                const SizedBox(width: 80, child: Text('Rail de navigation')),
+                Expanded(child: child),
+              ],
+            ),
+          ),
+          routes: [
+            GoRoute(
+              path: '/chaine/:id',
+              builder: (_, _) => const ChannelScreen(id: 'tf1', initial: tf1),
+            ),
+          ],
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tvChannelProvider.overrideWith((ref, id) async => tf1),
+          tvGuideProvider.overrideWith((ref, id) async => const TvGuide(available: false, programmes: [])),
+          tvCategoriesProvider.overrideWith((ref) async => const []),
+          tvRepositoryProvider.overrideWithValue(_PendingStream()),
+          libraryProvider.overrideWith(EmptyLibrary.new),
+        ],
+        child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Rail de navigation'), findsOneWidget);
+
+    await tester.tap(find.text('Regarder'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(LivePlayerScreen), findsOneWidget);
+    // The player covers the whole screen: the rail is no longer shown.
+    expect(find.text('Rail de navigation'), findsNothing);
+  });
+}
+
+/// The stream never arrives: the player stays on its loading.
+class _PendingStream implements TvRepository {
+  @override
+  Future<TvStream> stream(String channelId) => Completer<TvStream>().future;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
