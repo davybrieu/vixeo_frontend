@@ -83,6 +83,7 @@ lib/
                  recherches récentes synchronisées (search_history.dart)
     playback/    pour le futur lecteur : moments à passer (TheIntroDB) et sous-titres (OpenSubtitles),
                  via l'API
+    tv/          TV en direct : catégories et chaînes de l'API, lecture d'un flux (HLS)
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
     tmdb/        compte TMDb du profil (page Connexions, QR code), notes et commentaires (fenêtre,
                  boutons, onglet « Avis »)
@@ -104,6 +105,14 @@ lib/
   + code court), qui interroge `/auth/device/token` toutes les `interval` secondes et demande un
   nouveau code sur un 410. Le téléphone valide sur `/tv` (« Mon profil » → « Connecter une TV »).
   Le `device_code` reste en mémoire, jamais dans une URL.
+- **TV en direct** (`features/tv`, API : `vixeo_backend/docs/tv-direct.md`) : `TvHubScreen` affiche
+  les catégories (`/tv/categories`) et les chaînes (`/tv/channels`) ; toucher une chaîne demande son
+  flux (`/tv/channels/{id}/stream`) puis ouvre `LivePlayerScreen`. L'API renvoie une URL sur **notre
+  propre origine** (un proxy signé, jamais l'adresse du fournisseur) ; `TvStream.headers` reste
+  vide et est tout de même transmis au lecteur. Sur le web, les navigateurs autres que Safari ne
+  lisent pas le HLS : `web/hls.min.js` (hls.js, Apache-2.0, servi depuis notre origine, licence
+  dans « Licences ») est chargé par `web/index.html` et le plugin `video_player_web_hls` s'en sert
+  pour les flux HLS. Android / iOS / Safari lisent le HLS nativement. Test : `test/web_hls_test.dart`.
 - **Contrôle parental** : deux pages séparées dans « Mon profil » (demande du développeur).
   « Contrôle parental » (`parental_control_screen.dart`, `/profil/controle-parental`) : les
   restrictions de chaque profil (profil enfant, âge maximum, titres sans classification) ; sans
@@ -302,7 +311,8 @@ lib/
   connecter une TV, changer de profil, Connexions (TMDb),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
-  mises à jour (Android / iOS), mises en page téléphone et TV / grand écran, navigation à la
+  mises à jour (Android / iOS), TV en direct (catégories, chaînes, lecture du flux ; HLS sur le
+  web via hls.js), mises en page téléphone et TV / grand écran, navigation à la
   télécommande.
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
 - Vérifié de bout en bout (web) contre l'API Laravel locale avec un faux TMDb.

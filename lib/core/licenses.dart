@@ -10,5 +10,7 @@ void registerBundledLicenses() {
         '$family (police)',
       ], await rootBundle.loadString('assets/fonts/OFL-$family.txt'));
     }
+    // hls.js, bundled in web/hls.min.js to play HLS in browsers without native support.
+    yield LicenseEntryWithLineBreaks(['hls.js'], await rootBundle.loadString('assets/licenses/hls-js-Apache-2.0.txt'));
   });
 }

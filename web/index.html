@@ -96,6 +96,10 @@
       if (loader) loader.classList.add('is-hidden');
     }, { once: true });
   </script>
+  <!-- HLS on the web: Safari plays HLS natively, Chrome/Firefox/Edge do not. This bundled copy of
+       hls.js (Apache-2.0, licence in assets/licenses) feeds the player's <video> element.
+       Served from our own origin: the app never loads code from a third-party server. -->
+  <script src="hls.min.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
