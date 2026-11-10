@@ -9,11 +9,14 @@ import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/tv/live_player_screen.dart';
 import 'package:vixeo/features/tv/models.dart';
 
-/// Video playback without a real player: URLs in [failing] refuse to start.
+/// Video playback without a real player: URLs in [failing] refuse to start; URLs in [stalled]
+/// "play" with a still image (what a stream the browser cannot decode does on the web).
 class FakeVideoPlatform extends VideoPlayerPlatform {
-  FakeVideoPlatform({this.failing = const {}});
+  FakeVideoPlatform({this.failing = const {}, this.stalled = const {}});
 
   final Set<String> failing;
+  final Set<String> stalled;
+  final _positions = <int, Duration>{};
   final created = <String>[];
   final volumes = <double>[];
   int plays = 0;
@@ -77,7 +80,12 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   @override
   Future<void> seekTo(int playerId, Duration position) async {}
   @override
-  Future<Duration> getPosition(int playerId) async => Duration.zero;
+  Future<Duration> getPosition(int playerId) async {
+    final position = _positions[playerId] ?? Duration.zero;
+    if (!_playing || stalled.contains(_urls[playerId])) return position;
+    return _positions[playerId] = position + const Duration(milliseconds: 100);
+  }
+
   @override
   Future<void> setMixWithOthers(bool mixWithOthers) async {}
   @override
@@ -97,9 +105,10 @@ const stream = TvStream(
 Future<FakeVideoPlatform> openPlayer(
   WidgetTester tester, {
   Set<String> failing = const {},
+  Set<String> stalled = const {},
   Future<TvStream> Function()? loadStream,
 }) async {
-  final platform = FakeVideoPlatform(failing: failing);
+  final platform = FakeVideoPlatform(failing: failing, stalled: stalled);
   VideoPlayerPlatform.instance = platform;
   await tester.pumpWidget(
     MaterialApp(
@@ -115,7 +124,8 @@ Future<FakeVideoPlatform> openPlayer(
 Future<void> settle(WidgetTester tester) async {
   for (var i = 0; i < 5; i++) {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 5)));
-    await tester.pump(const Duration(milliseconds: 50));
+    // Long enough for the player to see the image move (a position read every 500 ms).
+    await tester.pump(const Duration(milliseconds: 300));
   }
 }
 
@@ -242,6 +252,40 @@ void main() {
     await settle(tester);
     expect(calls, 2);
     expect(find.text('EN DIRECT'), findsOneWidget);
+    await closePlayer(tester);
+  });
+
+  testWidgets('a source whose image does not move keeps the controls, then gives way to the next', (tester) async {
+    final platform = await openPlayer(tester, stalled: {'https://api.test/tv/stream/a'});
+    expect(platform.created, ['https://api.test/tv/stream/a']);
+
+    // Never a black screen alone: the controls and a spinner stay, without « EN DIRECT ».
+    await tester.pump(LivePlayerScreen.hideDelay);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      tester
+          .widget<AnimatedOpacity>(find.ancestor(of: find.text('France 2'), matching: find.byType(AnimatedOpacity)))
+          .opacity,
+      1,
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('EN DIRECT'), findsNothing);
+
+    await tester.pump(LivePlayerScreen.stallTimeout);
+    await settle(tester);
+    expect(platform.created.last, 'https://api.test/tv/stream/b');
+    expect(find.text('EN DIRECT'), findsOneWidget);
+    await closePlayer(tester);
+  });
+
+  testWidgets('no source moves: the error and « Réessayer » instead of a black screen', (tester) async {
+    await openPlayer(tester, stalled: {'https://api.test/tv/stream/a', 'https://api.test/tv/stream/b'});
+    for (var i = 0; i < 2; i++) {
+      await tester.pump(LivePlayerScreen.stallTimeout);
+      await settle(tester);
+    }
+    expect(find.text('Impossible de lire cette chaîne.'), findsOneWidget);
+    expect(find.text('Réessayer'), findsOneWidget);
     await closePlayer(tester);
   });
 }

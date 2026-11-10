@@ -37,6 +37,13 @@ class LivePlayerScreen extends StatefulWidget {
   /// How long the controls stay on screen without any action, while playing.
   static const hideDelay = Duration(seconds: 4);
 
+  /// How long a source may "play" without its image moving before the next one is tried.
+  ///
+  /// On the web, a stream the browser cannot decode (H.265…) makes hls.js fail, but
+  /// video_player_web_hls cannot read that error: the controller says it plays while the screen
+  /// stays black. The position not moving is the only sign of it (and of a stalled proxy).
+  static const stallTimeout = Duration(seconds: 15);
+
   @override
   State<LivePlayerScreen> createState() => _LivePlayerScreenState();
 }
@@ -55,6 +62,13 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   bool _failed = false;
   bool _playing = false;
   bool _buffering = false;
+
+  /// The image moves: the position changed since this source started. Until then, a spinner
+  /// stays on screen with the controls (nothing to watch yet).
+  bool _progressing = false;
+  Duration? _lastPosition;
+  Duration _stalledFor = Duration.zero;
+  Timer? _watchdog;
 
   bool _controlsVisible = true;
   Timer? _hideTimer;
@@ -105,6 +119,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _watchdog?.cancel();
     _controller?.dispose();
     _playFocus.dispose();
     exitFullscreen();
@@ -117,6 +132,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   /// Builds the controller for the current candidate, plays it, or moves on to the next one.
   Future<void> _startCurrent() async {
     if (!mounted) return;
+    _watchdog?.cancel();
 
     if (_index >= _sources.length) {
       setState(() {
@@ -132,7 +148,10 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
       _failed = false;
       _playing = false;
       _buffering = false;
+      _progressing = false;
     });
+    _lastPosition = null;
+    _stalledFor = Duration.zero;
 
     final previous = _controller;
     _controller = null;
@@ -163,7 +182,39 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     // A live stream may need a user gesture to start on the web: a blocked play() leaves the
     // controller paused, and a tap (or the play button) starts it.
     await controller.play();
-    if (mounted) setState(() {});
+    if (!mounted || controller != _controller) return;
+    setState(() {});
+    _watchdog = Timer.periodic(_watchdogTick, (_) => _checkStall(controller));
+  }
+
+  static const _watchdogTick = Duration(milliseconds: 500);
+
+  /// Watches the image move. A source that "plays" with a still image for
+  /// [LivePlayerScreen.stallTimeout] is given up for the next one; a pause (or a start refused by
+  /// the browser) is not a stall.
+  ///
+  /// The position is asked to the player (`controller.position`): `value.position` is clamped to
+  /// the duration, and a live stream on the web has none (it never moves there).
+  Future<void> _checkStall(VideoPlayerController controller) async {
+    if (controller != _controller || !mounted) return;
+    final position = await controller.position;
+    if (controller != _controller || !mounted) return;
+
+    // The first position seen is only a reference: a live stream can start anywhere.
+    final moved = position != null && _lastPosition != null && position != _lastPosition;
+    _lastPosition = position;
+    if (moved) {
+      _stalledFor = Duration.zero;
+      if (!_progressing) {
+        setState(() => _progressing = true);
+        _scheduleHide();
+      }
+    } else if (controller.value.isPlaying) {
+      _stalledFor += _watchdogTick;
+      if (_stalledFor >= LivePlayerScreen.stallTimeout) _advance(controller);
+    } else {
+      _stalledFor = Duration.zero;
+    }
   }
 
   void _onValueChanged(VideoPlayerController controller) {
@@ -195,6 +246,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   /// first counts, since the controller is no longer the current one after it.
   void _advance(VideoPlayerController failed) {
     if (failed != _controller || !mounted) return;
+    _watchdog?.cancel();
     _controller = null;
     // Not during its own notification (ChangeNotifier forbids it): right after.
     Future.microtask(failed.dispose);
@@ -272,7 +324,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   // Controls visibility
 
   /// The controls can hide only while the stream plays.
-  bool get _canHide => _ready && _playing && !_failed;
+  bool get _canHide => _ready && _playing && _progressing && !_failed;
 
   void _scheduleHide() {
     _hideTimer?.cancel();
@@ -373,7 +425,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
               ),
               if (_failed)
                 _FailedMessage(message: _loadError, onRetry: _retry)
-              else if (!ready || _buffering)
+              else if (!ready || _buffering || (_playing && !_progressing))
                 const IgnorePointer(
                   child: Center(child: CircularProgressIndicator(color: VxColors.accent)),
                 )
@@ -387,7 +439,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
                 alignment: Alignment.topCenter,
                 child: _TopBar(
                   title: widget.title,
-                  live: ready && _playing,
+                  live: ready && _playing && _progressing,
                   onBack: () => Navigator.of(context).maybePop(),
                 ),
               ),
@@ -575,7 +627,10 @@ class _BottomBar extends StatelessWidget {
                 ),
                 if (volumeSlider)
                   SizedBox(
+                    // A Slider takes all the height it is given: without one, the bar would fill
+                    // the screen (and its gradient darken the whole image).
                     width: 120,
+                    height: 48,
                     child: SliderTheme(
                       data: SliderTheme.of(context).copyWith(
                         activeTrackColor: VxColors.accent,

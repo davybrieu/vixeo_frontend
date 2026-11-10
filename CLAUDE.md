@@ -114,7 +114,11 @@ lib/
   sur TV : `fullscreen/`), masqués après 4 s de lecture, rappelés par un appui, la souris ou une
   touche (la première touche de la télécommande ne fait que les montrer) ; raccourcis K, M, F et
   touches média. Une source qui refuse de démarrer passe à la suivante (une seule fois par
-  échec). Test : `test/live_player_test.dart`. L'API renvoie une URL sur **notre
+  échec), comme une source dont l'image ne bouge pas pendant 15 s (`stallTimeout`) : sur le web,
+  un flux que le navigateur ne sait pas décoder (H.265…) fait échouer hls.js, mais
+  `video_player_web_hls` ne sait pas lire cette erreur et l'écran restait noir. Le lecteur lit
+  donc la position réelle (`controller.position`, pas `value.position`, figée pour un direct) ;
+  tant que l'image ne bouge pas, les contrôles et un indicateur restent affichés. Test : `test/live_player_test.dart`. L'API renvoie une URL sur **notre
   propre origine** (un proxy signé, jamais l'adresse du fournisseur) ; `TvStream.headers` reste
   vide et est tout de même transmis au lecteur. Sur le web, les navigateurs autres que Safari ne
   lisent pas le HLS : `web/hls.min.js` (hls.js, Apache-2.0, servi depuis notre origine, licence
