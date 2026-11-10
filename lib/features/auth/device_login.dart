@@ -85,10 +85,9 @@ class _TvCodeCardState extends ConsumerState<TvCodeCard> {
     if (_error != null) {
       body = ErrorPanel(error: _error!, onRetry: _start);
     } else if (code == null) {
-      body = SizedBox(
-        height: 200 * k,
-        child: const Center(child: CircularProgressIndicator()),
-      );
+      // Quiet placeholder while the code is asked for: no spinner on the sign-in page (the
+      // start-up loading is the only one), the QR code then takes its place.
+      body = _CodePlaceholder(k: k);
     } else {
       body = Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,6 +169,48 @@ class _TvCodeCardState extends ConsumerState<TvCodeCard> {
   }
 
   static String _shortUrl(String url) => url.replaceFirst(RegExp(r'^https?://'), '');
+}
+
+/// The shape of the QR code and the code, empty, while they are asked for.
+class _CodePlaceholder extends StatelessWidget {
+  const _CodePlaceholder({required this.k});
+
+  final double k;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = VxColors.text.withValues(alpha: 0.06);
+    Widget bar(double width, double height) => Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(color: fill, borderRadius: BorderRadius.circular(6 * k)),
+    );
+    return ExcludeSemantics(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 220 * k,
+            height: 220 * k,
+            decoration: BoxDecoration(color: fill, borderRadius: BorderRadius.circular(14 * k)),
+          ),
+          SizedBox(width: 24 * k),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                bar(260 * k, 18 * k),
+                SizedBox(height: 16 * k),
+                bar(180 * k, 18 * k),
+                SizedBox(height: 18 * k),
+                bar(200 * k, 44 * k),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Page opened by the QR code (`/tv?code=K7F29Q`): a signed-in person signs the TV in.

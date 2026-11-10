@@ -7,9 +7,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/app_loading.dart';
 import '../../core/widgets/focusable.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
+import '../catalog/catalog_repository.dart';
 import '../profiles/avatars.dart';
 import 'back_navigation_guard.dart';
 
@@ -45,6 +47,9 @@ const _railItems = [
   _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
 ];
 
+/// The home page was drawn once since the app started (see [AppShell.build]).
+bool _homeShown = false;
+
 /// Main navigation: bottom tab bar on phones, left rail elsewhere (TV, tablet, desktop).
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.location, required this.child});
@@ -56,6 +61,20 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final profile = ref.watch(sessionProvider).profile;
+
+    // First load of the home page after the start: the start-up loading stays alone on screen,
+    // without the navigation, until the home page can be drawn. Only once: coming back to the
+    // home page later shows its own loading inside the navigation.
+    if (location == '/accueil' && !_homeShown) {
+      final home = ref.watch(homeProvider(null));
+      if (!home.hasValue && !home.hasError) {
+        return BackNavigationGuard(
+          location: location,
+          child: const Scaffold(body: AppLoading()),
+        );
+      }
+      _homeShown = true;
+    }
 
     if (layout.isPhone) {
       const navigationPages = {

@@ -159,6 +159,13 @@ lib/
   SHA-256), **seule source** des mises à jour pour l'API (plus de commande `vixeo:release`) ;
   `[obligatoire]` dans le titre de la release impose la mise à jour. Pas d'appli iOS pour
   l'instant (l'API répond « à jour » pour iOS). Détails : `docs/android-release.md`.
+- **Chargement au démarrage** (demande du développeur : un seul chargement) : `web/index.html`
+  n'affiche rien avant Flutter (fond sombre seulement, pas d'écran HTML). Ensuite, un seul
+  chargement : `AppLoading` (`core/widgets/app_loading.dart`, logo + cercle), affiché par
+  l'écran de démarrage (`/demarrage`), par « Qui regarde ? » tant que les profils chargent et par
+  `AppShell` au premier chargement de l'accueil (sans la navigation, une seule fois par lancement).
+  La carte TV de la connexion montre une forme vide, pas de cercle, en attendant son code. Ne pas
+  ajouter d'autre indicateur au démarrage. Test : `test/app_loading_test.dart`.
 - **Polices** : Sora et Inter sont dans `assets/fonts` (licence OFL) ; rien n'est téléchargé au
   lancement (pas de `google_fonts`).
 - **API** : passer par `ApiClient` (jeton Bearer + en-tête `X-Profile-Id` ajoutés automatiquement,

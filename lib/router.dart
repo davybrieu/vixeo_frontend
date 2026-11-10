@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/theme.dart';
+import 'core/widgets/app_loading.dart';
 import 'core/widgets/common.dart';
 import 'features/account/account_screen.dart';
 import 'features/account/devices_screen.dart';
@@ -167,14 +168,15 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-/// Shown while the saved session is checked, or when the API cannot be reached.
+/// Shown while the saved session is checked (the start-up loading, [AppLoading]), or when the
+/// API cannot be reached.
 class SplashScreen extends ConsumerWidget {
   const SplashScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
-    final unreachable = session.status == SessionStatus.unreachable;
+    if (session.status != SessionStatus.unreachable) return const Scaffold(body: AppLoading());
     return Scaffold(
       body: Center(
         child: Column(
@@ -182,23 +184,20 @@ class SplashScreen extends ConsumerWidget {
           children: [
             const VxLogo(size: 40),
             const SizedBox(height: 32),
-            if (unreachable) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  session.message ?? 'Impossible de joindre le serveur.',
-                  textAlign: TextAlign.center,
-                  style: VxText.body(16, color: VxColors.textSoft),
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                session.message ?? 'Impossible de joindre le serveur.',
+                textAlign: TextAlign.center,
+                style: VxText.body(16, color: VxColors.textSoft),
               ),
-              const SizedBox(height: 20),
-              VxButton(
-                label: 'Réessayer',
-                autofocus: true,
-                onPressed: () => ref.read(sessionProvider.notifier).restore(),
-              ),
-            ] else
-              const SizedBox.square(dimension: 28, child: CircularProgressIndicator(strokeWidth: 3)),
+            ),
+            const SizedBox(height: 20),
+            VxButton(
+              label: 'Réessayer',
+              autofocus: true,
+              onPressed: () => ref.read(sessionProvider.notifier).restore(),
+            ),
           ],
         ),
       ),
