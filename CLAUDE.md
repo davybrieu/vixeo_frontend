@@ -78,7 +78,8 @@ lib/
     updates/     vérification des mises à jour Android / iOS (UpdateGate, écrans)
     profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
-    library/     synchro par profil (favoris, vus, « Continuer à regarder »), Ma liste
+    library/     synchro par profil (Ma liste, Favoris, vus, « Continuer à regarder »), pages Ma liste
+                 et Favoris
     search/      recherche : « Explorer » sans texte, filtres (type, genre, années, note) et tri,
                  recherches récentes synchronisées (search_history.dart)
     playback/    pour le futur lecteur : moments à passer (TheIntroDB) et sous-titres (OpenSubtitles),
@@ -210,11 +211,23 @@ lib/
     le focus et occupe la grande image : pas de « titre à la une » (`featured`) sur grand écran,
     ni de bouton « Plus d'infos » ; OK ou un clic sur la carte ouvre la fiche. Le carrousel du
     téléphone garde les titres à la une.
-- **Actions sur un titre** (Ma liste, Vu / non vu, Noter, Bande-annonce) : toujours le même bouton
+- **Favoris** (❤, demande du développeur ; `features/library/favorites_screen.dart`, onglet
+  `/favoris` après « Ma liste », téléphone et rail) : films, séries, épisodes et chaînes TV que le
+  profil aime, **distincts de « Ma liste »** (à regarder plus tard). Groupe `liked` de la synchro
+  (`is_liked`, `liked_at` ; « Ma liste » reste `favorite`, nom historique de la v1). Chaîne :
+  source `tv`, `channel:<id>` ; épisode : `episode:<série>:<saison>:<épisode>` avec la série en
+  `parent_item_id`. Boutons cœur (`LikeButton`) : fiche et grande image (`LikedButton`), au bout de
+  chaque épisode (`EpisodeLikedButton`), barre du haut du lecteur TV (`ChannelLikedButton`) ; sur une
+  tuile de chaîne, appui long ou touche menu, petit cœur quand elle est en favori. Alertes
+  « Ajouté à vos favoris » / « Supprimé de vos favoris ». Page : même en-tête que « Ma liste »
+  (recherche sans accents, série comprise pour un épisode), filtres Tout / Films / Séries /
+  Épisodes / Chaînes TV ; « Tout » = une rangée par type, un type = une grille ; séries des
+  épisodes lues en une requête (`titlesByIdProvider`). Test : `test/favorites_test.dart`.
+- **Actions sur un titre** (Ma liste, Favoris, Vu / non vu, Noter, Bande-annonce) : toujours le même bouton
   rond **icône seule** (`VxIconAction`, `FavoriteButton`, `WatchedButton`, `RateTitleButton`), sans
   texte visible (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire.
   Chaque action se confirme par une alerte (`showVxSnack`) : « Ajouté à votre liste », « Supprimé
-  de votre liste », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
+  de votre liste », « Ajouté à vos favoris », « Supprimé de vos favoris », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
   « Note enregistrée : 8/10 », « Note supprimée ».
 - **Compte TMDb, notes et avis** (`features/tmdb`, API : `vixeo_backend/docs/compte-tmdb.md`) :
   chaque profil peut lier un compte TMDb dans « Mon profil » → **Connexions**

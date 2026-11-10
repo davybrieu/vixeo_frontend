@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/focusable.dart';
+import '../library/actions.dart';
+import '../library/library.dart';
 import 'channel_search.dart';
 import 'models.dart';
 import 'tv_repository.dart';
@@ -124,7 +126,10 @@ class ChannelRow extends ConsumerWidget {
 }
 
 /// A live channel: its logo in a square, its name under it. A press plays it.
-class ChannelTile extends StatelessWidget {
+///
+/// A long press (or the menu key of a remote) adds it to « Favoris », or removes it; a small heart
+/// shows a channel in « Favoris ».
+class ChannelTile extends ConsumerWidget {
   const ChannelTile({super.key, required this.channel, required this.size, required this.onTap});
 
   final TvChannel channel;
@@ -132,35 +137,47 @@ class ChannelTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final radius = size * 0.14;
+    final liked = ref.watch(libraryProvider).value?.forChannel(channel)?.isLiked ?? false;
     return VxFocusable(
       borderRadius: radius,
-      semanticLabel: channel.name,
+      semanticLabel: liked ? '${channel.name}, dans vos favoris' : channel.name,
       onPressed: onTap,
+      onLongPress: () => toggleChannelLiked(context, channel),
       child: SizedBox(
         width: size,
         child: Column(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(radius),
-              child: ColoredBox(
-                color: VxColors.surface,
-                child: SizedBox(
-                  width: size,
-                  height: size,
-                  child: channel.logo != null && channel.logo!.isNotEmpty
-                      ? Padding(
-                          padding: EdgeInsets.all(size * 0.12),
-                          child: Image.network(
-                            channel.logo!,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, _, _) => Icon(Icons.live_tv, size: size * 0.4),
-                          ),
-                        )
-                      : Icon(Icons.live_tv, size: size * 0.4, color: VxColors.textSecondary),
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(radius),
+                  child: ColoredBox(
+                    color: VxColors.surface,
+                    child: SizedBox(
+                      width: size,
+                      height: size,
+                      child: channel.logo != null && channel.logo!.isNotEmpty
+                          ? Padding(
+                              padding: EdgeInsets.all(size * 0.12),
+                              child: Image.network(
+                                channel.logo!,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, _, _) => Icon(Icons.live_tv, size: size * 0.4),
+                              ),
+                            )
+                          : Icon(Icons.live_tv, size: size * 0.4, color: VxColors.textSecondary),
+                    ),
+                  ),
                 ),
-              ),
+                if (liked)
+                  Positioned(
+                    top: size * 0.06,
+                    right: size * 0.06,
+                    child: Icon(Icons.favorite_rounded, size: size * 0.18, color: VxColors.accent),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(

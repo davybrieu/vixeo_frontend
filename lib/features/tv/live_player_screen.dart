@@ -9,6 +9,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
+import '../library/actions.dart';
 import 'fullscreen/fullscreen.dart';
 import 'models.dart';
 
@@ -23,10 +24,13 @@ import 'models.dart';
 /// Opened right away on a channel: the stream is asked for here ([loadStream]), under the same
 /// spinner as the start of playback, so there is a single loading, not a dialog then the player.
 class LivePlayerScreen extends StatefulWidget {
-  const LivePlayerScreen({super.key, required this.title, this.stream, this.loadStream})
+  const LivePlayerScreen({super.key, required this.title, this.stream, this.loadStream, this.channel})
     : assert(stream != null || loadStream != null);
 
   final String title;
+
+  /// The channel played: its « Favoris » heart in the top bar.
+  final TvChannel? channel;
 
   /// The stream, when already known.
   final TvStream? stream;
@@ -419,6 +423,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
                 alignment: Alignment.topCenter,
                 child: _TopBar(
                   title: widget.title,
+                  channel: widget.channel,
                   live: ready && _playing && _progressing,
                   onBack: () => Navigator.of(context).maybePop(),
                 ),
@@ -471,9 +476,10 @@ class _Fade extends StatelessWidget {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.title, required this.live, required this.onBack});
+  const _TopBar({required this.title, required this.live, required this.onBack, this.channel});
 
   final String title;
+  final TvChannel? channel;
   final bool live;
   final VoidCallback onBack;
 
@@ -501,6 +507,7 @@ class _TopBar extends StatelessWidget {
                 child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: VxText.title(20 * s)),
               ),
               if (live) ...[SizedBox(width: 12 * s), _LiveBadge(scale: s)],
+              if (channel != null) ...[SizedBox(width: 12 * s), ChannelLikedButton(channel: channel!)],
             ],
           ),
         ),
