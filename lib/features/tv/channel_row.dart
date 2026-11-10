@@ -153,6 +153,8 @@ class ChannelTile extends ConsumerWidget {
                               child: Image.network(
                                 channel.logo!,
                                 fit: BoxFit.contain,
+                                // Web: an <img> element, so the logo host needs no CORS headers.
+                                webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                                 errorBuilder: (_, _, _) => Icon(Icons.live_tv, size: size * 0.4),
                               ),
                             )

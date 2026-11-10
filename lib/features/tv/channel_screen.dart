@@ -250,6 +250,8 @@ class _ChannelLogo extends StatelessWidget {
             : Image.network(
                 logo,
                 fit: BoxFit.contain,
+                // Web: an <img> element, so the logo host needs no CORS headers.
+                webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                 errorBuilder: (_, _, _) => Icon(Icons.live_tv_rounded, size: size * 0.5, color: VxColors.background),
               ),
       ),

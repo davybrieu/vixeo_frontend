@@ -2,10 +2,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/library/library.dart';
+import 'package:vixeo/features/tv/models.dart';
 
 // Payloads shaped like the API's resources (vixeo_backend/docs/openapi.json).
 
 void main() {
+  test('reads a live channel and keeps its logo on https, as the provider gives it', () {
+    TvChannel channel(Object? logo) =>
+        TvChannel.fromJson({'id': 'tf1', 'name': 'TF1', 'category_id': '1', 'logo': logo});
+
+    expect(channel('https://logos.example/tf1.png').logo, 'https://logos.example/tf1.png');
+    // A release Android build refuses cleartext: the same address over https.
+    expect(channel('http://logos.example/tf1.png').logo, 'https://logos.example/tf1.png');
+    expect(channel('').logo, isNull);
+    expect(channel(null).logo, isNull);
+    expect(channel('https://logos.example/tf1.png').name, 'TF1');
+  });
+
   test('reads a profile', () {
     final profile = Profile.fromJson({
       'id': 3,

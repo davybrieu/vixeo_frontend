@@ -28,6 +28,10 @@ class TvChannel {
   final String id;
   final String name;
   final String categoryId;
+
+  /// The provider's logo URL, shown as is by the app (never downloaded by the Vixeo server). An
+  /// `http://` address is turned into `https://`: a release Android build refuses cleartext, and
+  /// browsers upgrade images the same way. Empty → null.
   final String? logo;
   final int? number;
   final String? epgChannelId;
@@ -36,10 +40,16 @@ class TvChannel {
     id: '${json['id'] ?? ''}',
     name: '${json['name'] ?? ''}',
     categoryId: '${json['category_id'] ?? ''}',
-    logo: json['logo'] as String?,
+    logo: _logoUrl(json['logo']),
     number: json['number'] is int ? json['number'] as int : int.tryParse('${json['number'] ?? ''}'),
     epgChannelId: json['epg_channel_id'] as String?,
   );
+}
+
+String? _logoUrl(Object? value) {
+  final url = value is String ? value.trim() : '';
+  if (url.isEmpty) return null;
+  return url.startsWith('http://') ? 'https://${url.substring('http://'.length)}' : url;
 }
 
 class TvStream {
