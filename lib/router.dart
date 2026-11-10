@@ -16,7 +16,6 @@ import 'features/catalog/details_screen.dart';
 import 'features/catalog/home_screen.dart';
 import 'features/catalog/models.dart';
 import 'features/catalog/person_screen.dart';
-import 'features/library/favorites_screen.dart';
 import 'features/library/my_list_screen.dart';
 import 'features/playback/player_screen.dart';
 import 'features/profiles/parental_control_screen.dart';
@@ -111,8 +110,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, state) => tab(SearchScreen(initialType: state.extra as MediaType?)),
           ),
           GoRoute(path: '/ma-liste', pageBuilder: (_, _) => tab(const MyListScreen())),
-          // « Favoris » (❤): movies, TV shows, episodes and channels the profile loves.
-          GoRoute(path: '/favoris', pageBuilder: (_, _) => tab(const FavoritesScreen())),
           // "Mes avis": ratings of the TMDb account and comments (vixeo_backend/docs/compte-tmdb.md).
           GoRoute(path: '/avis', pageBuilder: (_, _) => tab(const ReviewsScreen())),
           // "Mon avis": one review, to change or remove (/avis/tv/1399?saison=1&episode=2 for an episode).

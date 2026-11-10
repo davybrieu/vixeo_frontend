@@ -11,7 +11,6 @@ import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
-import '../library/actions.dart';
 import 'channel_search.dart';
 import 'models.dart';
 import 'tv_repository.dart';
@@ -34,7 +33,7 @@ String programmeTime(DateTime time, DateTime now) {
   return '${names[time.weekday - 1]} $hm';
 }
 
-/// A live channel's page: its image, name and category, « Regarder », « Favoris », what is on now
+/// A live channel's page: its image, name and category, « Regarder », what is on now
 /// and the programme guide (EPG). Opened from every channel tile; « Regarder » plays it.
 class ChannelScreen extends ConsumerStatefulWidget {
   const ChannelScreen({super.key, required this.id, this.initial});
@@ -207,8 +206,6 @@ class _Page extends ConsumerWidget {
                         autofocus: true,
                         onPressed: () => playLiveChannel(context, ref, channel),
                       ),
-                      SizedBox(width: large ? layout.tv(20) : 14),
-                      ChannelLikedButton(channel: channel),
                     ],
                   ),
                   if (current != null) ...[

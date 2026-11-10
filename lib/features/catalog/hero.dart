@@ -186,8 +186,6 @@ class _FeaturedCard extends ConsumerWidget {
                     const SizedBox(width: 12),
                     // Same round icon buttons as on the title page.
                     FavoriteButton(item: item),
-                    const SizedBox(width: 12),
-                    LikedButton(item: item),
                   ],
                 ),
               ],

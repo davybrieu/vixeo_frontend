@@ -49,7 +49,7 @@ Future<void> pumpChannel(WidgetTester tester, TvGuide guide, {Size size = const 
 }
 
 /// The page of a live channel (developer's request): opened from every channel tile, like a title
-/// page, with « Regarder », « Favoris » and the programme guide (EPG).
+/// page, with « Regarder » and the programme guide (EPG).
 void main() {
   test('reads a programme of the guide, in local time', () {
     final guide = TvGuide.fromJson({
@@ -97,7 +97,7 @@ void main() {
     expect(find.text('TF1'), findsOneWidget);
     expect(find.text('Généralistes'), findsOneWidget);
     expect(find.text('Regarder'), findsOneWidget);
-    expect(find.bySemanticsLabel('Ajouter aux favoris'), findsOneWidget);
+    expect(find.bySemanticsLabel('Ajouter aux favoris'), findsNothing);
     expect(find.text('En ce moment'), findsOneWidget);
     expect(find.text('Les infos du jour.'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);

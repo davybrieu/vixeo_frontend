@@ -104,7 +104,6 @@ class _Actions extends ConsumerWidget {
       runSpacing: 12,
       children: [
         FavoriteButton(item: item),
-        LikedButton(item: item),
         if (title.type == MediaType.movie) WatchedButton(item: item),
         if (ref.watch(canRateProvider)) RateTitleButton(type: title.type, id: title.id, name: title.title),
         if (title.trailer != null)
@@ -236,16 +235,13 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                 for (final (i, e) in data.episodes.indexed)
                   Padding(
                     padding: EdgeInsets.only(top: i == 0 ? 0 : layout.listGap),
-                    // The row plays the episode; on its right, the heart (« Favoris ») and the star that
-                    // rates it (TMDb account).
+                    // The row plays the episode; on its right, the star that rates it (TMDb account).
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: _episodeRow(context, e, s: s, noSpoiler: noSpoiler, rating: ratings[e.number]),
                         ),
-                        SizedBox(width: 8 * s),
-                        EpisodeLikedButton(show: widget.title.asItem, episode: e),
                         if (canRate) ...[
                           SizedBox(width: 8 * s),
                           RateEpisodeButton(

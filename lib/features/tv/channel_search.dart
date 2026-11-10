@@ -83,8 +83,7 @@ Future<void> playLiveChannel(BuildContext context, WidgetRef ref, TvChannel chan
   final repository = ref.read(tvRepositoryProvider);
   return Navigator.of(context).push(
     MaterialPageRoute(
-      builder: (_) =>
-          LivePlayerScreen(title: channel.name, channel: channel, loadStream: () => repository.stream(channel.id)),
+      builder: (_) => LivePlayerScreen(title: channel.name, loadStream: () => repository.stream(channel.id)),
     ),
   );
 }

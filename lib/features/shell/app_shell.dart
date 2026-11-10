@@ -28,7 +28,6 @@ const _phoneTabs = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
-  _Destination('/favoris', 'Favoris', Icons.favorite_border_rounded, Icons.favorite_rounded),
   _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
 ];
 
@@ -43,7 +42,6 @@ const _railItems = [
   _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
   _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
-  _Destination('/favoris', 'Favoris', Icons.favorite_border_rounded, Icons.favorite_rounded),
   _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
 ];
 
@@ -77,16 +75,7 @@ class AppShell extends ConsumerWidget {
     }
 
     if (layout.isPhone) {
-      const navigationPages = {
-        '/accueil',
-        '/recherche',
-        '/ma-liste',
-        '/favoris',
-        '/avis',
-        '/films',
-        '/series',
-        '/profil',
-      };
+      const navigationPages = {'/accueil', '/recherche', '/ma-liste', '/avis', '/films', '/series', '/profil'};
       final showNavigation = navigationPages.contains(location);
       final index = location == '/profil' ? _phoneTabs.length : _phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;

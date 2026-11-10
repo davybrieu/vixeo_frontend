@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
-import '../tv/models.dart';
 
 /// Synced state of one content for the active profile (ProfileItemResource).
 class ProfileItem {
@@ -20,8 +19,6 @@ class ProfileItem {
     this.episodeNumber,
     this.isFavorite = false,
     this.favoritedAt,
-    this.isLiked = false,
-    this.likedAt,
     this.positionMs = 0,
     this.durationMs,
     this.progress,
@@ -42,8 +39,6 @@ class ProfileItem {
     episodeNumber: json['episode_number'] as int?,
     isFavorite: json['is_favorite'] as bool? ?? false,
     favoritedAt: _date(json['favorited_at']),
-    isLiked: json['is_liked'] as bool? ?? false,
-    likedAt: _date(json['liked_at']),
     positionMs: json['position_ms'] as int? ?? 0,
     durationMs: json['duration_ms'] as int?,
     progress: (json['progress'] as num?)?.toDouble(),
@@ -68,9 +63,6 @@ class ProfileItem {
   final bool isFavorite;
   final DateTime? favoritedAt;
 
-  /// In « Favoris » (❤), separate from « Ma liste ».
-  final bool isLiked;
-  final DateTime? likedAt;
   final int positionMs;
   final int? durationMs;
   final double? progress;
@@ -78,11 +70,6 @@ class ProfileItem {
   final bool isWatched;
 
   String get key => '$source|$itemId';
-
-  /// The live channel this item points to (« Favoris »), or null.
-  TvChannel? get asChannel => source == LibraryController.channelSource && itemId.startsWith('channel:')
-      ? TvChannel(id: itemId.substring('channel:'.length), name: title, categoryId: '', logo: posterUrl)
-      : null;
 
   bool get inContinueWatching => lastEngagedAt != null && !isWatched;
 
@@ -127,13 +114,6 @@ class LibraryState {
   ProfileItem? forEpisode(int showId, int season, int episode) =>
       items['tmdb|${LibraryController.episodeSyncId(showId, season, episode)}'];
 
-  ProfileItem? forChannel(TvChannel channel) => items['${LibraryController.channelSource}|channel:${channel.id}'];
-
-  /// « Favoris » (❤): movies, TV shows, episodes and channels, most recently added first.
-  List<ProfileItem> get liked =>
-      items.values.where((i) => i.isLiked).toList()
-        ..sort((a, b) => (b.likedAt ?? DateTime(0)).compareTo(a.likedAt ?? DateTime(0)));
-
   List<ProfileItem> get favorites =>
       items.values.where((i) => i.isFavorite).toList()
         ..sort((a, b) => (b.favoritedAt ?? DateTime(0)).compareTo(a.favoritedAt ?? DateTime(0)));
@@ -169,44 +149,8 @@ class LibraryController extends AsyncNotifier<LibraryState> {
     'favorite': {'value': value, 'at': _now()},
   });
 
-  /// « Favoris » (❤) of a movie or a TV show.
-  Future<void> setLiked(MediaItem item, bool value) => _push(item, {
-    'liked': {'value': value, 'at': _now()},
-  });
-
-  /// Sync source of the live channels (`/tv/…`), item ids `channel:<id>`.
-  static const channelSource = 'tv';
-
   /// `episode:1399:1:3` (show, season, episode), as in vixeo_backend/docs/synchronisation.md.
   static String episodeSyncId(int showId, int season, int episode) => 'episode:$showId:$season:$episode';
-
-  /// « Favoris » (❤) of an episode, with what the list needs to show it (still, show, numbers).
-  Future<void> setEpisodeLiked(MediaItem show, Episode episode, bool value) => _pushRaw({
-    'source': 'tmdb',
-    'item_id': episodeSyncId(show.id, episode.seasonNumber, episode.number),
-    'type': 'episode',
-    'title': episode.name.isEmpty ? 'Épisode ${episode.number}' : episode.name,
-    'poster_url': _httpUrl(episode.stillUrl),
-    'backdrop_url': _httpUrl(show.backdropUrl),
-    'parent_item_id': show.syncId,
-    'season_number': episode.seasonNumber,
-    'episode_number': episode.number,
-    'liked': {'value': value, 'at': _now()},
-  });
-
-  /// « Favoris » (❤) of a live channel (its logo as the image).
-  Future<void> setChannelLiked(TvChannel channel, bool value) => _pushRaw({
-    'source': channelSource,
-    'item_id': 'channel:${channel.id}',
-    'type': 'channel',
-    'title': channel.name,
-    'poster_url': _httpUrl(channel.logo),
-    'liked': {'value': value, 'at': _now()},
-  });
-
-  /// The API takes only http(s) image URLs: anything else is left out.
-  static String? _httpUrl(String? url) =>
-      url != null && (url.startsWith('https://') || url.startsWith('http://')) ? url : null;
 
   Future<void> setWatched(MediaItem item, bool value) => _push(item, {
     'watched': {'value': value, 'at': _now()},

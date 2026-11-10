@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/focusable.dart';
-import '../library/actions.dart';
-import '../library/library.dart';
 import 'channel_screen.dart';
 import 'models.dart';
 import 'tv_repository.dart';
@@ -121,10 +119,7 @@ class ChannelRow extends ConsumerWidget {
   }
 }
 
-/// A live channel: its logo in a square, its name under it. A press plays it.
-///
-/// A long press (or the menu key of a remote) adds it to « Favoris », or removes it; a small heart
-/// shows a channel in « Favoris ».
+/// A live channel: its logo in a square, its name under it. A press opens it.
 class ChannelTile extends ConsumerWidget {
   const ChannelTile({super.key, required this.channel, required this.size, required this.onTap});
 
@@ -135,12 +130,10 @@ class ChannelTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final radius = size * 0.14;
-    final liked = ref.watch(libraryProvider).value?.forChannel(channel)?.isLiked ?? false;
     return VxFocusable(
       borderRadius: radius,
-      semanticLabel: liked ? '${channel.name}, dans vos favoris' : channel.name,
+      semanticLabel: channel.name,
       onPressed: onTap,
-      onLongPress: () => toggleChannelLiked(context, channel),
       child: SizedBox(
         width: size,
         child: Column(
@@ -167,12 +160,6 @@ class ChannelTile extends ConsumerWidget {
                     ),
                   ),
                 ),
-                if (liked)
-                  Positioned(
-                    top: size * 0.06,
-                    right: size * 0.06,
-                    child: Icon(Icons.favorite_rounded, size: size * 0.18, color: VxColors.accent),
-                  ),
               ],
             ),
             const SizedBox(height: 8),
