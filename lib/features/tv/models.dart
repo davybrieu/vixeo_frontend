@@ -29,9 +29,9 @@ class TvChannel {
   final String name;
   final String categoryId;
 
-  /// The provider's logo URL, shown as is by the app (never downloaded by the Vixeo server). An
-  /// `http://` address is turned into `https://`: a release Android build refuses cleartext, and
-  /// browsers upgrade images the same way. Empty → null.
+  /// The logo URL given by the API (on our own origin: the API relays the provider's image without
+  /// storing it). An `http://` address is turned into `https://`: a release Android build refuses
+  /// cleartext, and browsers upgrade images the same way. Empty → null.
   final String? logo;
   final int? number;
   final String? epgChannelId;

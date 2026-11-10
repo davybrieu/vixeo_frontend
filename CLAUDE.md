@@ -115,10 +115,11 @@ lib/
   `test/home_channels_test.dart`) et dans la recherche
   (type « Chaînes TV » : grille `ChannelSearchResults`, filtre « Catégorie » de `/tv/categories`,
   même bouton `FilterChipButton` que « Genre » ; section « Chaînes TV » de « Tout »). Une chaîne
-  passe toujours par `ChannelTile` (focus télécommande). **Logo** : l'URL du fournisseur donnée par
-  l'API, affichée telle quelle, jamais téléchargée par notre serveur (demande du développeur) ; sur
-  le web, `Image.network(webHtmlElementStrategy: WebHtmlElementStrategy.prefer)` (balise `<img>`,
-  pas besoin de CORS) ; `http://` passé en `https://` par `TvChannel.fromJson` ; sinon une icône ; **toucher une chaîne ouvre sa page**
+  passe toujours par `ChannelTile` (focus télécommande). **Logo** : l'URL `logo` de l'API, sur notre
+  domaine (`/tv/logo/{hash}` : l'API relaie l'image du fournisseur sans la stocker, gardée 7 jours
+  par l'appli et le navigateur) ; sur le web, `Image.network(webHtmlElementStrategy:
+  WebHtmlElementStrategy.prefer)` (balise `<img>`) ; `http://` passé en `https://` par
+  `TvChannel.fromJson` ; sans logo, une icône ; **toucher une chaîne ouvre sa page**
   (`ChannelScreen`, `/chaine/:id`, `openChannel`, demande du développeur ; comme une fiche film /
   série) : logo, nom, catégorie,
   « EN DIRECT », « Regarder » (focus à l'arrivée), « En ce moment » (titre,
