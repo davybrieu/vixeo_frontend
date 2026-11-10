@@ -54,8 +54,13 @@ class CatalogRepository {
     return Paged.fromJson(json, MediaItem.fromJson);
   }
 
-  Future<Paged<Person>> people(String query, {int page = 1}) async =>
-      Paged.fromJson(await _api.get('/catalog/search/person', query: {'query': query, 'page': page}), Person.fromJson);
+  /// People matching [query]; without a text, TMDb's popular people.
+  Future<Paged<Person>> people(String query, {int page = 1}) async => Paged.fromJson(
+    query.isEmpty
+        ? await _api.get('/catalog/people/popular', query: {'page': page})
+        : await _api.get('/catalog/search/person', query: {'query': query, 'page': page}),
+    Person.fromJson,
+  );
 
   Future<Map<MediaType, List<Genre>>> allGenres() async {
     final json = await _api.get('/catalog/genres');

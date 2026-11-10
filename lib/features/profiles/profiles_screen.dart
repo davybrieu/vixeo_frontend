@@ -6,6 +6,7 @@ import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/app_loading.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../auth/models.dart';
@@ -46,6 +47,9 @@ class ProfilesScreen extends ConsumerWidget {
       }
       await ref.read(sessionProvider.notifier).selectProfile(profile);
     }
+
+    // Right after the start-up loading: the same one until the profiles are there.
+    if (!profiles.hasValue && !profiles.hasError) return const Scaffold(body: AppLoading());
 
     return Scaffold(
       body: SafeArea(

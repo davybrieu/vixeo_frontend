@@ -8,6 +8,8 @@ import '../../core/widgets/choice.dart';
 import '../../core/widgets/focusable.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
+import '../tv/models.dart';
+import '../tv/tv_repository.dart';
 import 'search_filters.dart';
 
 /// Genres offered for a type filter: movie or TV genres, or both for "Tout" (TMDb ids differ
@@ -30,12 +32,26 @@ String _fold(String s) => s
 
 /// Type, genre, years, rating and order of the search page, in one scrollable row of chips.
 /// Genre, years, rating and order don't apply to people or live channels: hidden for those kinds.
+/// Live channels have their « Catégorie » instead, the same kind of chip as « Genre ».
 class SearchFilterBar extends ConsumerWidget {
-  const SearchFilterBar({super.key, required this.filters, required this.withText, required this.onChanged});
+  const SearchFilterBar({
+    super.key,
+    required this.filters,
+    required this.withText,
+    required this.onChanged,
+    this.kinds = SearchKind.values,
+    this.channelCategories = true,
+  });
+
+  /// Types offered (« Ma liste » has no people).
+  final List<SearchKind> kinds;
+
+  /// « Catégorie » for live channels (the search page; not « Ma liste »).
+  final bool channelCategories;
 
   final SearchFilters filters;
 
-  /// A text is typed: "Personnes" and "Pertinence" are offered.
+  /// A text is typed: "Pertinence" is offered.
   final bool withText;
   final ValueChanged<SearchFilters> onChanged;
 
@@ -44,14 +60,34 @@ class SearchFilterBar extends ConsumerWidget {
     final layout = Layout.of(context);
     final gap = FilterBar.gapOf(layout);
     final genres = ref.watch(allGenresProvider).value;
-    // Channels always available; people only with a text.
-    final kinds = withText ? SearchKind.values : SearchKind.values.where((k) => k != SearchKind.person);
+    // Every type always offered on the search page: « Chaînes TV » and « Personnes » too, with or
+    // without a text.
+    final withCategory = channelCategories && filters.kind.isChannels;
+    final categories = withCategory ? ref.watch(tvCategoriesProvider).value : null;
     final order = filters.sortFor(withText: withText);
 
     void setKind(SearchKind kind) {
       // A genre the new type doesn't have (e.g. "Horreur" for TV shows) is dropped.
       final keepGenre = filters.genre == null || genres == null || genresFor(kind, genres).contains(filters.genre);
-      onChanged(filters.copyWith(kind: kind, genre: keepGenre ? null : () => null));
+      onChanged(
+        filters.copyWith(
+          kind: kind,
+          genre: keepGenre ? null : () => null,
+          // The channel category only means something for channels.
+          category: kind.isChannels ? null : () => null,
+        ),
+      );
+    }
+
+    Future<void> pickCategory() async {
+      if (categories == null) return;
+      final choice = await showVxChoice<TvCategory>(
+        context,
+        title: 'Catégorie',
+        selected: filters.category,
+        options: [(null, 'Toutes les catégories'), for (final c in categories) (c, c.name)],
+      );
+      if (choice != null) onChanged(filters.copyWith(category: () => choice.$1));
     }
 
     Future<void> pickGenre() async {
@@ -142,6 +178,22 @@ class SearchFilterBar extends ConsumerWidget {
               dropdown: true,
               icon: Icons.swap_vert_rounded,
               onPressed: pickSort,
+            ),
+            SizedBox(width: gap),
+          ],
+          if (withCategory) ...[
+            Container(
+              width: 1,
+              height: layout.isLarge ? layout.tv(40) : 24,
+              margin: EdgeInsets.only(right: gap),
+              color: VxColors.lineStrong,
+            ),
+            FilterChipButton(
+              label: filters.category?.name ?? 'Catégorie',
+              semanticLabel: 'Catégorie : ${filters.category?.name ?? 'toutes'}',
+              selected: filters.category != null,
+              dropdown: true,
+              onPressed: categories == null || categories.isEmpty ? null : pickCategory,
             ),
             SizedBox(width: gap),
           ],

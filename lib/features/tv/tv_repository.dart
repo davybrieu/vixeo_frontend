@@ -50,3 +50,8 @@ class TvRepository {
 final tvRepositoryProvider = Provider<TvRepository>((ref) {
   return TvRepository(ref.watch(apiClientProvider));
 });
+
+/// Categories of the live channels: the « Catégorie » filter of the search page.
+final tvCategoriesProvider = FutureProvider.autoDispose<List<TvCategory>>((ref) {
+  return ref.watch(tvRepositoryProvider).categories();
+});

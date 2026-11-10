@@ -7,9 +7,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/app_loading.dart';
 import '../../core/widgets/focusable.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
+import '../catalog/catalog_repository.dart';
 import '../profiles/avatars.dart';
 import 'back_navigation_guard.dart';
 
@@ -25,7 +27,6 @@ class _Destination {
 const _phoneTabs = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
-  _Destination('/tv-live', 'TV', Icons.live_tv_outlined, Icons.live_tv),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
   _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
 ];
@@ -40,10 +41,12 @@ const _railItems = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
   _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
-  _Destination('/tv-live', 'TV', Icons.live_tv_outlined, Icons.live_tv),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
   _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
 ];
+
+/// The home page was drawn once since the app started (see [AppShell.build]).
+bool _homeShown = false;
 
 /// Main navigation: bottom tab bar on phones, left rail elsewhere (TV, tablet, desktop).
 class AppShell extends ConsumerWidget {
@@ -57,17 +60,22 @@ class AppShell extends ConsumerWidget {
     final layout = Layout.of(context);
     final profile = ref.watch(sessionProvider).profile;
 
+    // First load of the home page after the start: the start-up loading stays alone on screen,
+    // without the navigation, until the home page can be drawn. Only once: coming back to the
+    // home page later shows its own loading inside the navigation.
+    if (location == '/accueil' && !_homeShown) {
+      final home = ref.watch(homeProvider(null));
+      if (!home.hasValue && !home.hasError) {
+        return BackNavigationGuard(
+          location: location,
+          child: const Scaffold(body: AppLoading()),
+        );
+      }
+      _homeShown = true;
+    }
+
     if (layout.isPhone) {
-      const navigationPages = {
-        '/accueil',
-        '/recherche',
-        '/ma-liste',
-        '/avis',
-        '/films',
-        '/series',
-        '/tv-live',
-        '/profil',
-      };
+      const navigationPages = {'/accueil', '/recherche', '/ma-liste', '/avis', '/films', '/series', '/profil'};
       final showNavigation = navigationPages.contains(location);
       final index = location == '/profil' ? _phoneTabs.length : _phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;

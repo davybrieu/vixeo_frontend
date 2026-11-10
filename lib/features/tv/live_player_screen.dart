@@ -13,7 +13,7 @@ import 'fullscreen/fullscreen.dart';
 import 'models.dart';
 
 /// Plays a live channel stream (HLS), with its controls: back, channel name and « En direct »
-/// at the top; play / pause, sound, « Revenir au direct », next source and full screen at the
+/// at the top; play / pause, sound, « Revenir au direct » and full screen at the
 /// bottom.
 ///
 /// The controls hide after a few seconds of playback and come back on a tap, a mouse move or any
@@ -37,6 +37,13 @@ class LivePlayerScreen extends StatefulWidget {
   /// How long the controls stay on screen without any action, while playing.
   static const hideDelay = Duration(seconds: 4);
 
+  /// How long the stream may "play" without its image moving before the error is shown.
+  ///
+  /// On the web, a stream the browser cannot decode (H.265…) makes hls.js fail, but
+  /// video_player_web_hls cannot read that error: the controller says it plays while the screen
+  /// stays black. The position not moving is the only sign of it (and of a stalled proxy).
+  static const stallTimeout = Duration(seconds: 15);
+
   @override
   State<LivePlayerScreen> createState() => _LivePlayerScreenState();
 }
@@ -44,17 +51,20 @@ class LivePlayerScreen extends StatefulWidget {
 class _LivePlayerScreenState extends State<LivePlayerScreen> {
   VideoPlayerController? _controller;
 
-  /// Playable URLs the server resolved for this channel, best first. A dead one is skipped for
-  /// the next, so a channel that answers on several mirrors keeps working when one goes down.
-  List<String> _sources = const [];
   TvStream? _stream;
 
   /// Why the stream could not be obtained from the API (null: it was, or is being asked for).
   String? _loadError;
-  int _index = 0;
   bool _failed = false;
   bool _playing = false;
   bool _buffering = false;
+
+  /// The image moves: the position changed since this source started. Until then, a spinner
+  /// stays on screen with the controls (nothing to watch yet).
+  bool _progressing = false;
+  Duration? _lastPosition;
+  Duration _stalledFor = Duration.zero;
+  Timer? _watchdog;
 
   bool _controlsVisible = true;
   Timer? _hideTimer;
@@ -77,9 +87,6 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
 
   void _use(TvStream stream) {
     _stream = stream;
-    final resolved = stream.sources.where((s) => s.isNotEmpty).toList();
-    _sources = resolved.isEmpty ? [stream.url] : resolved;
-    _index = 0;
     _startCurrent();
   }
 
@@ -105,6 +112,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _watchdog?.cancel();
     _controller?.dispose();
     _playFocus.dispose();
     exitFullscreen();
@@ -114,32 +122,26 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   // ---------------------------------------------------------------------------------------------
   // Playback
 
-  /// Builds the controller for the current candidate, plays it, or moves on to the next one.
+  /// Builds the controller for the stream and plays it.
   Future<void> _startCurrent() async {
     if (!mounted) return;
-
-    if (_index >= _sources.length) {
-      setState(() {
-        _failed = true;
-        _playing = false;
-        _controlsVisible = true;
-      });
-      _hideTimer?.cancel();
-      return;
-    }
+    _watchdog?.cancel();
 
     setState(() {
       _failed = false;
       _playing = false;
       _buffering = false;
+      _progressing = false;
     });
+    _lastPosition = null;
+    _stalledFor = Duration.zero;
 
     final previous = _controller;
     _controller = null;
     await previous?.dispose();
 
     // The API hands the playable URL and the headers to send (some streams are signed).
-    final controller = VideoPlayerController.networkUrl(Uri.parse(_sources[_index]), httpHeaders: _stream!.headers);
+    final controller = VideoPlayerController.networkUrl(Uri.parse(_stream!.url), httpHeaders: _stream!.headers);
     if (!mounted) {
       await controller.dispose();
       return;
@@ -150,12 +152,12 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     try {
       await controller.initialize();
     } catch (_) {
-      _advance(controller);
+      _fail(controller);
       return;
     }
     if (!mounted || controller != _controller) return;
     if (controller.value.hasError) {
-      _advance(controller);
+      _fail(controller);
       return;
     }
 
@@ -163,14 +165,46 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     // A live stream may need a user gesture to start on the web: a blocked play() leaves the
     // controller paused, and a tap (or the play button) starts it.
     await controller.play();
-    if (mounted) setState(() {});
+    if (!mounted || controller != _controller) return;
+    setState(() {});
+    _watchdog = Timer.periodic(_watchdogTick, (_) => _checkStall(controller));
+  }
+
+  static const _watchdogTick = Duration(milliseconds: 500);
+
+  /// Watches the image move. A source that "plays" with a still image for
+  /// [LivePlayerScreen.stallTimeout] shows the error; a pause (or a start refused by
+  /// the browser) is not a stall.
+  ///
+  /// The position is asked to the player (`controller.position`): `value.position` is clamped to
+  /// the duration, and a live stream on the web has none (it never moves there).
+  Future<void> _checkStall(VideoPlayerController controller) async {
+    if (controller != _controller || !mounted) return;
+    final position = await controller.position;
+    if (controller != _controller || !mounted) return;
+
+    // The first position seen is only a reference: a live stream can start anywhere.
+    final moved = position != null && _lastPosition != null && position != _lastPosition;
+    _lastPosition = position;
+    if (moved) {
+      _stalledFor = Duration.zero;
+      if (!_progressing) {
+        setState(() => _progressing = true);
+        _scheduleHide();
+      }
+    } else if (controller.value.isPlaying) {
+      _stalledFor += _watchdogTick;
+      if (_stalledFor >= LivePlayerScreen.stallTimeout) _fail(controller);
+    } else {
+      _stalledFor = Duration.zero;
+    }
   }
 
   void _onValueChanged(VideoPlayerController controller) {
     if (controller != _controller || !mounted) return;
     final value = controller.value;
     if (value.hasError) {
-      _advance(controller);
+      _fail(controller);
       return;
     }
     if (value.isPlaying != _playing || value.isBuffering != _buffering) {
@@ -189,17 +223,22 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     }
   }
 
-  /// Moves on to the next source when [failed] (the current controller) refuses to play.
+  /// Shows the error (with « Réessayer ») when [failed], the current controller, refuses to play.
   ///
   /// A failure is reported twice (the controller's error and the end of `initialize`): only the
   /// first counts, since the controller is no longer the current one after it.
-  void _advance(VideoPlayerController failed) {
+  void _fail(VideoPlayerController failed) {
     if (failed != _controller || !mounted) return;
+    _watchdog?.cancel();
+    _hideTimer?.cancel();
     _controller = null;
     // Not during its own notification (ChangeNotifier forbids it): right after.
     Future.microtask(failed.dispose);
-    _index++;
-    _startCurrent();
+    setState(() {
+      _failed = true;
+      _playing = false;
+      _controlsVisible = true;
+    });
   }
 
   bool get _ready {
@@ -218,16 +257,9 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     _showControls();
   }
 
-  /// Starts the current source again: after a pause, playback is behind the live edge.
+  /// Starts the stream again: after a pause, playback is behind the live edge.
   void _backToLive() {
     _showControls();
-    _startCurrent();
-  }
-
-  /// Switches to the next source (the first after the last), for a stream that plays badly.
-  void _nextSource() {
-    _showControls();
-    _index = (_index + 1) % _sources.length;
     _startCurrent();
   }
 
@@ -236,7 +268,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     if (stream == null) {
       _load();
     } else {
-      _use(stream);
+      _startCurrent();
     }
   }
 
@@ -272,7 +304,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   // Controls visibility
 
   /// The controls can hide only while the stream plays.
-  bool get _canHide => _ready && _playing && !_failed;
+  bool get _canHide => _ready && _playing && _progressing && !_failed;
 
   void _scheduleHide() {
     _hideTimer?.cancel();
@@ -373,7 +405,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
               ),
               if (_failed)
                 _FailedMessage(message: _loadError, onRetry: _retry)
-              else if (!ready || _buffering)
+              else if (!ready || _buffering || (_playing && !_progressing))
                 const IgnorePointer(
                   child: Center(child: CircularProgressIndicator(color: VxColors.accent)),
                 )
@@ -387,7 +419,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
                 alignment: Alignment.topCenter,
                 child: _TopBar(
                   title: widget.title,
-                  live: ready && _playing,
+                  live: ready && _playing && _progressing,
                   onBack: () => Navigator.of(context).maybePop(),
                 ),
               ),
@@ -401,14 +433,11 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
                     playing: _playing,
                     muted: _muted,
                     volume: _volume,
-                    sourceIndex: _index,
-                    sourceCount: _sources.length,
                     fullscreen: isFullscreen(),
                     onPlayPause: _togglePlay,
                     onMute: _toggleMute,
                     onVolume: _setVolume,
                     onBackToLive: _backToLive,
-                    onNextSource: _nextSource,
                     onFullscreen: _toggleFullscreen,
                   ),
                 ),
@@ -517,14 +546,11 @@ class _BottomBar extends StatelessWidget {
     required this.playing,
     required this.muted,
     required this.volume,
-    required this.sourceIndex,
-    required this.sourceCount,
     required this.fullscreen,
     required this.onPlayPause,
     required this.onMute,
     required this.onVolume,
     required this.onBackToLive,
-    required this.onNextSource,
     required this.onFullscreen,
   });
 
@@ -533,14 +559,11 @@ class _BottomBar extends StatelessWidget {
   final bool playing;
   final bool muted;
   final double volume;
-  final int sourceIndex;
-  final int sourceCount;
   final bool fullscreen;
   final VoidCallback onPlayPause;
   final VoidCallback onMute;
   final ValueChanged<double> onVolume;
   final VoidCallback onBackToLive;
-  final VoidCallback onNextSource;
   final VoidCallback onFullscreen;
 
   @override
@@ -575,7 +598,10 @@ class _BottomBar extends StatelessWidget {
                 ),
                 if (volumeSlider)
                   SizedBox(
+                    // A Slider takes all the height it is given: without one, the bar would fill
+                    // the screen (and its gradient darken the whole image).
                     width: 120,
+                    height: 48,
                     child: SliderTheme(
                       data: SliderTheme.of(context).copyWith(
                         activeTrackColor: VxColors.accent,
@@ -594,10 +620,6 @@ class _BottomBar extends StatelessWidget {
                 const Spacer(),
                 if (ready) ...[
                   VxIconAction(icon: Icons.restart_alt_rounded, label: 'Revenir au direct', onPressed: onBackToLive),
-                  SizedBox(width: gap),
-                ],
-                if (sourceCount > 1) ...[
-                  _SourceButton(index: sourceIndex, count: sourceCount, onPressed: onNextSource),
                   SizedBox(width: gap),
                 ],
                 if (!DeviceInfo.isTv)
@@ -643,45 +665,6 @@ class _PlayButton extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: size * 0.55, color: onPressed == null ? VxColors.textMuted : VxColors.onAccent),
-      ),
-    );
-  }
-}
-
-/// « Source 2/3 »: plays the next source the server resolved for this channel.
-class _SourceButton extends StatelessWidget {
-  const _SourceButton({required this.index, required this.count, required this.onPressed});
-
-  final int index;
-  final int count;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final height = layout.isLarge ? layout.tv(76) : 52.0;
-    final label = 'Source ${index + 1}/$count';
-    return VxFocusable(
-      onPressed: onPressed,
-      borderRadius: height,
-      semanticLabel: '$label, passer à la source suivante',
-      child: Container(
-        height: height,
-        padding: EdgeInsets.symmetric(horizontal: height * 0.35),
-        decoration: BoxDecoration(
-          color: VxColors.text.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(height),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.swap_horiz_rounded, color: VxColors.text, size: height * 0.42),
-            SizedBox(width: height * 0.15),
-            ExcludeSemantics(
-              child: Text(label, style: VxText.body(height * 0.27, weight: FontWeight.w600)),
-            ),
-          ],
-        ),
       ),
     );
   }

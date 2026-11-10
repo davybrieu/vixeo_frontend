@@ -9,11 +9,14 @@ import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/tv/live_player_screen.dart';
 import 'package:vixeo/features/tv/models.dart';
 
-/// Video playback without a real player: URLs in [failing] refuse to start.
+/// Video playback without a real player: URLs in [failing] refuse to start; URLs in [stalled]
+/// "play" with a still image (what a stream the browser cannot decode does on the web).
 class FakeVideoPlatform extends VideoPlayerPlatform {
-  FakeVideoPlatform({this.failing = const {}});
+  FakeVideoPlatform({this.failing = const {}, this.stalled = const {}});
 
   final Set<String> failing;
+  final Set<String> stalled;
+  final _positions = <int, Duration>{};
   final created = <String>[];
   final volumes = <double>[];
   int plays = 0;
@@ -77,7 +80,12 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   @override
   Future<void> seekTo(int playerId, Duration position) async {}
   @override
-  Future<Duration> getPosition(int playerId) async => Duration.zero;
+  Future<Duration> getPosition(int playerId) async {
+    final position = _positions[playerId] ?? Duration.zero;
+    if (!_playing || stalled.contains(_urls[playerId])) return position;
+    return _positions[playerId] = position + const Duration(milliseconds: 100);
+  }
+
   @override
   Future<void> setMixWithOthers(bool mixWithOthers) async {}
   @override
@@ -88,18 +96,16 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   Widget buildViewWithOptions(VideoViewOptions options) => const ColoredBox(color: Colors.black);
 }
 
-const stream = TvStream(
-  url: 'https://api.test/tv/stream/a',
-  format: 'hls',
-  sources: ['https://api.test/tv/stream/a', 'https://api.test/tv/stream/b'],
-);
+const stream = TvStream(url: 'https://api.test/tv/stream/a', format: 'hls');
+const url = 'https://api.test/tv/stream/a';
 
 Future<FakeVideoPlatform> openPlayer(
   WidgetTester tester, {
   Set<String> failing = const {},
+  Set<String> stalled = const {},
   Future<TvStream> Function()? loadStream,
 }) async {
-  final platform = FakeVideoPlatform(failing: failing);
+  final platform = FakeVideoPlatform(failing: failing, stalled: stalled);
   VideoPlayerPlatform.instance = platform;
   await tester.pumpWidget(
     MaterialApp(
@@ -115,7 +121,8 @@ Future<FakeVideoPlatform> openPlayer(
 Future<void> settle(WidgetTester tester) async {
   for (var i = 0; i < 5; i++) {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 5)));
-    await tester.pump(const Duration(milliseconds: 50));
+    // Long enough for the player to see the image move (a position read every 500 ms).
+    await tester.pump(const Duration(milliseconds: 300));
   }
 }
 
@@ -126,9 +133,7 @@ Future<void> closePlayer(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('shows the controls: channel, live badge, pause, sound, back to live, source, full screen', (
-    tester,
-  ) async {
+  testWidgets('shows the controls: channel, live badge, pause, sound, back to live, full screen', (tester) async {
     final platform = await openPlayer(tester);
 
     expect(platform.created, ['https://api.test/tv/stream/a']);
@@ -138,14 +143,14 @@ void main() {
     expect(find.bySemanticsLabel('Pause'), findsOneWidget);
     expect(find.bySemanticsLabel('Couper le son'), findsOneWidget);
     expect(find.bySemanticsLabel('Revenir au direct'), findsOneWidget);
-    expect(find.text('Source 1/2'), findsOneWidget);
+    expect(find.textContaining('Source'), findsNothing);
     expect(find.bySemanticsLabel('Plein écran'), findsOneWidget);
     expect(find.bySemanticsLabel('Retour'), findsOneWidget);
 
     await closePlayer(tester);
   });
 
-  testWidgets('play / pause, mute and next source', (tester) async {
+  testWidgets('play / pause and mute', (tester) async {
     final platform = await openPlayer(tester);
 
     await tester.tap(find.bySemanticsLabel('Pause'));
@@ -162,13 +167,6 @@ void main() {
     await tester.pump();
     expect(platform.volumes.last, 0);
     expect(find.bySemanticsLabel('Activer le son'), findsOneWidget);
-
-    await tester.tap(find.text('Source 1/2'));
-    await settle(tester);
-    expect(platform.created.last, 'https://api.test/tv/stream/b');
-    expect(find.text('Source 2/2'), findsOneWidget);
-    // The sound stays off on the new source.
-    expect(platform.volumes.last, 0);
 
     await closePlayer(tester);
   });
@@ -205,14 +203,9 @@ void main() {
     await closePlayer(tester);
   });
 
-  testWidgets('skips a dead source, then offers to retry when none plays', (tester) async {
-    final platform = await openPlayer(tester, failing: {'https://api.test/tv/stream/a'});
-    expect(platform.created, ['https://api.test/tv/stream/a', 'https://api.test/tv/stream/b']);
-    expect(find.text('EN DIRECT'), findsOneWidget);
-    await closePlayer(tester);
-
-    final dead = await openPlayer(tester, failing: {'https://api.test/tv/stream/a', 'https://api.test/tv/stream/b'});
-    expect(dead.created.length, 2);
+  testWidgets('a stream that refuses to start: the error and « Réessayer », no other source', (tester) async {
+    final platform = await openPlayer(tester, failing: {url});
+    expect(platform.created, [url]);
     expect(find.text('Impossible de lire cette chaîne.'), findsOneWidget);
     expect(find.text('Réessayer'), findsOneWidget);
     await closePlayer(tester);
@@ -242,6 +235,32 @@ void main() {
     await settle(tester);
     expect(calls, 2);
     expect(find.text('EN DIRECT'), findsOneWidget);
+    await closePlayer(tester);
+  });
+
+  testWidgets('an image that does not move: controls and spinner, then the error (never a black screen)', (
+    tester,
+  ) async {
+    final platform = await openPlayer(tester, stalled: {url});
+    expect(platform.created, [url]);
+
+    // The controls and a spinner stay, without « EN DIRECT ».
+    await tester.pump(LivePlayerScreen.hideDelay);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      tester
+          .widget<AnimatedOpacity>(find.ancestor(of: find.text('France 2'), matching: find.byType(AnimatedOpacity)))
+          .opacity,
+      1,
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('EN DIRECT'), findsNothing);
+
+    await tester.pump(LivePlayerScreen.stallTimeout);
+    await settle(tester);
+    expect(platform.created, [url]);
+    expect(find.text('Impossible de lire cette chaîne.'), findsOneWidget);
+    expect(find.text('Réessayer'), findsOneWidget);
     await closePlayer(tester);
   });
 }

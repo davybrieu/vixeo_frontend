@@ -37,7 +37,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
   }
 
   void _setFilters(SearchFilters filters) {
-    setState(() => _filters = filters.forText(withText: false));
+    setState(() => _filters = filters);
   }
 
   @override
@@ -57,20 +57,21 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
               fontSize: layout.size(16, tv: 24),
               onChanged: (value) {
                 final query = value.trim();
-                setState(() {
-                  _query = query;
-                  _filters = _filters.forText(withText: false);
-                });
+                setState(() => _query = query);
               },
               onClear: () {
                 _searchController.clear();
-                setState(() {
-                  _query = '';
-                  _filters = _filters.forText(withText: false);
-                });
+                setState(() => _query = '');
               },
             ),
-            filters: SearchFilterBar(filters: _filters, withText: false, onChanged: _setFilters),
+            filters: SearchFilterBar(
+              filters: _filters,
+              withText: false,
+              onChanged: _setFilters,
+              // Saved titles and channels: no people, no channel category.
+              kinds: const [SearchKind.all, SearchKind.movie, SearchKind.tv, SearchKind.channels],
+              channelCategories: false,
+            ),
           ),
           Expanded(
             child: AsyncView(
@@ -83,11 +84,11 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                       .map((item) => item.itemId)
                       .toSet();
                   return ref
-                      .watch(channelSearchProvider(''))
+                      .watch(channelSearchProvider(('', null)))
                       .when(
                         loading: () => const Center(child: CircularProgressIndicator()),
                         error: (error, _) =>
-                            ErrorPanel(error: error, onRetry: () => ref.invalidate(channelSearchProvider(''))),
+                            ErrorPanel(error: error, onRetry: () => ref.invalidate(channelSearchProvider(('', null)))),
                         data: (channels) {
                           final favorites = channels.where((channel) => favoriteIds.contains(channel.id)).toList();
                           if (favorites.isEmpty) {
@@ -99,8 +100,8 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                           }
                           return RefreshIndicator(
                             onRefresh: () async {
-                              ref.invalidate(channelSearchProvider(''));
-                              await ref.read(channelSearchProvider('').future);
+                              ref.invalidate(channelSearchProvider(('', null)));
+                              await ref.read(channelSearchProvider(('', null)).future);
                             },
                             child: GridView.builder(
                               physics: const AlwaysScrollableScrollPhysics(),

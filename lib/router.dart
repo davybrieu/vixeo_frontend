@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/theme.dart';
+import 'core/widgets/app_loading.dart';
 import 'core/widgets/common.dart';
 import 'features/account/account_screen.dart';
 import 'features/account/devices_screen.dart';
@@ -28,7 +29,6 @@ import 'features/shell/back_navigation_guard.dart';
 import 'features/tmdb/connections_screen.dart';
 import 'features/tmdb/review_screen.dart';
 import 'features/tmdb/reviews_screen.dart';
-import 'features/tv/tv_hub_screen.dart';
 
 /// Routes. Sign-in is the entry page: every route redirects there while signed out,
 /// then to "Qui regarde ?" until a profile is chosen.
@@ -101,7 +101,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/series',
             pageBuilder: (_, _) => tab(const HomeScreen(type: MediaType.tv)),
           ),
-          GoRoute(path: '/tv-live', pageBuilder: (_, _) => tab(const TvHubScreen())),
+          // No live TV page any more: channels are in the search page and on the home page.
+          GoRoute(path: '/tv-live', redirect: (_, _) => '/recherche'),
           GoRoute(
             path: '/recherche',
             pageBuilder: (_, state) => tab(SearchScreen(initialType: state.extra as MediaType?)),
@@ -167,14 +168,15 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-/// Shown while the saved session is checked, or when the API cannot be reached.
+/// Shown while the saved session is checked (the start-up loading, [AppLoading]), or when the
+/// API cannot be reached.
 class SplashScreen extends ConsumerWidget {
   const SplashScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
-    final unreachable = session.status == SessionStatus.unreachable;
+    if (session.status != SessionStatus.unreachable) return const Scaffold(body: AppLoading());
     return Scaffold(
       body: Center(
         child: Column(
@@ -182,23 +184,20 @@ class SplashScreen extends ConsumerWidget {
           children: [
             const VxLogo(size: 40),
             const SizedBox(height: 32),
-            if (unreachable) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  session.message ?? 'Impossible de joindre le serveur.',
-                  textAlign: TextAlign.center,
-                  style: VxText.body(16, color: VxColors.textSoft),
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                session.message ?? 'Impossible de joindre le serveur.',
+                textAlign: TextAlign.center,
+                style: VxText.body(16, color: VxColors.textSoft),
               ),
-              const SizedBox(height: 20),
-              VxButton(
-                label: 'Réessayer',
-                autofocus: true,
-                onPressed: () => ref.read(sessionProvider.notifier).restore(),
-              ),
-            ] else
-              const SizedBox.square(dimension: 28, child: CircularProgressIndicator(strokeWidth: 3)),
+            ),
+            const SizedBox(height: 20),
+            VxButton(
+              label: 'Réessayer',
+              autofocus: true,
+              onPressed: () => ref.read(sessionProvider.notifier).restore(),
+            ),
           ],
         ),
       ),

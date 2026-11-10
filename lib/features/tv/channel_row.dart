@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
@@ -18,13 +17,12 @@ final homeChannelsProvider = FutureProvider.autoDispose<List<TvChannel>>((ref) a
   return list.take(_homeChannelLimit).toList();
 });
 
-/// Horizontal row of live channel tiles (home "Chaînes TV").
+/// Horizontal row of live channel tiles (home and search « Chaînes TV »).
 class ChannelRow extends ConsumerWidget {
-  const ChannelRow({super.key, required this.channels, this.title = 'Chaînes TV', this.onSeeAll});
+  const ChannelRow({super.key, required this.channels, this.title = 'Chaînes TV'});
 
   final List<TvChannel> channels;
   final String title;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -38,44 +36,15 @@ class ChannelRow extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // No « Voir tout »: all the channels are in the search page (« Chaînes TV »).
         Padding(
           padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, layout.isLarge ? layout.tv(22) : 12),
-          child: Row(
-            children: [
-              Expanded(child: Text(title, style: VxText.title(layout.isLarge ? layout.tv(30) : 18))),
-              VxFocusable(
-                borderRadius: 8,
-                semanticLabel: 'Voir toutes les chaînes TV',
-                onPressed: onSeeAll ?? () => context.go('/tv-live'),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Voir tout',
-                        style: VxText.body(
-                          layout.isLarge ? layout.tv(20) : 13,
-                          color: VxColors.accent,
-                          weight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(width: layout.isLarge ? layout.tv(6) : 3),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: layout.isLarge ? layout.tv(24) : 18,
-                        color: VxColors.accent,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          child: Text(title, style: VxText.title(layout.isLarge ? layout.tv(30) : 18)),
         ),
         FocusTraversalGroup(
           child: SizedBox(
-            height: tileSize + 36 + vPad * 2,
+            // The tile, then its name on up to two lines (12 px, line height 1.45).
+            height: tileSize + 8 + 36 + vPad * 2,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               clipBehavior: Clip.none,
@@ -84,7 +53,7 @@ class ChannelRow extends ConsumerWidget {
               separatorBuilder: (_, _) => SizedBox(width: gap),
               itemBuilder: (context, i) {
                 final channel = channels[i];
-                return _ChannelTile(
+                return ChannelTile(
                   channel: channel,
                   size: tileSize,
                   onTap: () => playLiveChannel(context, ref, channel),
@@ -98,8 +67,9 @@ class ChannelRow extends ConsumerWidget {
   }
 }
 
-class _ChannelTile extends StatelessWidget {
-  const _ChannelTile({required this.channel, required this.size, required this.onTap});
+/// A live channel: its logo in a square, its name under it. A press plays it.
+class ChannelTile extends StatelessWidget {
+  const ChannelTile({super.key, required this.channel, required this.size, required this.onTap});
 
   final TvChannel channel;
   final double size;
