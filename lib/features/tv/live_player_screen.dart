@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
@@ -18,11 +19,20 @@ import 'models.dart';
 /// The controls hide after a few seconds of playback and come back on a tap, a mouse move or any
 /// key (the first key press on a remote only shows them). Shortcuts: K (lecture), M (son),
 /// F (plein écran), and the media keys of a remote.
+///
+/// Opened right away on a channel: the stream is asked for here ([loadStream]), under the same
+/// spinner as the start of playback, so there is a single loading, not a dialog then the player.
 class LivePlayerScreen extends StatefulWidget {
-  const LivePlayerScreen({super.key, required this.title, required this.stream});
+  const LivePlayerScreen({super.key, required this.title, this.stream, this.loadStream})
+    : assert(stream != null || loadStream != null);
 
   final String title;
-  final TvStream stream;
+
+  /// The stream, when already known.
+  final TvStream? stream;
+
+  /// Asks the API for the stream (`/tv/channels/{id}/stream`), when [stream] is not given.
+  final Future<TvStream> Function()? loadStream;
 
   /// How long the controls stay on screen without any action, while playing.
   static const hideDelay = Duration(seconds: 4);
@@ -36,7 +46,11 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
 
   /// Playable URLs the server resolved for this channel, best first. A dead one is skipped for
   /// the next, so a channel that answers on several mirrors keeps working when one goes down.
-  late final List<String> _sources;
+  List<String> _sources = const [];
+  TvStream? _stream;
+
+  /// Why the stream could not be obtained from the API (null: it was, or is being asked for).
+  String? _loadError;
   int _index = 0;
   bool _failed = false;
   bool _playing = false;
@@ -53,9 +67,39 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   @override
   void initState() {
     super.initState();
-    final resolved = widget.stream.sources.where((s) => s.isNotEmpty).toList();
-    _sources = resolved.isEmpty ? [widget.stream.url] : resolved;
+    final stream = widget.stream;
+    if (stream != null) {
+      _use(stream);
+    } else {
+      _load();
+    }
+  }
+
+  void _use(TvStream stream) {
+    _stream = stream;
+    final resolved = stream.sources.where((s) => s.isNotEmpty).toList();
+    _sources = resolved.isEmpty ? [stream.url] : resolved;
+    _index = 0;
     _startCurrent();
+  }
+
+  /// Asks the API for the channel's stream, then plays it.
+  Future<void> _load() async {
+    setState(() {
+      _failed = false;
+      _loadError = null;
+    });
+    try {
+      final stream = await widget.loadStream!();
+      if (mounted) _use(stream);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _failed = true;
+        _loadError = e is ApiException ? e.message : null;
+        _controlsVisible = true;
+      });
+    }
   }
 
   @override
@@ -95,10 +139,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     await previous?.dispose();
 
     // The API hands the playable URL and the headers to send (some streams are signed).
-    final controller = VideoPlayerController.networkUrl(
-      Uri.parse(_sources[_index]),
-      httpHeaders: widget.stream.headers,
-    );
+    final controller = VideoPlayerController.networkUrl(Uri.parse(_sources[_index]), httpHeaders: _stream!.headers);
     if (!mounted) {
       await controller.dispose();
       return;
@@ -191,8 +232,12 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   }
 
   void _retry() {
-    _index = 0;
-    _startCurrent();
+    final stream = _stream;
+    if (stream == null) {
+      _load();
+    } else {
+      _use(stream);
+    }
   }
 
   Future<void> _toggleMute() async {
@@ -327,7 +372,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
                 ),
               ),
               if (_failed)
-                _FailedMessage(onRetry: _retry)
+                _FailedMessage(message: _loadError, onRetry: _retry)
               else if (!ready || _buffering)
                 const IgnorePointer(
                   child: Center(child: CircularProgressIndicator(color: VxColors.accent)),
@@ -643,8 +688,10 @@ class _SourceButton extends StatelessWidget {
 }
 
 class _FailedMessage extends StatelessWidget {
-  const _FailedMessage({required this.onRetry});
+  const _FailedMessage({required this.message, required this.onRetry});
 
+  /// The API's message when the stream could not be obtained.
+  final String? message;
   final VoidCallback onRetry;
 
   @override
@@ -658,7 +705,7 @@ class _FailedMessage extends StatelessWidget {
             const Icon(Icons.error_outline, color: VxColors.error, size: 48),
             const SizedBox(height: 16),
             Text(
-              'Impossible de lire cette chaîne.',
+              message ?? 'Impossible de lire cette chaîne.',
               textAlign: TextAlign.center,
               style: VxText.body(16, color: VxColors.textSoft),
             ),

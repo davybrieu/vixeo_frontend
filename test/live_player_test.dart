@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
+import 'package:vixeo/core/api/api_exception.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/tv/live_player_screen.dart';
 import 'package:vixeo/features/tv/models.dart';
@@ -93,13 +94,17 @@ const stream = TvStream(
   sources: ['https://api.test/tv/stream/a', 'https://api.test/tv/stream/b'],
 );
 
-Future<FakeVideoPlatform> openPlayer(WidgetTester tester, {Set<String> failing = const {}}) async {
+Future<FakeVideoPlatform> openPlayer(
+  WidgetTester tester, {
+  Set<String> failing = const {},
+  Future<TvStream> Function()? loadStream,
+}) async {
   final platform = FakeVideoPlatform(failing: failing);
   VideoPlayerPlatform.instance = platform;
   await tester.pumpWidget(
     MaterialApp(
       theme: buildVixeoTheme(),
-      home: const LivePlayerScreen(title: 'France 2', stream: stream),
+      home: LivePlayerScreen(title: 'France 2', stream: loadStream == null ? stream : null, loadStream: loadStream),
     ),
   );
   await settle(tester);
@@ -210,6 +215,33 @@ void main() {
     expect(dead.created.length, 2);
     expect(find.text('Impossible de lire cette chaîne.'), findsOneWidget);
     expect(find.text('Réessayer'), findsOneWidget);
+    await closePlayer(tester);
+  });
+
+  testWidgets('asks for the stream itself: a single loading, then playback', (tester) async {
+    final platform = await openPlayer(tester, loadStream: () async => stream);
+    expect(platform.created, ['https://api.test/tv/stream/a']);
+    expect(find.text('EN DIRECT'), findsOneWidget);
+    await closePlayer(tester);
+  });
+
+  testWidgets("shows the API's message when the stream cannot be had, and retries", (tester) async {
+    var calls = 0;
+    final platform = await openPlayer(
+      tester,
+      loadStream: () async {
+        calls++;
+        if (calls == 1) throw const ApiException('La TV en direct est indisponible.');
+        return stream;
+      },
+    );
+    expect(platform.created, isEmpty);
+    expect(find.text('La TV en direct est indisponible.'), findsOneWidget);
+
+    await tester.tap(find.text('Réessayer'));
+    await settle(tester);
+    expect(calls, 2);
+    expect(find.text('EN DIRECT'), findsOneWidget);
     await closePlayer(tester);
   });
 }

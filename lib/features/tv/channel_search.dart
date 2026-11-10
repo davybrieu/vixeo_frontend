@@ -107,25 +107,12 @@ class NumberedSliverError extends StatelessWidget {
   }
 }
 
-/// Resolve stream and open the live player (shared by hub and search).
-Future<void> playLiveChannel(BuildContext context, WidgetRef ref, TvChannel channel) async {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => const Center(child: CircularProgressIndicator()),
+/// Opens the live player at once; it asks for the stream itself (shared by hub and search).
+Future<void> playLiveChannel(BuildContext context, WidgetRef ref, TvChannel channel) {
+  final repository = ref.read(tvRepositoryProvider);
+  return Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => LivePlayerScreen(title: channel.name, loadStream: () => repository.stream(channel.id)),
+    ),
   );
-  try {
-    final stream = await ref.read(tvRepositoryProvider).stream(channel.id);
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LivePlayerScreen(title: channel.name, stream: stream),
-      ),
-    );
-  } catch (e) {
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-  }
 }

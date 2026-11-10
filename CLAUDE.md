@@ -106,8 +106,9 @@ lib/
   nouveau code sur un 410. Le téléphone valide sur `/tv` (« Mon profil » → « Connecter une TV »).
   Le `device_code` reste en mémoire, jamais dans une URL.
 - **TV en direct** (`features/tv`, API : `vixeo_backend/docs/tv-direct.md`) : `TvHubScreen` affiche
-  les catégories (`/tv/categories`) et les chaînes (`/tv/channels`) ; toucher une chaîne demande son
-  flux (`/tv/channels/{id}/stream`) puis ouvre `LivePlayerScreen`. Lecteur (`live_player_screen.dart`) :
+  les catégories (`/tv/categories`) et les chaînes (`/tv/channels`) ; toucher une chaîne
+  ouvre tout de suite `LivePlayerScreen`, qui demande son flux (`/tv/channels/{id}/stream`) sous
+  le même indicateur que le début de la lecture (un seul chargement, pas de fenêtre avant). Lecteur (`live_player_screen.dart`) :
   contrôles en surimpression (retour, nom de la chaîne, « EN DIRECT » ; lecture / pause, son et
   volume (souris), « Revenir au direct », « Source 2/3 » s'il y en a plusieurs, plein écran sauf
   sur TV : `fullscreen/`), masqués après 4 s de lecture, rappelés par un appui, la souris ou une
