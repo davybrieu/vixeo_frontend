@@ -29,7 +29,6 @@ import 'features/shell/back_navigation_guard.dart';
 import 'features/tmdb/connections_screen.dart';
 import 'features/tmdb/review_screen.dart';
 import 'features/tmdb/reviews_screen.dart';
-import 'features/tv/tv_hub_screen.dart';
 
 /// Routes. Sign-in is the entry page: every route redirects there while signed out,
 /// then to "Qui regarde ?" until a profile is chosen.
@@ -102,7 +101,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/series',
             pageBuilder: (_, _) => tab(const HomeScreen(type: MediaType.tv)),
           ),
-          GoRoute(path: '/tv-live', pageBuilder: (_, _) => tab(const TvHubScreen())),
+          // No live TV page any more: channels are in the search page and on the home page.
+          GoRoute(path: '/tv-live', redirect: (_, _) => '/recherche'),
           GoRoute(
             path: '/recherche',
             pageBuilder: (_, state) => tab(SearchScreen(initialType: state.extra as MediaType?)),

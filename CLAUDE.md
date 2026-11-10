@@ -83,7 +83,8 @@ lib/
                  recherches récentes synchronisées (search_history.dart)
     playback/    pour le futur lecteur : moments à passer (TheIntroDB) et sous-titres (OpenSubtitles),
                  via l'API
-    tv/          TV en direct : catégories et chaînes de l'API, lecture d'un flux (HLS)
+    tv/          TV en direct : chaînes et catégories de l'API (rangée, grille de la recherche),
+                 lecteur d'un flux (HLS) ; pas de page à part
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
     tmdb/        compte TMDb du profil (page Connexions, QR code), notes et commentaires (fenêtre,
                  boutons, onglet « Avis »)
@@ -105,8 +106,12 @@ lib/
   + code court), qui interroge `/auth/device/token` toutes les `interval` secondes et demande un
   nouveau code sur un 410. Le téléphone valide sur `/tv` (« Mon profil » → « Connecter une TV »).
   Le `device_code` reste en mémoire, jamais dans une URL.
-- **TV en direct** (`features/tv`, API : `vixeo_backend/docs/tv-direct.md`) : `TvHubScreen` affiche
-  les catégories (`/tv/categories`) et les chaînes (`/tv/channels`) ; toucher une chaîne
+- **TV en direct** (`features/tv`, API : `vixeo_backend/docs/tv-direct.md`) : **pas de page « TV »
+  ni d'onglet** (supprimés, demande du développeur ; `/tv-live` redirige vers `/recherche`). Les
+  chaînes sont sur l'accueil (rangée `ChannelRow`, **sans « Voir tout »**) et dans la recherche
+  (type « Chaînes TV » : grille `ChannelSearchResults`, filtre « Catégorie » de `/tv/categories`,
+  même bouton `FilterChipButton` que « Genre » ; section « Chaînes TV » de « Tout »). Une chaîne
+  passe toujours par `ChannelTile` (focus télécommande) ; toucher une chaîne
   ouvre tout de suite `LivePlayerScreen`, qui demande son flux (`/tv/channels/{id}/stream`) sous
   le même indicateur que le début de la lecture (un seul chargement, pas de fenêtre avant). Lecteur (`live_player_screen.dart`) :
   contrôles en surimpression (retour, nom de la chaîne, « EN DIRECT » ; lecture / pause, son et
@@ -234,10 +239,15 @@ lib/
   en PNG sans modification). Pas de page de confidentialité ni de mention TMDb dans l'appli
   (décision du développeur).
 - **Recherche** (`features/search`, API : filtres de `/catalog/{type}/discover` et `/catalog/search`) :
-  barre de filtres `SearchFilterBar` (Tout / Films / Séries / Personnes, genre, années, note
-  minimale, tri) ; `SearchFilters` donne les paramètres de l'API. Sans texte : « Explorer » tout le
-  catalogue (`/discover`, tri par popularité par défaut ; « Personnes » et « Pertinence »
-  n'existent qu'avec un texte). Avec un texte : l'API filtre et trie les premiers résultats (une
+  barre de filtres `SearchFilterBar` (Tout / Films / Séries / Chaînes TV / Personnes, genre,
+  années, note minimale, tri ; « Catégorie » pour les chaînes) ; `SearchFilters` donne les
+  paramètres de l'API. **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
+  (demande du développeur) : dans « Tout », après Films et Séries, une section « Chaînes TV » et
+  une section « Personnes » toujours affichées (une ligne « Aucune … » si vide ; masquées avec un
+  filtre genre / années / note, qui ne s'applique qu'aux titres). Sans texte, « Personnes » = les
+  personnes populaires (`/catalog/people/popular`). Sans texte : « Explorer » tout le catalogue
+  (`/discover`, tri par popularité par défaut ; « Pertinence » n'existe qu'avec un texte).
+  « Ma liste » reprend la barre sans « Personnes » ni « Catégorie » (`kinds`, `channelCategories`). Avec un texte : l'API filtre et trie les premiers résultats (une
   recherche filtrée ne renvoie pas de personnes). « Tout » = une rangée Films et une rangée
   Séries ; un type choisi = une grille qui charge la page suivante en arrivant à la fin
   (`_PagedGrid`). Téléphone : pas de carrousel ni de grande image (demande du développeur) ;

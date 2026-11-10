@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../catalog/models.dart';
+import '../tv/models.dart';
 
 /// "Type" filter of the search page.
 enum SearchKind {
@@ -11,7 +12,7 @@ enum SearchKind {
   /// Live channels from the TV API.
   channels('Chaînes TV'),
 
-  /// Only with a text: TMDb has no list of people to explore.
+  /// People: the search results with a text, TMDb's popular people without one.
   person('Personnes');
 
   const SearchKind(this.label);
@@ -63,12 +64,16 @@ enum Decade {
 }
 
 /// Filters and order of the search page. Genre, years and rating apply to movies and TV shows
-/// only; [sort] null = the default order (relevance with a text, popularity without).
+/// only, [category] to live channels only; [sort] null = the default order (relevance with a
+/// text, popularity without).
 @immutable
 class SearchFilters {
-  const SearchFilters({this.kind = SearchKind.all, this.genre, this.decade, this.minRating, this.sort});
+  const SearchFilters({this.kind = SearchKind.all, this.genre, this.decade, this.minRating, this.sort, this.category});
 
   final SearchKind kind;
+
+  /// Category of the live channels (type « Chaînes TV »), null = all.
+  final TvCategory? category;
   final Genre? genre;
   final Decade? decade;
 
@@ -80,17 +85,13 @@ class SearchFilters {
 
   bool get hasTitleFilters => genre != null || decade != null || minRating != null;
 
-  bool get isDefault => kind == SearchKind.all && !hasTitleFilters && sort == null;
+  bool get isDefault => kind == SearchKind.all && !hasTitleFilters && sort == null && category == null;
 
   /// The order really used: relevance needs a text.
   SearchSort sortFor({required bool withText}) {
     final value = sort ?? (withText ? SearchSort.relevance : SearchSort.popularity);
     return !withText && value == SearchSort.relevance ? SearchSort.popularity : value;
   }
-
-  /// Without a text, "Personnes" is not available: back to "Tout".
-  SearchFilters forText({required bool withText}) =>
-      !withText && kind == SearchKind.person ? copyWith(kind: SearchKind.all) : this;
 
   /// Query parameters of the API (discover and search), the default ones left out.
   Map<String, Object?> query({required bool withText}) {
@@ -110,12 +111,14 @@ class SearchFilters {
     Decade? Function()? decade,
     int? Function()? minRating,
     SearchSort? Function()? sort,
+    TvCategory? Function()? category,
   }) => SearchFilters(
     kind: kind ?? this.kind,
     genre: genre == null ? this.genre : genre(),
     decade: decade == null ? this.decade : decade(),
     minRating: minRating == null ? this.minRating : minRating(),
     sort: sort == null ? this.sort : sort(),
+    category: category == null ? this.category : category(),
   );
 
   @override
@@ -125,10 +128,11 @@ class SearchFilters {
       other.genre == genre &&
       other.decade == decade &&
       other.minRating == minRating &&
-      other.sort == sort;
+      other.sort == sort &&
+      other.category == category;
 
   @override
-  int get hashCode => Object.hash(kind, genre, decade, minRating, sort);
+  int get hashCode => Object.hash(kind, genre, decade, minRating, sort, category);
 }
 
 /// One request of titles: explore (no [query]) or search, for one type.

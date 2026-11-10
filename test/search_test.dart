@@ -10,6 +10,9 @@ import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/search/filter_bar.dart';
 import 'package:vixeo/features/search/search_filters.dart';
 import 'package:vixeo/features/search/search_screen.dart';
+import 'package:vixeo/features/tv/channel_search.dart';
+import 'package:vixeo/features/tv/models.dart';
+import 'package:vixeo/features/tv/tv_repository.dart';
 
 class EmptyLibrary extends LibraryController {
   @override
@@ -32,6 +35,7 @@ MediaItem title(int id, String name, MediaType type) =>
 class FakeCatalog {
   final titleQueries = <TitleQuery>[];
   final searches = <(String, SearchFilters)>[];
+  final channelQueries = <(String, String?)>[];
   int totalPages = 1;
 
   Paged<MediaItem> titles(TitleQuery q) {
@@ -71,6 +75,22 @@ Future<FakeCatalog> pumpSearch(WidgetTester tester, {Size size = const Size(390,
         titlesProvider.overrideWith((ref, q) async => fake.titles(q)),
         searchProvider.overrideWith((ref, key) async => fake.search(key)),
         peopleProvider.overrideWith((ref, key) async => const Paged(items: [Person(id: 9, name: 'Alma Meyer')])),
+        channelSearchProvider.overrideWith((ref, key) async {
+          fake.channelQueries.add(key);
+          const all = [
+            TvChannel(id: 'tf1', name: 'TF1', categoryId: 'gen'),
+            TvChannel(id: 'eqp', name: 'L’Équipe', categoryId: 'sport'),
+          ];
+          final (query, category) = key;
+          return [
+            for (final c in all)
+              if ((category == null || c.categoryId == category) && c.name.toLowerCase().contains(query.toLowerCase()))
+                c,
+          ];
+        }),
+        tvCategoriesProvider.overrideWith(
+          (ref) async => const [TvCategory(id: 'gen', name: 'Généralistes'), TvCategory(id: 'sport', name: 'Sport')],
+        ),
         homeProvider.overrideWith(
           (ref, type) async =>
               Home(featured: [title(50, 'Tendance ${type?.name ?? 'tout'}', MediaType.movie)], sections: []),
@@ -99,6 +119,9 @@ Future<void> typeQuery(WidgetTester tester, String text) async {
 }
 
 /// A chip of the filter bar, scrolled into view first (the bar scrolls sideways on a phone).
+/// The vertical scroll of the page (not a row's).
+final pageScroll = find.descendant(of: find.byType(CustomScrollView), matching: find.byType(Scrollable)).first;
+
 Future<void> tapChip(WidgetTester tester, String label) async {
   final chip = find.ancestor(of: find.textContaining(label), matching: find.byType(FilterChipButton)).first;
   await tester.ensureVisible(chip);
@@ -130,11 +153,11 @@ void main() {
       expect(query, {'genre': 18, 'year_from': null, 'year_to': 1979, 'min_rating': 7, 'sort': 'oldest'});
     });
 
-    test('relevance and people need a text', () {
+    test('relevance needs a text; people stay without one (popular people)', () {
       const filters = SearchFilters(kind: SearchKind.person, sort: SearchSort.relevance);
       expect(filters.sortFor(withText: true), SearchSort.relevance);
       expect(filters.sortFor(withText: false), SearchSort.popularity);
-      expect(filters.forText(withText: false).kind, SearchKind.all);
+      expect(filters.kind, SearchKind.person);
       expect(SearchSort.available(withText: false), isNot(contains(SearchSort.relevance)));
     });
 
@@ -156,7 +179,12 @@ void main() {
     expect(find.text('Tendance tout'), findsNothing);
     expect(find.text('Films'), findsWidgets);
     expect(fake.titleQueries.map((q) => q.type), containsAll([MediaType.movie, MediaType.tv]));
-    expect(find.text('Personnes'), findsNothing);
+    // « Chaînes TV » and « Personnes » are always there: a type each, and a section of "Tout".
+    expect(find.text('Chaînes TV'), findsNWidgets(2));
+    expect(find.text('TF1'), findsOneWidget);
+    expect(find.ancestor(of: find.text('Personnes'), matching: find.byType(FilterChipButton)), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Alma Meyer'), 300, scrollable: pageScroll);
+    expect(find.text('Alma Meyer'), findsOneWidget);
 
     // "Séries": the TV shows come in a grid.
     await tapChip(tester, 'Séries');
@@ -208,11 +236,43 @@ void main() {
     // Genre, years, rating and order don't apply to people.
     expect(find.text('Genre'), findsNothing);
 
-    // Text erased: back to explore, "Personnes" is no longer offered.
+    // Text erased: « Personnes » stays, with the popular people.
     await tester.tap(find.byTooltip('Effacer'));
     await tester.pumpAndSettle();
-    expect(find.text('Personnes'), findsNothing);
-    expect(find.bySemanticsLabel(RegExp('^Film 1-0,')), findsOneWidget);
+    expect(find.text('Personnes'), findsOneWidget);
+    expect(find.text('Alma Meyer'), findsOneWidget);
+  });
+
+  testWidgets('« Chaînes TV »: a grid, the text and the category filter it, same chips as the filters', (tester) async {
+    final fake = await pumpSearch(tester);
+    await tapChip(tester, 'Chaînes TV');
+    expect(find.text('TF1'), findsOneWidget);
+    expect(find.text('L’Équipe'), findsOneWidget);
+    // Title filters don't apply to channels: their category instead, a filter chip like « Genre ».
+    expect(find.text('Genre'), findsNothing);
+    expect(find.ancestor(of: find.text('Catégorie'), matching: find.byType(FilterChipButton)), findsOneWidget);
+
+    await choose(tester, 'Catégorie', 'Sport');
+    expect(fake.channelQueries.last, ('', 'sport'));
+    expect(find.text('TF1'), findsNothing);
+    expect(find.text('L’Équipe'), findsOneWidget);
+
+    // Another type: the category is dropped.
+    await tapChip(tester, 'Films');
+    await tapChip(tester, 'Chaînes TV');
+    expect(find.text('Catégorie'), findsOneWidget);
+    expect(find.text('TF1'), findsOneWidget);
+  });
+
+  testWidgets('with a text, "Tout" lists the matching channels', (tester) async {
+    await pumpSearch(tester);
+    await typeQuery(tester, 'tf');
+    expect(find.text('TF1'), findsOneWidget);
+    expect(find.text('L’Équipe'), findsNothing);
+
+    await typeQuery(tester, 'zzz');
+    await tester.scrollUntilVisible(find.text('Aucune chaîne ne correspond à « zzz ».'), 300, scrollable: pageScroll);
+    expect(find.text('Aucune chaîne ne correspond à « zzz ».'), findsOneWidget);
   });
 
   testWidgets('the grid loads the next page at its end', (tester) async {

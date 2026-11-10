@@ -7,6 +7,12 @@ class TvCategory {
 
   factory TvCategory.fromJson(Map<String, dynamic> json) =>
       TvCategory(id: '${json['id'] ?? ''}', name: '${json['name'] ?? ''}', parentId: json['parent_id']?.toString());
+
+  @override
+  bool operator ==(Object other) => other is TvCategory && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class TvChannel {

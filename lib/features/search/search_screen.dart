@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
@@ -12,6 +13,7 @@ import '../catalog/catalog_repository.dart';
 import '../catalog/hero.dart';
 import '../catalog/models.dart';
 import '../catalog/widgets.dart';
+import '../tv/channel_row.dart';
 import '../tv/channel_search.dart';
 import 'filter_bar.dart';
 import 'search_filters.dart';
@@ -63,14 +65,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     if (query == _query) return;
     setState(() {
       _query = query;
-      _filters = _filters.forText(withText: query.isNotEmpty);
     });
     // New results: the hero goes back to the first one.
     _hero.reset();
   }
 
   void _setFilters(SearchFilters filters) {
-    setState(() => _filters = filters.forText(withText: _withText));
+    setState(() => _filters = filters);
     _hero.reset();
   }
 
@@ -245,7 +246,7 @@ class _Results extends ConsumerWidget {
 
     final List<Widget> content;
     if (filters.kind.isChannels) {
-      content = [ChannelSearchResults(query: query)];
+      content = [ChannelSearchResults(query: query, categoryId: filters.category?.id)];
     } else if (filters.kind == SearchKind.person) {
       content = [
         _PagedGrid<Person>(
@@ -376,7 +377,9 @@ class NumberedSliverList extends ConsumerWidget {
   }
 }
 
-/// Explore with "Tout": a row of movies and a row of TV shows (choose a type to see all).
+/// Explore with "Tout": a row of movies, a row of TV shows, then the live channels and popular
+/// people, always there (choose a type to see all). A genre, years or rating filter keeps the
+/// titles only: they don't apply to channels and people.
 class _ExploreRows extends ConsumerWidget {
   const _ExploreRows({
     required this.filters,
@@ -420,7 +423,8 @@ class _ExploreRows extends ConsumerWidget {
         if (pages[type]?.value?.items case final items? when items.isNotEmpty)
           (type == MediaType.movie ? 'Films' : 'Séries', items),
     ];
-    if (rows.isEmpty) {
+    final others = !filters.hasTitleFilters;
+    if (rows.isEmpty && !others) {
       return SliverFillRemaining(
         hasScrollBody: false,
         child: _Empty(
@@ -430,18 +434,26 @@ class _ExploreRows extends ConsumerWidget {
         ),
       );
     }
+    final gap = SizedBox(height: layout.sectionGap);
     return SliverList.list(
       children: [
         for (final (index, (title, items)) in rows.indexed) ...[
-          if (index > 0) SizedBox(height: layout.sectionGap),
+          if (index > 0) gap,
           PosterRow(title: title, items: items, onFocused: onFocused, onHovered: onHovered),
+        ],
+        if (others) ...[
+          if (rows.isNotEmpty) gap,
+          const _ChannelsSection(query: ''),
+          gap,
+          _PeopleSection(people: ref.watch(peopleProvider(('', 1))).whenData((p) => p.items), query: ''),
         ],
       ],
     );
   }
 }
 
-/// Search with "Tout": rows of movies, TV shows and people.
+/// Search with "Tout": rows of movies and TV shows, then the live channels and the people, always
+/// there. With a genre, years or rating filter, the titles only (the API returns no people).
 class _SearchRows extends ConsumerWidget {
   const _SearchRows({
     required this.query,
@@ -466,8 +478,10 @@ class _SearchRows extends ConsumerWidget {
     final results = ref.watch(searchProvider(key));
     final gap = SizedBox(height: layout.sectionGap);
 
+    final others = !filters.hasTitleFilters;
+
     return switch (results) {
-      AsyncData(:final value) when value.isEmpty => SliverFillRemaining(
+      AsyncData(:final value) when value.isEmpty && !others => SliverFillRemaining(
         hasScrollBody: false,
         child: _Empty(title: 'Aucun résultat', message: empty, onReset: onReset),
       ),
@@ -479,25 +493,11 @@ class _SearchRows extends ConsumerWidget {
             if (value.movies.isNotEmpty) gap,
             PosterRow(title: 'Séries', items: value.shows, onFocused: onFocused, onHovered: onHovered),
           ],
-          if (value.people.isNotEmpty) ...[
+          if (others) ...[
             if (value.movies.isNotEmpty || value.shows.isNotEmpty) gap,
-            const SectionHeader('Personnes'),
-            FocusTraversalGroup(
-              child: SizedBox(
-                height: PersonCard.heightOf(layout, withRole: false) + (layout.isLarge ? layout.tv(32) : 0),
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  clipBehavior: Clip.none,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: layout.gutter,
-                    vertical: layout.isLarge ? layout.tv(16) : 0,
-                  ),
-                  itemCount: value.people.length,
-                  separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
-                  itemBuilder: (_, i) => PersonCard(person: value.people[i]),
-                ),
-              ),
-            ),
+            _ChannelsSection(query: query),
+            gap,
+            _PeopleSection(people: AsyncData(value.people), query: query),
           ],
         ],
       ),
@@ -507,6 +507,100 @@ class _SearchRows extends ConsumerWidget {
       ),
       _ => const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator())),
     };
+  }
+}
+
+/// « Chaînes TV » of "Tout": the channels matching the text (all without one), in the home
+/// page's row. Always there, with a short line when there is none.
+class _ChannelsSection extends ConsumerWidget {
+  const _ChannelsSection({required this.query});
+
+  final String query;
+
+  /// A row, not the whole list: « Chaînes TV » shows them all.
+  static const _rowLimit = 24;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final channels = ref.watch(channelSearchProvider((query, null)));
+    return switch (channels) {
+      AsyncData(:final value) when value.isNotEmpty => ChannelRow(channels: value.take(_rowLimit).toList()),
+      AsyncData() => _SectionNote(
+        title: 'Chaînes TV',
+        message: query.isEmpty
+            ? 'Aucune chaîne disponible pour le moment.'
+            : 'Aucune chaîne ne correspond à « $query ».',
+      ),
+      AsyncError(:final error) => _SectionNote(title: 'Chaînes TV', message: _errorText(error)),
+      _ => const _SectionNote(title: 'Chaînes TV', message: 'Chargement des chaînes…'),
+    };
+  }
+}
+
+/// « Personnes » of "Tout": the people matching the text, or the popular ones without a text.
+/// Always there, with a short line when there is none.
+class _PeopleSection extends StatelessWidget {
+  const _PeopleSection({required this.people, required this.query});
+
+  final AsyncValue<List<Person>> people;
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    return switch (people) {
+      AsyncData(:final value) when value.isNotEmpty => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader('Personnes'),
+          FocusTraversalGroup(
+            child: SizedBox(
+              height: PersonCard.heightOf(layout, withRole: false) + (layout.isLarge ? layout.tv(32) : 0),
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.isLarge ? layout.tv(16) : 0),
+                itemCount: value.length,
+                separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
+                itemBuilder: (_, i) => PersonCard(person: value[i]),
+              ),
+            ),
+          ),
+        ],
+      ),
+      AsyncData() => _SectionNote(
+        title: 'Personnes',
+        message: query.isEmpty ? 'Aucune personne à afficher.' : 'Aucune personne ne correspond à « $query ».',
+      ),
+      AsyncError(:final error) => _SectionNote(title: 'Personnes', message: _errorText(error)),
+      _ => const _SectionNote(title: 'Personnes', message: 'Chargement des personnes…'),
+    };
+  }
+}
+
+/// The API's French message, or a generic one.
+String _errorText(Object error) => error is ApiException ? error.message : 'Une erreur est survenue.';
+
+/// A section title with a short line under it (nothing to show, or not loaded yet).
+class _SectionNote extends StatelessWidget {
+  const _SectionNote({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: layout.gutter),
+          child: Text(message, style: VxText.body(layout.size(14, tv: 22), color: VxColors.textMuted)),
+        ),
+      ],
+    );
   }
 }
 

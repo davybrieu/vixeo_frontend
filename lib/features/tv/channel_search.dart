@@ -2,31 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/device/layout.dart';
-import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
-import 'models.dart';
+import 'channel_row.dart';
 import 'live_player_screen.dart';
+import 'models.dart';
 import 'tv_repository.dart';
 
-/// Live channels matching [query] (empty = all channels).
-final channelSearchProvider = FutureProvider.autoDispose.family<List<TvChannel>, String>((ref, query) {
-  return ref.watch(tvRepositoryProvider).channels(query: query.isEmpty ? null : query);
+/// Live channels matching a text (empty = all) and a category (null = all), for the search page.
+final channelSearchProvider = FutureProvider.autoDispose.family<List<TvChannel>, (String, String?)>((ref, key) {
+  final (query, categoryId) = key;
+  return ref.watch(tvRepositoryProvider).channels(query: query.isEmpty ? null : query, categoryId: categoryId);
 });
 
-/// Grid of live channels for the search page (filter "Chaînes TV").
+/// Grid of live channels for the search page (type « Chaînes TV »), with the home row's tiles.
 class ChannelSearchResults extends ConsumerWidget {
-  const ChannelSearchResults({super.key, required this.query});
+  const ChannelSearchResults({super.key, required this.query, this.categoryId});
 
   final String query;
+  final String? categoryId;
+
+  /// A grid of every channel stays light: the first ones only, a text or a category narrows it.
+  static const maxShown = 200;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final async = ref.watch(channelSearchProvider(query));
+    final key = (query, categoryId);
+    final async = ref.watch(channelSearchProvider(key));
+    final tile = layout.isLarge ? layout.tv(140).clamp(96, 160).toDouble() : 96.0;
+    final gap = layout.isLarge ? layout.tv(20) : 10.0;
 
     return async.when(
       loading: () => const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator())),
-      error: (e, _) => NumberedSliverError(error: e, onRetry: () => ref.invalidate(channelSearchProvider(query))),
+      error: (e, _) => SliverFillRemaining(
+        hasScrollBody: false,
+        child: ErrorPanel(error: e, onRetry: () => ref.invalidate(channelSearchProvider(key))),
+      ),
       data: (list) {
         if (list.isEmpty) {
           return SliverFillRemaining(
@@ -40,69 +51,28 @@ class ChannelSearchResults extends ConsumerWidget {
             ),
           );
         }
-        final shown = query.isEmpty && list.length > 200 ? list.take(200).toList() : list;
+        final shown = list.length > maxShown ? list.take(maxShown).toList() : list;
         return SliverPadding(
-          padding: EdgeInsets.fromLTRB(layout.gutter, 8, layout.gutter, 24),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 160,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.85,
+          // Room for the focus zoom on TV.
+          padding: EdgeInsets.fromLTRB(layout.gutter, layout.isLarge ? layout.tv(16) : 8, layout.gutter, 24),
+          sliver: SliverGrid.builder(
+            gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: tile + gap,
+              mainAxisExtent: tile + 52,
+              crossAxisSpacing: gap,
+              mainAxisSpacing: gap,
             ),
-            delegate: SliverChildBuilderDelegate((context, i) {
+            itemCount: shown.length,
+            itemBuilder: (context, i) {
               final channel = shown[i];
-              return Material(
-                color: VxColors.surface,
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => playLiveChannel(context, ref, channel),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: channel.logo != null && channel.logo!.isNotEmpty
-                              ? Image.network(
-                                  channel.logo!,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, _, _) => const Icon(Icons.live_tv, size: 40),
-                                )
-                              : const Icon(Icons.live_tv, size: 40),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          channel.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: VxText.body(13),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              return Align(
+                alignment: Alignment.topCenter,
+                child: ChannelTile(channel: channel, size: tile, onTap: () => playLiveChannel(context, ref, channel)),
               );
-            }, childCount: shown.length),
+            },
           ),
         );
       },
-    );
-  }
-}
-
-class NumberedSliverError extends StatelessWidget {
-  const NumberedSliverError({super.key, required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverFillRemaining(
-      hasScrollBody: false,
-      child: ErrorPanel(error: error, onRetry: onRetry),
     );
   }
 }
