@@ -116,7 +116,14 @@ lib/
   `test/home_channels_test.dart`) et dans la recherche
   (type « Chaînes TV » : grille `ChannelSearchResults`, filtre « Catégorie » de `/tv/categories`,
   même bouton `FilterChipButton` que « Genre » ; section « Chaînes TV » de « Tout »). Une chaîne
-  passe toujours par `ChannelTile` (focus télécommande) ; toucher une chaîne
+  passe toujours par `ChannelTile` (focus télécommande) ; **toucher une chaîne ouvre sa page**
+  (`ChannelScreen`, `/chaine/:id`, `openChannel`, demande du développeur ; comme une fiche film /
+  série) : logo (celui du fournisseur, sinon l'icône du guide donnée par l'API), nom, catégorie,
+  « EN DIRECT », « Regarder » (focus à l'arrivée), cœur « Favoris », « En ce moment » (titre,
+  heures, barre de progression, résumé) et le **programme** (EPG, `/tv/channels/{id}/epg`,
+  `tvGuideProvider` ; heures locales, « Demain 08:30 » ; un appui montre le résumé complet ; mis à
+  jour toutes les 30 s ; sans guide sur le serveur : « Le programme n’est pas disponible pour le
+  moment. »). Test : `test/channel_screen_test.dart`. « Regarder »
   ouvre tout de suite `LivePlayerScreen`, qui demande son flux (`/tv/channels/{id}/stream`) sous
   le même indicateur que le début de la lecture (un seul chargement, pas de fenêtre avant). Lecteur (`live_player_screen.dart`) :
   contrôles en surimpression (retour, nom de la chaîne, « EN DIRECT » ; lecture / pause, son et

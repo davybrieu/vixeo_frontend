@@ -35,6 +35,18 @@ class TvRepository {
         .toList();
   }
 
+  /// One channel (its page).
+  Future<TvChannel> channel(String channelId) async {
+    final json = await _api.get('/tv/channels/${Uri.encodeComponent(channelId)}');
+    final data = json['data'];
+    if (data is! Map) throw ApiException('Chaîne introuvable.');
+    return TvChannel.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// The channel's programme guide, from the programme on now.
+  Future<TvGuide> guide(String channelId) async =>
+      TvGuide.fromJson(await _api.get('/tv/channels/${Uri.encodeComponent(channelId)}/epg'));
+
   Future<TvStream> stream(String channelId) async {
     final json = await _api.get('/tv/channels/$channelId/stream');
     final data = json['data'];
@@ -54,4 +66,14 @@ final tvRepositoryProvider = Provider<TvRepository>((ref) {
 /// Categories of the live channels: the « Catégorie » filter of the search page.
 final tvCategoriesProvider = FutureProvider.autoDispose<List<TvCategory>>((ref) {
   return ref.watch(tvRepositoryProvider).categories();
+});
+
+/// One channel, for its page.
+final tvChannelProvider = FutureProvider.autoDispose.family<TvChannel, String>((ref, id) {
+  return ref.watch(tvRepositoryProvider).channel(id);
+});
+
+/// A channel's programme guide.
+final tvGuideProvider = FutureProvider.autoDispose.family<TvGuide, String>((ref, id) {
+  return ref.watch(tvRepositoryProvider).guide(id);
 });

@@ -6,7 +6,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/focusable.dart';
 import '../library/actions.dart';
 import '../library/library.dart';
-import 'channel_search.dart';
+import 'channel_screen.dart';
 import 'models.dart';
 import 'tv_repository.dart';
 
@@ -111,11 +111,7 @@ class ChannelRow extends ConsumerWidget {
               separatorBuilder: (_, _) => SizedBox(width: gap),
               itemBuilder: (context, i) {
                 final channel = channels[i];
-                return ChannelTile(
-                  channel: channel,
-                  size: tileSize,
-                  onTap: () => playLiveChannel(context, ref, channel),
-                );
+                return ChannelTile(channel: channel, size: tileSize, onTap: () => openChannel(context, channel));
               },
             ),
           ),

@@ -27,6 +27,8 @@ import 'features/profiles/profiles_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
+import 'features/tv/channel_screen.dart';
+import 'features/tv/models.dart';
 import 'features/tmdb/connections_screen.dart';
 import 'features/tmdb/review_screen.dart';
 import 'features/tmdb/reviews_screen.dart';
@@ -139,6 +141,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/tv',
             builder: (_, state) =>
                 guarded(state.uri.path, DeviceApproveScreen(initialCode: state.uri.queryParameters['code'])),
+          ),
+          // A live channel's page (like a title page): its programme guide and « Regarder ».
+          GoRoute(
+            path: '/chaine/:id',
+            builder: (_, state) => ChannelScreen(
+              id: state.pathParameters['id'] ?? '',
+              initial: state.extra is TvChannel ? state.extra as TvChannel : null,
+            ),
           ),
           GoRoute(
             path: '/titre/:type/:id',

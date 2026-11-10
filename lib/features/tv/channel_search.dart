@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/device/layout.dart';
 import '../../core/widgets/common.dart';
 import 'channel_row.dart';
+import 'channel_screen.dart';
 import 'live_player_screen.dart';
 import 'models.dart';
 import 'tv_repository.dart';
@@ -67,7 +68,7 @@ class ChannelSearchResults extends ConsumerWidget {
               final channel = shown[i];
               return Align(
                 alignment: Alignment.topCenter,
-                child: ChannelTile(channel: channel, size: tile, onTap: () => playLiveChannel(context, ref, channel)),
+                child: ChannelTile(channel: channel, size: tile, onTap: () => openChannel(context, channel)),
               );
             },
           ),

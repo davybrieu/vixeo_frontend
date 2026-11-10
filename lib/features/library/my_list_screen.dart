@@ -12,6 +12,7 @@ import '../catalog/widgets.dart';
 import '../search/filter_bar.dart';
 import '../search/search_filters.dart';
 import '../tv/channel_search.dart';
+import '../tv/channel_screen.dart';
 import 'library.dart';
 
 /// "Ma liste": the active profile's favorites (synced between devices).
@@ -120,7 +121,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(12),
-                                    onTap: () => playLiveChannel(context, ref, channel),
+                                    onTap: () => openChannel(context, channel),
                                     child: Padding(
                                       padding: const EdgeInsets.all(10),
                                       child: Column(

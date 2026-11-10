@@ -13,7 +13,7 @@ import '../catalog/models.dart';
 import '../catalog/widgets.dart';
 import '../search/filter_bar.dart';
 import '../tv/channel_row.dart';
-import '../tv/channel_search.dart';
+import '../tv/channel_screen.dart';
 import '../tv/models.dart';
 import 'actions.dart';
 import 'library.dart';
@@ -288,7 +288,7 @@ class _ChannelGrid extends ConsumerWidget {
       itemCount: channels.length,
       itemBuilder: (context, i) => Align(
         alignment: Alignment.topCenter,
-        child: ChannelTile(channel: channels[i], size: tile, onTap: () => playLiveChannel(context, ref, channels[i])),
+        child: ChannelTile(channel: channels[i], size: tile, onTap: () => openChannel(context, channels[i])),
       ),
     );
   }
