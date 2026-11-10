@@ -9,7 +9,6 @@ import '../../core/widgets/page_header.dart';
 import '../../core/widgets/common.dart';
 import '../library/library.dart';
 import '../tv/channel_row.dart';
-import '../tv/models.dart';
 import 'catalog_repository.dart';
 import 'hero.dart';
 import 'models.dart';
@@ -26,7 +25,8 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(homeProvider(type));
     final resume = ref.watch(libraryProvider).value?.continueWatching ?? const <ProfileItem>[];
-    final channels = ref.watch(homeChannelsProvider).value ?? const <TvChannel>[];
+    // Live channels by theme (généralistes, sport, info, enfants), under « Continuer à regarder ».
+    final channels = ref.watch(homeChannelSectionsProvider).value ?? const <ChannelSection>[];
     final layout = Layout.of(context);
 
     Future<void> refresh() async {
@@ -65,7 +65,7 @@ class _PhoneHome extends StatelessWidget {
 
   final Home home;
   final List<ProfileItem> resume;
-  final List<TvChannel> channels;
+  final List<ChannelSection> channels;
   final MediaType? type;
 
   @override
@@ -91,7 +91,7 @@ class _PhoneHome extends StatelessWidget {
             ),
           ),
         ],
-        if (channels.isNotEmpty) ...[gap, ChannelRow(channels: channels)],
+        for (final section in channels) ...[gap, ChannelRow(title: section.title, channels: section.channels)],
         for (final section in home.sections) ...[gap, PosterRow(title: section.title, items: section.items)],
       ],
     );
@@ -105,7 +105,7 @@ class _LargeHome extends StatefulWidget {
 
   final Home home;
   final List<ProfileItem> resume;
-  final List<TvChannel> channels;
+  final List<ChannelSection> channels;
   final MediaType? type;
 
   @override
@@ -184,8 +184,8 @@ class _LargeHomeState extends State<_LargeHome> {
                     ),
                     SizedBox(height: layout.sectionGap),
                   ],
-                  if (widget.channels.isNotEmpty) ...[
-                    ChannelRow(channels: widget.channels),
+                  for (final section in widget.channels) ...[
+                    ChannelRow(title: section.title, channels: section.channels),
                     SizedBox(height: layout.sectionGap),
                   ],
                   for (final (index, section) in widget.home.sections.indexed) ...[

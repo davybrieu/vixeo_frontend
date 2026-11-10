@@ -16,6 +16,7 @@ import 'features/catalog/details_screen.dart';
 import 'features/catalog/home_screen.dart';
 import 'features/catalog/models.dart';
 import 'features/catalog/person_screen.dart';
+import 'features/library/favorites_screen.dart';
 import 'features/library/my_list_screen.dart';
 import 'features/playback/player_screen.dart';
 import 'features/profiles/parental_control_screen.dart';
@@ -26,6 +27,8 @@ import 'features/profiles/profiles_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
+import 'features/tv/channel_screen.dart';
+import 'features/tv/models.dart';
 import 'features/tmdb/connections_screen.dart';
 import 'features/tmdb/review_screen.dart';
 import 'features/tmdb/reviews_screen.dart';
@@ -108,6 +111,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, state) => tab(SearchScreen(initialType: state.extra as MediaType?)),
           ),
           GoRoute(path: '/ma-liste', pageBuilder: (_, _) => tab(const MyListScreen())),
+          // « Favoris » (❤): movies, TV shows, episodes and channels the profile loves.
+          GoRoute(path: '/favoris', pageBuilder: (_, _) => tab(const FavoritesScreen())),
           // "Mes avis": ratings of the TMDb account and comments (vixeo_backend/docs/compte-tmdb.md).
           GoRoute(path: '/avis', pageBuilder: (_, _) => tab(const ReviewsScreen())),
           // "Mon avis": one review, to change or remove (/avis/tv/1399?saison=1&episode=2 for an episode).
@@ -136,6 +141,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/tv',
             builder: (_, state) =>
                 guarded(state.uri.path, DeviceApproveScreen(initialCode: state.uri.queryParameters['code'])),
+          ),
+          // A live channel's page (like a title page): its programme guide and « Regarder ».
+          GoRoute(
+            path: '/chaine/:id',
+            builder: (_, state) => ChannelScreen(
+              id: state.pathParameters['id'] ?? '',
+              initial: state.extra is TvChannel ? state.extra as TvChannel : null,
+            ),
           ),
           GoRoute(
             path: '/titre/:type/:id',

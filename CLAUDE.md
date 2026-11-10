@@ -78,7 +78,8 @@ lib/
     updates/     vérification des mises à jour Android / iOS (UpdateGate, écrans)
     profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
-    library/     synchro par profil (favoris, vus, « Continuer à regarder »), Ma liste
+    library/     synchro par profil (Ma liste, Favoris, vus, « Continuer à regarder »), pages Ma liste
+                 et Favoris
     search/      recherche : « Explorer » sans texte, filtres (type, genre, années, note) et tri,
                  recherches récentes synchronisées (search_history.dart)
     playback/    pour le futur lecteur : moments à passer (TheIntroDB) et sous-titres (OpenSubtitles),
@@ -108,10 +109,21 @@ lib/
   Le `device_code` reste en mémoire, jamais dans une URL.
 - **TV en direct** (`features/tv`, API : `vixeo_backend/docs/tv-direct.md`) : **pas de page « TV »
   ni d'onglet** (supprimés, demande du développeur ; `/tv-live` redirige vers `/recherche`). Les
-  chaînes sont sur l'accueil (rangée `ChannelRow`, **sans « Voir tout »**) et dans la recherche
+  chaînes sont sur l'accueil (**quatre rangées** « Chaînes TV généralistes », « … sport »,
+  « … info », « … enfants », demande du développeur : `channelSections` classe les chaînes selon le
+  nom de leur catégorie, mots-clés sans accents, 24 par rangée, rangée vide masquée ; aucune
+  correspondance → une seule rangée « Chaînes TV » ; `ChannelRow` **sans « Voir tout »** ; test
+  `test/home_channels_test.dart`) et dans la recherche
   (type « Chaînes TV » : grille `ChannelSearchResults`, filtre « Catégorie » de `/tv/categories`,
   même bouton `FilterChipButton` que « Genre » ; section « Chaînes TV » de « Tout »). Une chaîne
-  passe toujours par `ChannelTile` (focus télécommande) ; toucher une chaîne
+  passe toujours par `ChannelTile` (focus télécommande) ; **toucher une chaîne ouvre sa page**
+  (`ChannelScreen`, `/chaine/:id`, `openChannel`, demande du développeur ; comme une fiche film /
+  série) : logo (celui du fournisseur, sinon l'icône du guide donnée par l'API), nom, catégorie,
+  « EN DIRECT », « Regarder » (focus à l'arrivée), cœur « Favoris », « En ce moment » (titre,
+  heures, barre de progression, résumé) et le **programme** (EPG, `/tv/channels/{id}/epg`,
+  `tvGuideProvider` ; heures locales, « Demain 08:30 » ; un appui montre le résumé complet ; mis à
+  jour toutes les 30 s ; sans guide sur le serveur : « Le programme n’est pas disponible pour le
+  moment. »). Test : `test/channel_screen_test.dart`. « Regarder »
   ouvre tout de suite `LivePlayerScreen`, qui demande son flux (`/tv/channels/{id}/stream`) sous
   le même indicateur que le début de la lecture (un seul chargement, pas de fenêtre avant). Lecteur (`live_player_screen.dart`) :
   contrôles en surimpression (retour, nom de la chaîne, « EN DIRECT » ; lecture / pause, son et
@@ -206,11 +218,23 @@ lib/
     le focus et occupe la grande image : pas de « titre à la une » (`featured`) sur grand écran,
     ni de bouton « Plus d'infos » ; OK ou un clic sur la carte ouvre la fiche. Le carrousel du
     téléphone garde les titres à la une.
-- **Actions sur un titre** (Ma liste, Vu / non vu, Noter, Bande-annonce) : toujours le même bouton
+- **Favoris** (❤, demande du développeur ; `features/library/favorites_screen.dart`, onglet
+  `/favoris` après « Ma liste », téléphone et rail) : films, séries, épisodes et chaînes TV que le
+  profil aime, **distincts de « Ma liste »** (à regarder plus tard). Groupe `liked` de la synchro
+  (`is_liked`, `liked_at` ; « Ma liste » reste `favorite`, nom historique de la v1). Chaîne :
+  source `tv`, `channel:<id>` ; épisode : `episode:<série>:<saison>:<épisode>` avec la série en
+  `parent_item_id`. Boutons cœur (`LikeButton`) : fiche et grande image (`LikedButton`), au bout de
+  chaque épisode (`EpisodeLikedButton`), barre du haut du lecteur TV (`ChannelLikedButton`) ; sur une
+  tuile de chaîne, appui long ou touche menu, petit cœur quand elle est en favori. Alertes
+  « Ajouté à vos favoris » / « Supprimé de vos favoris ». Page : même en-tête que « Ma liste »
+  (recherche sans accents, série comprise pour un épisode), filtres Tout / Films / Séries /
+  Épisodes / Chaînes TV ; « Tout » = une rangée par type, un type = une grille ; séries des
+  épisodes lues en une requête (`titlesByIdProvider`). Test : `test/favorites_test.dart`.
+- **Actions sur un titre** (Ma liste, Favoris, Vu / non vu, Noter, Bande-annonce) : toujours le même bouton
   rond **icône seule** (`VxIconAction`, `FavoriteButton`, `WatchedButton`, `RateTitleButton`), sans
   texte visible (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire.
   Chaque action se confirme par une alerte (`showVxSnack`) : « Ajouté à votre liste », « Supprimé
-  de votre liste », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
+  de votre liste », « Ajouté à vos favoris », « Supprimé de vos favoris », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
   « Note enregistrée : 8/10 », « Note supprimée ».
 - **Compte TMDb, notes et avis** (`features/tmdb`, API : `vixeo_backend/docs/compte-tmdb.md`) :
   chaque profil peut lier un compte TMDb dans « Mon profil » → **Connexions**
