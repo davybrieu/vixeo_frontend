@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
@@ -16,7 +17,7 @@ final _channelsProvider = FutureProvider.autoDispose.family<List<TvChannel>, Str
   return ref.watch(tvRepositoryProvider).channels(categoryId: categoryId);
 });
 
-/// Live TV hub: categories + channel grid, play via resolved Xtream stream.
+/// Live TV hub: categories + channel grid, played from the API.
 class TvHubScreen extends ConsumerStatefulWidget {
   const TvHubScreen({super.key});
 
@@ -164,36 +165,65 @@ class _TvHubScreenState extends ConsumerState<TvHubScreen> {
   }
 }
 
-/// Minimal live player until the main PlayerScreen accepts arbitrary URLs.
-class LivePlayerScreen extends StatelessWidget {
+/// Plays a live channel stream (HLS) with the headers the API asks for.
+class LivePlayerScreen extends StatefulWidget {
   const LivePlayerScreen({super.key, required this.title, required this.stream});
 
   final String title;
   final TvStream stream;
 
   @override
+  State<LivePlayerScreen> createState() => _LivePlayerScreenState();
+}
+
+class _LivePlayerScreenState extends State<LivePlayerScreen> {
+  late final VideoPlayerController _controller;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // The API hands the playable URL and the headers to send (some streams are signed).
+    _controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.stream.url),
+      httpHeaders: widget.stream.headers,
+    );
+    _controller.initialize().then((_) {
+      if (!mounted) return;
+      setState(() {});
+      _controller.play();
+    }).catchError((_) {
+      if (mounted) setState(() => _error = 'Impossible de lire cette chaîne.');
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(title: Text(widget.title)),
+      backgroundColor: Colors.black,
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(title, style: VxText.title(20)),
-              const SizedBox(height: 12),
-              Text(
-                'Flux ${stream.format.toUpperCase()} prêt.\n'
-                'Brancher ici le lecteur existant (video_player / media_kit) avec :',
-                textAlign: TextAlign.center,
-                style: VxText.body(14, color: VxColors.textSoft),
-              ),
-              const SizedBox(height: 16),
-              SelectableText(stream.url, style: VxText.body(12)),
-            ],
-          ),
-        ),
+        child: _error != null
+            ? Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: VxText.body(15, color: VxColors.textSoft),
+                ),
+              )
+            : _controller.value.isInitialized
+                ? AspectRatio(
+                    aspectRatio: _controller.value.aspectRatio,
+                    child: VideoPlayer(_controller),
+                  )
+                : const CircularProgressIndicator(),
       ),
     );
   }

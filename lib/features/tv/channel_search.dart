@@ -41,7 +41,7 @@ class ChannelSearchResults extends ConsumerWidget {
               icon: Icons.live_tv_outlined,
               title: 'Aucune chaîne',
               message: query.isEmpty
-                  ? 'Aucune chaîne disponible. Vérifie la config Xtream côté serveur.'
+                  ? 'Aucune chaîne disponible pour le moment.'
                   : 'Aucune chaîne ne correspond à « $query ».',
             ),
           );

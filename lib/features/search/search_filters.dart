@@ -8,7 +8,7 @@ enum SearchKind {
   movie('Films'),
   tv('Séries'),
 
-  /// Live channels from the configured Xtream panel.
+  /// Live channels from the TV API.
   channels('Chaînes TV'),
 
   /// Only with a text: TMDb has no list of people to explore.

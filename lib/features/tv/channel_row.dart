@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
-import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import 'channel_search.dart';
 import 'models.dart';
