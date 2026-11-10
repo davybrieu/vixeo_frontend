@@ -26,6 +26,14 @@ void main() {
       expect(hls, lessThan(boot), reason: 'hls.js must be ready before the app starts');
     });
 
+    test('no HTML loading screen before the app: only the app (Flutter) shows a loading', () {
+      final html = File('web/index.html').readAsStringSync();
+      expect(html, isNot(contains('boot-loader')));
+      expect(html, isNot(contains('flutter-first-frame')));
+      // The page stays dark until Flutter draws (no white flash).
+      expect(html, contains('background: #070A08'));
+    });
+
     test('the hls.js licence is listed in "Licences"', () async {
       registerBundledLicenses();
       final packages = <String>[];
