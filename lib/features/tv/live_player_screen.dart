@@ -1,0 +1,672 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
+
+import '../../core/device/layout.dart';
+import '../../core/theme.dart';
+import '../../core/widgets/common.dart';
+import '../../core/widgets/focusable.dart';
+import 'fullscreen/fullscreen.dart';
+import 'models.dart';
+
+/// Plays a live channel stream (HLS), with its controls: back, channel name and « En direct »
+/// at the top; play / pause, sound, « Revenir au direct », next source and full screen at the
+/// bottom.
+///
+/// The controls hide after a few seconds of playback and come back on a tap, a mouse move or any
+/// key (the first key press on a remote only shows them). Shortcuts: K (lecture), M (son),
+/// F (plein écran), and the media keys of a remote.
+class LivePlayerScreen extends StatefulWidget {
+  const LivePlayerScreen({super.key, required this.title, required this.stream});
+
+  final String title;
+  final TvStream stream;
+
+  /// How long the controls stay on screen without any action, while playing.
+  static const hideDelay = Duration(seconds: 4);
+
+  @override
+  State<LivePlayerScreen> createState() => _LivePlayerScreenState();
+}
+
+class _LivePlayerScreenState extends State<LivePlayerScreen> {
+  VideoPlayerController? _controller;
+
+  /// Playable URLs the server resolved for this channel, best first. A dead one is skipped for
+  /// the next, so a channel that answers on several mirrors keeps working when one goes down.
+  late final List<String> _sources;
+  int _index = 0;
+  bool _failed = false;
+  bool _playing = false;
+  bool _buffering = false;
+
+  bool _controlsVisible = true;
+  Timer? _hideTimer;
+  bool _muted = false;
+  double _volume = 1;
+
+  /// The play / pause button: it gets the focus when the controls come back from a key press.
+  final _playFocus = FocusNode(debugLabel: 'live-play');
+
+  @override
+  void initState() {
+    super.initState();
+    final resolved = widget.stream.sources.where((s) => s.isNotEmpty).toList();
+    _sources = resolved.isEmpty ? [widget.stream.url] : resolved;
+    _startCurrent();
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _controller?.dispose();
+    _playFocus.dispose();
+    exitFullscreen();
+    super.dispose();
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Playback
+
+  /// Builds the controller for the current candidate, plays it, or moves on to the next one.
+  Future<void> _startCurrent() async {
+    if (!mounted) return;
+
+    if (_index >= _sources.length) {
+      setState(() {
+        _failed = true;
+        _playing = false;
+        _controlsVisible = true;
+      });
+      _hideTimer?.cancel();
+      return;
+    }
+
+    setState(() {
+      _failed = false;
+      _playing = false;
+      _buffering = false;
+    });
+
+    final previous = _controller;
+    _controller = null;
+    await previous?.dispose();
+
+    // The API hands the playable URL and the headers to send (some streams are signed).
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(_sources[_index]),
+      httpHeaders: widget.stream.headers,
+    );
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
+    _controller = controller;
+    controller.addListener(() => _onValueChanged(controller));
+
+    try {
+      await controller.initialize();
+    } catch (_) {
+      _advance(controller);
+      return;
+    }
+    if (!mounted || controller != _controller) return;
+    if (controller.value.hasError) {
+      _advance(controller);
+      return;
+    }
+
+    await controller.setVolume(_muted ? 0 : _volume);
+    // A live stream may need a user gesture to start on the web: a blocked play() leaves the
+    // controller paused, and a tap (or the play button) starts it.
+    await controller.play();
+    if (mounted) setState(() {});
+  }
+
+  void _onValueChanged(VideoPlayerController controller) {
+    if (controller != _controller || !mounted) return;
+    final value = controller.value;
+    if (value.hasError) {
+      _advance(controller);
+      return;
+    }
+    if (value.isPlaying != _playing || value.isBuffering != _buffering) {
+      final started = value.isPlaying && !_playing;
+      setState(() {
+        _playing = value.isPlaying;
+        _buffering = value.isBuffering;
+      });
+      if (started) {
+        _scheduleHide();
+      } else if (!value.isPlaying) {
+        // Paused (or refused to start): the controls stay until playback resumes.
+        _hideTimer?.cancel();
+        setState(() => _controlsVisible = true);
+      }
+    }
+  }
+
+  /// Moves on to the next source when [failed] (the current controller) refuses to play.
+  ///
+  /// A failure is reported twice (the controller's error and the end of `initialize`): only the
+  /// first counts, since the controller is no longer the current one after it.
+  void _advance(VideoPlayerController failed) {
+    if (failed != _controller || !mounted) return;
+    _controller = null;
+    // Not during its own notification (ChangeNotifier forbids it): right after.
+    Future.microtask(failed.dispose);
+    _index++;
+    _startCurrent();
+  }
+
+  bool get _ready {
+    final controller = _controller;
+    return controller != null && controller.value.isInitialized && !controller.value.hasError;
+  }
+
+  Future<void> _togglePlay() async {
+    final controller = _controller;
+    if (controller == null || !_ready) return;
+    if (controller.value.isPlaying) {
+      await controller.pause();
+    } else {
+      await controller.play();
+    }
+    _showControls();
+  }
+
+  /// Starts the current source again: after a pause, playback is behind the live edge.
+  void _backToLive() {
+    _showControls();
+    _startCurrent();
+  }
+
+  /// Switches to the next source (the first after the last), for a stream that plays badly.
+  void _nextSource() {
+    _showControls();
+    _index = (_index + 1) % _sources.length;
+    _startCurrent();
+  }
+
+  void _retry() {
+    _index = 0;
+    _startCurrent();
+  }
+
+  Future<void> _toggleMute() async {
+    setState(() {
+      _muted = !_muted;
+      if (!_muted && _volume == 0) _volume = 1;
+    });
+    await _controller?.setVolume(_muted ? 0 : _volume);
+    _showControls();
+  }
+
+  Future<void> _setVolume(double volume) async {
+    setState(() {
+      _volume = volume;
+      _muted = volume == 0;
+    });
+    await _controller?.setVolume(volume);
+    _showControls();
+  }
+
+  Future<void> _toggleFullscreen() async {
+    if (isFullscreen()) {
+      await exitFullscreen();
+    } else {
+      await enterFullscreen();
+    }
+    if (mounted) setState(() {});
+    _showControls();
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Controls visibility
+
+  /// The controls can hide only while the stream plays.
+  bool get _canHide => _ready && _playing && !_failed;
+
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    if (!_canHide) return;
+    _hideTimer = Timer(LivePlayerScreen.hideDelay, () {
+      if (mounted && _canHide) setState(() => _controlsVisible = false);
+    });
+  }
+
+  void _showControls() {
+    if (!mounted) return;
+    if (!_controlsVisible) setState(() => _controlsVisible = true);
+    _scheduleHide();
+  }
+
+  void _onSurfaceTap() {
+    // The browser refused to start playback on its own: the first tap starts it.
+    final controller = _controller;
+    if (controller != null && _ready && !controller.value.isPlaying) {
+      _togglePlay();
+      return;
+    }
+    if (_controlsVisible && _canHide) {
+      _hideTimer?.cancel();
+      setState(() => _controlsVisible = false);
+    } else {
+      _showControls();
+    }
+  }
+
+  static final _backKeys = {LogicalKeyboardKey.escape, LogicalKeyboardKey.goBack, LogicalKeyboardKey.browserBack};
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+
+    // Media keys of a remote, and the usual player shortcuts of a keyboard.
+    if (key == LogicalKeyboardKey.mediaPlayPause || key == LogicalKeyboardKey.keyK) {
+      _togglePlay();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPlay) {
+      if (!_playing) _togglePlay();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPause || key == LogicalKeyboardKey.mediaStop) {
+      if (_playing) _togglePlay();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyM) {
+      _toggleMute();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyF && !DeviceInfo.isTv) {
+      _toggleFullscreen();
+      return KeyEventResult.handled;
+    }
+
+    if (_backKeys.contains(key)) return KeyEventResult.ignored;
+
+    // Hidden controls: the first key (arrows, OK…) only brings them back, on play / pause.
+    if (!_controlsVisible) {
+      _showControls();
+      _playFocus.requestFocus();
+      return KeyEventResult.handled;
+    }
+    _scheduleHide();
+    return KeyEventResult.ignored;
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // UI
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    final ready = _ready;
+    final visible = _controlsVisible || !_canHide;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Focus(
+        onKeyEvent: _onKey,
+        child: MouseRegion(
+          cursor: visible ? MouseCursor.defer : SystemMouseCursors.none,
+          onHover: (_) => _showControls(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _onSurfaceTap,
+                child: Center(
+                  child: ready
+                      ? AspectRatio(aspectRatio: controller!.value.aspectRatio, child: VideoPlayer(controller))
+                      : null,
+                ),
+              ),
+              if (_failed)
+                _FailedMessage(onRetry: _retry)
+              else if (!ready || _buffering)
+                const IgnorePointer(
+                  child: Center(child: CircularProgressIndicator(color: VxColors.accent)),
+                )
+              else if (!_playing)
+                // Paused, or the browser refused to start playback on its own: ask for a tap.
+                const IgnorePointer(
+                  child: Center(child: Icon(Icons.play_circle_outline, size: 72, color: Colors.white70)),
+                ),
+              _Fade(
+                visible: visible,
+                alignment: Alignment.topCenter,
+                child: _TopBar(
+                  title: widget.title,
+                  live: ready && _playing,
+                  onBack: () => Navigator.of(context).maybePop(),
+                ),
+              ),
+              if (!_failed)
+                _Fade(
+                  visible: visible,
+                  alignment: Alignment.bottomCenter,
+                  child: _BottomBar(
+                    playFocus: _playFocus,
+                    ready: ready,
+                    playing: _playing,
+                    muted: _muted,
+                    volume: _volume,
+                    sourceIndex: _index,
+                    sourceCount: _sources.length,
+                    fullscreen: isFullscreen(),
+                    onPlayPause: _togglePlay,
+                    onMute: _toggleMute,
+                    onVolume: _setVolume,
+                    onBackToLive: _backToLive,
+                    onNextSource: _nextSource,
+                    onFullscreen: _toggleFullscreen,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shows or hides a bar of controls; hidden, it can be neither touched nor focused.
+class _Fade extends StatelessWidget {
+  const _Fade({required this.visible, required this.alignment, required this.child});
+
+  final bool visible;
+  final Alignment alignment;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: const Duration(milliseconds: 200),
+        child: IgnorePointer(ignoring: !visible, child: child),
+      ),
+    );
+  }
+}
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.title, required this.live, required this.onBack});
+
+  final String title;
+  final bool live;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final s = layout.isLarge ? layout.tv(1) * 1.5 : 1.0;
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xCC000000), Colors.transparent],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(layout.gutter, 12 * s, layout.gutter, 32 * s),
+          child: Row(
+            children: [
+              VxIconAction(icon: Icons.arrow_back_rounded, label: 'Retour', onPressed: onBack),
+              SizedBox(width: 16 * s),
+              Expanded(
+                child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: VxText.title(20 * s)),
+              ),
+              if (live) ...[SizedBox(width: 12 * s), _LiveBadge(scale: s)],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// « En direct » with a red dot, while the stream plays.
+class _LiveBadge extends StatelessWidget {
+  const _LiveBadge({required this.scale});
+
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 5 * scale),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(6 * scale),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8 * scale,
+            height: 8 * scale,
+            decoration: const BoxDecoration(color: VxColors.dangerText, shape: BoxShape.circle),
+          ),
+          SizedBox(width: 6 * scale),
+          Text('EN DIRECT', style: VxText.body(12 * scale, weight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({
+    required this.playFocus,
+    required this.ready,
+    required this.playing,
+    required this.muted,
+    required this.volume,
+    required this.sourceIndex,
+    required this.sourceCount,
+    required this.fullscreen,
+    required this.onPlayPause,
+    required this.onMute,
+    required this.onVolume,
+    required this.onBackToLive,
+    required this.onNextSource,
+    required this.onFullscreen,
+  });
+
+  final FocusNode playFocus;
+  final bool ready;
+  final bool playing;
+  final bool muted;
+  final double volume;
+  final int sourceIndex;
+  final int sourceCount;
+  final bool fullscreen;
+  final VoidCallback onPlayPause;
+  final VoidCallback onMute;
+  final ValueChanged<double> onVolume;
+  final VoidCallback onBackToLive;
+  final VoidCallback onNextSource;
+  final VoidCallback onFullscreen;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final gap = layout.isLarge ? layout.tv(20) : 12.0;
+    // Phones and TVs have volume keys; a mouse needs a slider.
+    final volumeSlider = !layout.isPhone && !DeviceInfo.isTv;
+    final silent = muted || volume == 0;
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [Color(0xE6000000), Colors.transparent],
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(layout.gutter, gap * 3, layout.gutter, gap * 1.5),
+          child: FocusTraversalGroup(
+            child: Row(
+              children: [
+                _PlayButton(focusNode: playFocus, playing: playing, onPressed: ready ? onPlayPause : null),
+                SizedBox(width: gap),
+                VxIconAction(
+                  icon: silent ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                  label: silent ? 'Activer le son' : 'Couper le son',
+                  onPressed: onMute,
+                ),
+                if (volumeSlider)
+                  SizedBox(
+                    width: 120,
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: VxColors.accent,
+                        inactiveTrackColor: VxColors.line,
+                        thumbColor: VxColors.accent,
+                        overlayColor: VxColors.accent.withValues(alpha: 0.2),
+                        trackHeight: 3,
+                      ),
+                      child: Slider(
+                        value: muted ? 0 : volume,
+                        semanticFormatterCallback: (v) => 'Volume ${(v * 100).round()} %',
+                        onChanged: onVolume,
+                      ),
+                    ),
+                  ),
+                const Spacer(),
+                if (ready) ...[
+                  VxIconAction(icon: Icons.restart_alt_rounded, label: 'Revenir au direct', onPressed: onBackToLive),
+                  SizedBox(width: gap),
+                ],
+                if (sourceCount > 1) ...[
+                  _SourceButton(index: sourceIndex, count: sourceCount, onPressed: onNextSource),
+                  SizedBox(width: gap),
+                ],
+                if (!DeviceInfo.isTv)
+                  VxIconAction(
+                    icon: fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                    label: fullscreen ? 'Quitter le plein écran' : 'Plein écran',
+                    onPressed: onFullscreen,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Play / pause: the screen's focus on arrival (remote), green like the main action.
+class _PlayButton extends StatelessWidget {
+  const _PlayButton({required this.focusNode, required this.playing, required this.onPressed});
+
+  final FocusNode focusNode;
+  final bool playing;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final size = layout.isLarge ? layout.tv(88) : 60.0;
+    final icon = playing ? Icons.pause_rounded : Icons.play_arrow_rounded;
+    return VxFocusable(
+      focusNode: focusNode,
+      autofocus: true,
+      onPressed: onPressed ?? () {},
+      onAccent: true,
+      borderRadius: size,
+      semanticLabel: playing ? 'Pause' : 'Lecture',
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: onPressed == null ? VxColors.text.withValues(alpha: 0.12) : VxColors.accent,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: size * 0.55, color: onPressed == null ? VxColors.textMuted : VxColors.onAccent),
+      ),
+    );
+  }
+}
+
+/// « Source 2/3 »: plays the next source the server resolved for this channel.
+class _SourceButton extends StatelessWidget {
+  const _SourceButton({required this.index, required this.count, required this.onPressed});
+
+  final int index;
+  final int count;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final height = layout.isLarge ? layout.tv(76) : 52.0;
+    final label = 'Source ${index + 1}/$count';
+    return VxFocusable(
+      onPressed: onPressed,
+      borderRadius: height,
+      semanticLabel: '$label, passer à la source suivante',
+      child: Container(
+        height: height,
+        padding: EdgeInsets.symmetric(horizontal: height * 0.35),
+        decoration: BoxDecoration(
+          color: VxColors.text.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(height),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.swap_horiz_rounded, color: VxColors.text, size: height * 0.42),
+            SizedBox(width: height * 0.15),
+            ExcludeSemantics(
+              child: Text(label, style: VxText.body(height * 0.27, weight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FailedMessage extends StatelessWidget {
+  const _FailedMessage({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: VxColors.error, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'Impossible de lire cette chaîne.',
+              textAlign: TextAlign.center,
+              style: VxText.body(16, color: VxColors.textSoft),
+            ),
+            const SizedBox(height: 24),
+            VxButton(label: 'Réessayer', icon: Icons.refresh_rounded, autofocus: true, onPressed: onRetry),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -5,11 +5,8 @@ class TvCategory {
   final String name;
   final String? parentId;
 
-  factory TvCategory.fromJson(Map<String, dynamic> json) => TvCategory(
-        id: '${json['id'] ?? ''}',
-        name: '${json['name'] ?? ''}',
-        parentId: json['parent_id']?.toString(),
-      );
+  factory TvCategory.fromJson(Map<String, dynamic> json) =>
+      TvCategory(id: '${json['id'] ?? ''}', name: '${json['name'] ?? ''}', parentId: json['parent_id']?.toString());
 }
 
 class TvChannel {
@@ -30,22 +27,17 @@ class TvChannel {
   final String? epgChannelId;
 
   factory TvChannel.fromJson(Map<String, dynamic> json) => TvChannel(
-        id: '${json['id'] ?? ''}',
-        name: '${json['name'] ?? ''}',
-        categoryId: '${json['category_id'] ?? ''}',
-        logo: json['logo'] as String?,
-        number: json['number'] is int ? json['number'] as int : int.tryParse('${json['number'] ?? ''}'),
-        epgChannelId: json['epg_channel_id'] as String?,
-      );
+    id: '${json['id'] ?? ''}',
+    name: '${json['name'] ?? ''}',
+    categoryId: '${json['category_id'] ?? ''}',
+    logo: json['logo'] as String?,
+    number: json['number'] is int ? json['number'] as int : int.tryParse('${json['number'] ?? ''}'),
+    epgChannelId: json['epg_channel_id'] as String?,
+  );
 }
 
 class TvStream {
-  const TvStream({
-    required this.url,
-    required this.format,
-    this.headers = const {},
-    this.sources = const [],
-  });
+  const TvStream({required this.url, required this.format, this.headers = const {}, this.sources = const []});
 
   final String url;
   final String format; // hls | ts
@@ -75,11 +67,6 @@ class TvStream {
     }
     if (url.isNotEmpty && !sources.contains(url)) sources.insert(0, url);
 
-    return TvStream(
-      url: url,
-      format: '${json['format'] ?? 'hls'}',
-      headers: headers,
-      sources: sources,
-    );
+    return TvStream(url: url, format: '${json['format'] ?? 'hls'}', headers: headers, sources: sources);
   }
 }

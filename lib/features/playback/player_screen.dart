@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,10 +17,10 @@ class StreamSource {
   const StreamSource({required this.provider, required this.name, required this.url});
 
   factory StreamSource.fromJson(Map<String, dynamic> json) => StreamSource(
-        provider: json['provider'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        url: json['url'] as String? ?? '',
-      );
+    provider: json['provider'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    url: json['url'] as String? ?? '',
+  );
 
   final String provider;
   final String name;
@@ -32,10 +31,8 @@ class StreamSource {
 class SourceProvider {
   const SourceProvider({required this.id, required this.name});
 
-  factory SourceProvider.fromJson(Map<String, dynamic> json) => SourceProvider(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-      );
+  factory SourceProvider.fromJson(Map<String, dynamic> json) =>
+      SourceProvider(id: json['id'] as String? ?? '', name: json['name'] as String? ?? '');
 
   final String id;
   final String name;
@@ -53,9 +50,7 @@ final sourceProvidersProvider = FutureProvider.family<List<SourceProvider>, Play
   final api = ref.read(apiClientProvider);
   final json = await api.get('/catalog/sources/providers');
   final data = json['data'];
-  return data is List
-      ? data.whereType<Map<String, dynamic>>().map(SourceProvider.fromJson).toList()
-      : const [];
+  return data is List ? data.whereType<Map<String, dynamic>>().map(SourceProvider.fromJson).toList() : const [];
 });
 
 /// A title and the provider whose links are wanted.
@@ -73,25 +68,13 @@ final providerSourcesProvider = FutureProvider.family<List<StreamSource>, Provid
       : '/catalog/tv/${item.id}/season/${item.season}/episode/${item.episode}/sources';
   // A provider search can open a real browser on the server. The API allows up to 45
   // seconds for the scraper, so don't let the global 20-second API timeout cancel it.
-  final json = await api.get(
-    path,
-    query: {'provider': key.provider},
-    receiveTimeout: const Duration(seconds: 65),
-  );
+  final json = await api.get(path, query: {'provider': key.provider}, receiveTimeout: const Duration(seconds: 65));
   final data = json['data'];
-  return data is List
-      ? data.whereType<Map<String, dynamic>>().map(StreamSource.fromJson).toList()
-      : const [];
+  return data is List ? data.whereType<Map<String, dynamic>>().map(StreamSource.fromJson).toList() : const [];
 });
 
 class PlayerScreen extends ConsumerStatefulWidget {
-  const PlayerScreen({
-    super.key,
-    required this.type,
-    required this.id,
-    this.season,
-    this.episode,
-  });
+  const PlayerScreen({super.key, required this.type, required this.id, this.season, this.episode});
 
   final MediaType type;
   final int id;
@@ -170,10 +153,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
 
     if (!mounted) return;
-    final ctrl = VideoPlayerController.networkUrl(
-      Uri.parse(resolved.stream),
-      httpHeaders: resolved.headers,
-    );
+    final ctrl = VideoPlayerController.networkUrl(Uri.parse(resolved.stream), httpHeaders: resolved.headers);
     _controller = ctrl;
     try {
       await ctrl.initialize();
@@ -224,10 +204,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             // Video surface
             if (_controller != null && _controller!.value.isInitialized)
               Center(
-                child: AspectRatio(
-                  aspectRatio: _controller!.value.aspectRatio,
-                  child: VideoPlayer(_controller!),
-                ),
+                child: AspectRatio(aspectRatio: _controller!.value.aspectRatio, child: VideoPlayer(_controller!)),
               )
             else
               Center(
@@ -343,11 +320,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               },
                             ),
                             const SizedBox(height: 12),
-                            VxButton(
-                              label: 'Ouvrir en externe',
-                              icon: Icons.open_in_new,
-                              onPressed: _openExternal,
-                            ),
+                            VxButton(label: 'Ouvrir en externe', icon: Icons.open_in_new, onPressed: _openExternal),
                           ],
                         ),
                       ),
@@ -500,8 +473,12 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     return match?.group(0);
   }
 
-  String _providerName(String id) =>
-      widget.providers.firstWhere((p) => p.id == id, orElse: () => SourceProvider(id: id, name: id)).name;
+  String _providerName(String id) => widget.providers
+      .firstWhere(
+        (p) => p.id == id,
+        orElse: () => SourceProvider(id: id, name: id),
+      )
+      .name;
 
   @override
   Widget build(BuildContext context) {
@@ -630,10 +607,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                               spacing: 6,
                               runSpacing: 6,
                               children: [
-                                if (language != null)
-                                  _SourceInfoChip(icon: Icons.language_rounded, label: language),
-                                if (quality != null)
-                                  _SourceInfoChip(icon: Icons.high_quality_rounded, label: quality),
+                                if (language != null) _SourceInfoChip(icon: Icons.language_rounded, label: language),
+                                if (quality != null) _SourceInfoChip(icon: Icons.high_quality_rounded, label: quality),
                               ],
                             );
                           },
@@ -705,10 +680,7 @@ class _ProviderTile extends StatelessWidget {
                   color: VxColors.accent.withValues(alpha: enabled ? 0.12 : 0.05),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  Icons.dns_rounded,
-                  color: enabled ? VxColors.accent : VxColors.textMuted,
-                ),
+                child: Icon(Icons.dns_rounded, color: enabled ? VxColors.accent : VxColors.textMuted),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -753,10 +725,7 @@ class _SourceInfoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFF202923),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFF202923), borderRadius: BorderRadius.circular(8)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

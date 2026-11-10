@@ -347,9 +347,7 @@ void main() {
     const item = (type: MediaType.movie, id: 550, season: null, episode: null);
 
     ProviderContainer containerWith(RoutingAdapter adapter) {
-      final container = ProviderContainer(
-        overrides: [apiClientProvider.overrideWithValue(routingClient(adapter))],
-      );
+      final container = ProviderContainer(overrides: [apiClientProvider.overrideWithValue(routingClient(adapter))]);
       addTearDown(container.dispose);
       return container;
     }
@@ -358,15 +356,11 @@ void main() {
     // alive and wait for the value to settle, so a slow request is not cancelled.
     Future<AsyncValue<T>> read<T>(ProviderContainer container, FutureProvider<T> provider) {
       final completer = Completer<AsyncValue<T>>();
-      final sub = container.listen<AsyncValue<T>>(
-        provider,
-        (_, next) {
-          if (!completer.isCompleted && (next.hasValue || next.hasError)) {
-            completer.complete(next);
-          }
-        },
-        fireImmediately: true,
-      );
+      final sub = container.listen<AsyncValue<T>>(provider, (_, next) {
+        if (!completer.isCompleted && (next.hasValue || next.hasError)) {
+          completer.complete(next);
+        }
+      }, fireImmediately: true);
       addTearDown(sub.close);
       return completer.future;
     }
@@ -376,13 +370,17 @@ void main() {
 
     test('lists the providers the API declares', () async {
       final adapter = RoutingAdapter([
-        ('/catalog/sources/providers', {
-          'data': [
-            {'id': 'frenchstream', 'name': 'FrenchStream'},
-            {'id': 'wiflix', 'name': 'Wiflix'},
-            {'id': 'frembed', 'name': 'Frembed'},
-          ],
-        }, 200),
+        (
+          '/catalog/sources/providers',
+          {
+            'data': [
+              {'id': 'frenchstream', 'name': 'FrenchStream'},
+              {'id': 'wiflix', 'name': 'Wiflix'},
+              {'id': 'frembed', 'name': 'Frembed'},
+            ],
+          },
+          200,
+        ),
       ]);
 
       final state = await read(containerWith(adapter), sourceProvidersProvider(item));
@@ -405,17 +403,18 @@ void main() {
 
     test('asks the API for a single provider, and maps its links', () async {
       final adapter = RoutingAdapter([
-        ('/catalog/movie/550/sources', {
-          'data': [
-            {'provider': 'wiflix', 'name': 'Wiflix (VF)', 'url': 'https://voe.sx/e/w'},
-          ],
-        }, 200),
+        (
+          '/catalog/movie/550/sources',
+          {
+            'data': [
+              {'provider': 'wiflix', 'name': 'Wiflix (VF)', 'url': 'https://voe.sx/e/w'},
+            ],
+          },
+          200,
+        ),
       ]);
 
-      final links = await linksOf(
-        containerWith(adapter),
-        providerSourcesProvider((item: item, provider: 'wiflix')),
-      );
+      final links = await linksOf(containerWith(adapter), providerSourcesProvider((item: item, provider: 'wiflix')));
 
       expect(links.single.name, 'Wiflix (VF)');
       final request = adapter.requests.single;
@@ -428,10 +427,7 @@ void main() {
         ('/catalog/movie/550/sources', {'data': <Object>[]}, 200),
       ]);
 
-      final state = await read(
-        containerWith(adapter),
-        providerSourcesProvider((item: item, provider: 'frembed')),
-      );
+      final state = await read(containerWith(adapter), providerSourcesProvider((item: item, provider: 'frembed')));
 
       expect(state.hasError, isFalse);
       expect(state.requireValue, isEmpty);
@@ -442,10 +438,7 @@ void main() {
         ('/catalog/movie/550/sources', {'message': 'Ce fournisseur est momentanément indisponible.'}, 503),
       ]);
 
-      final state = await read(
-        containerWith(adapter),
-        providerSourcesProvider((item: item, provider: 'wiflix')),
-      );
+      final state = await read(containerWith(adapter), providerSourcesProvider((item: item, provider: 'wiflix')));
 
       expect(state.hasError, isTrue);
       expect(state.error, isA<ApiException>());
