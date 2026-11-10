@@ -96,11 +96,8 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   Widget buildViewWithOptions(VideoViewOptions options) => const ColoredBox(color: Colors.black);
 }
 
-const stream = TvStream(
-  url: 'https://api.test/tv/stream/a',
-  format: 'hls',
-  sources: ['https://api.test/tv/stream/a', 'https://api.test/tv/stream/b'],
-);
+const stream = TvStream(url: 'https://api.test/tv/stream/a', format: 'hls');
+const url = 'https://api.test/tv/stream/a';
 
 Future<FakeVideoPlatform> openPlayer(
   WidgetTester tester, {
@@ -136,9 +133,7 @@ Future<void> closePlayer(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('shows the controls: channel, live badge, pause, sound, back to live, source, full screen', (
-    tester,
-  ) async {
+  testWidgets('shows the controls: channel, live badge, pause, sound, back to live, full screen', (tester) async {
     final platform = await openPlayer(tester);
 
     expect(platform.created, ['https://api.test/tv/stream/a']);
@@ -148,14 +143,14 @@ void main() {
     expect(find.bySemanticsLabel('Pause'), findsOneWidget);
     expect(find.bySemanticsLabel('Couper le son'), findsOneWidget);
     expect(find.bySemanticsLabel('Revenir au direct'), findsOneWidget);
-    expect(find.text('Source 1/2'), findsOneWidget);
+    expect(find.textContaining('Source'), findsNothing);
     expect(find.bySemanticsLabel('Plein écran'), findsOneWidget);
     expect(find.bySemanticsLabel('Retour'), findsOneWidget);
 
     await closePlayer(tester);
   });
 
-  testWidgets('play / pause, mute and next source', (tester) async {
+  testWidgets('play / pause and mute', (tester) async {
     final platform = await openPlayer(tester);
 
     await tester.tap(find.bySemanticsLabel('Pause'));
@@ -172,13 +167,6 @@ void main() {
     await tester.pump();
     expect(platform.volumes.last, 0);
     expect(find.bySemanticsLabel('Activer le son'), findsOneWidget);
-
-    await tester.tap(find.text('Source 1/2'));
-    await settle(tester);
-    expect(platform.created.last, 'https://api.test/tv/stream/b');
-    expect(find.text('Source 2/2'), findsOneWidget);
-    // The sound stays off on the new source.
-    expect(platform.volumes.last, 0);
 
     await closePlayer(tester);
   });
@@ -215,14 +203,9 @@ void main() {
     await closePlayer(tester);
   });
 
-  testWidgets('skips a dead source, then offers to retry when none plays', (tester) async {
-    final platform = await openPlayer(tester, failing: {'https://api.test/tv/stream/a'});
-    expect(platform.created, ['https://api.test/tv/stream/a', 'https://api.test/tv/stream/b']);
-    expect(find.text('EN DIRECT'), findsOneWidget);
-    await closePlayer(tester);
-
-    final dead = await openPlayer(tester, failing: {'https://api.test/tv/stream/a', 'https://api.test/tv/stream/b'});
-    expect(dead.created.length, 2);
+  testWidgets('a stream that refuses to start: the error and « Réessayer », no other source', (tester) async {
+    final platform = await openPlayer(tester, failing: {url});
+    expect(platform.created, [url]);
     expect(find.text('Impossible de lire cette chaîne.'), findsOneWidget);
     expect(find.text('Réessayer'), findsOneWidget);
     await closePlayer(tester);
@@ -255,11 +238,13 @@ void main() {
     await closePlayer(tester);
   });
 
-  testWidgets('a source whose image does not move keeps the controls, then gives way to the next', (tester) async {
-    final platform = await openPlayer(tester, stalled: {'https://api.test/tv/stream/a'});
-    expect(platform.created, ['https://api.test/tv/stream/a']);
+  testWidgets('an image that does not move: controls and spinner, then the error (never a black screen)', (
+    tester,
+  ) async {
+    final platform = await openPlayer(tester, stalled: {url});
+    expect(platform.created, [url]);
 
-    // Never a black screen alone: the controls and a spinner stay, without « EN DIRECT ».
+    // The controls and a spinner stay, without « EN DIRECT ».
     await tester.pump(LivePlayerScreen.hideDelay);
     await tester.pump(const Duration(milliseconds: 300));
     expect(
@@ -273,17 +258,7 @@ void main() {
 
     await tester.pump(LivePlayerScreen.stallTimeout);
     await settle(tester);
-    expect(platform.created.last, 'https://api.test/tv/stream/b');
-    expect(find.text('EN DIRECT'), findsOneWidget);
-    await closePlayer(tester);
-  });
-
-  testWidgets('no source moves: the error and « Réessayer » instead of a black screen', (tester) async {
-    await openPlayer(tester, stalled: {'https://api.test/tv/stream/a', 'https://api.test/tv/stream/b'});
-    for (var i = 0; i < 2; i++) {
-      await tester.pump(LivePlayerScreen.stallTimeout);
-      await settle(tester);
-    }
+    expect(platform.created, [url]);
     expect(find.text('Impossible de lire cette chaîne.'), findsOneWidget);
     expect(find.text('Réessayer'), findsOneWidget);
     await closePlayer(tester);

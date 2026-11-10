@@ -110,11 +110,13 @@ lib/
   ouvre tout de suite `LivePlayerScreen`, qui demande son flux (`/tv/channels/{id}/stream`) sous
   le même indicateur que le début de la lecture (un seul chargement, pas de fenêtre avant). Lecteur (`live_player_screen.dart`) :
   contrôles en surimpression (retour, nom de la chaîne, « EN DIRECT » ; lecture / pause, son et
-  volume (souris), « Revenir au direct », « Source 2/3 » s'il y en a plusieurs, plein écran sauf
+  volume (souris), « Revenir au direct », plein écran sauf
   sur TV : `fullscreen/`), masqués après 4 s de lecture, rappelés par un appui, la souris ou une
   touche (la première touche de la télécommande ne fait que les montrer) ; raccourcis K, M, F et
-  touches média. Une source qui refuse de démarrer passe à la suivante (une seule fois par
-  échec), comme une source dont l'image ne bouge pas pendant 15 s (`stallTimeout`) : sur le web,
+  touches média. **Un seul flux par chaîne** (`url`), pas de choix de source ni de passage
+  à une autre source (demande du développeur). Un flux qui refuse de démarrer, ou dont l'image ne
+  bouge pas pendant 15 s (`stallTimeout`), affiche « Impossible de lire cette chaîne. » et
+  « Réessayer » (une seule fois par échec). Sur le web,
   un flux que le navigateur ne sait pas décoder (H.265…) fait échouer hls.js, mais
   `video_player_web_hls` ne sait pas lire cette erreur et l'écran restait noir. Le lecteur lit
   donc la position réelle (`controller.position`, pas `value.position`, figée pour un direct) ;
