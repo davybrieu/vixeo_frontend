@@ -108,7 +108,11 @@ lib/
   Le `device_code` reste en mémoire, jamais dans une URL.
 - **TV en direct** (`features/tv`, API : `vixeo_backend/docs/tv-direct.md`) : **pas de page « TV »
   ni d'onglet** (supprimés, demande du développeur ; `/tv-live` redirige vers `/recherche`). Les
-  chaînes sont sur l'accueil (rangée `ChannelRow`, **sans « Voir tout »**) et dans la recherche
+  chaînes sont sur l'accueil (**quatre rangées** « Chaînes TV généralistes », « … sport »,
+  « … info », « … enfants », demande du développeur : `channelSections` classe les chaînes selon le
+  nom de leur catégorie, mots-clés sans accents, 24 par rangée, rangée vide masquée ; aucune
+  correspondance → une seule rangée « Chaînes TV » ; `ChannelRow` **sans « Voir tout »** ; test
+  `test/home_channels_test.dart`) et dans la recherche
   (type « Chaînes TV » : grille `ChannelSearchResults`, filtre « Catégorie » de `/tv/categories`,
   même bouton `FilterChipButton` que « Genre » ; section « Chaînes TV » de « Tout »). Une chaîne
   passe toujours par `ChannelTile` (focus télécommande) ; toucher une chaîne

@@ -8,13 +8,69 @@ import 'channel_search.dart';
 import 'models.dart';
 import 'tv_repository.dart';
 
-/// A few live channels for the home row (keeps the request light).
-const _homeChannelLimit = 24;
+/// One row of live channels on the home page.
+@immutable
+class ChannelSection {
+  const ChannelSection(this.title, this.channels);
 
-final homeChannelsProvider = FutureProvider.autoDispose<List<TvChannel>>((ref) async {
-  final list = await ref.watch(tvRepositoryProvider).channels();
-  if (list.length <= _homeChannelLimit) return list;
-  return list.take(_homeChannelLimit).toList();
+  final String title;
+  final List<TvChannel> channels;
+}
+
+/// A few channels per home row (keeps the page light; the search page has them all).
+const homeChannelLimit = 24;
+
+/// The home rows of live channels, in this order, with the words their category name contains
+/// (lower case, without accents). A panel's categories have names of their own (« FR | SPORTS »,
+/// « Jeunesse »…): every category that matches feeds the row.
+const _homeChannelThemes = [
+  ('Chaînes TV généralistes', ['general', 'tnt']),
+  ('Chaînes TV sport', ['sport']),
+  ('Chaînes TV info', ['info', 'news', 'actualite']),
+  ('Chaînes TV enfants', ['enfant', 'kids', 'jeunesse', 'cartoon', 'dessins anim']),
+];
+
+String _fold(String s) => s
+    .toLowerCase()
+    .replaceAll(RegExp('[éèêë]'), 'e')
+    .replaceAll(RegExp('[àâä]'), 'a')
+    .replaceAll(RegExp('[îï]'), 'i')
+    .replaceAll(RegExp('[ôö]'), 'o')
+    .replaceAll(RegExp('[ùûü]'), 'u')
+    .replaceAll('ç', 'c');
+
+/// Sorts [channels] into the home rows (généralistes, sport, info, enfants) from the name of their
+/// category; empty rows are left out. When no category matches (a panel naming them otherwise),
+/// a single « Chaînes TV » row, so the home page always shows channels when there are some.
+List<ChannelSection> channelSections(List<TvCategory> categories, List<TvChannel> channels) {
+  // Some providers have no list of categories: the category id is then its name.
+  final names = {for (final c in categories) c.id: c.name};
+  String categoryOf(TvChannel c) => _fold(names[c.categoryId] ?? c.categoryId);
+
+  final sections = <ChannelSection>[];
+  for (final (title, words) in _homeChannelThemes) {
+    final matching = channels.where((c) {
+      final category = categoryOf(c);
+      return words.any(category.contains);
+    });
+    final row = matching.take(homeChannelLimit).toList();
+    if (row.isNotEmpty) sections.add(ChannelSection(title, row));
+  }
+  if (sections.isEmpty && channels.isNotEmpty) {
+    sections.add(ChannelSection('Chaînes TV', channels.take(homeChannelLimit).toList()));
+  }
+  return sections;
+}
+
+/// The home rows of live channels: categories and channels asked once, then sorted.
+final homeChannelSectionsProvider = FutureProvider.autoDispose<List<ChannelSection>>((ref) async {
+  final repository = ref.watch(tvRepositoryProvider);
+  final results = await Future.wait([
+    // Without categories (an error or none), the category ids are read as names.
+    repository.categories().catchError((Object _) => const <TvCategory>[]),
+    repository.channels(),
+  ]);
+  return channelSections(results[0] as List<TvCategory>, results[1] as List<TvChannel>);
 });
 
 /// Horizontal row of live channel tiles (home and search « Chaînes TV »).
