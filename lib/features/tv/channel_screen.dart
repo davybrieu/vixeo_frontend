@@ -226,7 +226,7 @@ class _Page extends ConsumerWidget {
   }
 }
 
-/// The channel's logo on a light tile (logos are drawn for a light background), or an icon.
+/// The channel's logo as is, without a frame (aligned with the name), or an icon on a tile.
 class _ChannelLogo extends StatelessWidget {
   const _ChannelLogo({required this.channel, required this.size});
 
@@ -236,25 +236,27 @@ class _ChannelLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final logo = channel.logo;
+    final icon = Container(
+      width: size * 1.6,
+      height: size,
+      decoration: BoxDecoration(color: VxColors.surfaceHigh, borderRadius: BorderRadius.circular(size * 0.16)),
+      child: Icon(Icons.live_tv_rounded, size: size * 0.5, color: VxColors.textSecondary),
+    );
     return ExcludeSemantics(
-      child: Container(
-        width: size * 1.6,
-        height: size,
-        padding: EdgeInsets.all(size * 0.14),
-        decoration: BoxDecoration(
-          color: logo == null ? VxColors.surfaceHigh : VxColors.text.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(size * 0.16),
-        ),
-        child: logo == null
-            ? Icon(Icons.live_tv_rounded, size: size * 0.5, color: VxColors.textSecondary)
-            : Image.network(
+      child: logo == null
+          ? icon
+          : SizedBox(
+              width: size * 1.6,
+              height: size,
+              child: Image.network(
                 logo,
                 fit: BoxFit.contain,
+                alignment: Alignment.centerLeft,
                 // Web: an <img> element, so the logo host needs no CORS headers.
                 webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-                errorBuilder: (_, _, _) => Icon(Icons.live_tv_rounded, size: size * 0.5, color: VxColors.background),
+                errorBuilder: (_, _, _) => icon,
               ),
-      ),
+            ),
     );
   }
 }
