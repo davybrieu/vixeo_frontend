@@ -5,7 +5,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import 'models.dart';
-import 'tv_hub_screen.dart';
+import 'live_player_screen.dart';
 import 'tv_repository.dart';
 
 /// Live channels matching [query] (empty = all channels).
@@ -25,14 +25,8 @@ class ChannelSearchResults extends ConsumerWidget {
     final async = ref.watch(channelSearchProvider(query));
 
     return async.when(
-      loading: () => const SliverFillRemaining(
-        hasScrollBody: false,
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => NumberedSliverError(
-        error: e,
-        onRetry: () => ref.invalidate(channelSearchProvider(query)),
-      ),
+      loading: () => const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator())),
+      error: (e, _) => NumberedSliverError(error: e, onRetry: () => ref.invalidate(channelSearchProvider(query))),
       data: (list) {
         if (list.isEmpty) {
           return SliverFillRemaining(
@@ -56,44 +50,41 @@ class ChannelSearchResults extends ConsumerWidget {
               crossAxisSpacing: 12,
               childAspectRatio: 0.85,
             ),
-            delegate: SliverChildBuilderDelegate(
-              (context, i) {
-                final channel = shown[i];
-                return Material(
-                  color: VxColors.surface,
+            delegate: SliverChildBuilderDelegate((context, i) {
+              final channel = shown[i];
+              return Material(
+                color: VxColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => playLiveChannel(context, ref, channel),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: channel.logo != null && channel.logo!.isNotEmpty
-                                ? Image.network(
-                                    channel.logo!,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (_, __, ___) => const Icon(Icons.live_tv, size: 40),
-                                  )
-                                : const Icon(Icons.live_tv, size: 40),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            channel.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: VxText.body(13),
-                          ),
-                        ],
-                      ),
+                  onTap: () => playLiveChannel(context, ref, channel),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: channel.logo != null && channel.logo!.isNotEmpty
+                              ? Image.network(
+                                  channel.logo!,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, _, _) => const Icon(Icons.live_tv, size: 40),
+                                )
+                              : const Icon(Icons.live_tv, size: 40),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          channel.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: VxText.body(13),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              },
-              childCount: shown.length,
-            ),
+                ),
+              );
+            }, childCount: shown.length),
           ),
         );
       },
@@ -116,25 +107,12 @@ class NumberedSliverError extends StatelessWidget {
   }
 }
 
-/// Resolve stream and open the live player (shared by hub and search).
-Future<void> playLiveChannel(BuildContext context, WidgetRef ref, TvChannel channel) async {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => const Center(child: CircularProgressIndicator()),
+/// Opens the live player at once; it asks for the stream itself (shared by hub and search).
+Future<void> playLiveChannel(BuildContext context, WidgetRef ref, TvChannel channel) {
+  final repository = ref.read(tvRepositoryProvider);
+  return Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => LivePlayerScreen(title: channel.name, loadStream: () => repository.stream(channel.id)),
+    ),
   );
-  try {
-    final stream = await ref.read(tvRepositoryProvider).stream(channel.id);
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LivePlayerScreen(title: channel.name, stream: stream),
-      ),
-    );
-  } catch (e) {
-    if (!context.mounted) return;
-    Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-  }
 }

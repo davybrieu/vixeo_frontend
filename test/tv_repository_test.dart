@@ -28,9 +28,13 @@ class RoutingAdapter implements HttpClientAdapter {
         );
       }
     }
-    return ResponseBody.fromString('{}', 404, headers: {
-      Headers.contentTypeHeader: ['application/json'],
-    });
+    return ResponseBody.fromString(
+      '{}',
+      404,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
   }
 
   @override

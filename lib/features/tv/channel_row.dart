@@ -20,12 +20,7 @@ final homeChannelsProvider = FutureProvider.autoDispose<List<TvChannel>>((ref) a
 
 /// Horizontal row of live channel tiles (home "Chaînes TV").
 class ChannelRow extends ConsumerWidget {
-  const ChannelRow({
-    super.key,
-    required this.channels,
-    this.title = 'Chaînes TV',
-    this.onSeeAll,
-  });
+  const ChannelRow({super.key, required this.channels, this.title = 'Chaînes TV', this.onSeeAll});
 
   final List<TvChannel> channels;
   final String title;
@@ -47,9 +42,7 @@ class ChannelRow extends ConsumerWidget {
           padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, layout.isLarge ? layout.tv(22) : 12),
           child: Row(
             children: [
-              Expanded(
-                child: Text(title, style: VxText.title(layout.isLarge ? layout.tv(30) : 18)),
-              ),
+              Expanded(child: Text(title, style: VxText.title(layout.isLarge ? layout.tv(30) : 18))),
               VxFocusable(
                 borderRadius: 8,
                 semanticLabel: 'Voir toutes les chaînes TV',
@@ -88,7 +81,7 @@ class ChannelRow extends ConsumerWidget {
               clipBehavior: Clip.none,
               padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: vPad),
               itemCount: channels.length,
-              separatorBuilder: (_, __) => SizedBox(width: gap),
+              separatorBuilder: (_, _) => SizedBox(width: gap),
               itemBuilder: (context, i) {
                 final channel = channels[i];
                 return _ChannelTile(
@@ -106,11 +99,7 @@ class ChannelRow extends ConsumerWidget {
 }
 
 class _ChannelTile extends StatelessWidget {
-  const _ChannelTile({
-    required this.channel,
-    required this.size,
-    required this.onTap,
-  });
+  const _ChannelTile({required this.channel, required this.size, required this.onTap});
 
   final TvChannel channel;
   final double size;
@@ -140,7 +129,7 @@ class _ChannelTile extends StatelessWidget {
                           child: Image.network(
                             channel.logo!,
                             fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => Icon(Icons.live_tv, size: size * 0.4),
+                            errorBuilder: (_, _, _) => Icon(Icons.live_tv, size: size * 0.4),
                           ),
                         )
                       : Icon(Icons.live_tv, size: size * 0.4, color: VxColors.textSecondary),
