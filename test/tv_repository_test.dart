@@ -112,6 +112,49 @@ void main() {
     expect(adapter.requests.single.path, '/tv/channels/tf1/stream');
   });
 
+  test('keeps every resolved source, in order, for the player to fall back on', () async {
+    final adapter = RoutingAdapter([
+      (
+        '/tv/channels/tf1/stream',
+        {
+          'data': {
+            'url': 'https://api.test/api/v1/tv/stream/first.m3u8',
+            'sources': [
+              'https://api.test/api/v1/tv/stream/first.m3u8',
+              'https://api.test/api/v1/tv/stream/second.m3u8',
+            ],
+            'format': 'hls',
+            'headers': <String, String>{},
+          },
+        },
+        200,
+      ),
+    ]);
+
+    final stream = await repository(adapter).stream('tf1');
+
+    expect(stream.sources, [
+      'https://api.test/api/v1/tv/stream/first.m3u8',
+      'https://api.test/api/v1/tv/stream/second.m3u8',
+    ]);
+  });
+
+  test('falls back to the single url as the only source', () async {
+    final adapter = RoutingAdapter([
+      (
+        '/tv/channels/tf1/stream',
+        {
+          'data': {'url': 'https://api.test/api/v1/tv/stream/only.m3u8', 'format': 'hls'},
+        },
+        200,
+      ),
+    ]);
+
+    final stream = await repository(adapter).stream('tf1');
+
+    expect(stream.sources, ['https://api.test/api/v1/tv/stream/only.m3u8']);
+  });
+
   test('rejects a stream without a URL', () async {
     final adapter = RoutingAdapter([
       (

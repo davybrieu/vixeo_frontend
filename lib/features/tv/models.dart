@@ -40,11 +40,20 @@ class TvChannel {
 }
 
 class TvStream {
-  const TvStream({required this.url, required this.format, this.headers = const {}});
+  const TvStream({
+    required this.url,
+    required this.format,
+    this.headers = const {},
+    this.sources = const [],
+  });
 
   final String url;
   final String format; // hls | ts
   final Map<String, String> headers;
+
+  /// Every playable URL the server resolved for this channel, best first. The player falls back
+  /// to the next one when a stream refuses to start. Always contains [url].
+  final List<String> sources;
 
   factory TvStream.fromJson(Map<String, dynamic> json) {
     final rawHeaders = json['headers'];
@@ -54,10 +63,23 @@ class TvStream {
         if (k != null && v != null) headers['$k'] = '$v';
       });
     }
+
+    final url = '${json['url'] ?? ''}';
+    final rawSources = json['sources'];
+    final sources = <String>[];
+    if (rawSources is List) {
+      for (final entry in rawSources) {
+        final value = '$entry';
+        if (value.isNotEmpty && !sources.contains(value)) sources.add(value);
+      }
+    }
+    if (url.isNotEmpty && !sources.contains(url)) sources.insert(0, url);
+
     return TvStream(
-      url: '${json['url'] ?? ''}',
+      url: url,
       format: '${json['format'] ?? 'hls'}',
       headers: headers,
+      sources: sources,
     );
   }
 }
