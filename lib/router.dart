@@ -67,6 +67,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
         return null;
       }
+      if (session.status == SessionStatus.signedOut) {
+        if (authPages.contains(location)) return null;
+        return '/connexion';
+      }
       if (session.isGuest) {
         if (location == '/demarrage') return '/accueil';
         if (authPages.contains(location)) return null;
