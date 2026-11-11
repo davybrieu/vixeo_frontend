@@ -404,12 +404,8 @@ class _ProgrammeRow extends StatelessWidget {
     final time = programmeTime(programme.start, now);
     final details = [?programme.subtitle, ?programme.category].join(' · ');
 
-    return VxFocusable(
-      borderRadius: 12,
-      semanticLabel: [time, programme.title, if (on) 'en cours', if (details.isNotEmpty) details].join(', '),
-      onPressed: () => _showProgramme(context, programme, now),
-      child: Container(
-        padding: EdgeInsets.all(large ? layout.tv(20) : 12),
+    return Container(
+      padding: EdgeInsets.all(large ? layout.tv(20) : 12),
         decoration: BoxDecoration(
           color: on ? VxColors.accent.withValues(alpha: 0.10) : VxColors.surface,
           borderRadius: BorderRadius.circular(12),
@@ -463,40 +459,8 @@ class _ProgrammeRow extends StatelessWidget {
               ),
           ],
         ),
-      ),
     );
   }
-}
-
-/// The whole programme: hours, title, details, description.
-Future<void> _showProgramme(BuildContext context, TvProgramme p, DateTime now) {
-  final details = [?p.subtitle, ?p.category].join(' · ');
-  return showDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog(
-      backgroundColor: VxColors.surface,
-      title: Text(p.title, style: VxText.title(20)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${programmeTime(p.start, now)} – ${programmeTime(p.end, now)}',
-              style: VxText.body(14, color: VxColors.textMuted),
-            ),
-            if (details.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(details, style: VxText.body(14, color: VxColors.textSoft)),
-            ],
-            const SizedBox(height: 12),
-            Text(p.description ?? 'Pas de description.', style: VxText.body(15, color: VxColors.textSoft)),
-          ],
-        ),
-      ),
-      actions: [VxButton(label: 'Fermer', autofocus: true, onPressed: () => Navigator.of(context).pop())],
-    ),
-  );
 }
 
 class _BackButton extends StatelessWidget {
