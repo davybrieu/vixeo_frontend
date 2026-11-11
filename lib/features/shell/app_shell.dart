@@ -24,6 +24,13 @@ class _Destination {
   final IconData selectedIcon;
 }
 
+const _guestPhoneTabs = [
+  _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
+  _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
+  _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
+  _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
+];
+
 const _phoneTabs = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
@@ -35,6 +42,13 @@ const _phoneTabs = [
 const _phoneNavClearance = 66.0;
 
 final _tvSidebarFocusNode = FocusNode(debugLabel: 'Navigation latérale');
+
+const _guestRailItems = [
+  _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
+  _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
+  _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
+  _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
+];
 
 const _railItems = [
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
@@ -58,7 +72,11 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final profile = ref.watch(sessionProvider).profile;
+    final session = ref.watch(sessionProvider);
+    final profile = session.profile;
+    final guest = session.isGuest;
+    final phoneTabs = guest ? _guestPhoneTabs : _phoneTabs;
+    final railItems = guest ? _guestRailItems : _railItems;
 
     // First load of the home page after the start: the start-up loading stays alone on screen,
     // without the navigation, until the home page can be drawn. Only once: coming back to the
@@ -75,9 +93,11 @@ class AppShell extends ConsumerWidget {
     }
 
     if (layout.isPhone) {
-      const navigationPages = {'/accueil', '/recherche', '/ma-liste', '/avis', '/films', '/series', '/profil'};
+      final navigationPages = guest
+          ? {'/accueil', '/recherche', '/films', '/series'}
+          : {'/accueil', '/recherche', '/ma-liste', '/avis', '/films', '/series', '/profil'};
       final showNavigation = navigationPages.contains(location);
-      final index = location == '/profil' ? _phoneTabs.length : _phoneTabs.indexWhere((d) => location == d.path);
+      final index = location == '/profil' ? phoneTabs.length : phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
 
       // Content fills the screen so the glass bar can blur what is behind it.
@@ -96,7 +116,7 @@ class AppShell extends ConsumerWidget {
           body: Stack(
             fit: StackFit.expand,
             children: [
-              body,
+              page,
               if (showNavigation)
                 Positioned(
                   left: 0,
@@ -105,8 +125,10 @@ class AppShell extends ConsumerWidget {
                   child: _PhoneNavigationBar(
                     selectedIndex: selectedIndex,
                     profile: profile,
+                    tabs: phoneTabs,
+                    guest: guest,
                     onDestinationSelected: (i) {
-                      context.go(i < _phoneTabs.length ? _phoneTabs[i].path : '/profil');
+                      context.go(i < phoneTabs.length ? phoneTabs[i].path : (guest ? '/connexion' : '/profil'));
                     },
                   ),
                 ),
@@ -129,29 +151,45 @@ class AppShell extends ConsumerWidget {
               padding: EdgeInsets.symmetric(vertical: layout.isLarge ? layout.tv(56) : 24),
               child: Column(
                 children: [
-                  VxFocusable(
-                    onPressed: () => context.go('/profil'),
-                    borderRadius: itemSize * 0.25,
-                    onAccent: profile?.avatar == null,
-                    semanticLabel: 'Mon profil (${profile?.name ?? ''})',
-                    child: ProfileAvatar(profile: profile, size: itemSize * 0.78, radius: itemSize * 0.2),
-                  ),
+                  if (guest)
+                    VxFocusable(
+                      onPressed: () => context.go('/connexion'),
+                      borderRadius: itemSize * 0.25,
+                      semanticLabel: 'Se connecter',
+                      child: Container(
+                        width: itemSize * 0.78,
+                        height: itemSize * 0.78,
+                        decoration: BoxDecoration(color: VxColors.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(itemSize * 0.2)),
+                        child: Icon(Icons.login_rounded, size: itemSize * 0.38, color: VxColors.accent),
+                      ),
+                    )
+                  else
+                    VxFocusable(
+                      onPressed: () => context.go('/profil'),
+                      borderRadius: itemSize * 0.25,
+                      onAccent: profile?.avatar == null,
+                      semanticLabel: 'Mon profil (${profile?.name ?? ''})',
+                      child: ProfileAvatar(profile: profile, size: itemSize * 0.78, radius: itemSize * 0.2),
+                    ),
                   SizedBox(height: itemSize * 0.8),
-                  for (final d in _railItems)
+                  for (final d in railItems)
                     Padding(
                       padding: EdgeInsets.only(bottom: itemSize * 0.16),
                       child: _RailItem(
                         destination: d,
                         selected: _isSelected(d.path),
                         size: itemSize,
-                        focusNode: d == _railItems.first ? _tvSidebarFocusNode : null,
+                        focusNode: d == railItems.first ? _tvSidebarFocusNode : null,
                       ),
                     ),
                 ],
               ),
             ),
             Expanded(
-              child: Focus(
+              child: Column(
+                children: [
+                  if (guest) _GuestBanner(onSignIn: () => context.go('/connexion')),
+                  Expanded(child: Focus(
                 onKeyEvent: (node, event) {
                   if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                     final current = FocusManager.instance.primaryFocus;
@@ -164,6 +202,8 @@ class AppShell extends ConsumerWidget {
                   return KeyEventResult.ignored;
                 },
                 child: child,
+              )),
+                ],
               ),
             ),
           ],
@@ -173,6 +213,39 @@ class AppShell extends ConsumerWidget {
   }
 
   bool _isSelected(String path) => location == path || location.startsWith('$path/');
+}
+
+class _GuestBanner extends StatelessWidget {
+  const _GuestBanner({required this.onSignIn});
+
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xFF17243B),
+    child: SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        child: Row(
+          children: [
+            const Icon(Icons.person_outline_rounded, color: VxColors.accent, size: 20),
+            const SizedBox(width: 9),
+            const Expanded(
+              child: Text(
+                'Mode invité · Connectez-vous pour retrouver vos profils et vos fonctionnalités personnelles.',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(onPressed: onSignIn, child: const Text('Se connecter')),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _RailItem extends StatelessWidget {
@@ -211,10 +284,12 @@ class _RailItem extends StatelessWidget {
 
 /// Floating glass navigation for phones — overlays content, no opaque scaffold strip.
 class _PhoneNavigationBar extends StatelessWidget {
-  const _PhoneNavigationBar({required this.selectedIndex, required this.profile, required this.onDestinationSelected});
+  const _PhoneNavigationBar({required this.selectedIndex, required this.profile, required this.tabs, required this.guest, required this.onDestinationSelected});
 
   final int selectedIndex;
   final Profile? profile;
+  final List<_Destination> tabs;
+  final bool guest;
   final ValueChanged<int> onDestinationSelected;
 
   @override
@@ -242,14 +317,16 @@ class _PhoneNavigationBar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
                 child: Row(
                   children: [
-                    for (var i = 0; i < _phoneTabs.length + 1; i++)
+                    for (var i = 0; i < tabs.length + 1; i++)
                       Expanded(
                         child: _PhoneNavigationItem(
                           selected: selectedIndex == i,
                           onPressed: () => onDestinationSelected(i),
-                          child: i == _phoneTabs.length
-                              ? ProfileAvatar(profile: profile, size: 28, radius: 15)
-                              : Icon(selectedIndex == i ? _phoneTabs[i].selectedIcon : _phoneTabs[i].icon, size: 24),
+                          child: i == tabs.length
+                              ? (guest
+                                  ? const Icon(Icons.login_rounded, size: 24)
+                                  : ProfileAvatar(profile: profile, size: 28, radius: 15))
+                              : Icon(selectedIndex == i ? tabs[i].selectedIcon : tabs[i].icon, size: 24),
                         ),
                       ),
                   ],
