@@ -73,7 +73,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       if (session.isGuest) {
         if (location == '/demarrage') return '/accueil';
-        if (authPages.contains(location)) return null;
+        if (authPages.contains(location)) {
+          pending = state.uri.queryParameters['redirect'] ?? pending;
+          return null;
+        }
         final isPublic = guestAllowed.any((path) => location == path || location.startsWith('$path/'));
         if (isPublic) return null;
         if (accountOnly.any((path) => location == path || location.startsWith('$path/'))) {
