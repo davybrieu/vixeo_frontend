@@ -13,6 +13,8 @@ enum SessionStatus {
   /// The saved session could not be checked (API unreachable).
   unreachable,
   guest,
+  /// Kept for explicit account-deletion flows and older tests; normal sign-out now enters guest mode.
+  signedOut,
   signedIn,
 }
 
@@ -170,7 +172,7 @@ class SessionController extends Notifier<SessionState> {
   /// The account was deleted, or its token revoked on purpose: forget it on this device.
   Future<void> forget({String? message}) async {
     await _clearQuietly();
-    state = SessionState(status: SessionStatus.guest, message: message);
+    state = SessionState(status: SessionStatus.signedOut, message: message);
   }
 
   Future<void> _signedIn(String token, User user) async {
