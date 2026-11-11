@@ -154,74 +154,74 @@ class _Page extends ConsumerWidget {
             children: [
               if (background != null) NetImage(url: background, seed: channel.id.hashCode),
               DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: background == null
-                        ? const [VxColors.surface, VxColors.background]
-                        : const [Color(0x73070A08), Color(0x40070A08), VxColors.background],
-                  ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: background == null
+                      ? const [VxColors.surface, VxColors.background]
+                      : const [Color(0x73070A08), Color(0x40070A08), VxColors.background],
                 ),
-              ),
-            ],
-          ),
-        ),
-        ListView(
-          padding: EdgeInsets.only(bottom: pageBottomPadding(context)),
-          children: [
-            SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(layout.gutter, large ? layout.tv(48) : 8, layout.gutter, 0),
-                child: const Align(alignment: Alignment.centerLeft, child: _BackButton(inline: true)),
-              ),
-            ),
-            SizedBox(height: heroHeight - logoSize - (large ? layout.tv(220) : 150)),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: layout.gutter),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ChannelLogo(channel: channel, size: logoSize),
-                  SizedBox(height: layout.titleGap),
-                  Text(channel.name, style: VxText.title(large ? layout.tv(56) : 28, weight: FontWeight.w800)),
-                  SizedBox(height: large ? layout.tv(12) : 6),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      const _LiveChip(),
-                      if (category != null)
-                        Text(category!, style: VxText.body(large ? layout.tv(24) : 14, color: VxColors.textSoft)),
-                    ],
-                  ),
-                  SizedBox(height: layout.introGap),
-                  Row(
-                    children: [
-                      VxButton(
-                        label: 'Regarder',
-                        icon: Icons.play_arrow_rounded,
-                        autofocus: true,
-                        onPressed: () => playLiveChannel(context, ref, channel),
-                      ),
-                    ],
-                  ),
-                  if (current != null) ...[
-                    SizedBox(height: layout.sectionGap),
-                    _NowCard(programme: current!, now: now),
-                  ],
-                  SizedBox(height: layout.sectionGap),
-                  Text('Programme', style: VxText.title(large ? layout.tv(32) : 20)),
-                  SizedBox(height: layout.titleGap),
-                  guide,
-                ],
               ),
             ),
           ],
         ),
-      ],
+      ),
+      ListView(
+        padding: EdgeInsets.only(bottom: pageBottomPadding(context)),
+        children: [
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(layout.gutter, large ? layout.tv(48) : 8, layout.gutter, 0),
+              child: const Align(alignment: Alignment.centerLeft, child: _BackButton(inline: true)),
+            ),
+          ),
+          SizedBox(height: heroHeight - logoSize - (large ? layout.tv(220) : 150)),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: layout.gutter),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ChannelLogo(channel: channel, size: logoSize),
+                SizedBox(height: layout.titleGap),
+                Text(channel.name, style: VxText.title(large ? layout.tv(56) : 28, weight: FontWeight.w800)),
+                SizedBox(height: large ? layout.tv(12) : 6),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const _LiveChip(),
+                    if (category != null)
+                      Text(category!, style: VxText.body(large ? layout.tv(24) : 14, color: VxColors.textSoft)),
+                  ],
+                ),
+                SizedBox(height: layout.introGap),
+                Row(
+                  children: [
+                    VxButton(
+                      label: 'Regarder',
+                      icon: Icons.play_arrow_rounded,
+                      autofocus: true,
+                      onPressed: () => playLiveChannel(context, ref, channel),
+                    ),
+                  ],
+                ),
+                if (current != null) ...[
+                  SizedBox(height: layout.sectionGap),
+                  _NowCard(programme: current!, now: now),
+                ],
+                SizedBox(height: layout.sectionGap),
+                Text('Programme', style: VxText.title(large ? layout.tv(32) : 20)),
+                SizedBox(height: layout.titleGap),
+                guide,
+              ],
+            ),
+          ),
+        ],
+      ),
+    ],
     );
   }
 }
