@@ -7,6 +7,7 @@ import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/common.dart';
+import '../auth/session.dart';
 import '../library/library.dart';
 import '../tv/channel_row.dart';
 import 'catalog_repository.dart';
@@ -24,7 +25,8 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(homeProvider(type));
-    final resume = ref.watch(libraryProvider).value?.continueWatching ?? const <ProfileItem>[];
+    final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
+    final resume = guest ? const <ProfileItem>[] : (ref.watch(libraryProvider).value?.continueWatching ?? const <ProfileItem>[]);
     // Live channels by theme (généralistes, sport, info, enfants), under « Continuer à regarder ».
     final channels = ref.watch(homeChannelSectionsProvider).value ?? const <ChannelSection>[];
     final layout = Layout.of(context);
