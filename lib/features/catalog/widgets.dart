@@ -47,7 +47,7 @@ class PosterCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
-    final itemState = ref.watch(libraryProvider.select((state) => state.value?.forItem(item)));
+    final itemState = guest ? null : ref.watch(libraryProvider.select((state) => state.value?.forItem(item)));
     final watched = itemState?.isWatched ?? false;
     final favorite = itemState?.isFavorite ?? false;
     final landscape = format == PosterFormat.landscape;
