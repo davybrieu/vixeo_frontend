@@ -63,7 +63,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
     // Large screens: QR card and form side by side when they fit (a 1080p TV is ~960 dp wide).
     final available = layout.width - 2 * layout.gutter - 64;
     final formWidth = (available * 0.45).clamp(360.0, 480.0);
@@ -78,7 +77,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       error: _error,
       onSubmit: _submit,
       large: !layout.isPhone,
-      guest: guest,
     );
 
     return Scaffold(
@@ -166,7 +164,6 @@ class _LoginForm extends StatelessWidget {
     required this.error,
     required this.onSubmit,
     required this.large,
-    required this.guest,
   });
 
   final GlobalKey<FormState> formKey;
@@ -178,7 +175,6 @@ class _LoginForm extends StatelessWidget {
   final ApiException? error;
   final VoidCallback onSubmit;
   final bool large;
-  final bool guest;
 
   @override
   Widget build(BuildContext context) {
@@ -258,13 +254,14 @@ class _LoginForm extends StatelessWidget {
                 TextButton(onPressed: () => context.go('/inscription'), child: const Text('Créer un compte')),
               ],
             ),
-            if (guest) ...[
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => context.go('/accueil?mode=invite'),
-                child: const Text('Continuer en invité'),
-              ),
-            ],
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                ref.read(sessionProvider.notifier).continueAsGuest();
+                context.go('/accueil');
+              },
+              child: const Text('Continuer en invité'),
+            ),
           ],
         ),
       ),
