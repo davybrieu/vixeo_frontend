@@ -64,6 +64,14 @@ void main() {
       expect(storage.cleared, isTrue);
     });
 
+    test('a device without a saved token starts in guest mode', () async {
+      final state = await restoredWith(MemorySessionStorage(), OddAuth());
+
+      expect(state.status, SessionStatus.guest);
+      expect(state.isGuest, isTrue);
+      expect(state.isSignedIn, isFalse);
+    });
+
     test('an unexpected API answer offers to try again', () async {
       final storage = MemorySessionStorage()..token = 'token-1';
       final state = await restoredWith(storage, OddAuth());
