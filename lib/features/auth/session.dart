@@ -58,7 +58,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository(
 
 final sessionProvider = NotifierProvider<SessionController, SessionState>(SessionController.new);
 
-/// Signed-in account and active profile.
+/// Guest browsing or a signed-in account with its active profile.
 class SessionController extends Notifier<SessionState> {
   SessionStorage get _storage => ref.read(sessionStorageProvider);
   AuthRepository get _auth => ref.read(authRepositoryProvider);
@@ -76,8 +76,8 @@ class SessionController extends Notifier<SessionState> {
     try {
       token = await _storage.readToken();
     } catch (_) {
-      // Unreadable keychain entry (e.g. a backup restored on another device): sign in again
-      // rather than staying on the start screen.
+      // Unreadable keychain entry (e.g. a backup restored on another device): clear it
+      // and continue without an account.
       await _clearQuietly();
       state = const SessionState(status: SessionStatus.guest);
       return;
