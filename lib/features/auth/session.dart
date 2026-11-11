@@ -81,7 +81,7 @@ class SessionController extends Notifier<SessionState> {
       return;
     }
     if (token == null) {
-      state = const SessionState(status: SessionStatus.signedOut);
+      state = const SessionState(status: SessionStatus.guest);
       return;
     }
 
@@ -100,7 +100,7 @@ class SessionController extends Notifier<SessionState> {
     } on ApiException catch (e) {
       if (e.isUnauthorized) {
         await _clear();
-        state = const SessionState(status: SessionStatus.signedOut);
+        state = const SessionState(status: SessionStatus.guest);
       } else {
         state = SessionState(status: SessionStatus.unreachable, message: e.message);
       }
@@ -157,20 +157,20 @@ class SessionController extends Notifier<SessionState> {
       // Signing out locally is enough if the API cannot be reached.
     }
     await _clear();
-    state = const SessionState(status: SessionStatus.signedOut);
+    state = const SessionState(status: SessionStatus.guest);
   }
 
   /// The API answered 401: the token was revoked or expired.
   Future<void> expire() async {
     if (!state.isSignedIn) return;
     await _clear();
-    state = const SessionState(status: SessionStatus.signedOut, message: 'Votre session a expiré. Reconnectez-vous.');
+    state = const SessionState(status: SessionStatus.guest, message: 'Votre session a expiré. Reconnectez-vous.');
   }
 
   /// The account was deleted, or its token revoked on purpose: forget it on this device.
   Future<void> forget({String? message}) async {
     await _clearQuietly();
-    state = SessionState(status: SessionStatus.signedOut, message: message);
+    state = SessionState(status: SessionStatus.guest, message: message);
   }
 
   Future<void> _signedIn(String token, User user) async {
