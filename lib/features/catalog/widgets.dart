@@ -46,6 +46,7 @@ class PosterCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
     final itemState = ref.watch(libraryProvider.select((state) => state.value?.forItem(item)));
     final watched = itemState?.isWatched ?? false;
     final favorite = itemState?.isFavorite ?? false;
@@ -77,7 +78,7 @@ class PosterCard extends ConsumerWidget {
       onFocused: onFocused,
       onHovered: onHovered,
       onPressed: () => context.push(titlePath(item.type, item.id)),
-      onLongPress: () => showTitleMenu(context, item),
+      onLongPress: guest ? null : () => showTitleMenu(context, item),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: SizedBox(
