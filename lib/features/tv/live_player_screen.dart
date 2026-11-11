@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/api/api_exception.dart';
+import '../auth/session.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
@@ -22,8 +25,8 @@ import 'models.dart';
 ///
 /// Opened right away on a channel: the stream is asked for here ([loadStream]), under the same
 /// spinner as the start of playback, so there is a single loading, not a dialog then the player.
-class LivePlayerScreen extends StatefulWidget {
-  const LivePlayerScreen({super.key, required this.title, this.stream, this.loadStream})
+class LivePlayerScreen extends ConsumerStatefulWidget {
+  const LivePlayerScreen({super.key, required this.title, this.stream, this.loadStream, this.returnLocation})
     : assert(stream != null || loadStream != null);
 
   final String title;
@@ -33,6 +36,9 @@ class LivePlayerScreen extends StatefulWidget {
 
   /// Asks the API for the stream (`/tv/channels/{id}/stream`), when [stream] is not given.
   final Future<TvStream> Function()? loadStream;
+
+  /// Channel page to return to after a guest signs in.
+  final String? returnLocation;
 
   /// How long the controls stay on screen without any action, while playing.
   static const hideDelay = Duration(seconds: 4);
@@ -48,7 +54,7 @@ class LivePlayerScreen extends StatefulWidget {
   State<LivePlayerScreen> createState() => _LivePlayerScreenState();
 }
 
-class _LivePlayerScreenState extends State<LivePlayerScreen> {
+class _LivePlayerScreenState extends ConsumerState<LivePlayerScreen> {
   VideoPlayerController? _controller;
 
   TvStream? _stream;
@@ -380,6 +386,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
     final controller = _controller;
     final ready = _ready;
     final visible = _controlsVisible || !_canHide;
@@ -394,6 +401,37 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
+              if (guest)
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 8,
+                  left: 16,
+                  right: 16,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Material(
+                      color: const Color(0xE617243B),
+                      borderRadius: BorderRadius.circular(24),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.person_outline_rounded, color: VxColors.accent, size: 18),
+                            const SizedBox(width: 8),
+                            const Text('Mode invité', style: TextStyle(color: Colors.white, fontSize: 13)),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () => context.go(
+                                '/connexion?redirect=${Uri.encodeComponent(widget.returnLocation ?? '/accueil')}',
+                              ),
+                              child: const Text('Se connecter'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: _onSurfaceTap,
