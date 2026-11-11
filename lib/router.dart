@@ -39,7 +39,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.listen(sessionProvider.select((s) => (s.status, s.profile == null)), (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
-  // Deep link opened before the session was restored, or while signed out (QR code of a TV).
+  // Deep link opened before session restoration, or a protected page requested by a guest.
   String? pending;
 
   Page<void> tab(Widget child) => NoTransitionPage(child: child);
