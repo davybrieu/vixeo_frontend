@@ -68,6 +68,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
       if (session.isGuest) {
+        if (location == '/demarrage') return '/accueil';
         if (authPages.contains(location)) return null;
         final isPublic = guestAllowed.any((path) => location == path || location.startsWith('$path/'));
         if (isPublic) return null;
