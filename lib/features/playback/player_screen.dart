@@ -186,6 +186,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
+    final playbackLocation = '/lecture/${widget.type == MediaType.movie ? 'movie' : 'tv'}/${widget.id}'
+        '${widget.season != null && widget.episode != null ? '?saison=${widget.season}&episode=${widget.episode}' : ''}';
     // Each provider is queried on its own so the panel can show it loading, failed, or
     // with its links, instead of one request that blocks on every provider at once.
     final declared = ref.watch(sourceProvidersProvider(_item)).value;
@@ -222,7 +224,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           const Text('Mode invité', style: TextStyle(color: Colors.white, fontSize: 13)),
                           const SizedBox(width: 8),
                           TextButton(
-                            onPressed: () => context.go('/connexion?redirect=${Uri.encodeComponent('/lecture/${widget.type == MediaType.movie ? 'movie' : 'tv'}/${widget.id}') }'),
+                            onPressed: () => context.go('/connexion?redirect=${Uri.encodeComponent(playbackLocation)}'),
                             child: const Text('Se connecter'),
                           ),
                         ],
