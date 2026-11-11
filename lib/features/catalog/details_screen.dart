@@ -12,6 +12,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/expandable_text.dart';
+import '../auth/session.dart';
 import '../library/actions.dart';
 import '../profiles/no_spoiler.dart';
 import '../search/filter_bar.dart';
@@ -99,13 +100,14 @@ class _Actions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final item = title.asItem;
+    final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
     return Wrap(
       spacing: layout.isLarge ? layout.tv(20) : 14,
       runSpacing: 12,
       children: [
-        FavoriteButton(item: item),
-        if (title.type == MediaType.movie) WatchedButton(item: item),
-        if (ref.watch(canRateProvider)) RateTitleButton(type: title.type, id: title.id, name: title.title),
+        if (!guest) FavoriteButton(item: item),
+        if (!guest && title.type == MediaType.movie) WatchedButton(item: item),
+        if (!guest && ref.watch(canRateProvider)) RateTitleButton(type: title.type, id: title.id, name: title.title),
         if (title.trailer != null)
           VxIconAction(
             icon: Icons.smart_display_outlined,
