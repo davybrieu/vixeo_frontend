@@ -112,7 +112,7 @@ class AppShell extends ConsumerWidget {
       final page = guest
           ? Column(
               children: [
-                _GuestBanner(onSignIn: () => context.go('/connexion')),
+                _GuestBanner(onSignIn: () => context.go('/connexion?redirect=${Uri.encodeComponent(location)}')),
                 Expanded(child: body),
               ],
             )
