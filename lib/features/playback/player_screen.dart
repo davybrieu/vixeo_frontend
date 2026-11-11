@@ -204,35 +204,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (guest)
-              Positioned(
-                top: MediaQuery.paddingOf(context).top + 8,
-                left: 16,
-                right: 16,
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: Material(
-                    color: const Color(0xE617243B),
-                    borderRadius: BorderRadius.circular(24),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.person_outline_rounded, color: VxColors.accent, size: 18),
-                          const SizedBox(width: 8),
-                          const Text('Mode invité', style: TextStyle(color: Colors.white, fontSize: 13)),
-                          const SizedBox(width: 8),
-                          TextButton(
-                            onPressed: () => context.go('/connexion?redirect=${Uri.encodeComponent(playbackLocation)}'),
-                            child: const Text('Se connecter'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             // Video surface
             if (_controller != null && _controller!.value.isInitialized)
               Center(
@@ -271,6 +242,35 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ),
             ),
 
+            if (guest)
+              Positioned(
+                top: MediaQuery.paddingOf(context).top + 8,
+                left: 16,
+                right: 16,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Material(
+                    color: const Color(0xE617243B),
+                    borderRadius: BorderRadius.circular(24),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.person_outline_rounded, color: VxColors.accent, size: 18),
+                          const SizedBox(width: 8),
+                          const Text('Mode invité', style: TextStyle(color: Colors.white, fontSize: 13)),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: () => context.go('/connexion?redirect=${Uri.encodeComponent(playbackLocation)}'),
+                            child: const Text('Se connecter'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             // Bottom controls
             AnimatedOpacity(
               opacity: _controlsVisible ? 1 : 0,
