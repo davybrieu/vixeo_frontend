@@ -386,6 +386,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final guest = widget.guest;
+    final returnLocation = widget.returnLocation ?? '/accueil';
     final controller = _controller;
     final ready = _ready;
     final visible = _controlsVisible || !_canHide;
@@ -421,7 +422,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
                             const SizedBox(width: 8),
                             TextButton(
                               onPressed: () => context.go(
-                                '/connexion?redirect=${Uri.encodeComponent(widget.returnLocation ?? '/accueil')}',
+                                '/connexion?redirect=${Uri.encodeComponent(returnLocation)}',
                               ),
                               child: const Text('Se connecter'),
                             ),
