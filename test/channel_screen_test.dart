@@ -110,10 +110,11 @@ void main() {
     await tester.scrollUntilVisible(find.text('Le film du soir'), 200, scrollable: find.byType(Scrollable).first);
     expect(find.text('En cours'), findsOneWidget);
 
-    // A programme opens its whole description.
+    // Pressing a programme does not open a dialog.
     await tester.tap(find.text('Le film du soir'));
     await tester.pumpAndSettle();
-    expect(find.text('Fermer'), findsOneWidget);
+    expect(find.text('Fermer'), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
   });
 
   testWidgets('says when there is no guide', (tester) async {
