@@ -109,6 +109,14 @@ class AppShell extends ConsumerWidget {
               child: child,
             )
           : child;
+      final page = guest
+          ? Column(
+              children: [
+                _GuestBanner(onSignIn: () => context.go('/connexion')),
+                Expanded(child: body),
+              ],
+            )
+          : body;
 
       return BackNavigationGuard(
         location: location,
