@@ -32,8 +32,7 @@ import 'features/tmdb/connections_screen.dart';
 import 'features/tmdb/review_screen.dart';
 import 'features/tmdb/reviews_screen.dart';
 
-/// Routes. Sign-in is the entry page: every route redirects there while signed out,
-/// then to "Qui regarde ?" until a profile is chosen.
+/// Public catalog and playback routes are available to guests. Personal features require an account and profile.
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
   // Only what the redirects depend on: editing the profile (avatar…) must not rebuild the pages.
@@ -47,12 +46,20 @@ final routerProvider = Provider<GoRouter>((ref) {
   Widget guarded(String location, Widget child) => BackNavigationGuard(location: location, child: child);
 
   return GoRouter(
-    initialLocation: '/connexion',
+    initialLocation: '/accueil',
     refreshListenable: refresh,
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
       final location = state.matchedLocation;
       const authPages = {'/connexion', '/inscription', '/mot-de-passe-oublie'};
+      const guestAllowed = {
+        '/accueil', '/films', '/series', '/recherche', '/personne', '/titre', '/chaine', '/lecture', '/tv-live',
+      };
+      const accountOnly = {
+        '/profils', '/ma-liste', '/avis', '/profil', '/profil/avatar', '/profil/controle-parental',
+        '/profil/code-pin', '/profil/parametres', '/profil/compte', '/profil/appareils',
+        '/profil/connexions', '/profil/tmdb', '/profil/notes', '/tv',
+      };
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
         if (location != '/demarrage') {
           if (!authPages.contains(location)) pending = state.uri.toString();
@@ -60,9 +67,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
         return null;
       }
-      if (!session.isSignedIn) {
+      if (session.isGuest) {
         if (authPages.contains(location)) return null;
-        if (location == '/tv') pending = state.uri.toString();
+        final isPublic = guestAllowed.any((path) => location == path || location.startsWith('$path/'));
+        if (isPublic) return null;
+        if (accountOnly.any((path) => location == path || location.startsWith('$path/'))) {
+          pending = state.uri.toString();
+        }
         return '/connexion';
       }
       // Approving a TV code needs an account, not a profile.
