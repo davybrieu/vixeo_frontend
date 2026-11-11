@@ -403,7 +403,7 @@ class _LivePlayerScreenState extends ConsumerState<LivePlayerScreen> {
             children: [
               if (guest)
                 Positioned(
-                  top: MediaQuery.paddingOf(context).top + 8,
+                  top: MediaQuery.paddingOf(context).top + 88,
                   left: 16,
                   right: 16,
                   child: Align(
