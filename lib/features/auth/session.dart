@@ -152,6 +152,11 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(clearProfile: true);
   }
 
+  /// Explicitly enter guest mode from the login screen.
+  void continueAsGuest() {
+    state = const SessionState(status: SessionStatus.guest);
+  }
+
   Future<void> logout() async {
     try {
       await _auth.logout();
