@@ -62,7 +62,10 @@ class ProfilesScreen extends ConsumerWidget {
                   VxLogo(size: layout.isLarge ? layout.tv(36).clamp(22, 40).toDouble() : 22),
                   const Spacer(),
                   TextButton.icon(
-                    onPressed: () => ref.read(sessionProvider.notifier).logout(),
+                    onPressed: () async {
+                      await ref.read(sessionProvider.notifier).logout();
+                      if (context.mounted) context.go('/accueil');
+                    },
                     icon: const Icon(Icons.logout_rounded, size: 18),
                     label: const Text('Se déconnecter'),
                     style: TextButton.styleFrom(foregroundColor: VxColors.textSecondary),
