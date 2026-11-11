@@ -222,7 +222,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           const Text('Mode invité', style: TextStyle(color: Colors.white, fontSize: 13)),
                           const SizedBox(width: 8),
                           TextButton(
-                            onPressed: () => context.go('/connexion'),
+                            onPressed: () => context.go('/connexion?redirect=${Uri.encodeComponent('/lecture/${widget.type == MediaType.movie ? 'movie' : 'tv'}/${widget.id}') }'),
                             child: const Text('Se connecter'),
                           ),
                         ],
