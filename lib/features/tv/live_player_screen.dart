@@ -1,13 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/api/api_exception.dart';
-import '../auth/session.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
@@ -25,8 +23,8 @@ import 'models.dart';
 ///
 /// Opened right away on a channel: the stream is asked for here ([loadStream]), under the same
 /// spinner as the start of playback, so there is a single loading, not a dialog then the player.
-class LivePlayerScreen extends ConsumerStatefulWidget {
-  const LivePlayerScreen({super.key, required this.title, this.stream, this.loadStream, this.returnLocation})
+class LivePlayerScreen extends StatefulWidget {
+  const LivePlayerScreen({super.key, required this.title, this.stream, this.loadStream, this.returnLocation, this.guest = false})
     : assert(stream != null || loadStream != null);
 
   final String title;
@@ -39,6 +37,7 @@ class LivePlayerScreen extends ConsumerStatefulWidget {
 
   /// Channel page to return to after a guest signs in.
   final String? returnLocation;
+  final bool guest;
 
   /// How long the controls stay on screen without any action, while playing.
   static const hideDelay = Duration(seconds: 4);
@@ -54,7 +53,7 @@ class LivePlayerScreen extends ConsumerStatefulWidget {
   State<LivePlayerScreen> createState() => _LivePlayerScreenState();
 }
 
-class _LivePlayerScreenState extends ConsumerState<LivePlayerScreen> {
+class _LivePlayerScreenState extends State<LivePlayerScreen> {
   VideoPlayerController? _controller;
 
   TvStream? _stream;
@@ -386,7 +385,7 @@ class _LivePlayerScreenState extends ConsumerState<LivePlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
+    final guest = widget.guest;
     final controller = _controller;
     final ready = _ready;
     final visible = _controlsVisible || !_canHide;
