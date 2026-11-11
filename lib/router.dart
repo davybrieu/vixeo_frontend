@@ -72,7 +72,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/connexion';
       }
       if (session.isGuest) {
-        if (location == '/demarrage') return '/accueil';
+        if (location == '/demarrage') {
+          final target = pending;
+          pending = null;
+          if (target != null) {
+            final targetPath = Uri.parse(target).path;
+            if (guestAllowed.any((path) => targetPath == path || targetPath.startsWith('$path/'))) {
+              return target;
+            }
+            if (accountOnly.any((path) => targetPath == path || targetPath.startsWith('$path/'))) {
+              pending = target;
+              return '/connexion?redirect=${Uri.encodeComponent(target)}';
+            }
+          }
+          return '/accueil';
+        }
         if (authPages.contains(location)) {
           pending = state.uri.queryParameters['redirect'] ?? pending;
           return null;
