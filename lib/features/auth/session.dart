@@ -12,7 +12,7 @@ enum SessionStatus {
 
   /// The saved session could not be checked (API unreachable).
   unreachable,
-  signedOut,
+  guest,
   signedIn,
 }
 
@@ -32,6 +32,7 @@ class SessionState {
   final String? message;
 
   bool get isSignedIn => status == SessionStatus.signedIn;
+  bool get isGuest => status == SessionStatus.guest;
 
   SessionState copyWith({User? user, Profile? profile, bool clearProfile = false}) => SessionState(
     status: status,
@@ -76,7 +77,7 @@ class SessionController extends Notifier<SessionState> {
       // Unreadable keychain entry (e.g. a backup restored on another device): sign in again
       // rather than staying on the start screen.
       await _clearQuietly();
-      state = const SessionState(status: SessionStatus.signedOut);
+      state = const SessionState(status: SessionStatus.guest);
       return;
     }
     if (token == null) {
