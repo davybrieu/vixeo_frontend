@@ -190,7 +190,7 @@ class SessionController extends Notifier<SessionState> {
     try {
       await _clear();
     } catch (_) {
-      // Nothing more to do if the keychain refuses: the user signs in again.
+      // Nothing more to do if the keychain refuses: guest browsing remains available.
     }
   }
 }
