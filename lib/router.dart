@@ -72,6 +72,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/connexion';
       }
       if (session.isGuest) {
+        if (location == '/accueil' && state.uri.queryParameters['mode'] == 'invite') {
+          pending = null;
+          return '/accueil';
+        }
         if (location == '/demarrage') {
           final target = pending;
           pending = null;
