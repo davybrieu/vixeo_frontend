@@ -77,6 +77,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       error: _error,
       onSubmit: _submit,
       large: !layout.isPhone,
+      onContinueGuest: () {
+        ref.read(sessionProvider.notifier).continueAsGuest();
+        context.go('/accueil');
+      },
     );
 
     return Scaffold(
@@ -164,6 +168,7 @@ class _LoginForm extends StatelessWidget {
     required this.error,
     required this.onSubmit,
     required this.large,
+    required this.onContinueGuest,
   });
 
   final GlobalKey<FormState> formKey;
@@ -175,6 +180,7 @@ class _LoginForm extends StatelessWidget {
   final ApiException? error;
   final VoidCallback onSubmit;
   final bool large;
+  final VoidCallback onContinueGuest;
 
   @override
   Widget build(BuildContext context) {
@@ -256,10 +262,7 @@ class _LoginForm extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () {
-                ref.read(sessionProvider.notifier).continueAsGuest();
-                context.go('/accueil');
-              },
+              onPressed: onContinueGuest,
               child: const Text('Continuer en invité'),
             ),
           ],
