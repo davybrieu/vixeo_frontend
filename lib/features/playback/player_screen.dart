@@ -120,15 +120,51 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Timer? _liveWatchdog;
   Duration? _lastLivePosition;
   Duration _liveStalledFor = Duration.zero;
+  int? _season;
+  int? _episode;
 
-  PlaybackItem get _item => (type: widget.type, id: widget.id, season: widget.season, episode: widget.episode);
+  PlaybackItem get _item => (type: widget.type, id: widget.id, season: _season, episode: _episode);
 
   @override
   void initState() {
     super.initState();
+    _season = widget.season;
+    _episode = widget.episode;
     if (widget.live) {
       _sourcesPanelOpen = false;
       _loadLiveStream();
+    } else if (widget.type == MediaType.tv && (_season == null || _episode == null)) {
+      _loadFirstEpisode();
+    }
+  }
+
+  Future<void> _loadFirstEpisode() async {
+    try {
+      final details = await ref.read(titleProvider((MediaType.tv, widget.id)).future);
+      if (!mounted) return;
+      final available = details.seasons.where((season) => season.episodeCount > 0).toList();
+      if (available.isEmpty) {
+        setState(() => _error = 'Aucun épisode disponible pour cette série.');
+        return;
+      }
+      final firstSeason = available.firstWhere(
+        (season) => season.number > 0,
+        orElse: () => available.first,
+      );
+      final season = await ref.read(seasonProvider((widget.id, firstSeason.number)).future);
+      if (!mounted || season.episodes.isEmpty) {
+        if (mounted) setState(() => _error = 'Aucun épisode disponible pour cette série.');
+        return;
+      }
+      final first = season.episodes.first;
+      setState(() {
+        _season = first.seasonNumber;
+        _episode = first.number;
+        _error = null;
+        _sourcesPanelOpen = true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Impossible de charger le premier épisode.');
     }
   }
 
@@ -140,6 +176,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _hideTimer?.cancel();
       _liveWatchdog?.cancel();
       _controller?.dispose();
+      _season = widget.season;
+      _episode = widget.episode;
       _controller = null;
       _currentSource = null;
       _error = null;
@@ -420,7 +458,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Future<void> _openEpisodes() async {
     final details = await ref.read(titleProvider((MediaType.tv, widget.id)).future);
     if (!mounted) return;
-    final initialSeason = widget.season ?? (details.seasons.isNotEmpty ? details.seasons.first.number : null);
+    final initialSeason = _season ?? (details.seasons.isNotEmpty ? details.seasons.first.number : null);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -458,7 +496,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               leading: Text('${episode.number}'.padLeft(2, '0')),
                               title: Text(episode.name.isEmpty ? 'Épisode ${episode.number}' : episode.name),
                               subtitle: Text('S${episode.seasonNumber} · Épisode ${episode.number}'),
-                              trailing: episode.number == widget.episode && episode.seasonNumber == widget.season
+                              trailing: episode.number == _episode && episode.seasonNumber == _season
                                   ? const Icon(Icons.equalizer_rounded, color: VxColors.accent)
                                   : const Icon(Icons.play_arrow_rounded),
                               onTap: () {
@@ -484,7 +522,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (seasonNumber == null) return;
     final season = await ref.read(seasonProvider((widget.id, seasonNumber)).future);
     if (!mounted) return;
-    final index = season.episodes.indexWhere((e) => e.number == widget.episode);
+    final index = season.episodes.indexWhere((e) => e.number == _episode);
     if (index >= 0 && index + 1 < season.episodes.length) {
       final next = season.episodes[index + 1];
       _goToEpisode(next.seasonNumber, next.number);
@@ -518,13 +556,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final playbackLocation = widget.live
         ? (widget.returnLocation ?? '/accueil')
         : '/lecture/$playbackType/${widget.id}'
-            '${widget.season != null && widget.episode != null ? '?saison=${widget.season}&episode=${widget.episode}' : ''}';
-    final providersAsync = widget.live
+            '${_season != null && _episode != null ? '?saison=$_season&episode=$_episode' : ''}';
+    final canLoadSources = !widget.live &&
+        (widget.type == MediaType.movie || (_season != null && _episode != null));
+    final providersAsync = !canLoadSources
         ? const AsyncData<List<SourceProvider>>(<SourceProvider>[])
         : ref.watch(sourceProvidersProvider(_item));
     final providers = providersAsync.value ?? const <SourceProvider>[];
     final sourcesByProvider = <String, AsyncValue<List<StreamSource>>>{};
-    if (!widget.live) {
+    if (canLoadSources) {
       for (final provider in providers) {
         sourcesByProvider[provider.id] = ref.watch(providerSourcesProvider((item: _item, provider: provider.id)));
       }
@@ -685,7 +725,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 onSelect: _playSource,
                 onRetry: (providerId) => ref.invalidate(providerSourcesProvider((item: _item, provider: providerId))),
                 onClose: () => setState(() => _sourcesPanelOpen = false),
-                providersLoading: providersAsync.isLoading,
+                providersLoading: !canLoadSources || providersAsync.isLoading,
                 providersError: providersAsync.hasError ? 'Impossible de charger les sources.' : null,
               ),
             ),
