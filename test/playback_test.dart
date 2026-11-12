@@ -374,6 +374,7 @@ void main() {
           '/catalog/sources/providers',
           {
             'data': [
+              {'id': 'tmdb-fr', 'name': 'TMDB Français (Onyx)'},
               {'id': 'frenchstream', 'name': 'FrenchStream'},
               {'id': 'wiflix', 'name': 'Wiflix'},
               {'id': 'frembed', 'name': 'Frembed'},
@@ -386,7 +387,7 @@ void main() {
 
       final state = await read(containerWith(adapter), sourceProvidersProvider(item));
 
-      expect(state.requireValue.map((p) => p.id), ['frenchstream', 'wiflix', 'frembed', '1jour1film']);
+      expect(state.requireValue.map((p) => p.id), ['tmdb-fr', 'frenchstream', 'wiflix', 'frembed', '1jour1film']);
       expect(adapter.requests.single.path, '/catalog/sources/providers');
     });
 
@@ -399,7 +400,7 @@ void main() {
       final state = await read(containerWith(adapter), sourceProvidersProvider(item));
       expect(state.hasError, isTrue);
       expect(state.error, isA<ApiException>());
-      expect(kSourceProvidersFallback.map((p) => p.id), ['frenchstream', 'wiflix', 'frembed', '1jour1film']);
+      expect(kSourceProvidersFallback.map((p) => p.id), ['tmdb-fr', 'frenchstream', 'wiflix', 'frembed', '1jour1film']);
     });
 
     test('asks the API for a single provider, and maps its links', () async {
@@ -421,6 +422,28 @@ void main() {
       final request = adapter.requests.single;
       expect(request.path, '/catalog/movie/550/sources');
       expect(request.queryParameters['provider'], 'wiflix');
+    });
+
+    test('requests the Onyx TMDB French aggregator with the selected TMDB movie id', () async {
+      final adapter = RoutingAdapter([
+        (
+          '/catalog/movie/550/sources',
+          {
+            'data': [
+              {'provider': 'tmdb-fr', 'name': 'TMDB Français (VF)', 'url': 'https://media.example.test/movie/550'},
+            ],
+          },
+          200,
+        ),
+      ]);
+
+      final links = await linksOf(containerWith(adapter), providerSourcesProvider((item: item, provider: 'tmdb-fr')));
+
+      expect(links.single.provider, 'tmdb-fr');
+      expect(links.single.name, 'TMDB Français (VF)');
+      final request = adapter.requests.single;
+      expect(request.path, '/catalog/movie/550/sources');
+      expect(request.queryParameters['provider'], 'tmdb-fr');
     });
 
     test('an empty provider resolves to an empty list, not an error', () async {

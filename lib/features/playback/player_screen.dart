@@ -40,6 +40,7 @@ class SourceProvider {
 
 /// Shown while the API's provider list is still loading, so the panel is never empty.
 const kSourceProvidersFallback = <SourceProvider>[
+  SourceProvider(id: 'tmdb-fr', name: 'TMDB Français (Onyx)'),
   SourceProvider(id: 'frenchstream', name: 'FrenchStream'),
   SourceProvider(id: 'wiflix', name: 'Wiflix'),
   SourceProvider(id: 'frembed', name: 'Frembed'),
