@@ -102,7 +102,6 @@ class _LargeHome extends StatefulWidget {
 
   final Home home;
   final List<ProfileItem> resume;
-  final List<ChannelSection> channels;
   final MediaType? type;
 
   @override
