@@ -116,7 +116,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _muted = false;
   double _volume = 1;
   List<_CaptionCue> _captions = const [];
-  String? _selectedSubtitle;
+  bool _liveProgressing = false;
   Timer? _liveWatchdog;
   Duration? _lastLivePosition;
   Duration _liveStalledFor = Duration.zero;
@@ -147,7 +147,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _sourcesPanelOpen = true;
       _controlsVisible = true;
       _captions = const [];
-      _selectedSubtitle = null;
     }
   }
 
@@ -156,6 +155,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _liveWatchdog?.cancel();
     _lastLivePosition = null;
     _liveStalledFor = Duration.zero;
+    _liveProgressing = false;
     final previous = _controller;
     _controller = null;
     await previous?.dispose();
@@ -198,7 +198,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void _scheduleHide() {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && !_sourcesPanelOpen && (_controller?.value.isPlaying ?? false)) setState(() => _controlsVisible = false);
+      if (mounted && !_sourcesPanelOpen && (_controller?.value.isPlaying ?? false) && (!widget.live || _liveProgressing)) setState(() => _controlsVisible = false);
     });
   }
 
@@ -267,6 +267,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!mounted || controller != _controller) return;
     if (position != null && _lastLivePosition != null && position != _lastLivePosition) {
       _liveStalledFor = Duration.zero;
+      if (!_liveProgressing) { _liveProgressing = true; setState(() {}); _scheduleHide(); }
     } else if (controller.value.isPlaying) {
       _liveStalledFor += const Duration(milliseconds: 500);
       if (_liveStalledFor >= const Duration(seconds: 15)) {
@@ -555,6 +556,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ],
                 ),
               ),
+            if (widget.live && (_controller?.value.isPlaying ?? false) && !_liveProgressing)
+              const IgnorePointer(child: Center(child: CircularProgressIndicator(color: VxColors.accent))),
             Positioned(
               top: 0, left: 0, right: 0,
               child: AnimatedOpacity(
@@ -575,7 +578,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       ),
                       const SizedBox(width: 8),
                       Expanded(child: Text(widget.live ? (widget.liveTitle ?? 'En direct') : 'Lecture', style: VxText.title(18))),
-                      if (widget.live && (_controller?.value.isPlaying ?? false)) const _LiveModeBadge(),
+                      if (widget.live && (_controller?.value.isPlaying ?? false) && _liveProgressing) const _LiveModeBadge(),
                     ]),
                   ),
                 ),
@@ -663,7 +666,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     onSeek: (pos) => _controller?.seekTo(pos),
                     onSources: () => setState(() => _sourcesPanelOpen = true),
                     onExternal: _openExternal,
-                    onBack: () => context.canPop() ? context.pop() : context.go('/accueil'),
                   ),
                 ),
               ),
@@ -756,7 +758,6 @@ class _BottomControls extends StatelessWidget {
     required this.onSeek,
     required this.onSources,
     required this.onExternal,
-    required this.onBack,
     required this.live,
     required this.series,
     required this.muted,
@@ -776,7 +777,6 @@ class _BottomControls extends StatelessWidget {
   final ValueChanged<Duration> onSeek;
   final VoidCallback onSources;
   final VoidCallback onExternal;
-  final VoidCallback onBack;
   final bool live;
   final bool series;
   final bool muted;
