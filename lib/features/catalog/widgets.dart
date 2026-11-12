@@ -138,6 +138,17 @@ class PosterCard extends ConsumerWidget {
                     child: const Icon(Icons.bookmark_added_rounded, color: VxColors.accent, size: 17),
                   ),
                 ),
+              if (watched && item.type == MediaType.movie)
+                Positioned(
+                  top: width * 0.06,
+                  right: width * 0.06,
+                  child: Container(
+                    width: (width * 0.13).clamp(22, 32).toDouble(),
+                    height: (width * 0.13).clamp(22, 32).toDouble(),
+                    decoration: const BoxDecoration(color: Color(0xB8070A08), shape: BoxShape.circle),
+                    child: const Icon(Icons.check_circle_rounded, color: VxColors.accent, size: 17),
+                  ),
+                ),
             ],
           ),
         ),
