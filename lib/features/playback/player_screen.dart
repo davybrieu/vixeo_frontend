@@ -577,6 +577,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Focus(
+        autofocus: true,
         onKeyEvent: _onKey,
         child: GestureDetector(
         onTap: _showControls,
@@ -877,10 +878,14 @@ class _BottomControls extends StatelessWidget {
             ),
           Row(
             children: [
-              IconButton(
-                icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: VxColors.text, size: 32),
-                tooltip: playing ? 'Pause' : 'Lecture',
-                onPressed: onPlayPause,
+              Semantics(
+                label: playing ? 'Pause' : 'Lecture',
+                button: true,
+                child: IconButton(
+                  icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: VxColors.text, size: 32),
+                  tooltip: playing ? 'Pause' : 'Lecture',
+                  onPressed: onPlayPause,
+                ),
               ),
               if (!live) ...[
                 Text(format(pos), style: VxText.body(13, color: VxColors.textSoft)),
