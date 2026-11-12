@@ -7,7 +7,7 @@ import '../../core/device/layout.dart';
 import '../../core/widgets/common.dart';
 import 'channel_row.dart';
 import 'channel_screen.dart';
-import 'live_player_screen.dart';
+import '../playback/player_screen.dart';
 import 'models.dart';
 import 'tv_repository.dart';
 
@@ -88,11 +88,11 @@ Future<void> playLiveChannel(BuildContext context, WidgetRef ref, TvChannel chan
   final repository = ref.read(tvRepositoryProvider);
   return Navigator.of(context, rootNavigator: true).push(
     MaterialPageRoute(
-      builder: (_) => LivePlayerScreen(
+      builder: (_) => PlayerScreen.live(
         title: channel.name,
         loadStream: () => repository.stream(channel.id),
         returnLocation: channelPath(channel.id),
-        guest: ref.read(sessionProvider).isGuest,
+        guestOverride: ref.read(sessionProvider).isGuest,
       ),
     ),
   );
