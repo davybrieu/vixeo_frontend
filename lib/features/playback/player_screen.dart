@@ -292,6 +292,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (!mounted) return;
       setState(() => _resolving = false);
       await ctrl.play();
+      if (!mounted || ctrl != _controller) return;
+      setState(() => _isPlaying = true);
       _scheduleHide();
     } catch (e) {
       if (!mounted) return;
