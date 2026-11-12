@@ -719,8 +719,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     onPlayPause: () {
                       final c = _controller;
                       if (c == null) return;
-                      c.value.isPlaying ? c.pause() : c.play();
-                      setState(() {});
+                      final shouldPlay = !_isPlaying;
+                      setState(() => _isPlaying = shouldPlay);
+                      if (shouldPlay) {
+                        unawaited(c.play());
+                      } else {
+                        unawaited(c.pause());
+                      }
                       _scheduleHide();
                     },
                     onSeek: (pos) => _controller?.seekTo(pos),
