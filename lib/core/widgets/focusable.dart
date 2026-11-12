@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../device/layout.dart';
 import '../theme.dart';
 
 /// Opens the context menu: menu key on remotes / keyboards (long press on touch).
@@ -78,6 +79,23 @@ class _VxFocusableState extends State<VxFocusable> {
     }
   }
 
+  /// Keep the focused control in the comfortable center of the viewport on Android TV.
+  /// ensureVisible walks through nested scrollables, so both the current row and its page
+  /// follow the remote without every screen implementing its own scroll logic.
+  void _keepFocusedElementVisible() {
+    if (!DeviceInfo.isTv) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Scrollable.ensureVisible(
+        context,
+        alignment: 0.42,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+      );
+    });
+  }
+
   @override
   void dispose() {
     _ownNode?.dispose();
@@ -125,7 +143,10 @@ class _VxFocusableState extends State<VxFocusable> {
         onShowFocusHighlight: (value) => setState(() => _focused = value),
         onShowHoverHighlight: (value) => setState(() => _hovered = value),
         onFocusChange: (focused) {
-          if (focused) widget.onFocused?.call();
+          if (focused) {
+            widget.onFocused?.call();
+            _keepFocusedElementVisible();
+          }
         },
         // The mouse enters the element, whatever the highlight mode (touch or keyboard).
         child: MouseRegion(
