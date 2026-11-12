@@ -11,6 +11,9 @@ import '../auth/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../catalog/models.dart';
+import '../catalog/catalog_repository.dart';
+import '../tv/models.dart';
+import '../tv/fullscreen/fullscreen.dart';
 import 'playback.dart';
 
 class StreamSource {
@@ -70,12 +73,32 @@ final providerSourcesProvider = FutureProvider.family<List<StreamSource>, Provid
 });
 
 class PlayerScreen extends ConsumerStatefulWidget {
-  const PlayerScreen({super.key, required this.type, required this.id, this.season, this.episode});
+  const PlayerScreen({super.key, required this.type, required this.id, this.season, this.episode})
+    : live = false, liveTitle = null, loadLiveStream = null, returnLocation = null, guestOverride = null;
+
+  const PlayerScreen.live({
+    super.key,
+    required String title,
+    required Future<TvStream> Function() loadStream,
+    this.returnLocation,
+    this.guestOverride,
+  }) : type = MediaType.movie,
+       id = 0,
+       season = null,
+       episode = null,
+       live = true,
+       liveTitle = title,
+       loadLiveStream = loadStream;
 
   final MediaType type;
   final int id;
   final int? season;
   final int? episode;
+  final bool live;
+  final String? liveTitle;
+  final Future<TvStream> Function()? loadLiveStream;
+  final String? returnLocation;
+  final bool? guestOverride;
 
   @override
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
@@ -89,8 +112,71 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Timer? _hideTimer;
   String? _error;
   bool _resolving = false;
+  bool _muted = false;
+  double _volume = 1;
+  List<_CaptionCue> _captions = const [];
+  String? _selectedSubtitle;
 
   PlaybackItem get _item => (type: widget.type, id: widget.id, season: widget.season, episode: widget.episode);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.live) {
+      _sourcesPanelOpen = false;
+      _loadLiveStream();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant PlayerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.live && !oldWidget.live &&
+        (widget.id != oldWidget.id || widget.season != oldWidget.season || widget.episode != oldWidget.episode)) {
+      _hideTimer?.cancel();
+      _controller?.dispose();
+      _controller = null;
+      _currentSource = null;
+      _error = null;
+      _resolving = false;
+      _sourcesPanelOpen = true;
+      _controlsVisible = true;
+      _captions = const [];
+      _selectedSubtitle = null;
+    }
+  }
+
+  Future<void> _loadLiveStream() async {
+    _hideTimer?.cancel();
+    final previous = _controller;
+    _controller = null;
+    await previous?.dispose();
+    if (!mounted) return;
+    setState(() {
+      _error = null;
+      _resolving = true;
+      _controlsVisible = true;
+    });
+    try {
+      final stream = await widget.loadLiveStream!();
+      if (!mounted) return;
+      final controller = VideoPlayerController.networkUrl(Uri.parse(stream.url), httpHeaders: stream.headers);
+      _controller = controller;
+      await controller.initialize();
+      if (!mounted || controller != _controller) return;
+      await controller.setVolume(_muted ? 0 : _volume);
+      await controller.play();
+      if (!mounted || controller != _controller) return;
+      setState(() => _resolving = false);
+      _scheduleHide();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _resolving = false;
+        _error = error is ApiException ? error.message : 'Impossible de lire cette chaîne.';
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -160,9 +246,198 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Future<void> _openExternal() async {
-    if (_currentSource == null) return;
+    if (_currentSource == null || widget.live) return;
     final ok = await launchUrl(Uri.parse(_currentSource!.url), mode: LaunchMode.externalApplication);
     if (!ok && mounted) showVxSnack(context, "Impossible d'ouvrir le lien.");
+  }
+
+  Future<void> _showSubtitles() async {
+    try {
+      final options = await ref.read(playbackRepositoryProvider).subtitles(_item);
+      if (!mounted) return;
+      if (options.isEmpty) {
+        showVxSnack(context, 'Aucun sous-titre disponible.');
+        return;
+      }
+      final choice = await showModalBottomSheet<SubtitleOption?>(
+        context: context,
+        backgroundColor: VxColors.surface,
+        builder: (sheetContext) => SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            ListTile(title: Text('Sous-titres', style: VxText.title(18))),
+            ListTile(
+              leading: const Icon(Icons.subtitles_off_outlined),
+              title: const Text('Désactivés'),
+              onTap: () => Navigator.pop(sheetContext, null),
+            ),
+            for (final option in options)
+              ListTile(
+                leading: const Icon(Icons.subtitles_outlined),
+                title: Text(option.language.toUpperCase()),
+                subtitle: option.release == null ? null : Text(option.release!),
+                onTap: () => Navigator.pop(sheetContext, option),
+              ),
+            const SizedBox(height: 8),
+          ]),
+        ),
+      );
+      if (!mounted) return;
+      if (choice == null) {
+        setState(() {
+          _captions = const [];
+          _selectedSubtitle = null;
+        });
+        return;
+      }
+      final vtt = await ref.read(playbackRepositoryProvider).subtitleFile(choice.fileId);
+      if (!mounted) return;
+      setState(() {
+        _captions = _parseWebVtt(vtt);
+        _selectedSubtitle = choice.language;
+      });
+    } catch (_) {
+      if (mounted) showVxSnack(context, 'Impossible de charger les sous-titres.');
+    }
+  }
+
+  List<_CaptionCue> _parseWebVtt(String input) {
+    final blocks = input.replaceAll('\r', '').split('\n\n');
+    final cues = <_CaptionCue>[];
+    final time = RegExp(r'(?:(\d{2}):)?(\d{2}):(\d{2})[,.](\d{3})');
+    Duration? parseTime(String value) {
+      final match = time.firstMatch(value);
+      if (match == null) return null;
+      final h = int.tryParse(match.group(1) ?? '0') ?? 0;
+      final m = int.tryParse(match.group(2) ?? '0') ?? 0;
+      final s = int.tryParse(match.group(3) ?? '0') ?? 0;
+      final ms = int.tryParse(match.group(4) ?? '0') ?? 0;
+      return Duration(hours: h, minutes: m, seconds: s, milliseconds: ms);
+    }
+    for (final block in blocks) {
+      final lines = block.split('\n');
+      final index = lines.indexWhere((line) => line.contains('-->'));
+      if (index < 0) continue;
+      final parts = lines[index].split('-->');
+      if (parts.length != 2) continue;
+      final start = parseTime(parts[0]);
+      final end = parseTime(parts[1]);
+      final text = lines.skip(index + 1).join('\n').trim();
+      if (start != null && end != null && text.isNotEmpty) cues.add(_CaptionCue(start, end, text));
+    }
+    return cues;
+  }
+
+  String? _captionAt(Duration position) {
+    for (final cue in _captions) {
+      if (position >= cue.start && position < cue.end) return cue.text;
+    }
+    return null;
+  }
+
+  Future<void> _toggleMute() async {
+    setState(() {
+      _muted = !_muted;
+      if (!_muted && _volume == 0) _volume = 1;
+    });
+    await _controller?.setVolume(_muted ? 0 : _volume);
+    _showControls();
+  }
+
+  Future<void> _toggleFullscreen() async {
+    if (isFullscreen()) {
+      await exitFullscreen();
+    } else {
+      await enterFullscreen();
+    }
+    if (mounted) setState(() {});
+    _showControls();
+  }
+
+  Future<void> _openEpisodes() async {
+    final details = await ref.read(titleProvider((MediaType.tv, widget.id)).future);
+    if (!mounted) return;
+    final initialSeason = widget.season ?? (details.seasons.isNotEmpty ? details.seasons.first.number : null);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: VxColors.surface,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * 0.78,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
+              child: Row(children: [
+                Expanded(child: Text('Épisodes · ${details.title}', style: VxText.title(18))),
+                IconButton(onPressed: () => Navigator.pop(sheetContext), icon: const Icon(Icons.close_rounded)),
+              ]),
+            ),
+            const Divider(height: 1),
+            Expanded(child: ListView(children: [
+              for (final season in details.seasons)
+                FutureBuilder<Season>(
+                  future: ref.read(seasonProvider((widget.id, season.number)).future),
+                  builder: (context, snapshot) {
+                    final episodes = snapshot.data?.episodes ?? const <Episode>[];
+                    return ExpansionTile(
+                      initiallyExpanded: season.number == initialSeason,
+                      title: Text(season.name.isEmpty ? 'Saison ${season.number}' : season.name),
+                      subtitle: Text('${season.episodeCount} épisodes'),
+                      children: [
+                        if (snapshot.connectionState == ConnectionState.waiting)
+                          const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())
+                        else if (snapshot.hasError)
+                          const ListTile(title: Text('Impossible de charger les épisodes'))
+                        else
+                          for (final episode in episodes)
+                            ListTile(
+                              leading: Text('${episode.number}'.padLeft(2, '0')),
+                              title: Text(episode.name.isEmpty ? 'Épisode ${episode.number}' : episode.name),
+                              subtitle: Text('S${episode.seasonNumber} · Épisode ${episode.number}'),
+                              trailing: episode.number == widget.episode && episode.seasonNumber == widget.season
+                                  ? const Icon(Icons.equalizer_rounded, color: VxColors.accent)
+                                  : const Icon(Icons.play_arrow_rounded),
+                              onTap: () {
+                                Navigator.pop(sheetContext);
+                                _goToEpisode(episode.seasonNumber, episode.number);
+                              },
+                            ),
+                      ],
+                    );
+                  },
+                ),
+            ])),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _playNextEpisode() async {
+    final details = await ref.read(titleProvider((MediaType.tv, widget.id)).future);
+    if (!mounted) return;
+    final seasonNumber = widget.season ?? (details.seasons.isNotEmpty ? details.seasons.first.number : null);
+    if (seasonNumber == null) return;
+    final season = await ref.read(seasonProvider((widget.id, seasonNumber)).future);
+    if (!mounted) return;
+    final index = season.episodes.indexWhere((e) => e.number == widget.episode);
+    if (index >= 0 && index + 1 < season.episodes.length) {
+      final next = season.episodes[index + 1];
+      _goToEpisode(next.seasonNumber, next.number);
+      return;
+    }
+    SeasonSummary? nextSeason;
+    for (final candidate in details.seasons) {
+      if (candidate.number > seasonNumber) { nextSeason = candidate; break; }
+    }
+    if (nextSeason == null) return;
+    final nextData = await ref.read(seasonProvider((widget.id, nextSeason.number)).future);
+    if (!mounted || nextData.episodes.isEmpty) return;
+    _goToEpisode(nextData.episodes.first.seasonNumber, nextData.episodes.first.number);
+  }
+
+  void _goToEpisode(int season, int episode) {
+    context.go('/lecture/tv/${widget.id}?saison=$season&episode=$episode');
   }
 
   String _format(Duration d) {
@@ -174,16 +449,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
+    final guest = widget.guestOverride ?? ref.watch(sessionProvider.select((s) => s.isGuest));
     final playbackType = widget.type == MediaType.movie ? 'movie' : 'tv';
-    final playbackLocation = '/lecture/$playbackType/${widget.id}'
-        '${widget.season != null && widget.episode != null ? '?saison=${widget.season}&episode=${widget.episode}' : ''}';
-    final providersAsync = ref.watch(sourceProvidersProvider(_item));
+    final playbackLocation = widget.live
+        ? (widget.returnLocation ?? '/accueil')
+        : '/lecture/$playbackType/${widget.id}'
+            '${widget.season != null && widget.episode != null ? '?saison=${widget.season}&episode=${widget.episode}' : ''}';
+    final providersAsync = widget.live
+        ? const AsyncData<List<SourceProvider>>(<SourceProvider>[])
+        : ref.watch(sourceProvidersProvider(_item));
     final providers = providersAsync.value ?? const <SourceProvider>[];
-    final sourcesByProvider = {
-      for (final provider in providers)
-        provider.id: ref.watch(providerSourcesProvider((item: _item, provider: provider.id))),
-    };
+    final sourcesByProvider = <String, AsyncValue<List<StreamSource>>>{};
+    if (!widget.live) {
+      for (final provider in providers) {
+        sourcesByProvider[provider.id] = ref.watch(providerSourcesProvider((item: _item, provider: provider.id)));
+      }
+    }
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -209,23 +490,54 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ],
                 ),
               ),
-            AnimatedOpacity(
-              opacity: _controlsVisible ? 1 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: IgnorePointer(
-                ignoring: !_controlsVisible,
-                child: Container(
-                  height: 120,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xCC000000), Colors.transparent],
+            Positioned(
+              top: 0, left: 0, right: 0,
+              child: AnimatedOpacity(
+                opacity: _controlsVisible ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: IgnorePointer(
+                  ignoring: !_controlsVisible,
+                  child: Container(
+                    padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top + 8, left: 16, right: 16, bottom: 30),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xCC000000), Colors.transparent]),
                     ),
+                    child: Row(children: [
+                      IconButton(
+                        tooltip: 'Retour',
+                        onPressed: () => context.canPop() ? context.pop() : context.go('/accueil'),
+                        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(widget.live ? (widget.liveTitle ?? 'En direct') : 'Lecture', style: VxText.title(18))),
+                      if (widget.live && (_controller?.value.isPlaying ?? false)) const _LiveModeBadge(),
+                    ]),
                   ),
                 ),
               ),
             ),
+            if (_controller != null && _captions.isNotEmpty)
+              ValueListenableBuilder<VideoPlayerValue>(
+                valueListenable: _controller!,
+                builder: (context, value, _) {
+                  final caption = _captionAt(value.position);
+                  if (caption == null) return const SizedBox.shrink();
+                  return Positioned(
+                    left: 24, right: 24, bottom: 100,
+                    child: IgnorePointer(
+                      child: Center(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.78), borderRadius: BorderRadius.circular(6)),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            child: Text(caption, textAlign: TextAlign.center, style: VxText.body(18, color: Colors.white)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             if (guest)
               Positioned(
                 top: MediaQuery.paddingOf(context).top + 8,
@@ -266,6 +578,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     controller: _controller,
                     currentSource: _currentSource,
                     format: _format,
+                    live: widget.live,
+                    series: !widget.live && widget.type == MediaType.tv,
+                    muted: _muted,
+                    fullscreen: isFullscreen(),
+                    onMute: _toggleMute,
+                    onFullscreen: _toggleFullscreen,
+                    onSubtitles: widget.live ? null : _showSubtitles,
+                    onEpisodes: widget.live || widget.type != MediaType.tv ? null : _openEpisodes,
+                    onNextEpisode: widget.live || widget.type != MediaType.tv ? null : _playNextEpisode,
+                    onBackToLive: widget.live ? _loadLiveStream : null,
                     onPlayPause: () {
                       final c = _controller;
                       if (c == null) return;
@@ -281,7 +603,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 ),
               ),
             ),
-            AnimatedPositioned(
+            if (!widget.live)
+              AnimatedPositioned(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
               top: 0,
@@ -315,20 +638,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                             const SizedBox(height: 16),
                             Text(_error!, textAlign: TextAlign.center, style: VxText.body(16, color: VxColors.textSoft)),
                             const SizedBox(height: 24),
-                            VxButton(
-                              label: 'Changer de source',
-                              icon: Icons.list_rounded,
-                              onPressed: () {
-                                setState(() {
-                                  _error = null;
-                                  _sourcesPanelOpen = true;
-                                  _controlsVisible = true;
-                                });
-                                _hideTimer?.cancel();
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            VxButton(label: 'Ouvrir en externe', icon: Icons.open_in_new, onPressed: _openExternal),
+                            if (!widget.live)
+                              VxButton(
+                                label: 'Changer de source',
+                                icon: Icons.list_rounded,
+                                onPressed: () {
+                                  setState(() {
+                                    _error = null;
+                                    _sourcesPanelOpen = true;
+                                    _controlsVisible = true;
+                                  });
+                                  _hideTimer?.cancel();
+                                },
+                              ),
+                            if (!widget.live) const SizedBox(height: 12),
+                            if (!widget.live)
+                              VxButton(label: 'Ouvrir en externe', icon: Icons.open_in_new, onPressed: _openExternal),
+                            if (widget.live)
+                              VxButton(label: 'Réessayer', icon: Icons.refresh_rounded, onPressed: _loadLiveStream),
                           ],
                         ),
                       ),
@@ -343,6 +670,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 }
 
+class _LiveModeBadge extends StatelessWidget {
+  const _LiveModeBadge();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(color: VxColors.error.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(20)),
+    child: Text('EN DIRECT', style: VxText.body(11, weight: FontWeight.w700, color: Colors.white)),
+  );
+}
+
 class _BottomControls extends StatelessWidget {
   const _BottomControls({
     required this.controller,
@@ -353,6 +691,16 @@ class _BottomControls extends StatelessWidget {
     required this.onSources,
     required this.onExternal,
     required this.onBack,
+    required this.live,
+    required this.series,
+    required this.muted,
+    required this.fullscreen,
+    required this.onMute,
+    required this.onFullscreen,
+    this.onSubtitles,
+    this.onEpisodes,
+    this.onNextEpisode,
+    this.onBackToLive,
   });
 
   final VideoPlayerController? controller;
@@ -363,6 +711,16 @@ class _BottomControls extends StatelessWidget {
   final VoidCallback onSources;
   final VoidCallback onExternal;
   final VoidCallback onBack;
+  final bool live;
+  final bool series;
+  final bool muted;
+  final bool fullscreen;
+  final VoidCallback onMute;
+  final VoidCallback onFullscreen;
+  final VoidCallback? onSubtitles;
+  final VoidCallback? onEpisodes;
+  final VoidCallback? onNextEpisode;
+  final VoidCallback? onBackToLive;
 
   @override
   Widget build(BuildContext context) {
@@ -393,7 +751,7 @@ class _BottomControls extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-          if (value != null && value.isInitialized)
+          if (!live && value != null && value.isInitialized)
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
                 activeTrackColor: VxColors.accent,
@@ -413,12 +771,38 @@ class _BottomControls extends StatelessWidget {
                 icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: VxColors.text, size: 32),
                 onPressed: onPlayPause,
               ),
-              Text(format(pos), style: VxText.body(13, color: VxColors.textSoft)),
-              Text(' / ', style: VxText.body(13, color: VxColors.textMuted)),
-              Text(format(dur), style: VxText.body(13, color: VxColors.textMuted)),
+              if (!live) ...[
+                Text(format(pos), style: VxText.body(13, color: VxColors.textSoft)),
+                Text(' / ', style: VxText.body(13, color: VxColors.textMuted)),
+                Text(format(dur), style: VxText.body(13, color: VxColors.textMuted)),
+              ],
               const Spacer(),
-              IconButton(tooltip: 'Sources', icon: const Icon(Icons.list_rounded, color: VxColors.text), onPressed: onSources),
-              IconButton(tooltip: 'Ouvrir en externe', icon: const Icon(Icons.open_in_new_rounded, color: VxColors.text), onPressed: onExternal),
+              if (live && onBackToLive != null)
+                TextButton.icon(
+                  onPressed: onBackToLive,
+                  icon: const Icon(Icons.sensors_rounded),
+                  label: const Text('Revenir au direct'),
+                ),
+              IconButton(
+                tooltip: muted ? 'Activer le son' : 'Couper le son',
+                onPressed: onMute,
+                icon: Icon(muted ? Icons.volume_off_rounded : Icons.volume_up_rounded, color: VxColors.text),
+              ),
+              if (!live)
+                IconButton(tooltip: 'Sources', icon: const Icon(Icons.list_rounded, color: VxColors.text), onPressed: onSources),
+              if (!live && onSubtitles != null)
+                IconButton(tooltip: 'Sous-titres', icon: const Icon(Icons.subtitles_outlined, color: VxColors.text), onPressed: onSubtitles),
+              if (series && onEpisodes != null)
+                IconButton(tooltip: 'Épisodes', icon: const Icon(Icons.video_library_outlined, color: VxColors.text), onPressed: onEpisodes),
+              if (series && onNextEpisode != null)
+                IconButton(tooltip: 'Épisode suivant', icon: const Icon(Icons.skip_next_rounded, color: VxColors.text), onPressed: onNextEpisode),
+              if (!live)
+                IconButton(tooltip: 'Ouvrir en externe', icon: const Icon(Icons.open_in_new_rounded, color: VxColors.text), onPressed: onExternal),
+              IconButton(
+                tooltip: fullscreen ? 'Quitter le plein écran' : 'Plein écran',
+                onPressed: onFullscreen,
+                icon: Icon(fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: VxColors.text),
+              ),
               IconButton(tooltip: 'Retour', icon: const Icon(Icons.arrow_back_rounded, color: VxColors.text), onPressed: onBack),
             ],
           ),
@@ -642,4 +1026,11 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       ),
     );
   }
+}
+
+class _CaptionCue {
+  const _CaptionCue(this.start, this.end, this.text);
+  final Duration start;
+  final Duration end;
+  final String text;
 }
