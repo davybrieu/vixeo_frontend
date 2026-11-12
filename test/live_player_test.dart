@@ -112,6 +112,8 @@ Future<FakeVideoPlatform> openPlayer(
   Set<String> stalled = const {},
   Future<TvStream> Function()? loadStream,
 }) async {
+  final semantics = tester.ensureSemantics();
+  addTearDown(semantics.dispose);
   final platform = FakeVideoPlatform(failing: failing, stalled: stalled);
   VideoPlayerPlatform.instance = platform;
   await tester.pumpWidget(
