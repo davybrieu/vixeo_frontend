@@ -91,7 +91,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   VideoPlayerController? _controller;
   StreamSource? _currentSource;
   bool _controlsVisible = true;
-  bool _sourcesPanelOpen = false;
+  // Onyx opens the source chooser as soon as a title enters playback.
+  bool _sourcesPanelOpen = true;
   Timer? _hideTimer;
   String? _error;
 
