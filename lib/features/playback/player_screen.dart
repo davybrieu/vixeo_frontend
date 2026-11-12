@@ -172,7 +172,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void didUpdateWidget(covariant PlayerScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!widget.live && !oldWidget.live &&
-        (widget.id != oldWidget.id || widget.season != oldWidget.season || widget.episode != oldWidget.episode)) {
+        (widget.type != oldWidget.type || widget.id != oldWidget.id || widget.season != oldWidget.season || widget.episode != oldWidget.episode)) {
       _hideTimer?.cancel();
       _liveWatchdog?.cancel();
       _controller?.dispose();
@@ -185,6 +185,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _sourcesPanelOpen = true;
       _controlsVisible = true;
       _captions = const [];
+      if (widget.type == MediaType.tv && (_season == null || _episode == null)) {
+        _loadFirstEpisode();
+      }
     }
   }
 
