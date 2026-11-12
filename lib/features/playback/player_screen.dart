@@ -687,7 +687,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 alignment: Alignment.bottomCenter,
                 child: IgnorePointer(
                   ignoring: !_controlsVisible,
-                  child: _BottomControls(
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge(_controller == null ? const <Listenable>[] : <Listenable>[_controller!]),
+                    builder: (context, _) => _BottomControls(
                     controller: _controller,
                     currentSource: _currentSource,
                     format: _format,
@@ -711,6 +713,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     onSeek: (pos) => _controller?.seekTo(pos),
                     onSources: () => setState(() => _sourcesPanelOpen = true),
                     onExternal: _openExternal,
+                    ),
                   ),
                 ),
               ),
