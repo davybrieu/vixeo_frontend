@@ -38,15 +38,8 @@ class SourceProvider {
   final String name;
 }
 
-/// Shown while the API's provider list is still loading, so the panel is never empty.
-const kSourceProvidersFallback = <SourceProvider>[
-  SourceProvider(id: 'tmdb-fr', name: 'TMDB Français (Onyx)'),
-  SourceProvider(id: 'coflix', name: 'Coflix'),
-  SourceProvider(id: 'aplouf', name: 'Aplouf'),
-  SourceProvider(id: 'frenchstream', name: 'FrenchStream'),
-  SourceProvider(id: 'frembed', name: 'Frembed'),
-  SourceProvider(id: '1jour1film', name: '1Jour1Film'),
-];
+/// Providers come only from the API (`/catalog/sources/providers`).
+/// No catalogue list is hard-coded in the app.
 
 /// The providers to display, in order. Fetched once per title.
 final sourceProvidersProvider = FutureProvider.family<List<SourceProvider>, PlaybackItem>((ref, item) async {
@@ -177,7 +170,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Future<void> _openExternal() async {
     if (_currentSource == null) return;
     final ok = await launchUrl(Uri.parse(_currentSource!.url), mode: LaunchMode.externalApplication);
-    if (!ok && mounted) showVxSnack(context, 'Impossible d’ouvrir le lien.');
+    if (!ok && mounted) showVxSnack(context, 'Impossible d\u2019ouvrir le lien.');
   }
 
   String _format(Duration d) {
@@ -193,10 +186,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final playbackType = widget.type == MediaType.movie ? 'movie' : 'tv';
     final playbackLocation = '/lecture/$playbackType/${widget.id}'
         '${widget.season != null && widget.episode != null ? '?saison=${widget.season}&episode=${widget.episode}' : ''}';
-    // Each provider is queried on its own so the panel can show it loading, failed, or
-    // with its links, instead of one request that blocks on every provider at once.
-    final declared = ref.watch(sourceProvidersProvider(_item)).value;
-    final providers = (declared == null || declared.isEmpty) ? kSourceProvidersFallback : declared;
+    // Providers come only from the API. Each provider is then queried on its own.
+    final providersAsync = ref.watch(sourceProvidersProvider(_item));
+    final providers = providersAsync.value ?? const <SourceProvider>[];
     final sourcesByProvider = {
       for (final provider in providers)
         provider.id: ref.watch(providerSourcesProvider((item: _item, provider: provider.id))),
@@ -209,7 +201,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Video surface
             if (_controller != null && _controller!.value.isInitialized)
               Center(
                 child: AspectRatio(aspectRatio: _controller!.value.aspectRatio, child: VideoPlayer(_controller!)),
@@ -222,13 +213,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     const CircularProgressIndicator(color: VxColors.accent),
                     if (_resolving) ...[
                       const SizedBox(height: 16),
-                      Text('Extraction du flux…', style: VxText.body(15, color: VxColors.textSoft)),
+                      Text('Extraction du flux\u2026', style: VxText.body(15, color: VxColors.textSoft)),
                     ],
                   ],
                 ),
               ),
-
-            // Top gradient + title
             AnimatedOpacity(
               opacity: _controlsVisible ? 1 : 0,
               duration: const Duration(milliseconds: 200),
@@ -246,7 +235,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 ),
               ),
             ),
-
             if (guest)
               Positioned(
                 top: MediaQuery.paddingOf(context).top + 8,
@@ -264,7 +252,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         children: [
                           const Icon(Icons.person_outline_rounded, color: VxColors.accent, size: 18),
                           const SizedBox(width: 8),
-                          const Text('Mode invité', style: TextStyle(color: Colors.white, fontSize: 13)),
+                          const Text('Mode invit\u00e9', style: TextStyle(color: Colors.white, fontSize: 13)),
                           const SizedBox(width: 8),
                           TextButton(
                             onPressed: () => context.go('/connexion?redirect=${Uri.encodeComponent(playbackLocation)}'),
@@ -276,7 +264,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ),
                 ),
               ),
-            // Bottom controls
             AnimatedOpacity(
               opacity: _controlsVisible ? 1 : 0,
               duration: const Duration(milliseconds: 200),
@@ -303,8 +290,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 ),
               ),
             ),
-
-            // Sources side panel
             AnimatedPositioned(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
@@ -319,11 +304,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 onSelect: _playSource,
                 onRetry: (providerId) => ref.invalidate(providerSourcesProvider((item: _item, provider: providerId))),
                 onClose: () => setState(() => _sourcesPanelOpen = false),
+                providersLoading: providersAsync.isLoading,
+                providersError: providersAsync.hasError ? 'Impossible de charger les sources.' : null,
               ),
             ),
-
-            // Keep playback errors above the video and all player controls so
-            // the recovery actions remain visible and tappable.
             if (_error != null)
               Positioned.fill(
                 child: ColoredBox(
@@ -365,6 +349,334 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomControls extends StatelessWidget {
+  const _BottomControls({
+    required this.controller,
+    required this.currentSource,
+    required this.format,
+    required this.onPlayPause,
+    required this.onSeek,
+    required this.onSources,
+    required this.onExternal,
+    required this.onBack,
+  });
+
+  final VideoPlayerController? controller;
+  final StreamSource? currentSource;
+  final String Function(Duration) format;
+  final VoidCallback onPlayPause;
+  final ValueChanged<Duration> onSeek;
+  final VoidCallback onSources;
+  final VoidCallback onExternal;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = controller?.value;
+    final pos = value?.position ?? Duration.zero;
+    final dur = value?.duration ?? Duration.zero;
+    final playing = value?.isPlaying ?? false;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [Color(0xE6000000), Colors.transparent],
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (currentSource != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                '${currentSource!.provider} \u2014 ${currentSource!.name}',
+                style: VxText.body(13, color: VxColors.textMuted),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          if (value != null && value.isInitialized)
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: VxColors.accent,
+                inactiveTrackColor: VxColors.line,
+                thumbColor: VxColors.accent,
+                overlayColor: VxColors.accent.withValues(alpha: 0.2),
+                trackHeight: 3,
+              ),
+              child: Slider(
+                value: dur.inMilliseconds > 0 ? pos.inMilliseconds / dur.inMilliseconds : 0,
+                onChanged: (v) => onSeek(Duration(milliseconds: (v * dur.inMilliseconds).round())),
+              ),
+            ),
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: VxColors.text, size: 32),
+                onPressed: onPlayPause,
+              ),
+              Text(format(pos), style: VxText.body(13, color: VxColors.textSoft)),
+              Text(' / ', style: VxText.body(13, color: VxColors.textMuted)),
+              Text(format(dur), style: VxText.body(13, color: VxColors.textMuted)),
+              const Spacer(),
+              IconButton(
+                tooltip: 'Sources',
+                icon: const Icon(Icons.list_rounded, color: VxColors.text),
+                onPressed: onSources,
+              ),
+              IconButton(
+                tooltip: 'Ouvrir en externe',
+                icon: const Icon(Icons.open_in_new_rounded, color: VxColors.text),
+                onPressed: onExternal,
+              ),
+              IconButton(
+                tooltip: 'Retour',
+                icon: const Icon(Icons.arrow_back_rounded, color: VxColors.text),
+                onPressed: onBack,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SourcesPanel extends StatefulWidget {
+  const _SourcesPanel({
+    required this.providers,
+    required this.sourcesByProvider,
+    required this.current,
+    required this.onSelect,
+    required this.onRetry,
+    required this.onClose,
+    this.providersLoading = false,
+    this.providersError,
+  });
+
+  final List<SourceProvider> providers;
+  final Map<String, AsyncValue<List<StreamSource>>> sourcesByProvider;
+  final StreamSource? current;
+  final ValueChanged<StreamSource> onSelect;
+  final ValueChanged<String> onRetry;
+  final VoidCallback onClose;
+  final bool providersLoading;
+  final String? providersError;
+
+  @override
+  State<_SourcesPanel> createState() => _SourcesPanelState();
+}
+
+enum _ProviderStatus { loading, failed, empty, links }
+
+class _SourcesPanelState extends State<_SourcesPanel> {
+  String? _selectedProvider;
+
+  String? _language(StreamSource source) {
+    final value = source.name.toUpperCase();
+    if (RegExp(r'\\b(VOSTFR|VOSTA|SUBFR)\\b').hasMatch(value)) return 'VOSTFR';
+    if (RegExp(r'\\b(VF|TRUEFRENCH|FRENCH|FR)\\b').hasMatch(value)) return 'VF';
+    if (RegExp(r'\\b(VO|VOST)\\b').hasMatch(value)) return 'VO';
+    return null;
+  }
+
+  String? _quality(StreamSource source) {
+    final value = source.name.toUpperCase();
+    final match = RegExp(r'\\b(4K|2160P|1080P|720P|480P|360P|HD|SD)\\b').firstMatch(value);
+    return match?.group(1);
+  }
+
+  Widget _providerList() {
+    if (widget.providersLoading && widget.providers.isEmpty) {
+      return const Center(child: CircularProgressIndicator(color: VxColors.accent));
+    }
+    if (widget.providersError != null && widget.providers.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(widget.providersError!, textAlign: TextAlign.center, style: VxText.body(14, color: VxColors.textSoft)),
+        ),
+      );
+    }
+    if (widget.providers.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('Aucun fournisseur disponible.', textAlign: TextAlign.center, style: VxText.body(14, color: VxColors.textSoft)),
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(12),
+      itemCount: widget.providers.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, index) {
+        final provider = widget.providers[index];
+        final async = widget.sourcesByProvider[provider.id];
+        final links = async?.value ?? const <StreamSource>[];
+
+        final _ProviderStatus status;
+        if (async == null || async.isLoading) {
+          status = _ProviderStatus.loading;
+        } else if (async.hasError) {
+          status = _ProviderStatus.failed;
+        } else if (links.isEmpty) {
+          status = _ProviderStatus.empty;
+        } else {
+          status = _ProviderStatus.links;
+        }
+
+        final selected = _selectedProvider == provider.id;
+
+        return Material(
+          color: selected ? VxColors.accent.withValues(alpha: 0.12) : VxColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: status == _ProviderStatus.links
+                ? () => setState(() => _selectedProvider = selected ? null : provider.id)
+                : status == _ProviderStatus.failed
+                    ? () => widget.onRetry(provider.id)
+                    : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(provider.name, style: VxText.title(15)),
+                        const SizedBox(height: 2),
+                        Text(
+                          switch (status) {
+                            _ProviderStatus.loading => 'Recherche\u2026',
+                            _ProviderStatus.failed => '\u00c9chec \u2014 appuyer pour r\u00e9essayer',
+                            _ProviderStatus.empty => 'Aucune source',
+                            _ProviderStatus.links => '${links.length} source${links.length > 1 ? 's' : ''}',
+                          },
+                          style: VxText.body(12, color: VxColors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (status == _ProviderStatus.loading)
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: VxColors.accent),
+                    )
+                  else if (status == _ProviderStatus.failed)
+                    const Icon(Icons.refresh_rounded, color: VxColors.error, size: 20)
+                  else if (status == _ProviderStatus.links)
+                    Icon(selected ? Icons.expand_less : Icons.expand_more, color: VxColors.textMuted),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _linksFor(SourceProvider provider) {
+    final async = widget.sourcesByProvider[provider.id];
+    final links = async?.value ?? const <StreamSource>[];
+    return ListView.separated(
+      padding: const EdgeInsets.all(12),
+      itemCount: links.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, index) {
+        final source = links[index];
+        final active = widget.current?.url == source.url;
+        final lang = _language(source);
+        final quality = _quality(source);
+        return Material(
+          color: active ? VxColors.accent.withValues(alpha: 0.15) : VxColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => widget.onSelect(source),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(source.name, style: VxText.title(14), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        if (lang != null || quality != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            [if (lang != null) lang, if (quality != null) quality].join(' \u00b7 '),
+                            style: VxText.body(12, color: VxColors.textMuted),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (active) const Icon(Icons.play_arrow_rounded, color: VxColors.accent),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = _selectedProvider == null
+        ? null
+        : widget.providers.cast<SourceProvider?>().firstWhere(
+              (p) => p?.id == _selectedProvider,
+              orElse: () => null,
+            );
+
+    return Material(
+      color: const Color(0xF00B1220),
+      elevation: 12,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+              child: Row(
+                children: [
+                  if (selected != null)
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded, color: VxColors.text),
+                      onPressed: () => setState(() => _selectedProvider = null),
+                    ),
+                  Expanded(
+                    child: Text(
+                      selected?.name ?? 'Sources',
+                      style: VxText.title(18),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: VxColors.text),
+                    onPressed: widget.onClose,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: VxColors.line),
+            Expanded(child: selected == null ? _providerList() : _linksFor(selected)),
           ],
         ),
       ),
