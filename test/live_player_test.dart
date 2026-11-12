@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
@@ -108,9 +109,11 @@ Future<FakeVideoPlatform> openPlayer(
   final platform = FakeVideoPlatform(failing: failing, stalled: stalled);
   VideoPlayerPlatform.instance = platform;
   await tester.pumpWidget(
-    MaterialApp(
-      theme: buildVixeoTheme(),
-      home: LivePlayerScreen(title: 'France 2', stream: loadStream == null ? stream : null, loadStream: loadStream),
+    ProviderScope(
+      child: MaterialApp(
+        theme: buildVixeoTheme(),
+        home: LivePlayerScreen(title: 'France 2', stream: loadStream == null ? stream : null, loadStream: loadStream),
+      ),
     ),
   );
   await settle(tester);
