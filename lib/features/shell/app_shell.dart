@@ -29,6 +29,7 @@ const _guestPhoneTabs = [
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
   _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
+  _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
 ];
 
 const _phoneTabs = [
@@ -36,6 +37,7 @@ const _phoneTabs = [
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
   _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
+  _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
 ];
 
 /// Extra bottom inset so list content clears the floating pill (pill ~50 + margins).
@@ -48,6 +50,7 @@ const _guestRailItems = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
   _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
+  _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
 ];
 
 const _railItems = [
@@ -57,6 +60,7 @@ const _railItems = [
   _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
   _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
+  _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
 ];
 
 /// The home page was drawn once since the app started (see [AppShell.build]).
@@ -94,8 +98,8 @@ class AppShell extends ConsumerWidget {
 
     if (layout.isPhone) {
       final navigationPages = guest
-          ? {'/accueil', '/recherche', '/films', '/series'}
-          : {'/accueil', '/recherche', '/ma-liste', '/avis', '/films', '/series', '/profil'};
+          ? {'/accueil', '/recherche', '/films', '/series', '/chaines-tv'}
+          : {'/accueil', '/recherche', '/ma-liste', '/avis', '/films', '/series', '/chaines-tv', '/profil'};
       final showNavigation = navigationPages.contains(location);
       final index = location == '/profil' ? phoneTabs.length : phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;

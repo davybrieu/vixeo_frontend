@@ -27,6 +27,7 @@ import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
 import 'features/tv/channel_screen.dart';
+import 'features/tv/tv_channels_screen.dart';
 import 'features/tv/models.dart';
 import 'features/tmdb/connections_screen.dart';
 import 'features/tmdb/review_screen.dart';
@@ -53,7 +54,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       const authPages = {'/connexion', '/inscription', '/mot-de-passe-oublie'};
       const guestAllowed = {
-        '/accueil', '/films', '/series', '/recherche', '/personne', '/titre', '/chaine', '/lecture', '/tv-live',
+        '/accueil', '/films', '/series', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/tv-live',
       };
       const accountOnly = {
         '/profils', '/ma-liste', '/avis', '/profil', '/profil/avatar', '/profil/controle-parental',
@@ -140,8 +141,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/series',
             pageBuilder: (_, _) => tab(const HomeScreen(type: MediaType.tv)),
           ),
-          // No live TV page any more: channels are in the search page and on the home page.
-          GoRoute(path: '/tv-live', redirect: (_, _) => '/recherche'),
+          GoRoute(path: '/chaines-tv', pageBuilder: (_, _) => tab(const TvChannelsScreen())),
+          GoRoute(path: '/tv-live', redirect: (_, _) => '/chaines-tv'),
           GoRoute(
             path: '/recherche',
             pageBuilder: (_, state) => tab(SearchScreen(initialType: state.extra as MediaType?)),

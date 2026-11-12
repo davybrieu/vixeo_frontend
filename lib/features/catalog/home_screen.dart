@@ -9,7 +9,6 @@ import '../../core/widgets/page_header.dart';
 import '../../core/widgets/common.dart';
 import '../auth/session.dart';
 import '../library/library.dart';
-import '../tv/channel_row.dart';
 import 'catalog_repository.dart';
 import 'hero.dart';
 import 'models.dart';
@@ -27,8 +26,6 @@ class HomeScreen extends ConsumerWidget {
     final home = ref.watch(homeProvider(type));
     final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
     final resume = guest ? const <ProfileItem>[] : (ref.watch(libraryProvider).value?.continueWatching ?? const <ProfileItem>[]);
-    // Live channels by theme (généralistes, sport, info, enfants), under « Continuer à regarder ».
-    final channels = ref.watch(homeChannelSectionsProvider).value ?? const <ChannelSection>[];
     final layout = Layout.of(context);
 
     Future<void> refresh() async {
@@ -40,7 +37,7 @@ class HomeScreen extends ConsumerWidget {
       value: home,
       onRetry: () => ref.invalidate(homeProvider(type)),
       data: (data) {
-        if (data.sections.isEmpty && data.featured.isEmpty && channels.isEmpty) {
+        if (data.sections.isEmpty && data.featured.isEmpty) {
           return const EmptyState(
             icon: Icons.movie_filter_outlined,
             title: 'Rien à afficher pour l’instant',
@@ -52,9 +49,9 @@ class HomeScreen extends ConsumerWidget {
         return layout.isPhone
             ? RefreshIndicator(
                 onRefresh: refresh,
-                child: _PhoneHome(home: data, resume: rows, channels: channels, type: type),
+                child: _PhoneHome(home: data, resume: rows, type: type),
               )
-            : _LargeHome(home: data, resume: rows, channels: channels, type: type);
+            : _LargeHome(home: data, resume: rows, type: type);
       },
     );
   }
@@ -63,11 +60,10 @@ class HomeScreen extends ConsumerWidget {
 // ───────────────────────────── Phone ─────────────────────────────
 
 class _PhoneHome extends StatelessWidget {
-  const _PhoneHome({required this.home, required this.resume, required this.channels, required this.type});
+  const _PhoneHome({required this.home, required this.resume, required this.type});
 
   final Home home;
   final List<ProfileItem> resume;
-  final List<ChannelSection> channels;
   final MediaType? type;
 
   @override
@@ -93,7 +89,6 @@ class _PhoneHome extends StatelessWidget {
             ),
           ),
         ],
-        for (final section in channels) ...[gap, ChannelRow(title: section.title, channels: section.channels)],
         for (final section in home.sections) ...[gap, PosterRow(title: section.title, items: section.items)],
       ],
     );
@@ -103,7 +98,7 @@ class _PhoneHome extends StatelessWidget {
 // ───────────────────────────── TV / large ─────────────────────────────
 
 class _LargeHome extends StatefulWidget {
-  const _LargeHome({required this.home, required this.resume, required this.channels, required this.type});
+  const _LargeHome({required this.home, required this.resume, required this.type});
 
   final Home home;
   final List<ProfileItem> resume;
@@ -184,10 +179,6 @@ class _LargeHomeState extends State<_LargeHome> {
                         ),
                       ),
                     ),
-                    SizedBox(height: layout.sectionGap),
-                  ],
-                  for (final section in widget.channels) ...[
-                    ChannelRow(title: section.title, channels: section.channels),
                     SizedBox(height: layout.sectionGap),
                   ],
                   for (final (index, section) in widget.home.sections.indexed) ...[
