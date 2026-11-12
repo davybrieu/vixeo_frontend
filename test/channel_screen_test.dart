@@ -8,7 +8,7 @@ import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/tv/channel_row.dart';
 import 'package:vixeo/features/tv/channel_screen.dart';
-import 'package:vixeo/features/tv/live_player_screen.dart';
+import 'package:vixeo/features/playback/player_screen.dart';
 import 'package:vixeo/features/tv/models.dart';
 import 'package:vixeo/features/tv/tv_repository.dart';
 
@@ -194,7 +194,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.byType(LivePlayerScreen), findsOneWidget);
+    expect(find.byWidgetPredicate((widget) => widget is PlayerScreen && widget.live), findsOneWidget);
     // The player covers the whole screen: the rail is no longer shown.
     expect(find.text('Rail de navigation'), findsNothing);
   });
