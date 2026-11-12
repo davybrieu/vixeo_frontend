@@ -43,6 +43,7 @@ const kSourceProvidersFallback = <SourceProvider>[
   SourceProvider(id: 'frenchstream', name: 'FrenchStream'),
   SourceProvider(id: 'wiflix', name: 'Wiflix'),
   SourceProvider(id: 'frembed', name: 'Frembed'),
+  SourceProvider(id: '1jour1film', name: '1Jour1Film'),
 ];
 
 /// The providers to display, in order. Fetched once per title.

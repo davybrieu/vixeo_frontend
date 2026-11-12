@@ -377,6 +377,7 @@ void main() {
               {'id': 'frenchstream', 'name': 'FrenchStream'},
               {'id': 'wiflix', 'name': 'Wiflix'},
               {'id': 'frembed', 'name': 'Frembed'},
+              {'id': '1jour1film', 'name': '1Jour1Film'},
             ],
           },
           200,
@@ -385,7 +386,7 @@ void main() {
 
       final state = await read(containerWith(adapter), sourceProvidersProvider(item));
 
-      expect(state.requireValue.map((p) => p.id), ['frenchstream', 'wiflix', 'frembed']);
+      expect(state.requireValue.map((p) => p.id), ['frenchstream', 'wiflix', 'frembed', '1jour1film']);
       expect(adapter.requests.single.path, '/catalog/sources/providers');
     });
 
@@ -398,7 +399,7 @@ void main() {
       final state = await read(containerWith(adapter), sourceProvidersProvider(item));
       expect(state.hasError, isTrue);
       expect(state.error, isA<ApiException>());
-      expect(kSourceProvidersFallback.map((p) => p.id), ['frenchstream', 'wiflix', 'frembed']);
+      expect(kSourceProvidersFallback.map((p) => p.id), ['frenchstream', 'wiflix', 'frembed', '1jour1film']);
     });
 
     test('asks the API for a single provider, and maps its links', () async {
