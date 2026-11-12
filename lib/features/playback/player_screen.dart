@@ -114,6 +114,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   String? _error;
   bool _resolving = false;
   bool _muted = false;
+  bool _isPlaying = false;
   double _volume = 1;
   List<_CaptionCue> _captions = const [];
   String? _selectedSubtitle;
@@ -198,6 +199,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _lastLivePosition = null;
     _liveStalledFor = Duration.zero;
     _liveProgressing = false;
+    _isPlaying = false;
     final previous = _controller;
     _controller = null;
     await previous?.dispose();
@@ -217,7 +219,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       await controller.setVolume(_muted ? 0 : _volume);
       await controller.play();
       if (!mounted || controller != _controller) return;
-      setState(() => _resolving = false);
+      setState(() {
+        _resolving = false;
+        _isPlaying = true;
+      });
       _liveWatchdog = Timer.periodic(const Duration(milliseconds: 500), (_) => _checkLiveProgress(controller));
       _scheduleHide();
     } catch (error) {
@@ -335,8 +340,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (key == LogicalKeyboardKey.keyK || key == LogicalKeyboardKey.mediaPlayPause) {
       final controller = _controller;
       if (controller != null) {
-        controller.value.isPlaying ? controller.pause() : controller.play();
-        setState(() {});
+        final shouldPlay = !_isPlaying;
+        setState(() => _isPlaying = shouldPlay);
+        if (shouldPlay) {
+          unawaited(controller.play());
+        } else {
+          unawaited(controller.pause());
+        }
       }
       _showControls();
       return KeyEventResult.handled;
@@ -691,6 +701,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     animation: Listenable.merge(_controller == null ? const <Listenable>[] : <Listenable>[_controller!]),
                     builder: (context, _) => _BottomControls(
                     controller: _controller,
+                    playing: _isPlaying,
                     currentSource: _currentSource,
                     format: _format,
                     live: widget.live,
@@ -800,6 +811,7 @@ class _LiveModeBadge extends StatelessWidget {
 class _BottomControls extends StatelessWidget {
   const _BottomControls({
     required this.controller,
+    required this.playing,
     required this.currentSource,
     required this.format,
     required this.onPlayPause,
@@ -819,6 +831,7 @@ class _BottomControls extends StatelessWidget {
   });
 
   final VideoPlayerController? controller;
+  final bool playing;
   final StreamSource? currentSource;
   final String Function(Duration) format;
   final VoidCallback onPlayPause;
@@ -841,7 +854,6 @@ class _BottomControls extends StatelessWidget {
     final value = controller?.value;
     final pos = value?.position ?? Duration.zero;
     final dur = value?.duration ?? Duration.zero;
-    final playing = value?.isPlaying ?? false;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
