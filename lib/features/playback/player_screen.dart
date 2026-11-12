@@ -116,6 +116,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _muted = false;
   double _volume = 1;
   List<_CaptionCue> _captions = const [];
+  String? _selectedSubtitle;
   bool _liveProgressing = false;
   Timer? _liveWatchdog;
   Duration? _lastLivePosition;
@@ -649,7 +650,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   },
                 ),
               ),
-            if (guest)
+            if (guest == true)
               Positioned(
                 top: MediaQuery.paddingOf(context).top + 76,
                 left: 16,
