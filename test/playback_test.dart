@@ -375,8 +375,9 @@ void main() {
           {
             'data': [
               {'id': 'tmdb-fr', 'name': 'TMDB Français (Onyx)'},
+              {'id': 'coflix', 'name': 'Coflix'},
+              {'id': 'aplouf', 'name': 'Aplouf'},
               {'id': 'frenchstream', 'name': 'FrenchStream'},
-              {'id': 'wiflix', 'name': 'Wiflix'},
               {'id': 'frembed', 'name': 'Frembed'},
               {'id': '1jour1film', 'name': '1Jour1Film'},
             ],
@@ -387,20 +388,26 @@ void main() {
 
       final state = await read(containerWith(adapter), sourceProvidersProvider(item));
 
-      expect(state.requireValue.map((p) => p.id), ['tmdb-fr', 'frenchstream', 'wiflix', 'frembed', '1jour1film']);
+      expect(state.requireValue.map((p) => p.id), [
+        'tmdb-fr',
+        'coflix',
+        'aplouf',
+        'frenchstream',
+        'frembed',
+        '1jour1film',
+      ]);
       expect(adapter.requests.single.path, '/catalog/sources/providers');
     });
 
-    test('falls back to the known providers when the API list fails', () async {
+    test('surfaces an error when the API provider list fails (no hardcoded fallback)', () async {
       final adapter = RoutingAdapter([
         ('/catalog/sources/providers', {'message': 'Boom'}, 500),
       ]);
 
-      // The panel must still show every provider, even before the list is known.
+      // Providers come only from the API — no local fallback list.
       final state = await read(containerWith(adapter), sourceProvidersProvider(item));
       expect(state.hasError, isTrue);
       expect(state.error, isA<ApiException>());
-      expect(kSourceProvidersFallback.map((p) => p.id), ['tmdb-fr', 'frenchstream', 'wiflix', 'frembed', '1jour1film']);
     });
 
     test('asks the API for a single provider, and maps its links', () async {
@@ -409,19 +416,19 @@ void main() {
           '/catalog/movie/550/sources',
           {
             'data': [
-              {'provider': 'wiflix', 'name': 'Wiflix (VF)', 'url': 'https://voe.sx/e/w'},
+              {'provider': 'coflix', 'name': 'Coflix (VF)', 'url': 'https://voe.sx/e/w'},
             ],
           },
           200,
         ),
       ]);
 
-      final links = await linksOf(containerWith(adapter), providerSourcesProvider((item: item, provider: 'wiflix')));
+      final links = await linksOf(containerWith(adapter), providerSourcesProvider((item: item, provider: 'coflix')));
 
-      expect(links.single.name, 'Wiflix (VF)');
+      expect(links.single.name, 'Coflix (VF)');
       final request = adapter.requests.single;
       expect(request.path, '/catalog/movie/550/sources');
-      expect(request.queryParameters['provider'], 'wiflix');
+      expect(request.queryParameters['provider'], 'coflix');
     });
 
     test('requests the Onyx TMDB French aggregator with the selected TMDB movie id', () async {
@@ -462,7 +469,7 @@ void main() {
         ('/catalog/movie/550/sources', {'message': 'Ce fournisseur est momentanément indisponible.'}, 503),
       ]);
 
-      final state = await read(containerWith(adapter), providerSourcesProvider((item: item, provider: 'wiflix')));
+      final state = await read(containerWith(adapter), providerSourcesProvider((item: item, provider: 'coflix')));
 
       expect(state.hasError, isTrue);
       expect(state.error, isA<ApiException>());
