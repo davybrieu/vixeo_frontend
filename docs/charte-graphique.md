@@ -218,6 +218,7 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
   1,06 sur une carte, 1,04 sur un bouton.
 - Chaque écran donne le focus à un seul élément à l'arrivée (`autofocus`).
 - Les rangées et les barres de filtres sont dans un `FocusTraversalGroup`.
+- Sur Android TV, `VxFocusable` recentre automatiquement l'élément sélectionné dans ses zones de défilement (rangée horizontale et page verticale), avec une animation courte. Le même comportement s'applique aux paramètres, listes, grilles et rangées sans logique propre à chaque écran.
 - Sur TV, la place du zoom est prévue au-dessus des grilles (16 en haut) et autour des rangées.
 
 ## 10. Logo
