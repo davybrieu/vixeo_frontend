@@ -651,7 +651,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ),
             if (guest)
               Positioned(
-                top: MediaQuery.paddingOf(context).top + 8,
+                top: MediaQuery.paddingOf(context).top + 76,
                 left: 16,
                 right: 16,
                 child: Align(
