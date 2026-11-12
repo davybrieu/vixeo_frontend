@@ -517,14 +517,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ),
             ),
             if (_controller != null && _captions.isNotEmpty)
-              ValueListenableBuilder<VideoPlayerValue>(
-                valueListenable: _controller!,
-                builder: (context, value, _) {
-                  final caption = _captionAt(value.position);
-                  if (caption == null) return const SizedBox.shrink();
-                  return Positioned(
-                    left: 24, right: 24, bottom: 100,
-                    child: IgnorePointer(
+              Positioned(
+                left: 24, right: 24, bottom: 100,
+                child: ValueListenableBuilder<VideoPlayerValue>(
+                  valueListenable: _controller!,
+                  builder: (context, value, _) {
+                    final caption = _captionAt(value.position);
+                    if (caption == null) return const SizedBox.shrink();
+                    return IgnorePointer(
                       child: Center(
                         child: DecoratedBox(
                           decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.78), borderRadius: BorderRadius.circular(6)),
@@ -534,9 +534,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             if (guest)
               Positioned(
@@ -769,6 +769,7 @@ class _BottomControls extends StatelessWidget {
             children: [
               IconButton(
                 icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: VxColors.text, size: 32),
+                tooltip: playing ? 'Pause' : 'Lecture',
                 onPressed: onPlayPause,
               ),
               if (!live) ...[
