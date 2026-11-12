@@ -65,6 +65,9 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   Future<void> play(int playerId) async {
     plays++;
     _playing = true;
+    _events[playerId]?.add(
+      VideoEvent(eventType: VideoEventType.isPlayingStateUpdate, isPlaying: true),
+    );
   }
 
   /// Counts the pauses of a playing stream (the controller also pauses before its first play).
@@ -72,6 +75,9 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   Future<void> pause(int playerId) async {
     if (_playing) pauses++;
     _playing = false;
+    _events[playerId]?.add(
+      VideoEvent(eventType: VideoEventType.isPlayingStateUpdate, isPlaying: false),
+    );
   }
 
   @override
