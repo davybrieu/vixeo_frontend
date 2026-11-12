@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -116,6 +117,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   double _volume = 1;
   List<_CaptionCue> _captions = const [];
   String? _selectedSubtitle;
+  Timer? _liveWatchdog;
+  Duration? _lastLivePosition;
+  Duration _liveStalledFor = Duration.zero;
 
   PlaybackItem get _item => (type: widget.type, id: widget.id, season: widget.season, episode: widget.episode);
 
@@ -134,6 +138,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!widget.live && !oldWidget.live &&
         (widget.id != oldWidget.id || widget.season != oldWidget.season || widget.episode != oldWidget.episode)) {
       _hideTimer?.cancel();
+      _liveWatchdog?.cancel();
       _controller?.dispose();
       _controller = null;
       _currentSource = null;
@@ -148,6 +153,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   Future<void> _loadLiveStream() async {
     _hideTimer?.cancel();
+    _liveWatchdog?.cancel();
+    _lastLivePosition = null;
+    _liveStalledFor = Duration.zero;
     final previous = _controller;
     _controller = null;
     await previous?.dispose();
@@ -168,6 +176,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       await controller.play();
       if (!mounted || controller != _controller) return;
       setState(() => _resolving = false);
+      _liveWatchdog = Timer.periodic(const Duration(milliseconds: 500), (_) => _checkLiveProgress(controller));
       _scheduleHide();
     } catch (error) {
       if (!mounted) return;
@@ -181,6 +190,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _liveWatchdog?.cancel();
     _controller?.dispose();
     super.dispose();
   }
@@ -188,7 +198,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void _scheduleHide() {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && !_sourcesPanelOpen) setState(() => _controlsVisible = false);
+      if (mounted && !_sourcesPanelOpen && (_controller?.value.isPlaying ?? false)) setState(() => _controlsVisible = false);
     });
   }
 
@@ -249,6 +259,59 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (_currentSource == null || widget.live) return;
     final ok = await launchUrl(Uri.parse(_currentSource!.url), mode: LaunchMode.externalApplication);
     if (!ok && mounted) showVxSnack(context, "Impossible d'ouvrir le lien.");
+  }
+
+  Future<void> _checkLiveProgress(VideoPlayerController controller) async {
+    if (!mounted || controller != _controller) return;
+    final position = await controller.position;
+    if (!mounted || controller != _controller) return;
+    if (position != null && _lastLivePosition != null && position != _lastLivePosition) {
+      _liveStalledFor = Duration.zero;
+    } else if (controller.value.isPlaying) {
+      _liveStalledFor += const Duration(milliseconds: 500);
+      if (_liveStalledFor >= const Duration(seconds: 15)) {
+        _liveWatchdog?.cancel();
+        _controller = null;
+        unawaited(controller.dispose());
+        setState(() {
+          _error = 'Impossible de lire cette chaîne.';
+          _controlsVisible = true;
+          _resolving = false;
+        });
+        return;
+      }
+    } else {
+      _liveStalledFor = Duration.zero;
+    }
+    _lastLivePosition = position;
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.keyK || key == LogicalKeyboardKey.mediaPlayPause) {
+      final controller = _controller;
+      if (controller != null) {
+        controller.value.isPlaying ? controller.pause() : controller.play();
+        setState(() {});
+      }
+      _showControls();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyM) {
+      _toggleMute();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyF) {
+      _toggleFullscreen();
+      return KeyEventResult.handled;
+    }
+    if (!_controlsVisible) {
+      _showControls();
+      return KeyEventResult.handled;
+    }
+    _scheduleHide();
+    return KeyEventResult.ignored;
   }
 
   Future<void> _showSubtitles() async {
@@ -468,7 +531,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
+      body: Focus(
+        onKeyEvent: _onKey,
+        child: GestureDetector(
         onTap: _showControls,
         child: Stack(
           fit: StackFit.expand,
@@ -665,6 +730,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -804,7 +870,6 @@ class _BottomControls extends StatelessWidget {
                 onPressed: onFullscreen,
                 icon: Icon(fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: VxColors.text),
               ),
-              IconButton(tooltip: 'Retour', icon: const Icon(Icons.arrow_back_rounded, color: VxColors.text), onPressed: onBack),
             ],
           ),
         ],
