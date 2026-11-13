@@ -10,9 +10,9 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
-import '../tmdb/tmdb.dart';
 import 'avatars.dart';
 import 'profiles_screen.dart';
+import 'rows_settings_screen.dart';
 
 /// Saves profile fields with the API, refreshes the session and "Qui regarde ?", then
 /// confirms with an alert. [context] is only read before the request: the save may end
@@ -47,7 +47,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final profile = ref.watch(sessionProvider).profile;
-    final tmdb = ref.watch(tmdbAccountProvider).value;
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     if (profile == null) return const SizedBox();
 
@@ -91,9 +90,8 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       scale: s,
                       icon: Icons.link_rounded,
                       title: 'Connexions',
-                      subtitle: tmdb?.linked ?? false
-                          ? 'Lier ou déconnecter un service. TMDb : ${tmdb!.displayName}'
-                          : 'Lier un service à ce profil (TMDb, pour noter).',
+                      // Only this sentence, whatever is linked (developer's request).
+                      subtitle: 'Lier ou déconnecter un service.',
                       onPressed: () => context.push('/profil/connexions'),
                     ),
                     if (!DeviceInfo.isTv)
@@ -125,6 +123,20 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       title: 'Paramètres',
                       subtitle: 'Apparence, No spoil, langues et lecture automatique.',
                       onPressed: () => context.push('/profil/parametres'),
+                    ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.view_stream_outlined,
+                      title: 'Rangées de l’accueil',
+                      subtitle: 'Trier, afficher ou masquer les rangées.',
+                      onPressed: () => context.push(RowsSettingsScreen.homeLocation),
+                    ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.live_tv_outlined,
+                      title: 'Catégories des chaînes TV',
+                      subtitle: 'Trier, afficher ou masquer les catégories.',
+                      onPressed: () => context.push(RowsSettingsScreen.channelsLocation),
                     ),
                     _SettingsTile(
                       scale: s,

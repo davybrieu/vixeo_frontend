@@ -238,8 +238,24 @@ lib/
 - **Page « Chaînes TV »** (`/chaines-tv`, `TvChannelsScreen` ; demande du développeur : comme
   l'accueil) : une **rangée par catégorie** (`channelCategorySections`, `tvChannelRowsProvider` :
   catégories et chaînes demandées une fois, 24 chaînes par rangée, catégorie vide masquée), avec
-  le bouton rond « Voir tout » qui montre toute la catégorie. Un texte dans la recherche ou une
-  puce de catégorie affiche la grille (`ChannelSearchResults`) ; « Toutes » revient aux rangées.
+  le bouton rond « Voir tout » qui ouvre toute la catégorie (`TvCategoryScreen`,
+  `/chaines-tv/categorie/:id?titre=…` : bouton retour, nom de la catégorie, grille
+  `ChannelSearchResults`). **Ni champ de recherche ni filtre de catégorie sur cette page**
+  (supprimés, demande du développeur) : on cherche une chaîne dans la recherche. Toutes les
+  catégories qui ont des chaînes ont leur rangée.
+- **Rangées à trier et masquer** (demande du développeur) : « Paramètres » → « Rangées de
+  l’accueil » (`/profil/rangees/accueil`) et « Catégories des chaînes TV »
+  (`/profil/rangees/chaines-tv`), même page `RowsSettingsScreen` : chaque rangée a « monter »,
+  « descendre » (des boutons, pas de glisser-déposer : ils marchent à la télécommande) et
+  « afficher / masquer », plus « Réinitialiser ». Réglage `RowPreferences` (ordre + rangées
+  masquées, par clé : `Section.key` pour l'accueil, id de catégorie pour les chaînes), **gardé sur
+  l'appareil, par profil** (`row_preferences.dart`, stockage protégé `vixeo.rows.<page>.<profil>` ;
+  pas synchronisé : il faudrait un champ de profil côté API). Une rangée jamais placée (nouvelle
+  liste, nouvelle catégorie) vient après les autres, affichée. Appliqué par `HomeScreen` et
+  `TvChannelsScreen` (`visible`). « Continuer à regarder » et le carrousel ne sont pas concernés.
+  Test : `test/row_preferences_test.dart`.
+- **Tuile « Connexions » des paramètres** : une seule phrase, « Lier ou déconnecter un service. »
+  (demande du développeur : pas d'autre texte, ni le nom du compte lié).
 - **Rail de navigation sur un écran bas** : icônes et marges rétrécissent selon la hauteur
   (40 au minimum), puis le rail défile avec une barre (`_Rail`, `shell/app_shell.dart`). Test :
   `test/profile_features_test.dart`.

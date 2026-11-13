@@ -21,6 +21,9 @@ class ChannelSection {
   final String? categoryId;
 }
 
+/// The name of a row of the « Chaînes TV » page in the row preferences: its category id.
+String channelRowKey(ChannelSection section) => section.categoryId ?? section.title;
+
 /// A few channels per home row (keeps the page light; the search page has them all).
 const homeChannelLimit = 24;
 
