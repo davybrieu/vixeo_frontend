@@ -122,8 +122,14 @@ void main() {
 
     await tester.pumpWidget(app(row));
     await tester.pumpAndSettle();
-    var size = tester.getSize(find.byType(PosterCard));
-    expect(size.height / size.width, closeTo(1.5, 0.01));
+    // On a phone the card is its image, then the caption (name, year and rating).
+    double imageRatio() {
+      final size = tester.getSize(find.byType(PosterCard));
+      final caption = PosterCard.captionHeightOf(tester.element(find.byType(PosterCard)));
+      return (size.height - caption) / size.width;
+    }
+
+    expect(imageRatio(), closeTo(1.5, 0.01));
 
     await tester.pumpWidget(
       app(
@@ -132,10 +138,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    size = tester.getSize(find.byType(PosterCard));
-    expect(size.height / size.width, closeTo(9 / 16, 0.01));
-    // A title without any image shows its name instead.
-    expect(find.text('Nord Sauvage'), findsOneWidget);
+    expect(imageRatio(), closeTo(9 / 16, 0.01));
+    // A title without any image shows its name in the image too (and in the caption).
+    expect(find.text('Nord Sauvage'), findsNWidgets(2));
   });
 
   testWidgets('phone: name, then year (left) and TMDb rating (right) under each poster card', (tester) async {
