@@ -127,10 +127,12 @@ lib/
   `tvGuideProvider` ; heures locales, « Demain 08:30 » ; un appui montre le résumé complet ; mis à
   jour toutes les 30 s ; sans guide sur le serveur : « Le programme n’est pas disponible pour le
   moment. »). Test : `test/channel_screen_test.dart`. « Regarder »
-  ouvre tout de suite `LivePlayerScreen` **en plein écran, sur le navigateur racine** (`playLiveChannel`,
+  ouvre tout de suite `PlayerScreen.live` **en plein écran, sur le navigateur racine** (`playLiveChannel`,
   `rootNavigator: true` : ni rail ni barre d'onglets par-dessus), qui demande son flux (`/tv/channels/{id}/stream`) sous
-  le même indicateur que le début de la lecture (un seul chargement, pas de fenêtre avant). Lecteur (`live_player_screen.dart`) :
-  contrôles en surimpression (retour, nom de la chaîne, « EN DIRECT » ; lecture / pause, son et
+  le même indicateur que le début de la lecture (un seul chargement, pas de fenêtre avant). Lecteur : le même que pour
+  les films et séries (`features/playback/player_screen.dart`, `LivePlayerScreen` n'en est qu'une entrée) ;
+  boutons ronds `VxIconAction` / `VxFocusable` avec un libellé pour les lecteurs d'écran (les tests les cherchent par
+  ce libellé : pas d'`IconButton` à infobulle). Contrôles en surimpression (retour, nom de la chaîne, « EN DIRECT » ; lecture / pause, son et
   volume (souris), « Revenir au direct », plein écran sauf
   sur TV : `fullscreen/`), masqués après 4 s de lecture, rappelés par un appui, la souris ou une
   touche (la première touche de la télécommande ne fait que les montrer) ; raccourcis K, M, F et

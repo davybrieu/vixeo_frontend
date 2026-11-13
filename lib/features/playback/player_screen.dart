@@ -8,9 +8,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/device/layout.dart';
 import '../auth/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focusable.dart';
 import '../catalog/models.dart';
 import '../catalog/catalog_repository.dart';
 import '../tv/models.dart';
@@ -73,10 +75,19 @@ final providerSourcesProvider = FutureProvider.family<List<StreamSource>, Provid
   return data is List ? data.whereType<Map<String, dynamic>>().map(StreamSource.fromJson).toList() : const [];
 });
 
+/// The player, for a title (sources, subtitles, episodes) and for a live channel ([PlayerScreen.live]).
+///
+/// Controls over the picture: back, title and « EN DIRECT » (live) at the top; play / pause, sound
+/// (and volume with a mouse), « Revenir au direct » (live), the title's actions and full screen
+/// (not on TV) at the bottom. They hide after a few seconds of playback and come back on a tap, a
+/// mouse move or any key (the first key press on a remote only shows them, on play / pause).
+/// Shortcuts: K (lecture), M (son), F (plein écran), and the media keys of a remote.
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key, required this.type, required this.id, this.season, this.episode})
     : live = false, liveTitle = null, loadLiveStream = null, returnLocation = null, guestOverride = null;
 
+  /// A live channel: the stream is asked for here ([loadStream]), under the same spinner as the
+  /// start of playback, so there is a single loading, not a dialog then the player.
   const PlayerScreen.live({
     super.key,
     required String title,
@@ -101,11 +112,26 @@ class PlayerScreen extends ConsumerStatefulWidget {
   final String? returnLocation;
   final bool? guestOverride;
 
+  /// How long the controls stay on screen without any action, while playing.
+  static const hideDelay = Duration(seconds: 4);
+
+  /// How long a live stream may "play" without its image moving before the error is shown.
+  ///
+  /// On the web, a stream the browser cannot decode (H.265…) makes hls.js fail, but
+  /// video_player_web_hls cannot read that error: the controller says it plays while the screen
+  /// stays black. The position not moving is the only sign of it (and of a stalled proxy).
+  static const stallTimeout = Duration(seconds: 15);
+
   @override
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
+  static const _liveError = 'Impossible de lire cette chaîne.';
+  static const _sourceError = 'Impossible de lire cette source.';
+  static const _watchdogTick = Duration(milliseconds: 500);
+  static final _backKeys = {LogicalKeyboardKey.escape, LogicalKeyboardKey.goBack, LogicalKeyboardKey.browserBack};
+
   VideoPlayerController? _controller;
   StreamSource? _currentSource;
   bool _controlsVisible = true;
@@ -114,16 +140,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   String? _error;
   bool _resolving = false;
   bool _muted = false;
-  bool _isPlaying = false;
   double _volume = 1;
   List<_CaptionCue> _captions = const [];
   String? _selectedSubtitle;
+  int? _season;
+  int? _episode;
+
+  /// What the controller says (`value.isPlaying`, `value.isBuffering`), kept by [_onControllerValue]:
+  /// a pause or a start comes from a button, a key, or the browser refusing to start on its own.
+  bool _playing = false;
+  bool _buffering = false;
+
+  /// Live: the image moves (the position changed since the stream started). Until then, a spinner
+  /// stays on screen with the controls (nothing to watch yet).
   bool _liveProgressing = false;
   Timer? _liveWatchdog;
   Duration? _lastLivePosition;
   Duration _liveStalledFor = Duration.zero;
-  int? _season;
-  int? _episode;
+
+  /// Live: the latest request for the stream. « Réessayer » or « Revenir au direct » pressed twice
+  /// quickly must not leave two players running.
+  int _liveAttempt = 0;
+
+  /// The play / pause button: the screen's focus on arrival, and again when a key brings the
+  /// controls back (remote).
+  final _playFocus = FocusNode(debugLabel: 'player-play');
 
   PlaybackItem get _item => (type: widget.type, id: widget.id, season: _season, episode: _episode);
 
@@ -141,12 +182,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Future<void> _loadFirstEpisode() async {
+    // No episode: no source to look for, the error is shown alone.
+    void noEpisode(String message) => setState(() {
+      _error = message;
+      _sourcesPanelOpen = false;
+    });
     try {
       final details = await ref.read(titleProvider((MediaType.tv, widget.id)).future);
       if (!mounted) return;
       final available = details.seasons.where((season) => season.episodeCount > 0).toList();
       if (available.isEmpty) {
-        setState(() => _error = 'Aucun épisode disponible pour cette série.');
+        noEpisode('Aucun épisode disponible pour cette série.');
         return;
       }
       final firstSeason = available.firstWhere(
@@ -154,8 +200,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         orElse: () => available.first,
       );
       final season = await ref.read(seasonProvider((widget.id, firstSeason.number)).future);
-      if (!mounted || season.episodes.isEmpty) {
-        if (mounted) setState(() => _error = 'Aucun épisode disponible pour cette série.');
+      if (!mounted) return;
+      if (season.episodes.isEmpty) {
+        noEpisode('Aucun épisode disponible pour cette série.');
         return;
       }
       final first = season.episodes.first;
@@ -166,7 +213,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _sourcesPanelOpen = true;
       });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Impossible de charger le premier épisode.');
+      if (mounted) noEpisode('Impossible de charger le premier épisode.');
     }
   }
 
@@ -175,12 +222,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     super.didUpdateWidget(oldWidget);
     if (!widget.live && !oldWidget.live &&
         (widget.type != oldWidget.type || widget.id != oldWidget.id || widget.season != oldWidget.season || widget.episode != oldWidget.episode)) {
-      _hideTimer?.cancel();
-      _liveWatchdog?.cancel();
-      _controller?.dispose();
+      unawaited(_stopPlayback());
       _season = widget.season;
       _episode = widget.episode;
-      _controller = null;
       _currentSource = null;
       _error = null;
       _resolving = false;
@@ -193,65 +237,85 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
-  Future<void> _loadLiveStream() async {
-    _hideTimer?.cancel();
-    _liveWatchdog?.cancel();
-    _lastLivePosition = null;
-    _liveStalledFor = Duration.zero;
-    _liveProgressing = false;
-    _isPlaying = false;
-    final previous = _controller;
-    _controller = null;
-    await previous?.dispose();
-    if (!mounted) return;
-    setState(() {
-      _error = null;
-      _resolving = true;
-      _controlsVisible = true;
-    });
-    try {
-      final stream = await widget.loadLiveStream!();
-      if (!mounted) return;
-      final controller = VideoPlayerController.networkUrl(Uri.parse(stream.url), httpHeaders: stream.headers);
-      _controller = controller;
-      await controller.initialize();
-      if (!mounted || controller != _controller) return;
-      await controller.setVolume(_muted ? 0 : _volume);
-      await controller.play();
-      if (!mounted || controller != _controller) return;
-      setState(() {
-        _resolving = false;
-        _isPlaying = true;
-      });
-      _liveWatchdog = Timer.periodic(const Duration(milliseconds: 500), (_) => _checkLiveProgress(controller));
-      _scheduleHide();
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _resolving = false;
-        _error = error is ApiException ? error.message : 'Impossible de lire cette chaîne.';
-      });
-    }
-  }
-
   @override
   void dispose() {
     _hideTimer?.cancel();
     _liveWatchdog?.cancel();
     _controller?.dispose();
+    _playFocus.dispose();
+    exitFullscreen();
     super.dispose();
   }
 
-  void _scheduleHide() {
+  // ---------------------------------------------------------------------------------------------
+  // Playback
+
+  /// Forgets the current controller (disposed) and the timers that watch it.
+  Future<void> _stopPlayback() {
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && !_sourcesPanelOpen && (_controller?.value.isPlaying ?? false) && (!widget.live || _liveProgressing)) setState(() => _controlsVisible = false);
-    });
+    _liveWatchdog?.cancel();
+    _lastLivePosition = null;
+    _liveStalledFor = Duration.zero;
+    _liveProgressing = false;
+    _playing = false;
+    _buffering = false;
+    final previous = _controller;
+    _controller = null;
+    return previous?.dispose() ?? Future<void>.value();
   }
 
-  void _showControls() {
-    setState(() => _controlsVisible = true);
-    _scheduleHide();
+  /// Makes [controller] the current one (disposing any other) and follows its state.
+  void _attach(VideoPlayerController controller) {
+    final previous = _controller;
+    _controller = controller;
+    if (previous != null && previous != controller) unawaited(previous.dispose());
+    controller.addListener(() => _onControllerValue(controller));
+  }
+
+  /// Live: asks the API for the channel's stream (`/tv/channels/{id}/stream`), then plays it.
+  /// « Réessayer » and « Revenir au direct » come back here.
+  Future<void> _loadLiveStream() async {
+    final attempt = ++_liveAttempt;
+    await _stopPlayback();
+    if (!mounted || attempt != _liveAttempt) return;
+    setState(() {
+      _error = null;
+      _resolving = true;
+      _controlsVisible = true;
+    });
+
+    final TvStream stream;
+    try {
+      stream = await widget.loadLiveStream!();
+    } catch (e) {
+      if (!mounted || attempt != _liveAttempt) return;
+      setState(() {
+        _resolving = false;
+        _error = e is ApiException ? e.message : _liveError;
+      });
+      return;
+    }
+    if (!mounted || attempt != _liveAttempt) return;
+    _resolving = false;
+
+    // The API hands the playable URL (on our own origin) and the headers to send.
+    final controller = VideoPlayerController.networkUrl(Uri.parse(stream.url), httpHeaders: stream.headers);
+    _attach(controller);
+    try {
+      await controller.initialize();
+    } catch (_) {
+      _fail(controller);
+      return;
+    }
+    if (!mounted || controller != _controller) return;
+    await controller.setVolume(_muted ? 0 : _volume);
+    // A live stream may need a user gesture to start on the web: a blocked play() leaves the
+    // controller paused, and a tap (or the play button) starts it.
+    await controller.play();
+    if (!mounted || controller != _controller) return;
+    setState(() {});
+    _liveWatchdog?.cancel();
+    _liveWatchdog = Timer.periodic(_watchdogTick, (_) => _checkLiveProgress(controller));
   }
 
   Future<void> _playSource(StreamSource source) async {
@@ -261,9 +325,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _currentSource = source;
       _sourcesPanelOpen = false;
     });
-    _hideTimer?.cancel();
-    await _controller?.dispose();
-    _controller = null;
+    await _stopPlayback();
 
     final ResolvedStream resolved;
     try {
@@ -279,29 +341,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (!mounted) return;
       setState(() {
         _resolving = false;
-        _error = 'Impossible de lire cette source.';
+        _error = _sourceError;
       });
       return;
     }
 
     if (!mounted) return;
     final ctrl = VideoPlayerController.networkUrl(Uri.parse(resolved.stream), httpHeaders: resolved.headers);
-    _controller = ctrl;
+    _attach(ctrl);
     try {
       await ctrl.initialize();
-      if (!mounted) return;
-      setState(() => _resolving = false);
-      await ctrl.play();
-      if (!mounted || ctrl != _controller) return;
-      setState(() => _isPlaying = true);
-      _scheduleHide();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _resolving = false;
-        _error = 'Impossible de lire cette source.';
-      });
+    } catch (_) {
+      _fail(ctrl);
+      return;
     }
+    if (!mounted || ctrl != _controller) return;
+    setState(() => _resolving = false);
+    await ctrl.setVolume(_muted ? 0 : _volume);
+    await ctrl.play();
   }
 
   Future<void> _openExternal() async {
@@ -310,64 +367,226 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!ok && mounted) showVxSnack(context, "Impossible d'ouvrir le lien.");
   }
 
+  /// Follows the controller: play / pause, buffering, and an error at any time (not only at the
+  /// start).
+  void _onControllerValue(VideoPlayerController controller) {
+    if (controller != _controller || !mounted) return;
+    final value = controller.value;
+    if (value.hasError) {
+      _fail(controller);
+      return;
+    }
+    if (value.isPlaying == _playing && value.isBuffering == _buffering) return;
+    final started = value.isPlaying && !_playing;
+    final stopped = !value.isPlaying && _playing;
+    setState(() {
+      _playing = value.isPlaying;
+      _buffering = value.isBuffering;
+      // Paused (or refused to start): the controls stay until playback resumes.
+      if (stopped) _controlsVisible = true;
+    });
+    if (started) {
+      _scheduleHide();
+    } else if (stopped) {
+      _hideTimer?.cancel();
+    }
+  }
+
+  /// Shows the error when [failed], the current controller, cannot play: it refuses to start,
+  /// breaks down, or (live) its image does not move.
+  ///
+  /// A failure is reported twice (the controller's error and the end of `initialize`): only the
+  /// first counts, since the controller is no longer the current one after it.
+  void _fail(VideoPlayerController failed) {
+    if (failed != _controller || !mounted) return;
+    _liveWatchdog?.cancel();
+    _hideTimer?.cancel();
+    _controller = null;
+    // Not during its own notification (ChangeNotifier forbids it): right after.
+    Future.microtask(failed.dispose);
+    setState(() {
+      _error = widget.live ? _liveError : _sourceError;
+      _resolving = false;
+      _playing = false;
+      _buffering = false;
+      _controlsVisible = true;
+    });
+  }
+
+  /// Live: watches the image move. A stream that "plays" with a still image for
+  /// [PlayerScreen.stallTimeout] shows the error; a pause (or a start refused by the browser) is
+  /// not a stall.
+  ///
+  /// The position is asked to the player (`controller.position`): `value.position` is clamped to
+  /// the duration, and a live stream on the web has none (it never moves there).
   Future<void> _checkLiveProgress(VideoPlayerController controller) async {
-    if (!mounted || controller != _controller) return;
+    if (controller != _controller || !mounted) return;
     final position = await controller.position;
-    if (!mounted || controller != _controller) return;
-    if (position != null && _lastLivePosition != null && position != _lastLivePosition) {
+    if (controller != _controller || !mounted) return;
+
+    // The first position seen is only a reference: a live stream can start anywhere.
+    final moved = position != null && _lastLivePosition != null && position != _lastLivePosition;
+    _lastLivePosition = position;
+    if (moved) {
       _liveStalledFor = Duration.zero;
-      if (!_liveProgressing) { _liveProgressing = true; setState(() {}); _scheduleHide(); }
-    } else if (controller.value.isPlaying) {
-      _liveStalledFor += const Duration(milliseconds: 500);
-      if (_liveStalledFor >= const Duration(seconds: 15)) {
-        _liveWatchdog?.cancel();
-        _controller = null;
-        unawaited(controller.dispose());
-        setState(() {
-          _error = 'Impossible de lire cette chaîne.';
-          _controlsVisible = true;
-          _resolving = false;
-        });
-        return;
+      if (!_liveProgressing) {
+        setState(() => _liveProgressing = true);
+        _scheduleHide();
       }
+    } else if (controller.value.isPlaying) {
+      _liveStalledFor += _watchdogTick;
+      if (_liveStalledFor >= PlayerScreen.stallTimeout) _fail(controller);
     } else {
       _liveStalledFor = Duration.zero;
     }
-    _lastLivePosition = position;
+  }
+
+  bool get _ready {
+    final controller = _controller;
+    return controller != null && controller.value.isInitialized && !controller.value.hasError;
+  }
+
+  Future<void> _togglePlay() async {
+    final controller = _controller;
+    if (controller == null || !_ready) return;
+    if (controller.value.isPlaying) {
+      await controller.pause();
+    } else {
+      await controller.play();
+    }
+    _showControls();
+  }
+
+  /// Starts the stream again: after a pause, playback is behind the live edge.
+  void _backToLive() {
+    _showControls();
+    // The button disappears until the stream is back: the remote's focus goes to play / pause.
+    _playFocus.requestFocus();
+    _loadLiveStream();
+  }
+
+  Future<void> _toggleMute() async {
+    setState(() {
+      _muted = !_muted;
+      if (!_muted && _volume == 0) _volume = 1;
+    });
+    await _controller?.setVolume(_muted ? 0 : _volume);
+    _showControls();
+  }
+
+  Future<void> _setVolume(double volume) async {
+    setState(() {
+      _volume = volume;
+      _muted = volume == 0;
+    });
+    await _controller?.setVolume(volume);
+    _showControls();
+  }
+
+  Future<void> _toggleFullscreen() async {
+    if (isFullscreen()) {
+      await exitFullscreen();
+    } else {
+      await enterFullscreen();
+    }
+    if (mounted) setState(() {});
+    _showControls();
+  }
+
+  void _openSources() {
+    _hideTimer?.cancel();
+    setState(() {
+      _sourcesPanelOpen = true;
+      _controlsVisible = true;
+    });
+  }
+
+  void _goBack() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/accueil');
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Controls visibility
+
+  /// The controls can hide only while something plays (live: once the image moves), with no
+  /// panel or error on screen.
+  bool get _canHide =>
+      _ready && _playing && _error == null && !_sourcesPanelOpen && (!widget.live || _liveProgressing);
+
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    if (!_canHide) return;
+    _hideTimer = Timer(PlayerScreen.hideDelay, () {
+      if (mounted && _canHide) setState(() => _controlsVisible = false);
+    });
+  }
+
+  void _showControls() {
+    if (!mounted) return;
+    if (!_controlsVisible) setState(() => _controlsVisible = true);
+    _scheduleHide();
+  }
+
+  void _onSurfaceTap() {
+    // Paused, or the browser refused to start playback on its own: the tap starts it.
+    final controller = _controller;
+    if (controller != null && _ready && !controller.value.isPlaying) {
+      _togglePlay();
+      return;
+    }
+    if (_controlsVisible && _canHide) {
+      _hideTimer?.cancel();
+      setState(() => _controlsVisible = false);
+    } else {
+      _showControls();
+    }
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.keyK || key == LogicalKeyboardKey.mediaPlayPause) {
-      final controller = _controller;
-      if (controller != null) {
-        final shouldPlay = !_isPlaying;
-        setState(() => _isPlaying = shouldPlay);
-        if (shouldPlay) {
-          unawaited(controller.play());
-        } else {
-          unawaited(controller.pause());
-        }
-      }
-      _showControls();
+
+    // Media keys of a remote, and the usual player shortcuts of a keyboard.
+    if (key == LogicalKeyboardKey.mediaPlayPause || key == LogicalKeyboardKey.keyK) {
+      _togglePlay();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPlay) {
+      if (!_playing) _togglePlay();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPause || key == LogicalKeyboardKey.mediaStop) {
+      if (_playing) _togglePlay();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.keyM) {
       _toggleMute();
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.keyF) {
+    if (key == LogicalKeyboardKey.keyF && !DeviceInfo.isTv) {
       _toggleFullscreen();
       return KeyEventResult.handled;
     }
+
+    // Back leaves the player, even with the controls hidden.
+    if (_backKeys.contains(key)) return KeyEventResult.ignored;
+
+    // Hidden controls: the first key (arrows, OK…) only brings them back, on play / pause.
     if (!_controlsVisible) {
       _showControls();
+      _playFocus.requestFocus();
       return KeyEventResult.handled;
     }
     _scheduleHide();
     return KeyEventResult.ignored;
   }
+
+  // ---------------------------------------------------------------------------------------------
+  // Title: subtitles and episodes
 
   Future<void> _showSubtitles() async {
     try {
@@ -450,25 +669,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (position >= cue.start && position < cue.end) return cue.text;
     }
     return null;
-  }
-
-  Future<void> _toggleMute() async {
-    setState(() {
-      _muted = !_muted;
-      if (!_muted && _volume == 0) _volume = 1;
-    });
-    await _controller?.setVolume(_muted ? 0 : _volume);
-    _showControls();
-  }
-
-  Future<void> _toggleFullscreen() async {
-    if (isFullscreen()) {
-      await exitFullscreen();
-    } else {
-      await enterFullscreen();
-    }
-    if (mounted) setState(() {});
-    _showControls();
   }
 
   Future<void> _openEpisodes() async {
@@ -565,6 +765,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return h > 0 ? '$h:$m:$s' : '$m:$s';
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // UI
+
   @override
   Widget build(BuildContext context) {
     final guest = widget.guestOverride ?? ref.watch(sessionProvider.select((s) => s.isGuest));
@@ -586,284 +789,401 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
     }
 
+    final controller = _controller;
+    final ready = _ready;
+    final visible = _controlsVisible || !_canHide;
+    final error = _error;
+
+    // The middle of the screen: a spinner while there is no picture yet (or, live, while it does
+    // not move), a play sign while paused.
+    Widget? status;
+    if (error == null) {
+      if (!ready || _buffering || (widget.live && _playing && !_liveProgressing)) {
+        status = IgnorePointer(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(color: VxColors.accent),
+                if (_resolving && !widget.live) ...[
+                  const SizedBox(height: 16),
+                  Text('Extraction du flux...', style: VxText.body(15, color: VxColors.textSoft)),
+                ],
+              ],
+            ),
+          ),
+        );
+      } else if (!_playing) {
+        // Paused, or the browser refused to start playback on its own: a tap starts it.
+        status = const IgnorePointer(
+          child: Center(child: Icon(Icons.play_circle_outline, size: 72, color: Colors.white70)),
+        );
+      }
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Focus(
-        autofocus: true,
         onKeyEvent: _onKey,
-        child: GestureDetector(
-        onTap: _showControls,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (_controller != null && _controller!.value.isInitialized)
-              Center(
-                child: AspectRatio(aspectRatio: _controller!.value.aspectRatio, child: VideoPlayer(_controller!)),
-              )
-            else
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(color: VxColors.accent),
-                    if (_resolving) ...[
-                      const SizedBox(height: 16),
-                      Text('Extraction du flux...', style: VxText.body(15, color: VxColors.textSoft)),
-                    ],
-                  ],
+        child: MouseRegion(
+          cursor: visible ? MouseCursor.defer : SystemMouseCursors.none,
+          onHover: (_) => _showControls(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _onSurfaceTap,
+                child: Center(
+                  child: ready
+                      ? AspectRatio(aspectRatio: controller!.value.aspectRatio, child: VideoPlayer(controller))
+                      : null,
                 ),
               ),
-            if (widget.live && (_controller?.value.isPlaying ?? false) && !_liveProgressing)
-              const IgnorePointer(child: Center(child: CircularProgressIndicator(color: VxColors.accent))),
-            Positioned(
-              top: 0, left: 0, right: 0,
-              child: AnimatedOpacity(
-                opacity: _controlsVisible ? 1 : 0,
-                duration: const Duration(milliseconds: 200),
-                child: IgnorePointer(
-                  ignoring: !_controlsVisible,
-                  child: Container(
-                    padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top + 8, left: 16, right: 16, bottom: 30),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xCC000000), Colors.transparent]),
-                    ),
-                    child: Row(children: [
-                      IconButton(
-                        tooltip: 'Retour',
-                        onPressed: () => context.canPop() ? context.pop() : context.go('/accueil'),
-                        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(widget.live ? (widget.liveTitle ?? 'En direct') : 'Lecture', style: VxText.title(18))),
-                      if (widget.live && (_controller?.value.isPlaying ?? false) && _liveProgressing) const _LiveModeBadge(),
-                    ]),
-                  ),
-                ),
-              ),
-            ),
-            if (_controller != null && _captions.isNotEmpty)
-              Positioned(
-                left: 24, right: 24, bottom: 100,
-                child: ValueListenableBuilder<VideoPlayerValue>(
-                  valueListenable: _controller!,
-                  builder: (context, value, _) {
-                    final caption = _captionAt(value.position);
-                    if (caption == null) return const SizedBox.shrink();
-                    return IgnorePointer(
-                      child: Center(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.78), borderRadius: BorderRadius.circular(6)),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            child: Text(caption, textAlign: TextAlign.center, style: VxText.body(18, color: Colors.white)),
+              if (status != null) status,
+              if (controller != null && _captions.isNotEmpty)
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: 100,
+                  child: ValueListenableBuilder<VideoPlayerValue>(
+                    valueListenable: controller,
+                    builder: (context, value, _) {
+                      final caption = _captionAt(value.position);
+                      if (caption == null) return const SizedBox.shrink();
+                      return IgnorePointer(
+                        child: Center(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.78),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              child: Text(
+                                caption,
+                                textAlign: TextAlign.center,
+                                style: VxText.body(18, color: Colors.white),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            if (guest == true)
-              Positioned(
-                top: MediaQuery.paddingOf(context).top + 76,
-                left: 16,
-                right: 16,
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: Material(
-                    color: const Color(0xE617243B),
-                    borderRadius: BorderRadius.circular(24),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.person_outline_rounded, color: VxColors.accent, size: 18),
-                          const SizedBox(width: 8),
-                          const Text('Mode invite', style: TextStyle(color: Colors.white, fontSize: 13)),
-                          const SizedBox(width: 8),
-                          TextButton(
-                            onPressed: () => context.go('/connexion?redirect=${Uri.encodeComponent(playbackLocation)}'),
-                            child: const Text('Se connecter'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            AnimatedOpacity(
-              opacity: _controlsVisible ? 1 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: IgnorePointer(
-                  ignoring: !_controlsVisible,
-                  child: AnimatedBuilder(
-                    animation: Listenable.merge(_controller == null ? const <Listenable>[] : <Listenable>[_controller!]),
-                    builder: (context, _) => _BottomControls(
-                    controller: _controller,
-                    playing: _isPlaying,
-                    currentSource: _currentSource,
-                    format: _format,
-                    live: widget.live,
-                    series: !widget.live && widget.type == MediaType.tv,
-                    muted: _muted,
-                    fullscreen: isFullscreen(),
-                    onMute: _toggleMute,
-                    onFullscreen: _toggleFullscreen,
-                    onSubtitles: widget.live ? null : _showSubtitles,
-                    onEpisodes: widget.live || widget.type != MediaType.tv ? null : _openEpisodes,
-                    onNextEpisode: widget.live || widget.type != MediaType.tv ? null : _playNextEpisode,
-                    onBackToLive: widget.live ? _loadLiveStream : null,
-                    onPlayPause: () {
-                      final c = _controller;
-                      if (c == null) return;
-                      final shouldPlay = !_isPlaying;
-                      setState(() => _isPlaying = shouldPlay);
-                      if (shouldPlay) {
-                        unawaited(c.play());
-                      } else {
-                        unawaited(c.pause());
-                      }
-                      _scheduleHide();
+                      );
                     },
-                    onSeek: (pos) => _controller?.seekTo(pos),
-                    onSources: () => setState(() => _sourcesPanelOpen = true),
-                    onExternal: _openExternal,
-                    ),
                   ),
                 ),
-              ),
-            ),
-            if (!widget.live)
-              AnimatedPositioned(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-              top: 0,
-              bottom: 0,
-              right: _sourcesPanelOpen ? 0 : -380,
-              width: 360,
-              child: _SourcesPanel(
-                providers: providers,
-                sourcesByProvider: sourcesByProvider,
-                current: _currentSource,
-                onSelect: _playSource,
-                onRetry: (providerId) => ref.invalidate(providerSourcesProvider((item: _item, provider: providerId))),
-                onClose: () => setState(() => _sourcesPanelOpen = false),
-                providersLoading: !canLoadSources || providersAsync.isLoading,
-                providersError: providersAsync.hasError ? 'Impossible de charger les sources.' : null,
-              ),
-            ),
-            if (_error != null)
-              Positioned.fill(
-                child: ColoredBox(
-                  color: const Color(0xCC000000),
-                  child: Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 340),
-                        child: Column(
+              if (guest == true)
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 88,
+                  left: 16,
+                  right: 16,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Material(
+                      color: const Color(0xE617243B),
+                      borderRadius: BorderRadius.circular(24),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.error_outline, color: VxColors.error, size: 48),
-                            const SizedBox(height: 16),
-                            Text(_error!, textAlign: TextAlign.center, style: VxText.body(16, color: VxColors.textSoft)),
-                            const SizedBox(height: 24),
-                            if (!widget.live)
-                              VxButton(
-                                label: 'Changer de source',
-                                icon: Icons.list_rounded,
-                                onPressed: () {
-                                  setState(() {
-                                    _error = null;
-                                    _sourcesPanelOpen = true;
-                                    _controlsVisible = true;
-                                  });
-                                  _hideTimer?.cancel();
-                                },
-                              ),
-                            if (!widget.live) const SizedBox(height: 12),
-                            if (!widget.live)
-                              VxButton(label: 'Ouvrir en externe', icon: Icons.open_in_new, onPressed: _openExternal),
-                            if (widget.live)
-                              VxButton(label: 'Réessayer', icon: Icons.refresh_rounded, onPressed: _loadLiveStream),
+                            const Icon(Icons.person_outline_rounded, color: VxColors.accent, size: 18),
+                            const SizedBox(width: 8),
+                            const Text('Mode invité', style: TextStyle(color: Colors.white, fontSize: 13)),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () => context.go('/connexion?redirect=${Uri.encodeComponent(playbackLocation)}'),
+                              child: const Text('Se connecter'),
+                            ),
                           ],
                         ),
                       ),
                     ),
                   ),
                 ),
+              if (error == null)
+                _Fade(
+                  visible: visible,
+                  alignment: Alignment.bottomCenter,
+                  child: AnimatedBuilder(
+                    // The time and the seek bar follow the video.
+                    animation: Listenable.merge(controller == null ? const <Listenable>[] : <Listenable>[controller]),
+                    builder: (context, _) {
+                      final value = _controller?.value;
+                      return _BottomBar(
+                        playFocus: _playFocus,
+                        ready: _ready,
+                        playing: _playing,
+                        live: widget.live,
+                        muted: _muted,
+                        volume: _volume,
+                        fullscreen: isFullscreen(),
+                        position: value?.position ?? Duration.zero,
+                        duration: value?.duration ?? Duration.zero,
+                        format: _format,
+                        currentSource: _currentSource,
+                        onPlayPause: _togglePlay,
+                        onMute: _toggleMute,
+                        onVolume: _setVolume,
+                        onFullscreen: _toggleFullscreen,
+                        onSeek: widget.live ? null : (Duration position) => _controller?.seekTo(position),
+                        onBackToLive: widget.live && _ready ? _backToLive : null,
+                        onSources: widget.live ? null : _openSources,
+                        onSubtitles: widget.live ? null : _showSubtitles,
+                        onEpisodes: widget.live || widget.type != MediaType.tv ? null : _openEpisodes,
+                        onNextEpisode: widget.live || widget.type != MediaType.tv ? null : _playNextEpisode,
+                        onExternal: widget.live ? null : _openExternal,
+                      );
+                    },
+                  ),
+                ),
+              if (error != null)
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: const Color(0xCC000000),
+                    child: Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(24),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 340),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.error_outline, color: VxColors.error, size: 48),
+                              const SizedBox(height: 16),
+                              Text(error, textAlign: TextAlign.center, style: VxText.body(16, color: VxColors.textSoft)),
+                              const SizedBox(height: 24),
+                              if (widget.live)
+                                VxButton(
+                                  label: 'Réessayer',
+                                  icon: Icons.refresh_rounded,
+                                  autofocus: true,
+                                  onPressed: _loadLiveStream,
+                                )
+                              else ...[
+                                VxButton(
+                                  label: 'Changer de source',
+                                  icon: Icons.list_rounded,
+                                  autofocus: true,
+                                  onPressed: () {
+                                    _hideTimer?.cancel();
+                                    setState(() {
+                                      _error = null;
+                                      _sourcesPanelOpen = true;
+                                      _controlsVisible = true;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                VxButton(label: 'Ouvrir en externe', icon: Icons.open_in_new, onPressed: _openExternal),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              // Above the error: « Retour » stays within reach.
+              _Fade(
+                visible: visible,
+                alignment: Alignment.topCenter,
+                child: _TopBar(
+                  title: widget.live ? (widget.liveTitle ?? 'En direct') : 'Lecture',
+                  live: widget.live && ready && _playing && _liveProgressing,
+                  onBack: _goBack,
+                ),
               ),
-          ],
-        ),
+              if (!widget.live)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  top: 0,
+                  bottom: 0,
+                  right: _sourcesPanelOpen ? 0 : -380,
+                  width: 360,
+                  child: _SourcesPanel(
+                    providers: providers,
+                    sourcesByProvider: sourcesByProvider,
+                    current: _currentSource,
+                    onSelect: _playSource,
+                    onRetry: (providerId) => ref.invalidate(providerSourcesProvider((item: _item, provider: providerId))),
+                    onClose: () {
+                      setState(() => _sourcesPanelOpen = false);
+                      _scheduleHide();
+                    },
+                    providersLoading: !canLoadSources || providersAsync.isLoading,
+                    providersError: providersAsync.hasError ? 'Impossible de charger les sources.' : null,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _LiveModeBadge extends StatelessWidget {
-  const _LiveModeBadge();
+/// Shows or hides a bar of controls; hidden, it cannot be touched.
+class _Fade extends StatelessWidget {
+  const _Fade({required this.visible, required this.alignment, required this.child});
 
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-    decoration: BoxDecoration(color: VxColors.error.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(20)),
-    child: Text('EN DIRECT', style: VxText.body(11, weight: FontWeight.w700, color: Colors.white)),
-  );
-}
-
-class _BottomControls extends StatelessWidget {
-  const _BottomControls({
-    required this.controller,
-    required this.playing,
-    required this.currentSource,
-    required this.format,
-    required this.onPlayPause,
-    required this.onSeek,
-    required this.onSources,
-    required this.onExternal,
-    required this.live,
-    required this.series,
-    required this.muted,
-    required this.fullscreen,
-    required this.onMute,
-    required this.onFullscreen,
-    this.onSubtitles,
-    this.onEpisodes,
-    this.onNextEpisode,
-    this.onBackToLive,
-  });
-
-  final VideoPlayerController? controller;
-  final bool playing;
-  final StreamSource? currentSource;
-  final String Function(Duration) format;
-  final VoidCallback onPlayPause;
-  final ValueChanged<Duration> onSeek;
-  final VoidCallback onSources;
-  final VoidCallback onExternal;
-  final bool live;
-  final bool series;
-  final bool muted;
-  final bool fullscreen;
-  final VoidCallback onMute;
-  final VoidCallback onFullscreen;
-  final VoidCallback? onSubtitles;
-  final VoidCallback? onEpisodes;
-  final VoidCallback? onNextEpisode;
-  final VoidCallback? onBackToLive;
+  final bool visible;
+  final Alignment alignment;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final value = controller?.value;
-    final pos = value?.position ?? Duration.zero;
-    final dur = value?.duration ?? Duration.zero;
+    return Align(
+      alignment: alignment,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: const Duration(milliseconds: 200),
+        child: IgnorePointer(ignoring: !visible, child: child),
+      ),
+    );
+  }
+}
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.title, required this.live, required this.onBack});
+
+  final String title;
+
+  /// Live, and the image moves: « EN DIRECT ».
+  final bool live;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final s = layout.isLarge ? layout.tv(1) * 1.5 : 1.0;
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xCC000000), Colors.transparent],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(layout.gutter, 12 * s, layout.gutter, 32 * s),
+          child: Row(
+            children: [
+              VxIconAction(icon: Icons.arrow_back_rounded, label: 'Retour', onPressed: onBack),
+              SizedBox(width: 16 * s),
+              Expanded(
+                child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: VxText.title(20 * s)),
+              ),
+              if (live) ...[SizedBox(width: 12 * s), _LiveBadge(scale: s)],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// « EN DIRECT » with a red dot, while the stream plays.
+class _LiveBadge extends StatelessWidget {
+  const _LiveBadge({required this.scale});
+
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 5 * scale),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(6 * scale),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8 * scale,
+            height: 8 * scale,
+            decoration: const BoxDecoration(color: VxColors.dangerText, shape: BoxShape.circle),
+          ),
+          SizedBox(width: 6 * scale),
+          Text('EN DIRECT', style: VxText.body(12 * scale, weight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Play / pause, sound, then the other actions (round buttons, labelled for screen readers);
+/// for a title, its source, the seek bar and the time above / beside them.
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({
+    required this.playFocus,
+    required this.ready,
+    required this.playing,
+    required this.live,
+    required this.muted,
+    required this.volume,
+    required this.fullscreen,
+    required this.position,
+    required this.duration,
+    required this.format,
+    required this.onPlayPause,
+    required this.onMute,
+    required this.onVolume,
+    required this.onFullscreen,
+    this.currentSource,
+    this.onSeek,
+    this.onBackToLive,
+    this.onSources,
+    this.onSubtitles,
+    this.onEpisodes,
+    this.onNextEpisode,
+    this.onExternal,
+  });
+
+  final FocusNode playFocus;
+  final bool ready;
+  final bool playing;
+  final bool live;
+  final bool muted;
+  final double volume;
+  final bool fullscreen;
+  final Duration position;
+  final Duration duration;
+  final String Function(Duration) format;
+  final VoidCallback onPlayPause;
+  final VoidCallback onMute;
+  final ValueChanged<double> onVolume;
+  final VoidCallback onFullscreen;
+  final StreamSource? currentSource;
+  final ValueChanged<Duration>? onSeek;
+  final VoidCallback? onBackToLive;
+  final VoidCallback? onSources;
+  final VoidCallback? onSubtitles;
+  final VoidCallback? onEpisodes;
+  final VoidCallback? onNextEpisode;
+  final VoidCallback? onExternal;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final gap = layout.isLarge ? layout.tv(20) : 12.0;
+    // Phones and TVs have volume keys; a mouse needs a slider.
+    final volumeSlider = !layout.isPhone && !DeviceInfo.isTv;
+    final silent = muted || volume == 0;
+    final source = currentSource;
+    final sliderTheme = SliderTheme.of(context).copyWith(
+      activeTrackColor: VxColors.accent,
+      inactiveTrackColor: VxColors.line,
+      thumbColor: VxColors.accent,
+      overlayColor: VxColors.accent.withValues(alpha: 0.2),
+      trackHeight: 3,
+    );
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
@@ -871,79 +1191,158 @@ class _BottomControls extends StatelessWidget {
           colors: [Color(0xE6000000), Colors.transparent],
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (currentSource != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                '${currentSource!.provider} - ${currentSource!.name}',
-                style: VxText.body(13, color: VxColors.textMuted),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          if (!live && value != null && value.isInitialized)
-            SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: VxColors.accent,
-                inactiveTrackColor: VxColors.line,
-                thumbColor: VxColors.accent,
-                overlayColor: VxColors.accent.withValues(alpha: 0.2),
-                trackHeight: 3,
-              ),
-              child: Slider(
-                value: dur.inMilliseconds > 0 ? pos.inMilliseconds / dur.inMilliseconds : 0,
-                onChanged: (v) => onSeek(Duration(milliseconds: (v * dur.inMilliseconds).round())),
-              ),
-            ),
-          Row(
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(layout.gutter, gap * 3, layout.gutter, gap * 1.5),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Semantics(
-                label: playing ? 'Pause' : 'Lecture',
-                button: true,
-                child: IconButton(
-                  icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: VxColors.text, size: 32),
-                  tooltip: playing ? 'Pause' : 'Lecture',
-                  onPressed: onPlayPause,
+              if (source != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    '${source.provider} - ${source.name}',
+                    style: VxText.body(13, color: VxColors.textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              if (!live) ...[
-                Text(format(pos), style: VxText.body(13, color: VxColors.textSoft)),
-                Text(' / ', style: VxText.body(13, color: VxColors.textMuted)),
-                Text(format(dur), style: VxText.body(13, color: VxColors.textMuted)),
-              ],
-              const Spacer(),
-              if (live && onBackToLive != null)
-                TextButton.icon(
-                  onPressed: onBackToLive,
-                  icon: const Icon(Icons.sensors_rounded),
-                  label: const Text('Revenir au direct'),
+              if (!live && ready)
+                SliderTheme(
+                  data: sliderTheme,
+                  child: Slider(
+                    value: duration.inMilliseconds > 0
+                        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0).toDouble()
+                        : 0.0,
+                    onChanged: (v) => onSeek?.call(Duration(milliseconds: (v * duration.inMilliseconds).round())),
+                  ),
                 ),
-              IconButton(
-                tooltip: muted ? 'Activer le son' : 'Couper le son',
-                onPressed: onMute,
-                icon: Icon(muted ? Icons.volume_off_rounded : Icons.volume_up_rounded, color: VxColors.text),
-              ),
-              if (!live)
-                IconButton(tooltip: 'Sources', icon: const Icon(Icons.list_rounded, color: VxColors.text), onPressed: onSources),
-              if (!live && onSubtitles != null)
-                IconButton(tooltip: 'Sous-titres', icon: const Icon(Icons.subtitles_outlined, color: VxColors.text), onPressed: onSubtitles),
-              if (series && onEpisodes != null)
-                IconButton(tooltip: 'Épisodes', icon: const Icon(Icons.video_library_outlined, color: VxColors.text), onPressed: onEpisodes),
-              if (series && onNextEpisode != null)
-                IconButton(tooltip: 'Épisode suivant', icon: const Icon(Icons.skip_next_rounded, color: VxColors.text), onPressed: onNextEpisode),
-              if (!live)
-                IconButton(tooltip: 'Ouvrir en externe', icon: const Icon(Icons.open_in_new_rounded, color: VxColors.text), onPressed: onExternal),
-              IconButton(
-                tooltip: fullscreen ? 'Quitter le plein écran' : 'Plein écran',
-                onPressed: onFullscreen,
-                icon: Icon(fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, color: VxColors.text),
+              FocusTraversalGroup(
+                child: Row(
+                  children: [
+                    _PlayButton(focusNode: playFocus, playing: playing, onPressed: ready ? onPlayPause : null),
+                    SizedBox(width: gap),
+                    if (!live && ready) ...[
+                      Text.rich(
+                        TextSpan(
+                          text: format(position),
+                          style: VxText.body(13, color: VxColors.textSoft),
+                          children: [
+                            TextSpan(
+                              text: ' / ${format(duration)}',
+                              style: VxText.body(13, color: VxColors.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: gap),
+                    ],
+                    VxIconAction(
+                      icon: silent ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                      label: silent ? 'Activer le son' : 'Couper le son',
+                      onPressed: onMute,
+                    ),
+                    if (volumeSlider)
+                      SizedBox(
+                        // A Slider takes all the height it is given: without one, the bar would fill
+                        // the screen (and its gradient darken the whole image).
+                        width: 120,
+                        height: 48,
+                        child: SliderTheme(
+                          data: sliderTheme,
+                          child: Slider(
+                            value: muted ? 0 : volume,
+                            semanticFormatterCallback: (v) => 'Volume ${(v * 100).round()} %',
+                            onChanged: onVolume,
+                          ),
+                        ),
+                      ),
+                    SizedBox(width: gap),
+                    // The other actions, at the end; on a narrow screen they go on several lines.
+                    Expanded(
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: gap,
+                        runSpacing: gap,
+                        children: [
+                          if (onBackToLive != null)
+                            VxIconAction(
+                              icon: Icons.restart_alt_rounded,
+                              label: 'Revenir au direct',
+                              onPressed: onBackToLive,
+                            ),
+                          if (onSources != null)
+                            VxIconAction(icon: Icons.list_rounded, label: 'Sources', onPressed: onSources),
+                          if (onSubtitles != null)
+                            VxIconAction(icon: Icons.subtitles_outlined, label: 'Sous-titres', onPressed: onSubtitles),
+                          if (onEpisodes != null)
+                            VxIconAction(
+                              icon: Icons.video_library_outlined,
+                              label: 'Épisodes',
+                              onPressed: onEpisodes,
+                            ),
+                          if (onNextEpisode != null)
+                            VxIconAction(
+                              icon: Icons.skip_next_rounded,
+                              label: 'Épisode suivant',
+                              onPressed: onNextEpisode,
+                            ),
+                          if (onExternal != null)
+                            VxIconAction(
+                              icon: Icons.open_in_new_rounded,
+                              label: 'Ouvrir en externe',
+                              onPressed: onExternal,
+                            ),
+                          if (!DeviceInfo.isTv)
+                            VxIconAction(
+                              icon: fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                              label: fullscreen ? 'Quitter le plein écran' : 'Plein écran',
+                              onPressed: onFullscreen,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Play / pause: the screen's focus on arrival (remote), green like the main action.
+class _PlayButton extends StatelessWidget {
+  const _PlayButton({required this.focusNode, required this.playing, required this.onPressed});
+
+  final FocusNode focusNode;
+  final bool playing;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final size = layout.isLarge ? layout.tv(88) : 60.0;
+    final icon = playing ? Icons.pause_rounded : Icons.play_arrow_rounded;
+    return VxFocusable(
+      focusNode: focusNode,
+      autofocus: true,
+      onPressed: onPressed ?? () {},
+      onAccent: true,
+      borderRadius: size,
+      semanticLabel: playing ? 'Pause' : 'Lecture',
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: onPressed == null ? VxColors.text.withValues(alpha: 0.12) : VxColors.accent,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: size * 0.55, color: onPressed == null ? VxColors.textMuted : VxColors.onAccent),
       ),
     );
   }

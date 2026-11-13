@@ -20,8 +20,8 @@ class LivePlayerScreen extends StatelessWidget {
   final String? returnLocation;
   final bool guest;
 
-  static const hideDelay = Duration(seconds: 4);
-  static const stallTimeout = Duration(seconds: 15);
+  static const hideDelay = PlayerScreen.hideDelay;
+  static const stallTimeout = PlayerScreen.stallTimeout;
 
   @override
   Widget build(BuildContext context) => PlayerScreen.live(
