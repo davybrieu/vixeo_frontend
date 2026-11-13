@@ -158,7 +158,7 @@ class _PeopleRow extends StatelessWidget {
 Widget _episodeSpoiler(Widget child, bool enabled) =>
     enabled ? ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 7, sigmaY: 7), child: child) : child;
 
-/// Season picker + episode list.
+/// Season picker + episodes: a horizontal row of large 16:9 cards.
 class _Episodes extends ConsumerStatefulWidget {
   const _Episodes({required this.title});
 
@@ -179,6 +179,9 @@ class _EpisodesState extends ConsumerState<_Episodes> {
     final noSpoiler = ref.watch(noSpoilerProvider);
     final canRate = ref.watch(canRateProvider);
     final ratings = canRate ? ref.watch(seasonRatingsProvider((widget.title.id, _season))).value ?? const {} : const {};
+    // Room for the focus zoom on TV.
+    final vPad = layout.isLarge ? layout.tv(16) : 0.0;
+    final rowHeight = _EpisodeCard.heightOf(context) + vPad * 2;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,119 +224,241 @@ class _EpisodesState extends ConsumerState<_Episodes> {
             ),
           ),
         ),
-        // Chips, then their content: as under a page header's filters.
-        SizedBox(height: layout.space(VxSpace.m)),
-        AsyncView(
-          value: season,
-          onRetry: () => ref.invalidate(seasonProvider((widget.title.id, _season))),
-          loading: const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          data: (data) => Padding(
-            padding: EdgeInsets.symmetric(horizontal: layout.gutter),
-            child: Column(
-              children: [
-                for (final (i, e) in data.episodes.indexed)
-                  Padding(
-                    padding: EdgeInsets.only(top: i == 0 ? 0 : layout.listGap),
-                    // The row plays the episode; on its right, the star that rates it (TMDb account).
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _episodeRow(context, e, s: s, noSpoiler: noSpoiler, rating: ratings[e.number]),
-                        ),
-                        if (canRate) ...[
-                          SizedBox(width: 8 * s),
-                          RateEpisodeButton(
+        // Chips, then their content: as under a page header's filters (less the room for the zoom).
+        SizedBox(height: layout.space(VxSpace.m) - vPad),
+        // The row keeps its height while a season loads: the sections below don't move.
+        SizedBox(
+          height: rowHeight,
+          child: AsyncView(
+            value: season,
+            onRetry: () => ref.invalidate(seasonProvider((widget.title.id, _season))),
+            loading: const Center(child: CircularProgressIndicator()),
+            data: (data) => FocusTraversalGroup(
+              child: ListView.separated(
+                // Another season starts at its first episode.
+                key: ValueKey(_season),
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: vPad),
+                itemCount: data.episodes.length,
+                separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
+                itemBuilder: (context, i) {
+                  final e = data.episodes[i];
+                  return _EpisodeCard(
+                    episode: e,
+                    noSpoiler: noSpoiler,
+                    rating: ratings[e.number],
+                    onPressed: () => _play(context, widget.title, season: _season, episode: e.number),
+                    // On the image, top right: the star that rates the episode (TMDb account).
+                    rateButton: canRate
+                        ? RateEpisodeButton(
                             target: RatingTarget.episode(widget.title.id, _season, e.number),
                             showName: widget.title.title,
                             episode: e,
                             value: ratings[e.number],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-              ],
+                          )
+                        : null,
+                  );
+                },
+              ),
             ),
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _episodeRow(BuildContext context, Episode e, {required double s, required bool noSpoiler, MyRating? rating}) =>
-      VxFocusable(
-        borderRadius: 12 * s,
-        semanticLabel: 'Épisode ${e.number}, ${e.name}',
-        onPressed: () => _play(context, widget.title, season: _season, episode: e.number),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10 * s),
-              child: SizedBox(
-                width: 136 * s,
-                height: 77 * s,
-                child: noSpoiler
-                    ? ImageFiltered(
-                        imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: NetImage(url: e.stillUrl, seed: e.id),
-                      )
-                    : NetImage(url: e.stillUrl, seed: e.id),
-              ),
-            ),
-            // Between an image and its text.
-            SizedBox(width: Layout.of(context).space(VxSpace.s)),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _episodeSpoiler(
+/// An episode in the row: a large 16:9 image with the "Épisode 3" badge, then the name, the
+/// overview (3 lines at most) and, on the last line, the runtime and TMDb's rating on the left,
+/// the air date on the right. Pressing the card plays the episode.
+class _EpisodeCard extends StatelessWidget {
+  const _EpisodeCard({
+    required this.episode,
+    required this.noSpoiler,
+    required this.onPressed,
+    this.rating,
+    this.rateButton,
+  });
+
+  final Episode episode;
+  final bool noSpoiler;
+  final VoidCallback onPressed;
+
+  /// The profile's rating ("Ma note : 8/10" on the image), null when not rated.
+  final MyRating? rating;
+  final Widget? rateButton;
+
+  static double _scaleOf(Layout layout) => layout.isLarge ? layout.scale * 2 : 1.0;
+
+  static double widthOf(Layout layout) => layout.isLarge ? layout.tv(520) : (layout.isPhone ? 300.0 : 340.0);
+
+  // Line heights follow the text size chosen in the system settings, so the card never overflows.
+  static double _titleHeight(BuildContext context, double s) => MediaQuery.textScalerOf(context).scale(15 * s) * 1.3;
+  static double _overviewHeight(BuildContext context, double s) =>
+      MediaQuery.textScalerOf(context).scale(13 * s) * 1.4 * 3;
+  static double _factsHeight(BuildContext context, double s) => MediaQuery.textScalerOf(context).scale(12 * s) * 1.6;
+
+  /// Height of a card: the row is a horizontal list, which needs it before building its cards.
+  static double heightOf(BuildContext context) {
+    final layout = Layout.of(context);
+    final s = _scaleOf(layout);
+    return widthOf(layout) * 9 / 16 +
+        layout.space(VxSpace.s) +
+        _titleHeight(context, s) +
+        4 * s +
+        _overviewHeight(context, s) +
+        8 * s +
+        _factsHeight(context, s);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final s = _scaleOf(layout);
+    final e = episode;
+    final width = widthOf(layout);
+    final radius = VxRadius.poster * s;
+    final inset = 8 * s;
+    final caption = VxText.body(12 * s, color: VxColors.textSecondary, height: 1.2);
+    final image = NetImage(url: e.stillUrl, seed: e.id);
+    final overview = e.overview?.trim() ?? '';
+
+    return SizedBox(
+      width: width,
+      child: Stack(
+        // The focus ring and zoom of the card go past its edges.
+        clipBehavior: Clip.none,
+        children: [
+          VxFocusable(
+            borderRadius: radius,
+            focusScale: 1.03,
+            semanticLabel: 'Épisode ${e.number}, ${e.name}',
+            onPressed: onPressed,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(radius),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        noSpoiler
+                            ? ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), child: image)
+                            : image,
+                        Positioned(left: inset, top: inset, child: _ImageBadge('Épisode ${e.number}', scale: s)),
+                        if (rating != null)
+                          Positioned(
+                            left: inset,
+                            bottom: inset,
+                            child: _ImageBadge('Ma note : ${formatScore(rating!.value)}/10', scale: s, accent: true),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Between an image and its text.
+                SizedBox(height: layout.space(VxSpace.s)),
+                SizedBox(
+                  height: _titleHeight(context, s),
+                  child: _episodeSpoiler(
                     Text(
-                      '${e.number}. ${e.name}',
-                      maxLines: 2,
+                      e.name,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: VxText.body(14 * s, weight: FontWeight.w600, height: 1.3),
+                      style: VxText.body(15 * s, weight: FontWeight.w600, height: 1.3),
                     ),
                     noSpoiler,
                   ),
-                  Wrap(
-                    spacing: 10 * s,
-                    runSpacing: 2 * s,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      if (!noSpoiler && e.airDate != null)
-                        Text(formatFrenchDate(e.airDate!), style: VxText.body(12 * s, color: VxColors.textSecondary)),
-                      if (!noSpoiler && e.runtime != null)
-                        Text(formatRuntime(e.runtime), style: VxText.body(12 * s, color: VxColors.textSecondary)),
-                      if (!noSpoiler && e.voteAverage > 0)
-                        TmdbRating(e.voteAverage, fontSize: 12 * s, color: VxColors.textSecondary),
-                      if (rating != null)
-                        Text(
-                          'Ma note : ${formatScore(rating.value)}/10',
-                          style: VxText.body(12 * s, color: VxColors.accent, weight: FontWeight.w600),
+                ),
+                SizedBox(height: 4 * s),
+                // Always 3 lines high: the last line is at the same place on every card.
+                SizedBox(
+                  height: _overviewHeight(context, s),
+                  child: overview.isEmpty
+                      ? null
+                      : _episodeSpoiler(
+                          Text(
+                            overview,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: VxText.body(13 * s, color: VxColors.textSoft, height: 1.4),
+                          ),
+                          noSpoiler,
                         ),
+                ),
+                SizedBox(height: 8 * s),
+                SizedBox(
+                  height: _factsHeight(context, s),
+                  child: Row(
+                    children: [
+                      // Left: runtime, then TMDb's rating (shrunk rather than cut when the line is full).
+                      Expanded(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!noSpoiler && e.runtime != null) Text(formatRuntime(e.runtime), style: caption),
+                              if (!noSpoiler && e.runtime != null && e.voteAverage > 0) SizedBox(width: 10 * s),
+                              if (!noSpoiler && e.voteAverage > 0)
+                                TmdbRating(e.voteAverage, fontSize: 12 * s, color: VxColors.textSecondary),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Right: first broadcast.
+                      if (!noSpoiler && e.airDate != null) ...[
+                        SizedBox(width: 10 * s),
+                        Text(formatFrenchDate(e.airDate!), maxLines: 1, style: caption),
+                      ],
                     ],
                   ),
-                  if (e.overview != null && e.overview!.trim().isNotEmpty)
-                    _episodeSpoiler(
-                      Text(
-                        e.overview!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: VxText.body(13 * s, color: VxColors.textSoft),
-                      ),
-                      noSpoiler,
-                    ),
-                ],
+                ),
+              ],
+            ),
+          ),
+          if (rateButton != null)
+            Positioned(
+              right: inset,
+              top: inset,
+              // Dark disc: the star stays readable on a bright image.
+              child: DecoratedBox(
+                decoration: const BoxDecoration(color: Color(0xB3070A08), shape: BoxShape.circle),
+                child: rateButton,
               ),
             ),
-          ],
-        ),
-      );
+        ],
+      ),
+    );
+  }
+}
+
+/// Label on an episode image ("Épisode 3", "Ma note : 8/10"): dark, readable on any image.
+class _ImageBadge extends StatelessWidget {
+  const _ImageBadge(this.label, {required this.scale, this.accent = false});
+
+  final String label;
+  final double scale;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: EdgeInsets.symmetric(horizontal: 8 * scale, vertical: 3 * scale),
+    decoration: BoxDecoration(color: const Color(0xCC070A08), borderRadius: BorderRadius.circular(6 * scale)),
+    child: Text(
+      label,
+      style: VxText.body(
+        12 * scale,
+        weight: FontWeight.w600,
+        color: accent ? VxColors.accent : VxColors.text,
+        height: 1.3,
+      ),
+    ),
+  );
 }
 
 // ───────────────────────────── Phone ─────────────────────────────

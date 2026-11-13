@@ -61,9 +61,9 @@ extension VxSizes on Layout {
   /// Under a page's introduction text, before its content: 16 (TV 24).
   double get introGap => space(VxSpace.m);
 
-  /// Between two lines of a list (reviews, devices, episodes, profiles): 12 (TV 18).
+  /// Between two lines of a list (reviews, devices, profiles): 12 (TV 18).
   double get listGap => space(VxSpace.s);
 
-  /// Between two cards of a row or a grid (posters, people, avatars): 10 (TV 28).
+  /// Between two cards of a row or a grid (posters, episodes, people, avatars): 10 (TV 28).
   double get cardGap => size(10, tv: 28);
 }

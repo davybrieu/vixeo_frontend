@@ -103,8 +103,8 @@ nombre.
 | Entre deux rangées ou deux sections | 24 | 36 | `layout.sectionGap` |
 | Sous un titre de rangée ou de section | 12 | 22 | `layout.titleGap` (`SectionHeader`) |
 | Sous le texte d'introduction d'une page | 16 | 24 | `layout.introGap` (`InfoIntro`) |
-| Entre deux lignes d'une liste (avis, appareils, épisodes, profils) | 12 | 18 | `layout.listGap` |
-| Entre deux cartes d'une rangée ou d'une grille (affiches, personnes, avatars) | 10 | 28 | `layout.cardGap` |
+| Entre deux lignes d'une liste (avis, appareils, profils) | 12 | 18 | `layout.listGap` |
+| Entre deux cartes d'une rangée ou d'une grille (affiches, épisodes, personnes, avatars) | 10 | 28 | `layout.cardGap` |
 | Entre deux puces | 8 | 14 | `FilterBar.gapOf` |
 | Entre des puces et ce qu'elles filtrent | 16 | 24 | `layout.space(VxSpace.m)` |
 | Entre une image et son texte | 12 | 18 | `layout.space(VxSpace.s)` |
