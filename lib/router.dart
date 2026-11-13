@@ -145,6 +145,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/films', redirect: (_, _) => '/accueil'),
           GoRoute(path: '/series', redirect: (_, _) => '/accueil'),
           GoRoute(path: '/chaines-tv', pageBuilder: (_, state) => tab(state, const TvChannelsScreen())),
+          // Every channel of a category: the round arrow of a row of the « Chaînes TV » page.
+          GoRoute(
+            path: '/chaines-tv/categorie/:id',
+            builder: (_, state) => TvCategoryScreen(
+              categoryId: state.pathParameters['id'] ?? '',
+              title: state.uri.queryParameters['titre'],
+            ),
+          ),
           GoRoute(path: '/tv-live', redirect: (_, _) => '/chaines-tv'),
           GoRoute(
             path: '/recherche',

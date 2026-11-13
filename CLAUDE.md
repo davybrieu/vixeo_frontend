@@ -238,8 +238,11 @@ lib/
 - **Page « Chaînes TV »** (`/chaines-tv`, `TvChannelsScreen` ; demande du développeur : comme
   l'accueil) : une **rangée par catégorie** (`channelCategorySections`, `tvChannelRowsProvider` :
   catégories et chaînes demandées une fois, 24 chaînes par rangée, catégorie vide masquée), avec
-  le bouton rond « Voir tout » qui montre toute la catégorie. Un texte dans la recherche ou une
-  puce de catégorie affiche la grille (`ChannelSearchResults`) ; « Toutes » revient aux rangées.
+  le bouton rond « Voir tout » qui ouvre toute la catégorie (`TvCategoryScreen`,
+  `/chaines-tv/categorie/:id?titre=…` : bouton retour, nom de la catégorie, grille
+  `ChannelSearchResults`). **Ni champ de recherche ni filtre de catégorie sur cette page**
+  (supprimés, demande du développeur) : on cherche une chaîne dans la recherche. Toutes les
+  catégories qui ont des chaînes ont leur rangée.
 - **Rail de navigation sur un écran bas** : icônes et marges rétrécissent selon la hauteur
   (40 au minimum), puis le rail défile avec une barre (`_Rail`, `shell/app_shell.dart`). Test :
   `test/profile_features_test.dart`.

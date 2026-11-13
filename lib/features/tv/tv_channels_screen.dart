@@ -1,118 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
+import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../tv/channel_row.dart';
 import '../tv/channel_search.dart';
-import '../tv/models.dart';
-import '../tv/tv_repository.dart';
 
-/// The live-TV page, laid out like the home page: one row of channels per category, each with
-/// a round arrow that shows the whole category. A text or a category chip shows a grid instead.
-class TvChannelsScreen extends ConsumerStatefulWidget {
+/// The live-TV page, laid out like the home page: its title, then one row of channels per
+/// category (every category that has channels). The round arrow of a row opens the whole
+/// category ([TvCategoryScreen]). No search field nor category filter here (developer's
+/// request): channels are searched in the search page.
+class TvChannelsScreen extends ConsumerWidget {
   const TvChannelsScreen({super.key});
 
   @override
-  ConsumerState<TvChannelsScreen> createState() => _TvChannelsScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final layout = Layout.of(context);
 
-class _TvChannelsScreenState extends ConsumerState<TvChannelsScreen> {
-  String _query = '';
-  String? _categoryId;
-
-  /// Rows by category (as on the home page), unless a text or a category narrows the channels.
-  bool get _rows => _query.isEmpty && _categoryId == null;
-
-  Future<void> _refresh() async {
-    if (_rows) {
-      ref.invalidate(tvCategoriesProvider);
+    Future<void> refresh() async {
       ref.invalidate(tvChannelRowsProvider);
       await ref.read(tvChannelRowsProvider.future);
-      return;
     }
-    ref.invalidate(tvCategoriesProvider);
-    ref.invalidate(channelSearchProvider((_query, _categoryId)));
-    await Future.wait([
-      ref.read(tvCategoriesProvider.future),
-      ref.read(channelSearchProvider((_query, _categoryId)).future),
-    ]);
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final categories = ref.watch(tvCategoriesProvider).value ?? const <TvCategory>[];
-
-    return SafeArea(
-      bottom: false,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          VxPageHeader(
-            title: 'Chaînes TV',
-            search: TextField(
-              onChanged: (value) => setState(() => _query = value.trim()),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Rechercher une chaîne',
-                prefixIcon: const Icon(Icons.search_rounded),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                isDense: true,
-              ),
-            ),
-            filters: categories.isEmpty
-                ? null
-                : SizedBox(
-                    height: layout.isLarge ? 56 : 44,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: EdgeInsets.symmetric(horizontal: layout.gutter),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: const Text('Toutes'),
-                            selected: _categoryId == null,
-                            onSelected: (_) => setState(() => _categoryId = null),
-                          ),
-                        ),
-                        for (final category in categories)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(category.name),
-                              selected: _categoryId == category.id,
-                              onSelected: (_) => setState(
-                                () => _categoryId = _categoryId == category.id ? null : category.id,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-          ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _refresh,
-              child: CustomScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                slivers: [
-                  if (_rows) ..._rowSlivers(context) else ChannelSearchResults(query: _query, categoryId: _categoryId),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _rowSlivers(BuildContext context) {
-    final layout = Layout.of(context);
-    return switch (ref.watch(tvChannelRowsProvider)) {
+    final List<Widget> content = switch (ref.watch(tvChannelRowsProvider)) {
       AsyncData(:final value) when value.isEmpty => const [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -129,14 +44,16 @@ class _TvChannelsScreenState extends ConsumerState<TvChannelsScreen> {
         SliverList.separated(
           itemCount: value.length,
           separatorBuilder: (_, _) => SizedBox(height: layout.sectionGap),
-          itemBuilder: (_, i) {
+          itemBuilder: (context, i) {
             final section = value[i];
             final categoryId = section.categoryId;
             return ChannelRow(
               title: section.title,
               channels: section.channels,
               autofocusFirst: i == 0 && layout.isLarge,
-              onSeeAll: categoryId == null ? null : () => setState(() => _categoryId = categoryId),
+              onSeeAll: categoryId == null
+                  ? null
+                  : () => context.push(TvCategoryScreen.location(categoryId, section.title)),
             );
           },
         ),
@@ -151,5 +68,86 @@ class _TvChannelsScreenState extends ConsumerState<TvChannelsScreen> {
       ],
       _ => const [SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator()))],
     };
+
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const VxPageHeader(title: 'Chaînes TV'),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: refresh,
+              child: CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: content),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Every channel of one category (the round arrow of a row of the « Chaînes TV » page): back
+/// button, the category's name, then the grid of its channels.
+class TvCategoryScreen extends StatelessWidget {
+  const TvCategoryScreen({super.key, required this.categoryId, this.title});
+
+  final String categoryId;
+
+  /// The category's name; without it (address typed by hand), « Chaînes TV ».
+  final String? title;
+
+  static String location(String categoryId, String title) =>
+      '/chaines-tv/categorie/${Uri.encodeComponent(categoryId)}?titre=${Uri.encodeQueryComponent(title)}';
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final s = layout.isLarge ? layout.scale * 2 : 1.0;
+    final heading = (title == null || title!.trim().isEmpty) ? 'Chaînes TV' : title!;
+
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.xs), layout.gutter, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: VxFocusable(
+                    borderRadius: 22 * s,
+                    semanticLabel: 'Retour',
+                    autofocus: layout.isLarge,
+                    onPressed: () => context.canPop() ? context.pop() : context.go('/chaines-tv'),
+                    child: Container(
+                      width: 44 * s,
+                      height: 44 * s,
+                      decoration: const BoxDecoration(color: VxColors.surfaceHigh, shape: BoxShape.circle),
+                      child: Icon(Icons.arrow_back_rounded, color: VxColors.text, size: 22 * s),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  layout.gutter,
+                  layout.space(VxSpace.m),
+                  layout.gutter,
+                  layout.space(VxSpace.xs),
+                ),
+                child: Text(heading, style: VxText.title(layout.pageTitleSize)),
+              ),
+            ),
+            ChannelSearchResults(query: '', categoryId: categoryId),
+            // The end of the page clear of what covers it.
+            SliverToBoxAdapter(child: SizedBox(height: pageBottomPadding(context))),
+          ],
+        ),
+      ),
+    );
   }
 }
