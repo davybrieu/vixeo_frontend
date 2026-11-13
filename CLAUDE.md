@@ -323,9 +323,13 @@ lib/
   taille du texte du système). Changer de saison revient au premier épisode. Test :
   `test/details_people_test.dart`.
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
-  horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Pas de nom sur les affiches**, dans
-  les deux formats (demande du développeur : l'image suffit) ; le nom n'est écrit que pour un titre
-  sans aucune image, et reste dans le libellé pour les lecteurs d'écran. En horizontal, le logo du
+  horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Sur téléphone** (demande du
+  développeur), sous chaque affiche : le titre sur une ligne, puis l'année à gauche et la note
+  TMDb avec son logo à droite (`PosterCard`, hauteur `PosterCard.captionHeightOf(context)`, que
+  les rangées et les grilles ajoutent à l'image ; grilles : `posterGridDelegate(…,
+  captionHeight:)`). **Tablette et TV : pas de nom sur les affiches**, dans les deux formats
+  (l'image suffit) ; le nom n'est écrit que pour un titre sans aucune image, et reste dans le
+  libellé pour les lecteurs d'écran. En horizontal, le logo du
   titre s'affiche quand le titre le donne (rangées de l'accueil) : **jamais de requête de fiche par
   carte** (`titleProvider` dans `PosterCard` = une requête par titre affiché, au-delà de la limite
   de l'API). « Ma liste » demande tous ses titres en une requête (`titlesByIdProvider`, API

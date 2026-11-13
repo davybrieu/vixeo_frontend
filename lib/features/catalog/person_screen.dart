@@ -151,7 +151,7 @@ class _PersonViewState extends ConsumerState<_PersonView> {
               pageBottomPadding(context),
             ),
             sliver: SliverGrid.builder(
-              gridDelegate: posterGridDelegate(layout, format),
+              gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
               itemCount: p.filmography.length,
               itemBuilder: (context, i) => LayoutBuilder(
                 builder: (context, c) => PosterCard(item: p.filmography[i], width: c.maxWidth, format: format),

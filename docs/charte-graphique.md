@@ -200,8 +200,11 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
   - affiche : 116 (tablette 140, TV 220) ;
   - horizontale : 220 (tablette 260, TV 384).
 - **Grilles** (`posterGridDelegate`) : 10 entre les cartes (TV 28).
-- **Pas de nom sur les cartes** : l'image suffit. Le nom n'est écrit que pour un titre sans
+- **Pas de nom sur l'image des cartes** : l'image suffit. Le nom n'est écrit que pour un titre sans
   image ; il reste dans le libellé pour les lecteurs d'écran.
+- **Sur téléphone**, sous chaque affiche (rangées et grilles) : le titre sur une ligne (13,
+  semi-gras), puis sur la ligne suivante l'année à gauche et la note TMDb avec son logo à droite
+  (11, texte secondaire). Tablette et TV : l'image seule.
 - **Logo sur une image horizontale** :
   - il est demandé à la taille d'une carte (`MediaItem.cardLogoUrl`, w300) ;
   - l'image et le logo apparaissent ensemble, une fois les deux chargés (`ImagesTogether`) : le

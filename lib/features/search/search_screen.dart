@@ -273,7 +273,7 @@ class _Results extends ConsumerWidget {
           key: ValueKey(q),
           page: (page) => titlesProvider(q.atPage(page)),
           idOf: (item) => item.id,
-          gridDelegate: posterGridDelegate(layout, format),
+          gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
           itemBuilder: (_, item) => LayoutBuilder(
             builder: (_, c) => PosterCard(
               item: item,

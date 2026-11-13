@@ -137,7 +137,43 @@ void main() {
     expect(find.text('Nord Sauvage'), findsOneWidget);
   });
 
-  testWidgets('poster cards show the image without the name, in both formats', (tester) async {
+  testWidgets('phone: name, then year (left) and TMDb rating (right) under each poster card', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const item = MediaItem(
+      id: 551,
+      type: MediaType.movie,
+      title: 'Nord Sauvage',
+      year: 2026,
+      voteAverage: 8.4,
+      posterUrl: 'https://image.tmdb.org/t/p/w342/p.jpg',
+      backdropUrl: 'https://image.tmdb.org/t/p/w780/b.jpg',
+    );
+    for (final format in PosterFormat.values) {
+      await tester.pumpWidget(app(PosterCard(item: item, width: 116, format: format)));
+      await tester.pump();
+      final name = tester.widget<Text>(find.text('Nord Sauvage'));
+      expect(name.maxLines, 1, reason: format.name);
+      // Under the name, on one line: the year on the left, the rating and TMDb's logo on the right.
+      final nameY = tester.getCenter(find.text('Nord Sauvage')).dy;
+      final year = tester.getCenter(find.text('2026'));
+      final rating = tester.getCenter(find.byType(TmdbRating));
+      expect(year.dy, greaterThan(nameY), reason: format.name);
+      expect(rating.dy, closeTo(year.dy, 2), reason: format.name);
+      expect(rating.dx, greaterThan(year.dx), reason: format.name);
+      expect(find.descendant(of: find.byType(TmdbRating), matching: find.byType(TmdbLogo)), findsOneWidget);
+      // The card is exactly as high as its image and caption: rows and grids rely on it.
+      final context = tester.element(find.byType(PosterCard));
+      expect(
+        tester.getSize(find.byType(PosterCard)).height,
+        closeTo(PosterCard.heightFor(116, format) + PosterCard.captionHeightOf(context), 0.01),
+        reason: format.name,
+      );
+    }
+  });
+
+  testWidgets('tablet and TV: poster cards show the image without the name, in both formats', (tester) async {
     const withImages = MediaItem(
       id: 551,
       type: MediaType.movie,
