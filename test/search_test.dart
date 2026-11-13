@@ -92,8 +92,7 @@ Future<FakeCatalog> pumpSearch(WidgetTester tester, {Size size = const Size(390,
           (ref) async => const [TvCategory(id: 'gen', name: 'Généralistes'), TvCategory(id: 'sport', name: 'Sport')],
         ),
         homeProvider.overrideWith(
-          (ref, type) async =>
-              Home(featured: [title(50, 'Tendance ${type?.name ?? 'tout'}', MediaType.movie)], sections: []),
+          (ref) async => Home(featured: [title(50, 'Tendance tout', MediaType.movie)], sections: []),
         ),
         titleProvider.overrideWith(
           (ref, key) async => TitleDetails(id: key.$2, type: key.$1, title: 'Titre ${key.$2}', genres: const [drama]),

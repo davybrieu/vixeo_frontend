@@ -14,6 +14,7 @@ import 'features/auth/register_screen.dart';
 import 'features/auth/session.dart';
 import 'features/catalog/details_screen.dart';
 import 'features/catalog/home_screen.dart';
+import 'features/catalog/list_screen.dart';
 import 'features/catalog/models.dart';
 import 'features/catalog/person_screen.dart';
 import 'features/library/my_list_screen.dart';
@@ -43,7 +44,14 @@ final routerProvider = Provider<GoRouter>((ref) {
   // Deep link opened before session restoration, or a protected page requested by a guest.
   String? pending;
 
-  Page<void> tab(Widget child) => NoTransitionPage(child: child);
+  // A main page (tab of the navigation) fades in like every other page.
+  Page<void> tab(GoRouterState state, Widget child) => CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: vxPageFade,
+    reverseTransitionDuration: vxPageFade,
+    transitionsBuilder: (_, animation, _, child) => vxFadeTransition(animation, child),
+  );
   Widget guarded(String location, Widget child) => BackNavigationGuard(location: location, child: child);
 
   return GoRouter(
@@ -54,7 +62,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       const authPages = {'/connexion', '/inscription', '/mot-de-passe-oublie'};
       const guestAllowed = {
-        '/accueil', '/films', '/series', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/tv-live',
+        '/accueil', '/films', '/series', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/tv-live',
       };
       const accountOnly = {
         '/profils', '/ma-liste', '/avis', '/profil', '/profil/avatar', '/profil/controle-parental',
@@ -132,31 +140,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => AppShell(location: state.uri.path, child: child),
         routes: [
-          GoRoute(path: '/accueil', pageBuilder: (_, _) => tab(const HomeScreen())),
-          GoRoute(
-            path: '/films',
-            pageBuilder: (_, _) => tab(const HomeScreen(type: MediaType.movie)),
-          ),
-          GoRoute(
-            path: '/series',
-            pageBuilder: (_, _) => tab(const HomeScreen(type: MediaType.tv)),
-          ),
-          GoRoute(path: '/chaines-tv', pageBuilder: (_, _) => tab(const TvChannelsScreen())),
+          GoRoute(path: '/accueil', pageBuilder: (_, state) => tab(state, const HomeScreen())),
+          // The "Films" and "Séries" pages were removed: their former addresses lead to the home page.
+          GoRoute(path: '/films', redirect: (_, _) => '/accueil'),
+          GoRoute(path: '/series', redirect: (_, _) => '/accueil'),
+          GoRoute(path: '/chaines-tv', pageBuilder: (_, state) => tab(state, const TvChannelsScreen())),
           GoRoute(path: '/tv-live', redirect: (_, _) => '/chaines-tv'),
           GoRoute(
             path: '/recherche',
-            pageBuilder: (_, state) => tab(SearchScreen(initialType: state.extra as MediaType?)),
+            pageBuilder: (_, state) => tab(state, SearchScreen(initialType: state.extra as MediaType?)),
           ),
-          GoRoute(path: '/ma-liste', pageBuilder: (_, _) => tab(const MyListScreen())),
+          GoRoute(path: '/ma-liste', pageBuilder: (_, state) => tab(state, const MyListScreen())),
           // "Mes avis": ratings of the TMDb account and comments (vixeo_backend/docs/compte-tmdb.md).
-          GoRoute(path: '/avis', pageBuilder: (_, _) => tab(const ReviewsScreen())),
+          GoRoute(path: '/avis', pageBuilder: (_, state) => tab(state, const ReviewsScreen())),
           // "Mon avis": one review, to change or remove (/avis/tv/1399?saison=1&episode=2 for an episode).
           GoRoute(
             path: '/avis/:type/:id',
             builder: (_, state) =>
                 ReviewScreen(target: ReviewScreen.targetOf(state.pathParameters, state.uri.queryParameters)),
           ),
-          GoRoute(path: '/profil', pageBuilder: (_, _) => tab(const ProfileSettingsScreen())),
+          GoRoute(path: '/profil', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
           GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
           GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),
           GoRoute(path: '/profil/code-pin', builder: (_, _) => const ParentalPinScreen()),
@@ -183,6 +186,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => ChannelScreen(
               id: state.pathParameters['id'] ?? '',
               initial: state.extra is TvChannel ? state.extra as TvChannel : null,
+            ),
+          ),
+          // "Voir tout" of a home row: /liste/movie/trending?titre=Films%20du%20moment.
+          GoRoute(
+            path: '/liste/:type/:list',
+            builder: (_, state) => TitleListScreen(
+              type: MediaType.parse(state.pathParameters['type']),
+              list: state.pathParameters['list'] ?? '',
+              title: state.uri.queryParameters['titre'],
             ),
           ),
           GoRoute(

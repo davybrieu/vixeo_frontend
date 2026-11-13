@@ -58,7 +58,7 @@ nouvelle version, ou bloquent si elle est obligatoire (`vixeo_backend/docs/mise-
 | Connexion (page d'entrée) | formulaire sur mur d'affiches | carte centrée |
 | Inscription | ✓ | ✓ |
 | Qui regarde ? | grille, PIN, ajout | rangée, focus télécommande |
-| Accueil, Films, Séries | carrousel, rangées, onglets en bas | grande image qui suit le focus, rail à gauche |
+| Accueil | carrousel, rangées, onglets en bas | grande image qui suit le focus, rail à gauche |
 | Fiche film / série | ✓ | ✓ |
 | Recherche, genres | ✓ | ✓ |
 | Ma liste | ✓ | ✓ |

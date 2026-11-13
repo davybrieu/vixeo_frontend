@@ -11,8 +11,13 @@ class CatalogRepository {
 
   final ApiClient _api;
 
-  Future<Home> home({MediaType? type}) async =>
-      Home.fromJson(await _api.get('/catalog/home', query: {'type': type?.name}));
+  Future<Home> home() async => Home.fromJson(await _api.get('/catalog/home'));
+
+  /// One page of a home list ("Voir tout" of a row): `trending`, `popular`, `top_rated`…
+  Future<Paged<MediaItem>> list(MediaType type, String list, {int page = 1}) async => Paged.fromJson(
+    await _api.get('/catalog/${type.name}/lists/${Uri.encodeComponent(list)}', query: {'page': page}),
+    MediaItem.fromJson,
+  );
 
   Future<TitleDetails> movie(int id) async =>
       TitleDetails.fromJson((await _api.get('/catalog/movie/$id'))['data'] as Map<String, dynamic>);
@@ -100,9 +105,9 @@ final titlesByIdProvider = FutureProvider.autoDispose.family<Map<TitleRef, Media
 String titlesKey(Iterable<TitleRef> titles) =>
     (titles.map((t) => '${t.type.name}:${t.id}').toSet().toList()..sort()).join(',');
 
-final homeProvider = FutureProvider.autoDispose.family<Home, MediaType?>((ref, type) {
+final homeProvider = FutureProvider.autoDispose<Home>((ref) {
   ref.watch(_profileIdProvider);
-  return ref.read(catalogRepositoryProvider).home(type: type);
+  return ref.read(catalogRepositoryProvider).home();
 });
 
 final titleProvider = FutureProvider.autoDispose.family<TitleDetails, (MediaType, int)>((ref, key) {
@@ -130,6 +135,12 @@ final searchProvider = FutureProvider.autoDispose.family<SearchResults, (String,
 final titlesProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, TitleQuery>((ref, query) {
   ref.watch(_profileIdProvider);
   return ref.read(catalogRepositoryProvider).titles(query);
+});
+
+/// One page of a home list (type, list, page): the "Voir tout" page of a row.
+final titleListProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, (MediaType, String, int)>((ref, key) {
+  ref.watch(_profileIdProvider);
+  return ref.read(catalogRepositoryProvider).list(key.$1, key.$2, page: key.$3);
 });
 
 /// One page of people matching a text.

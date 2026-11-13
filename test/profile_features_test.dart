@@ -15,6 +15,7 @@ import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
 import 'package:vixeo/features/profiles/profile_settings_screen.dart';
+import 'package:vixeo/features/shell/app_shell.dart';
 
 /// In-memory library: records favorites / watched like the sync API would.
 class FakeLibrary extends LibraryController {
@@ -121,8 +122,14 @@ void main() {
 
     await tester.pumpWidget(app(row));
     await tester.pumpAndSettle();
-    var size = tester.getSize(find.byType(PosterCard));
-    expect(size.height / size.width, closeTo(1.5, 0.01));
+    // On a phone the card is its image, then the caption (name, year and rating).
+    double imageRatio() {
+      final size = tester.getSize(find.byType(PosterCard));
+      final caption = PosterCard.captionHeightOf(tester.element(find.byType(PosterCard)));
+      return (size.height - caption) / size.width;
+    }
+
+    expect(imageRatio(), closeTo(1.5, 0.01));
 
     await tester.pumpWidget(
       app(
@@ -131,13 +138,48 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    size = tester.getSize(find.byType(PosterCard));
-    expect(size.height / size.width, closeTo(9 / 16, 0.01));
-    // A title without any image shows its name instead.
-    expect(find.text('Nord Sauvage'), findsOneWidget);
+    expect(imageRatio(), closeTo(9 / 16, 0.01));
+    // A title without any image shows its name in the image too (and in the caption).
+    expect(find.text('Nord Sauvage'), findsNWidgets(2));
   });
 
-  testWidgets('poster cards show the image without the name, in both formats', (tester) async {
+  testWidgets('phone: name, then year (left) and TMDb rating (right) under each poster card', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const item = MediaItem(
+      id: 551,
+      type: MediaType.movie,
+      title: 'Nord Sauvage',
+      year: 2026,
+      voteAverage: 8.4,
+      posterUrl: 'https://image.tmdb.org/t/p/w342/p.jpg',
+      backdropUrl: 'https://image.tmdb.org/t/p/w780/b.jpg',
+    );
+    for (final format in PosterFormat.values) {
+      await tester.pumpWidget(app(PosterCard(item: item, width: 116, format: format)));
+      await tester.pump();
+      final name = tester.widget<Text>(find.text('Nord Sauvage'));
+      expect(name.maxLines, 1, reason: format.name);
+      // Under the name, on one line: the year on the left, the rating and TMDb's logo on the right.
+      final nameY = tester.getCenter(find.text('Nord Sauvage')).dy;
+      final year = tester.getCenter(find.text('2026'));
+      final rating = tester.getCenter(find.byType(TmdbRating));
+      expect(year.dy, greaterThan(nameY), reason: format.name);
+      expect(rating.dy, closeTo(year.dy, 2), reason: format.name);
+      expect(rating.dx, greaterThan(year.dx), reason: format.name);
+      expect(find.descendant(of: find.byType(TmdbRating), matching: find.byType(TmdbLogo)), findsOneWidget);
+      // The card is exactly as high as its image and caption: rows and grids rely on it.
+      final context = tester.element(find.byType(PosterCard));
+      expect(
+        tester.getSize(find.byType(PosterCard)).height,
+        closeTo(PosterCard.heightFor(116, format) + PosterCard.captionHeightOf(context), 0.01),
+        reason: format.name,
+      );
+    }
+  });
+
+  testWidgets('tablet and TV: poster cards show the image without the name, in both formats', (tester) async {
     const withImages = MediaItem(
       id: 551,
       type: MediaType.movie,
@@ -151,6 +193,33 @@ void main() {
       expect(find.text('Nord Sauvage'), findsNothing, reason: format.name);
       expect(find.bySemanticsLabel(RegExp('^Nord Sauvage, film')), findsOneWidget, reason: format.name);
     }
+  });
+
+  testWidgets('the side rail fits a low screen (smaller icons), then scrolls', (tester) async {
+    addTearDown(tester.view.reset);
+    tester.view.devicePixelRatio = 1;
+    const labels = ['Recherche', 'Accueil', 'Ma liste', 'Avis', 'Chaînes TV'];
+
+    // A phone held sideways: everything is visible, with smaller icons than the usual 52.
+    tester.view.physicalSize = const Size(700, 340);
+    await tester.pumpWidget(app(const AppShell(location: '/recherche', child: SizedBox())));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    for (final label in labels) {
+      final item = tester.getRect(find.byTooltip(label));
+      expect(item.bottom, lessThanOrEqualTo(340), reason: label);
+      expect(item.height, lessThan(52), reason: label);
+    }
+
+    // Lower still: the icons keep a pressable size and the rail scrolls.
+    tester.view.physicalSize = const Size(700, 220);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(tester.getRect(find.byTooltip('Recherche')).height, 40);
+    final rail = find.ancestor(of: find.byTooltip('Recherche'), matching: find.byType(Scrollable)).first;
+    expect(tester.state<ScrollableState>(rail).position.maxScrollExtent, greaterThan(0));
+    await tester.scrollUntilVisible(find.byTooltip('Chaînes TV'), 60, scrollable: rail);
+    expect(tester.getRect(find.byTooltip('Chaînes TV')).bottom, lessThanOrEqualTo(220));
   });
 
   test('reads the poster format of a profile', () {

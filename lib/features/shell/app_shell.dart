@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -27,8 +28,6 @@ class _Destination {
 const _guestPhoneTabs = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
-  _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
-  _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
 ];
 
@@ -48,16 +47,12 @@ final _tvSidebarFocusNode = FocusNode(debugLabel: 'Navigation latérale');
 const _guestRailItems = [
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
-  _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
-  _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
 ];
 
 const _railItems = [
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
-  _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
-  _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
   _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
@@ -86,7 +81,7 @@ class AppShell extends ConsumerWidget {
     // without the navigation, until the home page can be drawn. Only once: coming back to the
     // home page later shows its own loading inside the navigation.
     if (location == '/accueil' && !_homeShown) {
-      final home = ref.watch(homeProvider(null));
+      final home = ref.watch(homeProvider);
       if (!home.hasValue && !home.hasError) {
         return BackNavigationGuard(
           location: location,
@@ -98,8 +93,8 @@ class AppShell extends ConsumerWidget {
 
     if (layout.isPhone) {
       final navigationPages = guest
-          ? {'/accueil', '/recherche', '/films', '/series', '/chaines-tv'}
-          : {'/accueil', '/recherche', '/ma-liste', '/avis', '/films', '/series', '/chaines-tv', '/profil'};
+          ? {'/accueil', '/recherche', '/chaines-tv'}
+          : {'/accueil', '/recherche', '/ma-liste', '/avis', '/chaines-tv', '/profil'};
       final showNavigation = navigationPages.contains(location);
       final index = location == '/profil' ? phoneTabs.length : phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
@@ -157,45 +152,14 @@ class AppShell extends ConsumerWidget {
       child: Scaffold(
         body: Row(
           children: [
-            Container(
+            _Rail(
               width: railWidth,
-              color: const Color(0xE6070A08),
-              padding: EdgeInsets.symmetric(vertical: layout.isLarge ? layout.tv(56) : 24),
-              child: Column(
-                children: [
-                  if (guest)
-                    VxFocusable(
-                      onPressed: () => context.go('/connexion'),
-                      borderRadius: itemSize * 0.25,
-                      semanticLabel: 'Se connecter',
-                      child: Container(
-                        width: itemSize * 0.78,
-                        height: itemSize * 0.78,
-                        decoration: BoxDecoration(color: VxColors.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(itemSize * 0.2)),
-                        child: Icon(Icons.login_rounded, size: itemSize * 0.38, color: VxColors.accent),
-                      ),
-                    )
-                  else
-                    VxFocusable(
-                      onPressed: () => context.go('/profil'),
-                      borderRadius: itemSize * 0.25,
-                      onAccent: profile?.avatar == null,
-                      semanticLabel: 'Mon profil (${profile?.name ?? ''})',
-                      child: ProfileAvatar(profile: profile, size: itemSize * 0.78, radius: itemSize * 0.2),
-                    ),
-                  SizedBox(height: itemSize * 0.8),
-                  for (final d in railItems)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: itemSize * 0.16),
-                      child: _RailItem(
-                        destination: d,
-                        selected: _isSelected(d.path),
-                        size: itemSize,
-                        focusNode: d == railItems.first ? _tvSidebarFocusNode : null,
-                      ),
-                    ),
-                ],
-              ),
+              itemSize: itemSize,
+              padding: layout.isLarge ? layout.tv(56) : 24,
+              items: railItems,
+              guest: guest,
+              profile: profile,
+              isSelected: _isSelected,
             ),
             Expanded(
               child: Column(
@@ -225,6 +189,114 @@ class AppShell extends ConsumerWidget {
   }
 
   bool _isSelected(String path) => location == path || location.startsWith('$path/');
+}
+
+/// Left rail (tablet, desktop, TV): the profile, then the destinations.
+///
+/// On a low screen (a small tablet or a phone held sideways), the icons and margins shrink so
+/// that everything stays visible; if it still doesn't fit, the rail scrolls, with a scrollbar.
+class _Rail extends StatefulWidget {
+  const _Rail({
+    required this.width,
+    required this.itemSize,
+    required this.padding,
+    required this.items,
+    required this.guest,
+    required this.profile,
+    required this.isSelected,
+  });
+
+  final double width;
+
+  /// Size of an item and vertical padding when the screen is high enough.
+  final double itemSize;
+  final double padding;
+  final List<_Destination> items;
+  final bool guest;
+  final Profile? profile;
+  final bool Function(String path) isSelected;
+
+  /// Smallest item on a low screen: still easy to press.
+  static const minItemSize = 40.0;
+
+  @override
+  State<_Rail> createState() => _RailState();
+}
+
+class _RailState extends State<_Rail> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: widget.width,
+    color: const Color(0xE6070A08),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        // Height of the content, in item sizes: the profile (0.78), a gap (0.8), then each
+        // destination and the gap under it (1.16).
+        final units = 1.58 + 1.16 * widget.items.length;
+        var size = widget.itemSize;
+        var padding = widget.padding;
+        final height = constraints.maxHeight;
+        if (height.isFinite && padding * 2 + size * units > height) {
+          padding = math.min(padding, 12.0);
+          size = ((height - padding * 2) / units).clamp(math.min(_Rail.minItemSize, size), size).toDouble();
+        }
+
+        return Scrollbar(
+          controller: _scroll,
+          child: SingleChildScrollView(
+            controller: _scroll,
+            padding: EdgeInsets.symmetric(vertical: padding),
+            child: Column(
+              children: [
+                if (widget.guest)
+                  VxFocusable(
+                    onPressed: () => context.go('/connexion'),
+                    borderRadius: size * 0.25,
+                    semanticLabel: 'Se connecter',
+                    child: Container(
+                      width: size * 0.78,
+                      height: size * 0.78,
+                      decoration: BoxDecoration(
+                        color: VxColors.accent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(size * 0.2),
+                      ),
+                      child: Icon(Icons.login_rounded, size: size * 0.38, color: VxColors.accent),
+                    ),
+                  )
+                else
+                  VxFocusable(
+                    onPressed: () => context.go('/profil'),
+                    borderRadius: size * 0.25,
+                    onAccent: widget.profile?.avatar == null,
+                    semanticLabel: 'Mon profil (${widget.profile?.name ?? ''})',
+                    child: ProfileAvatar(profile: widget.profile, size: size * 0.78, radius: size * 0.2),
+                  ),
+                SizedBox(height: size * 0.8),
+                for (final d in widget.items)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: size * 0.16),
+                    child: _RailItem(
+                      destination: d,
+                      selected: widget.isSelected(d.path),
+                      size: size,
+                      focusNode: d == widget.items.first ? _tvSidebarFocusNode : null,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
 }
 
 class _GuestBanner extends StatelessWidget {

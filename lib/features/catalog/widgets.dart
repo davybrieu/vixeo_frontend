@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,8 +22,10 @@ import 'person_screen.dart';
 String titlePath(MediaType type, int id) => '/titre/${type.name}/$id';
 
 /// Title card: vertical poster (2:3) or horizontal image (16:9), following the profile's poster
-/// format. The image alone, without the name (developer's choice); the name is written only for
-/// a title without any image. Screen readers get the name from the label.
+/// format. On phones, under the image: the name on one line, then the year on the left and
+/// TMDb's rating on the right (developer's choice). Elsewhere (tablet, TV) the image alone; the
+/// name is then written only for a title without any image. Screen readers get the name from the
+/// label.
 class PosterCard extends ConsumerWidget {
   const PosterCard({
     super.key,
@@ -41,8 +44,19 @@ class PosterCard extends ConsumerWidget {
   final VoidCallback? onHovered;
   final bool autofocus;
 
+  /// Height of the image.
   static double heightFor(double width, PosterFormat format) =>
       format == PosterFormat.portrait ? width * 1.5 : width * 9 / 16;
+
+  // The caption of a phone card. Its lines follow the text size of the system settings.
+  static const _captionGap = 6.0;
+  static double _nameHeight(BuildContext context) => MediaQuery.textScalerOf(context).scale(13) * 1.3;
+  static double _factsHeight(BuildContext context) => MediaQuery.textScalerOf(context).scale(11) * 1.6;
+
+  /// Height of the name, year and rating under the image: phones only, 0 elsewhere. Rows and
+  /// grids add it to [heightFor].
+  static double captionHeightOf(BuildContext context) =>
+      Layout.of(context).isPhone ? _captionGap + _nameHeight(context) + _factsHeight(context) : 0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -57,6 +71,7 @@ class PosterCard extends ConsumerWidget {
     final logoAspectRatio = item.logoAspectRatio;
     final radius = landscape ? width * 0.05 : width * 0.086;
     final image = landscape ? (item.backdrop('w780') ?? item.posterUrl) : item.posterUrl;
+    final withCaption = Layout.of(context).isPhone;
     final noImage = Align(
       alignment: Alignment.bottomLeft,
       child: Padding(
@@ -70,6 +85,81 @@ class PosterCard extends ConsumerWidget {
       ),
     );
 
+    final picture = ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: SizedBox(
+        width: width,
+        height: heightFor(width, format),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // A landscape card shows its image and the logo together, once both are loaded:
+            // the logo never pops in after the image.
+            ImagesTogether(
+              urls: [?image, if (landscape) ?logoUrl],
+              placeholder: ColoredBox(color: VxColors.tone(item.id)),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  NetImage(url: image, seed: item.id, fallback: noImage),
+                  if (landscape && logoUrl != null) ...[
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Color(0xB8070A08)],
+                          stops: [0.48, 1],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: width * 0.045,
+                      bottom: width * 0.045,
+                      child: TitleLogo(
+                        name: item.title,
+                        logoUrl: logoUrl,
+                        size: TitleLogo.sizeFor(
+                          logoUrl,
+                          logoAspectRatio,
+                          maxWidth: width * 0.48,
+                          maxHeight: width * 0.17,
+                        ),
+                        style: VxText.title((width * 0.07).clamp(13, 30).toDouble()),
+                        maxLines: 2,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (favorite)
+              Positioned(
+                top: width * 0.06,
+                left: width * 0.06,
+                child: Container(
+                  width: (width * 0.13).clamp(22, 32).toDouble(),
+                  height: (width * 0.13).clamp(22, 32).toDouble(),
+                  decoration: const BoxDecoration(color: Color(0xB8070A08), shape: BoxShape.circle),
+                  child: const Icon(Icons.bookmark_added_rounded, color: VxColors.accent, size: 17),
+                ),
+              ),
+            if (watched && item.type == MediaType.movie)
+              Positioned(
+                top: width * 0.06,
+                right: width * 0.06,
+                child: Container(
+                  width: (width * 0.13).clamp(22, 32).toDouble(),
+                  height: (width * 0.13).clamp(22, 32).toDouble(),
+                  decoration: const BoxDecoration(color: Color(0xB8070A08), shape: BoxShape.circle),
+                  child: const Icon(Icons.check_circle_rounded, color: VxColors.accent, size: 17),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+
     return VxFocusable(
       autofocus: autofocus,
       borderRadius: radius,
@@ -79,80 +169,48 @@ class PosterCard extends ConsumerWidget {
       onHovered: onHovered,
       onPressed: () => context.push(titlePath(item.type, item.id)),
       onLongPress: guest ? null : () => showTitleMenu(context, item),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: SizedBox(
-          width: width,
-          height: heightFor(width, format),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // A landscape card shows its image and the logo together, once both are loaded:
-              // the logo never pops in after the image.
-              ImagesTogether(
-                urls: [?image, if (landscape) ?logoUrl],
-                placeholder: ColoredBox(color: VxColors.tone(item.id)),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    NetImage(url: image, seed: item.id, fallback: noImage),
-                    if (landscape && logoUrl != null) ...[
-                      const DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Color(0xB8070A08)],
-                            stops: [0.48, 1],
+      child: !withCaption
+          ? picture
+          : SizedBox(
+              width: width,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  picture,
+                  const SizedBox(height: _captionGap),
+                  // Fixed heights: every card of a row or a grid is as high as the others.
+                  SizedBox(
+                    height: _nameHeight(context),
+                    child: Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: VxText.body(13, weight: FontWeight.w600, height: 1.3),
+                    ),
+                  ),
+                  SizedBox(
+                    height: _factsHeight(context),
+                    child: Row(
+                      children: [
+                        if (item.year != null)
+                          Text('${item.year}', style: VxText.body(11, color: VxColors.textSecondary, height: 1.2)),
+                        const SizedBox(width: 6),
+                        // On the right; shrunk rather than cut on a narrow card.
+                        if (item.voteAverage > 0)
+                          Expanded(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: TmdbRating(item.voteAverage, fontSize: 11, color: VxColors.textSecondary),
+                            ),
                           ),
-                        ),
-                      ),
-                      Positioned(
-                        left: width * 0.045,
-                        bottom: width * 0.045,
-                        child: TitleLogo(
-                          name: item.title,
-                          logoUrl: logoUrl,
-                          size: TitleLogo.sizeFor(
-                            logoUrl,
-                            logoAspectRatio,
-                            maxWidth: width * 0.48,
-                            maxHeight: width * 0.17,
-                          ),
-                          style: VxText.title((width * 0.07).clamp(13, 30).toDouble()),
-                          maxLines: 2,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              if (favorite)
-                Positioned(
-                  top: width * 0.06,
-                  left: width * 0.06,
-                  child: Container(
-                    width: (width * 0.13).clamp(22, 32).toDouble(),
-                    height: (width * 0.13).clamp(22, 32).toDouble(),
-                    decoration: const BoxDecoration(color: Color(0xB8070A08), shape: BoxShape.circle),
-                    child: const Icon(Icons.bookmark_added_rounded, color: VxColors.accent, size: 17),
-                  ),
-                ),
-              if (watched && item.type == MediaType.movie)
-                Positioned(
-                  top: width * 0.06,
-                  right: width * 0.06,
-                  child: Container(
-                    width: (width * 0.13).clamp(22, 32).toDouble(),
-                    height: (width * 0.13).clamp(22, 32).toDouble(),
-                    decoration: const BoxDecoration(color: Color(0xB8070A08), shape: BoxShape.circle),
-                    child: const Icon(Icons.check_circle_rounded, color: VxColors.accent, size: 17),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }
@@ -204,7 +262,7 @@ class PosterRow extends ConsumerWidget {
         SectionHeader(title, onSeeAll: onSeeAll),
         FocusTraversalGroup(
           child: SizedBox(
-            height: PosterCard.heightFor(width, format) + vPad * 2,
+            height: PosterCard.heightFor(width, format) + PosterCard.captionHeightOf(context) + vPad * 2,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               clipBehavior: Clip.none,
@@ -462,15 +520,54 @@ class PersonCard extends StatelessWidget {
   }
 }
 
-/// Grid layout for title cards, by screen and format.
-SliverGridDelegate posterGridDelegate(Layout layout, PosterFormat format) {
-  final gap = layout.cardGap;
-  return SliverGridDelegateWithMaxCrossAxisExtent(
-    maxCrossAxisExtent: rowCardWidth(layout, format) * 1.15,
-    childAspectRatio: format == PosterFormat.portrait ? 2 / 3 : 16 / 9,
-    crossAxisSpacing: gap,
-    mainAxisSpacing: gap,
-  );
+/// Grid layout for title cards, by screen and format. [captionHeight] is the room under each
+/// image for the caption of a phone card ([PosterCard.captionHeightOf]).
+SliverGridDelegate posterGridDelegate(Layout layout, PosterFormat format, {double captionHeight = 0}) =>
+    _PosterGridDelegate(
+      maxCrossAxisExtent: rowCardWidth(layout, format) * 1.15,
+      imageAspectRatio: format == PosterFormat.portrait ? 2 / 3 : 16 / 9,
+      spacing: layout.cardGap,
+      captionHeight: captionHeight,
+    );
+
+/// As `SliverGridDelegateWithMaxCrossAxisExtent` (as many columns as fit, [maxCrossAxisExtent]
+/// wide at most), but a tile is as high as its image plus a fixed [captionHeight]: an aspect
+/// ratio alone can't say "the image, then two lines of text".
+class _PosterGridDelegate extends SliverGridDelegate {
+  const _PosterGridDelegate({
+    required this.maxCrossAxisExtent,
+    required this.imageAspectRatio,
+    required this.spacing,
+    required this.captionHeight,
+  });
+
+  final double maxCrossAxisExtent;
+  final double imageAspectRatio;
+  final double spacing;
+  final double captionHeight;
+
+  @override
+  SliverGridLayout getLayout(SliverConstraints constraints) {
+    final count = math.max(1, (constraints.crossAxisExtent / (maxCrossAxisExtent + spacing)).ceil());
+    final usable = math.max(0.0, constraints.crossAxisExtent - spacing * (count - 1));
+    final tileWidth = usable / count;
+    final tileHeight = tileWidth / imageAspectRatio + captionHeight;
+    return SliverGridRegularTileLayout(
+      crossAxisCount: count,
+      mainAxisStride: tileHeight + spacing,
+      crossAxisStride: tileWidth + spacing,
+      childMainAxisExtent: tileHeight,
+      childCrossAxisExtent: tileWidth,
+      reverseCrossAxis: axisDirectionIsReversed(constraints.crossAxisDirection),
+    );
+  }
+
+  @override
+  bool shouldRelayout(_PosterGridDelegate old) =>
+      old.maxCrossAxisExtent != maxCrossAxisExtent ||
+      old.imageAspectRatio != imageAspectRatio ||
+      old.spacing != spacing ||
+      old.captionHeight != captionHeight;
 }
 
 /// Grid of title cards (Ma liste, genres), following the profile's poster format.
@@ -488,7 +585,7 @@ class PosterGrid extends ConsumerWidget {
     return GridView.builder(
       physics: alwaysScrollable ? const AlwaysScrollableScrollPhysics() : null,
       padding: padding ?? EdgeInsets.all(layout.gutter),
-      gridDelegate: posterGridDelegate(layout, format),
+      gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
       itemCount: items.length,
       itemBuilder: (context, i) => LayoutBuilder(
         builder: (context, c) =>

@@ -11,6 +11,24 @@ List<String> rows(List<ChannelSection> sections) => [
 
 /// Home rows of live channels: généralistes, sport, info, enfants (developer's request).
 void main() {
+  test('« Chaînes TV » page: one row per category, in the order of the categories', () {
+    final sections = channelCategorySections(
+      const [
+        TvCategory(id: 'sport', name: 'Sport'),
+        TvCategory(id: 'vide', name: 'Sans chaîne'),
+        TvCategory(id: 'gen', name: 'Généralistes'),
+      ],
+      [channel('tf1', 'gen'), channel('eurosport', 'sport'), channel('m6', 'gen'), channel('mtv', 'Musique')],
+    );
+    // An empty category is left out; a category the list doesn't name comes last, under its id.
+    expect(rows(sections), ['Sport: eurosport', 'Généralistes: tf1, m6', 'Musique: mtv']);
+    // The round arrow of a row shows its category.
+    expect(sections.map((s) => s.categoryId), ['sport', 'gen', 'Musique']);
+
+    final many = channelCategorySections(const [], [for (var i = 0; i < 40; i++) channel('c$i', 'Sport')]);
+    expect(many.single.channels, hasLength(homeChannelLimit));
+  });
+
   test('sorts the channels by theme, in order, from category names without a category list', () {
     // A provider whose categories are their names (no /tv/categories list needed).
     final sections = channelSections(const [], [

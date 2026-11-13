@@ -58,7 +58,7 @@ Future<void> pumpHome(WidgetTester tester, Size size) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        homeProvider.overrideWith((ref, type) async => home),
+        homeProvider.overrideWith((ref) async => home),
         libraryProvider.overrideWith(EmptyLibrary.new),
         // Its title page has a logo for "Le Phare".
         titleProvider.overrideWith(

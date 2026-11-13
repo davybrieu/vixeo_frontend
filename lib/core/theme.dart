@@ -65,11 +65,36 @@ class VxText {
   }) => TextStyle(fontFamily: VxFonts.text, fontSize: size, fontWeight: weight, color: color, height: height);
 }
 
+/// Duration of the fade between two pages.
+const vxPageFade = Duration(milliseconds: 300);
+
+/// A page appears by fading in over the previous one, and leaves by fading out (no slide).
+Widget vxFadeTransition(Animation<double> animation, Widget child) =>
+    FadeTransition(opacity: animation.drive(CurveTween(curve: Curves.easeOut)), child: child);
+
+/// The page transition of the whole app, on every platform: a fade ([vxFadeTransition]).
+class VxFadePageTransitionsBuilder extends PageTransitionsBuilder {
+  const VxFadePageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => vxFadeTransition(animation, child);
+}
+
 ThemeData buildVixeoTheme() {
   final base = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: VxColors.background,
+    // Every pushed page (go_router `builder`, MaterialPageRoute) fades in.
+    pageTransitionsTheme: PageTransitionsTheme(
+      builders: {for (final platform in TargetPlatform.values) platform: const VxFadePageTransitionsBuilder()},
+    ),
     colorScheme: const ColorScheme.dark(
       primary: VxColors.accent,
       onPrimary: VxColors.onAccent,

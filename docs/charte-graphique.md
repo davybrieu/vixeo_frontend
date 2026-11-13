@@ -153,7 +153,16 @@ Contenu                            pageContentPadding(context)
   Accueil, Recherche, TV, Ma liste, Avis et l'avatar du profil. Le contenu passe dessous :
   `MediaQuery.padding.bottom` comprend les 66 px de la barre.
 - **Tablette, ordinateur, TV** : un rail à gauche, avec l'avatar puis les icônes (Recherche,
-  Accueil, Films, Séries, TV, Ma liste, Avis). L'icône active est verte sur fond vert à 12 %.
+  Accueil, Ma liste, Avis, Chaînes TV). L'icône active est verte sur fond vert à 12 %.
+
+- **Rail sur un écran bas** (téléphone tenu à l'horizontale, petite tablette) : les icônes et les
+  marges rétrécissent pour que tout reste visible (icône de 40 au minimum) ; si cela ne suffit
+  pas, le rail défile, avec une barre de défilement (`_Rail`, `app_shell.dart`).
+- **Titre de rangée** (`SectionHeader`) : avec `onSeeAll`, un bouton rond à flèche (28, TV 48) à
+  droite du titre ouvre la liste entière (libellé « Voir tout : … » pour les lecteurs d'écran).
+- **Changement de page** : toute nouvelle page apparaît en **fondu** (300 ms, sans glissement),
+  et repart en fondu au retour ; onglets compris. Réglé une fois pour toutes dans le thème
+  (`VxFadePageTransitionsBuilder`, `vxFadeTransition`, `core/theme.dart`).
 
 ### Pages principales sans recherche
 
@@ -196,8 +205,11 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
   - affiche : 116 (tablette 140, TV 220) ;
   - horizontale : 220 (tablette 260, TV 384).
 - **Grilles** (`posterGridDelegate`) : 10 entre les cartes (TV 28).
-- **Pas de nom sur les cartes** : l'image suffit. Le nom n'est écrit que pour un titre sans
+- **Pas de nom sur l'image des cartes** : l'image suffit. Le nom n'est écrit que pour un titre sans
   image ; il reste dans le libellé pour les lecteurs d'écran.
+- **Sur téléphone**, sous chaque affiche (rangées et grilles) : le titre sur une ligne (13,
+  semi-gras), puis sur la ligne suivante l'année à gauche et la note TMDb avec son logo à droite
+  (11, texte secondaire). Tablette et TV : l'image seule.
 - **Logo sur une image horizontale** :
   - il est demandé à la taille d'une carte (`MediaItem.cardLogoUrl`, w300) ;
   - l'image et le logo apparaissent ensemble, une fois les deux chargés (`ImagesTogether`) : le

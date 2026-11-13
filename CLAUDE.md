@@ -224,6 +224,29 @@ lib/
     le focus et occupe la grande image : pas de « titre à la une » (`featured`) sur grand écran,
     ni de bouton « Plus d'infos » ; OK ou un clic sur la carte ouvre la fiche. Le carrousel du
     téléphone garde les titres à la une.
+- **Transition entre les pages** (demande du développeur) : chaque nouvelle page apparaît en
+  **fondu** (300 ms, `vxPageFade`), sans glissement, et repart en fondu au retour. Le thème le
+  règle pour toutes les plateformes (`pageTransitionsTheme` → `VxFadePageTransitionsBuilder`,
+  `core/theme.dart`) : cela vaut pour toute route `builder:` de go_router et tout
+  `MaterialPageRoute`. Les pages principales (onglets) passent par `tab(state, …)` dans
+  `router.dart` (`CustomTransitionPage` avec le même fondu). Ne pas ajouter d'autre transition.
+- **Rangées de l'accueil : « Voir tout »** (demande du développeur) : à droite du titre de chaque
+  rangée, un bouton rond à flèche (`SectionHeader(onSeeAll:)`) ouvre la liste entière
+  (`TitleListScreen`, `catalog/list_screen.dart`, `/liste/:type/:list?titre=…`) : bouton retour,
+  titre de la rangée, grille qui charge la page suivante en arrivant à la fin (`PagedGrid`, le
+  même que la recherche ; API `/catalog/{type}/lists/{list}`, `titleListProvider`).
+- **Page « Chaînes TV »** (`/chaines-tv`, `TvChannelsScreen` ; demande du développeur : comme
+  l'accueil) : une **rangée par catégorie** (`channelCategorySections`, `tvChannelRowsProvider` :
+  catégories et chaînes demandées une fois, 24 chaînes par rangée, catégorie vide masquée), avec
+  le bouton rond « Voir tout » qui montre toute la catégorie. Un texte dans la recherche ou une
+  puce de catégorie affiche la grille (`ChannelSearchResults`) ; « Toutes » revient aux rangées.
+- **Rail de navigation sur un écran bas** : icônes et marges rétrécissent selon la hauteur
+  (40 au minimum), puis le rail défile avec une barre (`_Rail`, `shell/app_shell.dart`). Test :
+  `test/profile_features_test.dart`.
+- **Pas de pages « Films » ni « Séries »** (supprimées, demande du développeur) : ni route, ni
+  onglet, ni entrée du rail ; `/films` et `/series` redirigent vers `/accueil`. `HomeScreen` et
+  `homeProvider` n'ont plus de paramètre `type`. Pour ne voir que les films ou les séries : le
+  filtre de type de la recherche. Ne pas les réintroduire.
 - **Pas de « Favoris » ❤** (supprimés, demande du développeur ; supprimés aussi de l'API, groupe
   `liked`) : ni page `/favoris`, ni onglet, ni bouton cœur sur les titres, les épisodes ou les
   chaînes. « Ma liste » (`favorite`) reste. Ne pas les réintroduire.
@@ -313,9 +336,13 @@ lib/
   taille du texte du système). Changer de saison revient au premier épisode. Test :
   `test/details_people_test.dart`.
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
-  horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Pas de nom sur les affiches**, dans
-  les deux formats (demande du développeur : l'image suffit) ; le nom n'est écrit que pour un titre
-  sans aucune image, et reste dans le libellé pour les lecteurs d'écran. En horizontal, le logo du
+  horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Sur téléphone** (demande du
+  développeur), sous chaque affiche : le titre sur une ligne, puis l'année à gauche et la note
+  TMDb avec son logo à droite (`PosterCard`, hauteur `PosterCard.captionHeightOf(context)`, que
+  les rangées et les grilles ajoutent à l'image ; grilles : `posterGridDelegate(…,
+  captionHeight:)`). **Tablette et TV : pas de nom sur les affiches**, dans les deux formats
+  (l'image suffit) ; le nom n'est écrit que pour un titre sans aucune image, et reste dans le
+  libellé pour les lecteurs d'écran. En horizontal, le logo du
   titre s'affiche quand le titre le donne (rangées de l'accueil) : **jamais de requête de fiche par
   carte** (`titleProvider` dans `PosterCard` = une requête par titre affiché, au-delà de la limite
   de l'API). « Ma liste » demande tous ses titres en une requête (`titlesByIdProvider`, API
@@ -361,7 +388,7 @@ lib/
 
 - Fait : connexion, inscription, session persistante (jeton chiffré), connexion TV par QR code
   (validée depuis le téléphone), « Qui regarde ? » (PIN de profil, ajout avec PIN parental si
-  activé), accueil (carrousel / grande image, « Continuer à regarder », rangées), Films / Séries,
+  activé), accueil (carrousel / grande image, « Continuer à regarder », rangées),
   fiche film et série (saisons, épisodes avec date de diffusion, distribution, recommandations,
   bande-annonce, Ma liste, Vu, notes TMDb du film, de la série et des épisodes), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (« Explorer », filtres type / genre / années /
