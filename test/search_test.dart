@@ -6,6 +6,7 @@ import 'package:vixeo/app.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/models.dart';
+import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/search/filter_bar.dart';
 import 'package:vixeo/features/search/search_filters.dart';
@@ -55,6 +56,8 @@ class FakeCatalog {
 
   SearchResults search((String, SearchFilters) key) {
     searches.add(key);
+    // Nothing is called "introuvable".
+    if (key.$1 == 'introuvable') return const SearchResults(movies: [], shows: [], people: []);
     return SearchResults(
       movies: [title(1, 'Orbite ${key.$1}', MediaType.movie), title(2, 'Le Phare', MediaType.movie)],
       shows: [title(3, 'Les Veilleurs', MediaType.tv)],
@@ -171,19 +174,57 @@ void main() {
     });
   });
 
-  testWidgets('phone: explore without carousel, then a filtered grid of one type', (tester) async {
+  testWidgets('nothing searched: no results, no "Aucun résultat", nothing asked', (tester) async {
     final fake = await pumpSearch(tester);
 
-    // Before typing: a row of movies and a row of TV shows, no carousel of trending titles.
     expect(find.text('Tendance tout'), findsNothing);
-    expect(find.text('Films'), findsWidgets);
-    expect(fake.titleQueries.map((q) => q.type), containsAll([MediaType.movie, MediaType.tv]));
-    // « Chaînes TV » and « Personnes » are always there: a type each, and a section of "Tout".
-    expect(find.text('Chaînes TV'), findsNWidgets(2));
-    expect(find.text('TF1'), findsOneWidget);
+    expect(find.byType(PosterCard), findsNothing);
+    expect(find.text('TF1'), findsNothing);
+    expect(find.text('Alma Meyer'), findsNothing);
+    expect(find.text('Aucun résultat'), findsNothing);
+    expect(fake.titleQueries, isEmpty);
+    expect(fake.searches, isEmpty);
+    expect(fake.channelQueries, isEmpty);
+    // The filters are there, ready for the search.
     expect(find.ancestor(of: find.text('Personnes'), matching: find.byType(FilterChipButton)), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Alma Meyer'), 300, scrollable: pageScroll);
-    expect(find.text('Alma Meyer'), findsOneWidget);
+
+    // A type chosen without a text: still nothing.
+    await tapChip(tester, 'Films');
+    expect(find.byType(PosterCard), findsNothing);
+    expect(find.text('Aucun résultat'), findsNothing);
+    await tapChip(tester, 'Chaînes TV');
+    expect(find.text('TF1'), findsNothing);
+    expect(fake.titleQueries, isEmpty);
+    expect(fake.channelQueries, isEmpty);
+
+    // One letter is not a search yet: nothing, and no "Aucun résultat".
+    await tapChip(tester, 'Tout');
+    await typeQuery(tester, 'o');
+    expect(find.byType(PosterCard), findsNothing);
+    expect(find.text('Aucun résultat'), findsNothing);
+    expect(fake.searches, isEmpty);
+  });
+
+  testWidgets('"Aucun résultat" only when a text finds nothing; emptying the field removes it', (tester) async {
+    final fake = await pumpSearch(tester);
+
+    await typeQuery(tester, 'introuvable');
+    expect(fake.searches.last.$1, 'introuvable');
+    expect(find.text('Aucun résultat'), findsOneWidget);
+    expect(find.textContaining('Rien ne correspond à « introuvable »'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Effacer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Aucun résultat'), findsNothing);
+
+    await typeQuery(tester, 'orbite');
+    expect(find.text('Aucun résultat'), findsNothing);
+    expect(find.byType(PosterCard), findsWidgets);
+  });
+
+  testWidgets('phone: with a text, a filtered grid of one type', (tester) async {
+    final fake = await pumpSearch(tester);
+    await typeQuery(tester, 'film');
 
     // "Séries": the TV shows come in a grid.
     await tapChip(tester, 'Séries');
@@ -193,7 +234,7 @@ void main() {
     await choose(tester, 'Genre', 'Drame');
     expect(fake.titleQueries.last.type, MediaType.tv);
     expect(fake.titleQueries.last.filters.genre, drama);
-    expect(fake.titleQueries.last.query, isNull);
+    expect(fake.titleQueries.last.query, 'film');
     expect(find.text('Drame'), findsOneWidget);
 
     await choose(tester, 'Tri :', 'Mieux notés');
@@ -201,7 +242,7 @@ void main() {
     expect(find.text('Tri : Mieux notés'), findsOneWidget);
 
     await tapChip(tester, 'Réinitialiser');
-    expect(find.text('Tri : Popularité'), findsOneWidget);
+    expect(find.text('Tri : Pertinence'), findsOneWidget);
     expect(find.text('Genre'), findsOneWidget);
   });
 
@@ -235,26 +276,27 @@ void main() {
     // Genre, years, rating and order don't apply to people.
     expect(find.text('Genre'), findsNothing);
 
-    // Text erased: « Personnes » stays, with the popular people.
+    // Text erased: the « Personnes » chip stays, the people leave (nothing is searched).
     await tester.tap(find.byTooltip('Effacer'));
     await tester.pumpAndSettle();
     expect(find.text('Personnes'), findsOneWidget);
-    expect(find.text('Alma Meyer'), findsOneWidget);
+    expect(find.text('Alma Meyer'), findsNothing);
+    expect(find.text('Aucun résultat'), findsNothing);
   });
 
   testWidgets('« Chaînes TV »: a grid, the text and the category filter it, same chips as the filters', (tester) async {
     final fake = await pumpSearch(tester);
     await tapChip(tester, 'Chaînes TV');
+    await typeQuery(tester, 'tf');
     expect(find.text('TF1'), findsOneWidget);
-    expect(find.text('L’Équipe'), findsOneWidget);
+    expect(find.text('L’Équipe'), findsNothing);
     // Title filters don't apply to channels: their category instead, a filter chip like « Genre ».
     expect(find.text('Genre'), findsNothing);
     expect(find.ancestor(of: find.text('Catégorie'), matching: find.byType(FilterChipButton)), findsOneWidget);
 
     await choose(tester, 'Catégorie', 'Sport');
-    expect(fake.channelQueries.last, ('', 'sport'));
+    expect(fake.channelQueries.last, ('tf', 'sport'));
     expect(find.text('TF1'), findsNothing);
-    expect(find.text('L’Équipe'), findsOneWidget);
 
     // Another type: the category is dropped.
     await tapChip(tester, 'Films');
@@ -276,6 +318,7 @@ void main() {
 
   testWidgets('the grid loads the next page at its end', (tester) async {
     final fake = await pumpSearch(tester, totalPages: 3);
+    await typeQuery(tester, 'film');
     await tapChip(tester, 'Films');
     Set<int> moviePages() => fake.titleQueries.where((q) => q.type == MediaType.movie).map((q) => q.page).toSet();
     expect(moviePages(), isNot(contains(3)));
@@ -291,23 +334,22 @@ void main() {
     expect(moviePages(), {1, 2, 3});
   });
 
-  testWidgets('large screen: the hero shows the first result, then follows the selection', (tester) async {
+  testWidgets('large screen: no hero before a search, then the first result, then the selection', (tester) async {
     await pumpSearch(tester, size: const Size(1920, 1080));
 
-    // No carousel on a large screen: the hero, with the first title of the first row.
+    // Nothing searched: no carousel, no hero.
     expect(find.text('Tendance tout'), findsNothing);
-    expect(find.text('Résumé de Film 1-0'), findsOneWidget);
+    expect(find.textContaining('Résumé de'), findsNothing);
+
+    await typeQuery(tester, 'orbite');
+    expect(find.text('Résumé de Orbite orbite'), findsOneWidget);
 
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
     addTearDown(mouse.removePointer);
-    await mouse.moveTo(tester.getCenter(find.bySemanticsLabel(RegExp('^Film 1-2,')).first));
+    await mouse.moveTo(tester.getCenter(find.bySemanticsLabel(RegExp('^Le Phare,')).first));
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pump();
-    expect(find.text('Résumé de Film 1-2'), findsOneWidget);
-
-    // New results: the hero goes back to the first one.
-    await typeQuery(tester, 'orbite');
-    expect(find.text('Résumé de Orbite orbite'), findsOneWidget);
+    expect(find.text('Résumé de Le Phare'), findsOneWidget);
   });
 }

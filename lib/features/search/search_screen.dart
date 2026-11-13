@@ -20,8 +20,9 @@ import 'filter_bar.dart';
 import 'search_filters.dart';
 import 'search_history.dart';
 
-/// Search page. Without a text: "Explorer" (whole catalog by type, genre, years, rating and order).
-/// With a text: the results, filtered and sorted the same way. On larger screens, the hero
+/// Search page. Empty field: the recent searches, and nothing else (no results before a search).
+/// With a text: the results, by type and filtered (genre, years, rating) and sorted; "Aucun
+/// résultat" only when a text finds nothing. On larger screens, the hero
 /// (backdrop and information) follows the selected or hovered result, as on the home page; a
 /// phone has no hero nor carousel here.
 class SearchScreen extends ConsumerStatefulWidget {
@@ -38,6 +39,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _hero = HeroSelection();
   Timer? _debounce;
   String _query = '';
+
+  /// Something is written in the field (even one letter, not yet searched): no recent searches.
+  bool _typing = false;
   late SearchFilters _filters;
 
   @override
@@ -78,6 +82,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _onChanged(String value) {
     _debounce?.cancel();
+    final typing = value.trim().isNotEmpty;
+    if (typing != _typing) setState(() => _typing = typing);
+    if (!typing) {
+      // Field emptied: the results leave at once, the recent searches come back.
+      _setQuery('');
+      return;
+    }
     _debounce = Timer(const Duration(milliseconds: 400), () {
       final q = value.trim();
       if (q.length >= 2) ref.read(recentSearchesProvider.notifier).add(q);
@@ -88,52 +99,41 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _use(String query) {
     _controller.text = query;
     _controller.selection = TextSelection.collapsed(offset: query.length);
+    _typing = true;
     _setQuery(query);
+    setState(() {});
   }
 
   void _clear() {
+    _debounce?.cancel();
     _controller.clear();
+    setState(() => _typing = false);
     _setQuery('');
   }
 
   /// First result, shown in the hero until a card is selected or hovered.
-  MediaItem? _firstResult(bool Function(MediaType type) hasGenre) {
+  MediaItem? _firstResult() {
+    // Nothing searched: no results, so no hero.
+    if (!_withText) return null;
     final type = _filters.kind.mediaType;
     if (_filters.kind == SearchKind.person || _filters.kind.isChannels) return null;
     if (type != null) {
-      return ref
-          .watch(titlesProvider(TitleQuery(type, _filters, query: _withText ? _query : null)))
-          .value
-          ?.items
-          .firstOrNull;
+      return ref.watch(titlesProvider(TitleQuery(type, _filters, query: _query))).value?.items.firstOrNull;
     }
-    if (_withText) {
-      final results = ref.watch(searchProvider((_query, _filters))).value;
-      return results?.movies.firstOrNull ?? results?.shows.firstOrNull;
-    }
-    for (final type in MediaType.values) {
-      if (!hasGenre(type)) continue;
-      final first = ref.watch(titlesProvider(TitleQuery(type, _filters))).value?.items.firstOrNull;
-      if (first != null) return first;
-    }
-    return null;
+    final results = ref.watch(searchProvider((_query, _filters))).value;
+    return results?.movies.firstOrNull ?? results?.shows.firstOrNull;
   }
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
 
-    // Explore with "Tout": a genre only movies (or only TV shows) have leaves the other type out.
-    // Until the genres are loaded, both types are asked.
-    final genres = ref.watch(allGenresProvider).value;
-    bool hasGenre(MediaType type) =>
-        _filters.genre == null || genres == null || (genres[type]?.contains(_filters.genre) ?? false);
-
     final header = VxPageHeader(
       title: 'Recherche',
       search: VxSearchField(
         controller: _controller,
-        autofocus: !layout.isPhone,
+        // Not on a TV: focusing the field opens the on-screen keyboard over the page.
+        autofocus: !layout.isPhone && !DeviceInfo.isTv,
         fontSize: layout.size(16, tv: 24),
         onChanged: _onChanged,
         onSubmitted: (v) {
@@ -146,8 +146,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
     final results = _Results(
       query: _query,
+      typing: _typing,
       filters: _filters,
-      hasGenre: hasGenre,
       onFocused: layout.isPhone ? null : _hero.select,
       onHovered: layout.isPhone ? null : _hero.hover,
       onPickRecent: _use,
@@ -168,7 +168,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
 
     // Larger screens: the hero follows the selected or hovered result (first result meanwhile).
-    final first = _firstResult(hasGenre);
+    final first = _firstResult();
     return Stack(
       children: [
         Positioned(
@@ -214,21 +214,25 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 }
 
-/// What is under the filters: explore (no text) or results, for the chosen type.
+/// What is under the filters: the recent searches (empty field), nothing (a text not searched
+/// yet) or the results for the chosen type.
 class _Results extends ConsumerWidget {
   const _Results({
     required this.query,
+    required this.typing,
     required this.filters,
-    required this.hasGenre,
     required this.onFocused,
     required this.onHovered,
     required this.onPickRecent,
     required this.onResetFilters,
   });
 
+  /// The text searched (at least 2 letters, after a short pause); empty: nothing searched.
   final String query;
+
+  /// Something is written in the field, searched or not.
+  final bool typing;
   final SearchFilters filters;
-  final bool Function(MediaType type) hasGenre;
   final void Function(MediaItem item)? onFocused;
   final void Function(MediaItem item)? onHovered;
   final ValueChanged<String> onPickRecent;
@@ -239,11 +243,20 @@ class _Results extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final type = filters.kind.mediaType;
 
-    final emptyMessage = _withText
-        ? 'Rien ne correspond à « $query »${filters.hasTitleFilters ? ' avec ces filtres' : ''}.'
-        : 'Aucun titre ne correspond à ces filtres.';
+    // Nothing searched: no results and no "Aucun résultat" (developer's request). The recent
+    // searches show with an empty field only, not while a text is being written.
+    if (!_withText) {
+      return CustomScrollView(
+        slivers: [
+          if (!typing) _RecentSearches(onPick: onPickRecent),
+          SliverToBoxAdapter(child: SizedBox(height: pageBottomPadding(context))),
+        ],
+      );
+    }
+
+    final type = filters.kind.mediaType;
+    final emptyMessage = 'Rien ne correspond à « $query »${filters.hasTitleFilters ? ' avec ces filtres' : ''}.';
 
     final List<Widget> content;
     if (filters.kind.isChannels) {
@@ -266,7 +279,7 @@ class _Results extends ConsumerWidget {
         ),
       ];
     } else if (type != null) {
-      final q = TitleQuery(type, filters, query: _withText ? query : null);
+      final q = TitleQuery(type, filters, query: query);
       final format = posterFormatOf(ref);
       content = [
         PagedGrid<MediaItem>(
@@ -290,7 +303,7 @@ class _Results extends ConsumerWidget {
           ),
         ),
       ];
-    } else if (_withText) {
+    } else {
       content = [
         _SearchRows(
           query: query,
@@ -301,21 +314,10 @@ class _Results extends ConsumerWidget {
           onReset: filters.isDefault ? null : onResetFilters,
         ),
       ];
-    } else {
-      content = [
-        _ExploreRows(
-          filters: filters,
-          hasGenre: hasGenre,
-          onFocused: onFocused,
-          onHovered: onHovered,
-          onReset: onResetFilters,
-        ),
-      ];
     }
 
     return CustomScrollView(
       slivers: [
-        if (!_withText && !filters.kind.isChannels) _RecentSearches(onPick: onPickRecent),
         ...content,
         // The end of the page clear of the tab bar.
         SliverToBoxAdapter(child: SizedBox(height: pageBottomPadding(context))),
@@ -381,83 +383,9 @@ class NumberedSliverList extends ConsumerWidget {
   }
 }
 
-/// Explore with "Tout": a row of movies, a row of TV shows, then the live channels and popular
-/// people, always there (choose a type to see all). A genre, years or rating filter keeps the
-/// titles only: they don't apply to channels and people.
-class _ExploreRows extends ConsumerWidget {
-  const _ExploreRows({
-    required this.filters,
-    required this.hasGenre,
-    required this.onFocused,
-    required this.onHovered,
-    required this.onReset,
-  });
-
-  final SearchFilters filters;
-  final bool Function(MediaType type) hasGenre;
-  final void Function(MediaItem item)? onFocused;
-  final void Function(MediaItem item)? onHovered;
-  final VoidCallback onReset;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final layout = Layout.of(context);
-    final types = MediaType.values.where(hasGenre).toList();
-    final pages = {for (final type in types) type: ref.watch(titlesProvider(TitleQuery(type, filters)))};
-
-    if (pages.values.any((p) => p.isLoading && !p.hasValue)) {
-      return const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator()));
-    }
-    final failed = pages.entries.where((e) => e.value.hasError).toList();
-    if (failed.length == pages.length && failed.isNotEmpty) {
-      return SliverFillRemaining(
-        hasScrollBody: false,
-        child: ErrorPanel(
-          error: failed.first.value.error!,
-          onRetry: () {
-            for (final e in failed) {
-              ref.invalidate(titlesProvider(TitleQuery(e.key, filters)));
-            }
-          },
-        ),
-      );
-    }
-    final rows = [
-      for (final type in types)
-        if (pages[type]?.value?.items case final items? when items.isNotEmpty)
-          (type == MediaType.movie ? 'Films' : 'Séries', items),
-    ];
-    final others = !filters.hasTitleFilters;
-    if (rows.isEmpty && !others) {
-      return SliverFillRemaining(
-        hasScrollBody: false,
-        child: _Empty(
-          title: 'Aucun titre',
-          message: 'Aucun titre ne correspond à ces filtres.',
-          onReset: filters.isDefault ? null : onReset,
-        ),
-      );
-    }
-    final gap = SizedBox(height: layout.sectionGap);
-    return SliverList.list(
-      children: [
-        for (final (index, (title, items)) in rows.indexed) ...[
-          if (index > 0) gap,
-          PosterRow(title: title, items: items, onFocused: onFocused, onHovered: onHovered),
-        ],
-        if (others) ...[
-          if (rows.isNotEmpty) gap,
-          const _ChannelsSection(query: ''),
-          gap,
-          _PeopleSection(people: ref.watch(peopleProvider(('', 1))).whenData((p) => p.items), query: ''),
-        ],
-      ],
-    );
-  }
-}
-
-/// Search with "Tout": rows of movies and TV shows, then the live channels and the people, always
-/// there. With a genre, years or rating filter, the titles only (the API returns no people).
+/// Search with "Tout": rows of movies and TV shows, then the live channels and the people. With a
+/// genre, years or rating filter, the titles only (the API returns no people). "Aucun résultat"
+/// when nothing at all matches the text.
 class _SearchRows extends ConsumerWidget {
   const _SearchRows({
     required this.query,
@@ -483,9 +411,12 @@ class _SearchRows extends ConsumerWidget {
     final gap = SizedBox(height: layout.sectionGap);
 
     final others = !filters.hasTitleFilters;
+    // No title, no person and (when they are searched too) no channel: nothing matches.
+    final channels = others ? ref.watch(channelSearchProvider((query, null))) : null;
+    final noChannel = channels == null || channels.hasError || (channels.value?.isEmpty ?? false);
 
     return switch (results) {
-      AsyncData(:final value) when value.isEmpty && !others => SliverFillRemaining(
+      AsyncData(:final value) when value.isEmpty && noChannel => SliverFillRemaining(
         hasScrollBody: false,
         child: _Empty(title: 'Aucun résultat', message: empty, onReset: onReset),
       ),

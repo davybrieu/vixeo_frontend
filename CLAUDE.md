@@ -210,7 +210,9 @@ lib/
     focalisable ; `InfoSection` est du texte simple) ;
   - touche Retour (`BackNavigationGuard`) : d'une sous-page vers l'accueil (ou vers la connexion
     depuis l'inscription et le mot de passe oublié) ; depuis l'accueil, la connexion ou
-    « Qui regarde ? », confirmation avant de quitter l'appli ;
+    « Qui regarde ? », confirmation avant de quitter l'appli ; sur TV, Retour pendant la saisie
+    d'un champ de texte ne fait que quitter le champ (ce qui ferme le clavier), sans changer de
+    page (`BackNavigationGuard.leaveTextField`) ;
   - les tailles TV sont celles du design 1920×1080, converties avec `Layout.of(context).tv(px)` ;
   - les rangées horizontales sont dans un `FocusTraversalGroup` ;
   - accueil grand écran : la grande image et ses informations suivent la carte sélectionnée
@@ -305,9 +307,12 @@ lib/
   paramètres de l'API. **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
   (demande du développeur) : dans « Tout », après Films et Séries, une section « Chaînes TV » et
   une section « Personnes » toujours affichées (une ligne « Aucune … » si vide ; masquées avec un
-  filtre genre / années / note, qui ne s'applique qu'aux titres). Sans texte, « Personnes » = les
-  personnes populaires (`/catalog/people/popular`). Sans texte : « Explorer » tout le catalogue
-  (`/discover`, tri par popularité par défaut ; « Pertinence » n'existe qu'avec un texte).
+  filtre genre / années / note, qui ne s'applique qu'aux titres). **Sans recherche, aucun
+  résultat** (demande du développeur ; plus d'« Explorer », ni chaînes ni personnes populaires) :
+  champ vide → les recherches récentes seulement ; un texte en cours de saisie (ou d'une seule
+  lettre) → rien, ni récentes ni « Aucun résultat » ; « Aucun résultat » uniquement quand un
+  texte cherché ne trouve rien (dans « Tout » : ni titre, ni personne, ni chaîne). Sur TV, le
+  champ ne prend pas le focus à l'arrivée (il ouvrirait le clavier).
   « Ma liste » reprend la barre sans « Personnes » ni « Catégorie » (`kinds`, `channelCategories`). Avec un texte : l'API filtre et trie les premiers résultats (une
   recherche filtrée ne renvoie pas de personnes). « Tout » = une rangée Films et une rangée
   Séries ; un type choisi = une grille qui charge la page suivante en arrivant à la fin
