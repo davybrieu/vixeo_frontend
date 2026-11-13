@@ -15,6 +15,7 @@ import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
 import 'package:vixeo/features/profiles/profile_settings_screen.dart';
+import 'package:vixeo/features/shell/app_shell.dart';
 
 /// In-memory library: records favorites / watched like the sync API would.
 class FakeLibrary extends LibraryController {
@@ -187,6 +188,33 @@ void main() {
       expect(find.text('Nord Sauvage'), findsNothing, reason: format.name);
       expect(find.bySemanticsLabel(RegExp('^Nord Sauvage, film')), findsOneWidget, reason: format.name);
     }
+  });
+
+  testWidgets('the side rail fits a low screen (smaller icons), then scrolls', (tester) async {
+    addTearDown(tester.view.reset);
+    tester.view.devicePixelRatio = 1;
+    const labels = ['Recherche', 'Accueil', 'Ma liste', 'Avis', 'Chaînes TV'];
+
+    // A phone held sideways: everything is visible, with smaller icons than the usual 52.
+    tester.view.physicalSize = const Size(700, 340);
+    await tester.pumpWidget(app(const AppShell(location: '/recherche', child: SizedBox())));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    for (final label in labels) {
+      final item = tester.getRect(find.byTooltip(label));
+      expect(item.bottom, lessThanOrEqualTo(340), reason: label);
+      expect(item.height, lessThan(52), reason: label);
+    }
+
+    // Lower still: the icons keep a pressable size and the rail scrolls.
+    tester.view.physicalSize = const Size(700, 220);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(tester.getRect(find.byTooltip('Recherche')).height, 40);
+    final rail = find.ancestor(of: find.byTooltip('Recherche'), matching: find.byType(Scrollable)).first;
+    expect(tester.state<ScrollableState>(rail).position.maxScrollExtent, greaterThan(0));
+    await tester.scrollUntilVisible(find.byTooltip('Chaînes TV'), 60, scrollable: rail);
+    expect(tester.getRect(find.byTooltip('Chaînes TV')).bottom, lessThanOrEqualTo(220));
   });
 
   test('reads the poster format of a profile', () {

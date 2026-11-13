@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import 'channel_screen.dart';
 import 'models.dart';
@@ -11,10 +12,13 @@ import 'tv_repository.dart';
 /// One row of live channels on the home page.
 @immutable
 class ChannelSection {
-  const ChannelSection(this.title, this.channels);
+  const ChannelSection(this.title, this.channels, {this.categoryId});
 
   final String title;
   final List<TvChannel> channels;
+
+  /// The category the row comes from (« Chaînes TV » page): its "see all" shows that category.
+  final String? categoryId;
 }
 
 /// A few channels per home row (keeps the page light; the search page has them all).
@@ -62,6 +66,37 @@ List<ChannelSection> channelSections(List<TvCategory> categories, List<TvChannel
   return sections;
 }
 
+/// The rows of the « Chaînes TV » page: one per category, in the order of the categories, with
+/// the first channels of each ([homeChannelLimit]); a category without channels is left out.
+/// Channels of a category the list doesn't name come last, under their category id.
+List<ChannelSection> channelCategorySections(List<TvCategory> categories, List<TvChannel> channels) {
+  final byCategory = <String, List<TvChannel>>{};
+  for (final channel in channels) {
+    byCategory.putIfAbsent(channel.categoryId, () => []).add(channel);
+  }
+  ChannelSection section(String id, String title) =>
+      ChannelSection(title, byCategory[id]!.take(homeChannelLimit).toList(), categoryId: id.isEmpty ? null : id);
+
+  final known = {for (final c in categories) c.id};
+  return [
+    for (final c in categories)
+      if (byCategory.containsKey(c.id)) section(c.id, c.name),
+    for (final id in byCategory.keys)
+      if (!known.contains(id)) section(id, id.isEmpty ? 'Autres chaînes' : id),
+  ];
+}
+
+/// The rows of the « Chaînes TV » page: categories and channels asked once, then grouped.
+final tvChannelRowsProvider = FutureProvider.autoDispose<List<ChannelSection>>((ref) async {
+  final repository = ref.watch(tvRepositoryProvider);
+  final results = await Future.wait([
+    // Without categories (an error or none), the category ids are read as names.
+    repository.categories().catchError((Object _) => const <TvCategory>[]),
+    repository.channels(),
+  ]);
+  return channelCategorySections(results[0] as List<TvCategory>, results[1] as List<TvChannel>);
+});
+
 /// The home rows of live channels: categories and channels asked once, then sorted.
 final homeChannelSectionsProvider = FutureProvider.autoDispose<List<ChannelSection>>((ref) async {
   final repository = ref.watch(tvRepositoryProvider);
@@ -73,12 +108,24 @@ final homeChannelSectionsProvider = FutureProvider.autoDispose<List<ChannelSecti
   return channelSections(results[0] as List<TvCategory>, results[1] as List<TvChannel>);
 });
 
-/// Horizontal row of live channel tiles (home and search « Chaînes TV »).
+/// Horizontal row of live channel tiles (« Chaînes TV » page and search).
 class ChannelRow extends ConsumerWidget {
-  const ChannelRow({super.key, required this.channels, this.title = 'Chaînes TV'});
+  const ChannelRow({
+    super.key,
+    required this.channels,
+    this.title = 'Chaînes TV',
+    this.onSeeAll,
+    this.autofocusFirst = false,
+  });
 
   final List<TvChannel> channels;
   final String title;
+
+  /// The round arrow on the right of the title (« Chaînes TV » page: the whole category).
+  final VoidCallback? onSeeAll;
+
+  /// The first tile takes the focus on arrival (first row of a page, on TV).
+  final bool autofocusFirst;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -92,11 +139,7 @@ class ChannelRow extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // No « Voir tout »: all the channels are in the search page (« Chaînes TV »).
-        Padding(
-          padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, layout.isLarge ? layout.tv(22) : 12),
-          child: Text(title, style: VxText.title(layout.isLarge ? layout.tv(30) : 18)),
-        ),
+        SectionHeader(title, onSeeAll: onSeeAll),
         FocusTraversalGroup(
           child: SizedBox(
             // The tile, then its name on up to two lines (12 px, line height 1.45).
@@ -109,7 +152,12 @@ class ChannelRow extends ConsumerWidget {
               separatorBuilder: (_, _) => SizedBox(width: gap),
               itemBuilder: (context, i) {
                 final channel = channels[i];
-                return ChannelTile(channel: channel, size: tileSize, onTap: () => openChannel(context, channel));
+                return ChannelTile(
+                  channel: channel,
+                  size: tileSize,
+                  autofocus: autofocusFirst && i == 0,
+                  onTap: () => openChannel(context, channel),
+                );
               },
             ),
           ),
@@ -121,16 +169,24 @@ class ChannelRow extends ConsumerWidget {
 
 /// A live channel: its logo in a square, its name under it. A press opens it.
 class ChannelTile extends ConsumerWidget {
-  const ChannelTile({super.key, required this.channel, required this.size, required this.onTap});
+  const ChannelTile({
+    super.key,
+    required this.channel,
+    required this.size,
+    required this.onTap,
+    this.autofocus = false,
+  });
 
   final TvChannel channel;
   final double size;
   final VoidCallback onTap;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final radius = size * 0.14;
     return VxFocusable(
+      autofocus: autofocus,
       borderRadius: radius,
       semanticLabel: channel.name,
       onPressed: onTap,

@@ -250,7 +250,7 @@ class _Results extends ConsumerWidget {
       content = [ChannelSearchResults(query: query, categoryId: filters.category?.id)];
     } else if (filters.kind == SearchKind.person) {
       content = [
-        _PagedGrid<Person>(
+        PagedGrid<Person>(
           key: ValueKey(('people', query)),
           page: (page) => peopleProvider((query, page)),
           idOf: (p) => p.id,
@@ -269,7 +269,7 @@ class _Results extends ConsumerWidget {
       final q = TitleQuery(type, filters, query: _withText ? query : null);
       final format = posterFormatOf(ref);
       content = [
-        _PagedGrid<MediaItem>(
+        PagedGrid<MediaItem>(
           key: ValueKey(q),
           page: (page) => titlesProvider(q.atPage(page)),
           idOf: (item) => item.id,
@@ -627,8 +627,9 @@ class _Empty extends StatelessWidget {
 }
 
 /// Grid loading the next page when its end comes into view (scroll, or remote focus moving down).
-class _PagedGrid<T> extends ConsumerStatefulWidget {
-  const _PagedGrid({
+/// A sliver: also used by the "Voir tout" page of a home row.
+class PagedGrid<T> extends ConsumerStatefulWidget {
+  const PagedGrid({
     super.key,
     required this.page,
     required this.idOf,
@@ -644,10 +645,10 @@ class _PagedGrid<T> extends ConsumerStatefulWidget {
   final Widget empty;
 
   @override
-  ConsumerState<_PagedGrid<T>> createState() => _PagedGridState<T>();
+  ConsumerState<PagedGrid<T>> createState() => _PagedGridState<T>();
 }
 
-class _PagedGridState<T> extends ConsumerState<_PagedGrid<T>> {
+class _PagedGridState<T> extends ConsumerState<PagedGrid<T>> {
   int _pages = 1;
   bool _scheduled = false;
 

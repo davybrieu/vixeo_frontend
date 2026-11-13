@@ -14,6 +14,7 @@ import 'features/auth/register_screen.dart';
 import 'features/auth/session.dart';
 import 'features/catalog/details_screen.dart';
 import 'features/catalog/home_screen.dart';
+import 'features/catalog/list_screen.dart';
 import 'features/catalog/models.dart';
 import 'features/catalog/person_screen.dart';
 import 'features/library/my_list_screen.dart';
@@ -61,7 +62,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       const authPages = {'/connexion', '/inscription', '/mot-de-passe-oublie'};
       const guestAllowed = {
-        '/accueil', '/films', '/series', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/tv-live',
+        '/accueil', '/films', '/series', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/tv-live',
       };
       const accountOnly = {
         '/profils', '/ma-liste', '/avis', '/profil', '/profil/avatar', '/profil/controle-parental',
@@ -185,6 +186,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => ChannelScreen(
               id: state.pathParameters['id'] ?? '',
               initial: state.extra is TvChannel ? state.extra as TvChannel : null,
+            ),
+          ),
+          // "Voir tout" of a home row: /liste/movie/trending?titre=Films%20du%20moment.
+          GoRoute(
+            path: '/liste/:type/:list',
+            builder: (_, state) => TitleListScreen(
+              type: MediaType.parse(state.pathParameters['type']),
+              list: state.pathParameters['list'] ?? '',
+              title: state.uri.queryParameters['titre'],
             ),
           ),
           GoRoute(

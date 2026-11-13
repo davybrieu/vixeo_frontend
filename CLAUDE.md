@@ -230,6 +230,19 @@ lib/
   `core/theme.dart`) : cela vaut pour toute route `builder:` de go_router et tout
   `MaterialPageRoute`. Les pages principales (onglets) passent par `tab(state, …)` dans
   `router.dart` (`CustomTransitionPage` avec le même fondu). Ne pas ajouter d'autre transition.
+- **Rangées de l'accueil : « Voir tout »** (demande du développeur) : à droite du titre de chaque
+  rangée, un bouton rond à flèche (`SectionHeader(onSeeAll:)`) ouvre la liste entière
+  (`TitleListScreen`, `catalog/list_screen.dart`, `/liste/:type/:list?titre=…`) : bouton retour,
+  titre de la rangée, grille qui charge la page suivante en arrivant à la fin (`PagedGrid`, le
+  même que la recherche ; API `/catalog/{type}/lists/{list}`, `titleListProvider`).
+- **Page « Chaînes TV »** (`/chaines-tv`, `TvChannelsScreen` ; demande du développeur : comme
+  l'accueil) : une **rangée par catégorie** (`channelCategorySections`, `tvChannelRowsProvider` :
+  catégories et chaînes demandées une fois, 24 chaînes par rangée, catégorie vide masquée), avec
+  le bouton rond « Voir tout » qui montre toute la catégorie. Un texte dans la recherche ou une
+  puce de catégorie affiche la grille (`ChannelSearchResults`) ; « Toutes » revient aux rangées.
+- **Rail de navigation sur un écran bas** : icônes et marges rétrécissent selon la hauteur
+  (40 au minimum), puis le rail défile avec une barre (`_Rail`, `shell/app_shell.dart`). Test :
+  `test/profile_features_test.dart`.
 - **Pas de pages « Films » ni « Séries »** (supprimées, demande du développeur) : ni route, ni
   onglet, ni entrée du rail ; `/films` et `/series` redirigent vers `/accueil`. `HomeScreen` et
   `homeProvider` n'ont plus de paramètre `type`. Pour ne voir que les films ou les séries : le

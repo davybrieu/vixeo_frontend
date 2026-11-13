@@ -153,8 +153,13 @@ Contenu                            pageContentPadding(context)
   Accueil, Recherche, TV, Ma liste, Avis et l'avatar du profil. Le contenu passe dessous :
   `MediaQuery.padding.bottom` comprend les 66 px de la barre.
 - **Tablette, ordinateur, TV** : un rail à gauche, avec l'avatar puis les icônes (Recherche,
-  Accueil, TV, Ma liste, Avis). L'icône active est verte sur fond vert à 12 %.
+  Accueil, Ma liste, Avis, Chaînes TV). L'icône active est verte sur fond vert à 12 %.
 
+- **Rail sur un écran bas** (téléphone tenu à l'horizontale, petite tablette) : les icônes et les
+  marges rétrécissent pour que tout reste visible (icône de 40 au minimum) ; si cela ne suffit
+  pas, le rail défile, avec une barre de défilement (`_Rail`, `app_shell.dart`).
+- **Titre de rangée** (`SectionHeader`) : avec `onSeeAll`, un bouton rond à flèche (28, TV 48) à
+  droite du titre ouvre la liste entière (libellé « Voir tout : … » pour les lecteurs d'écran).
 - **Changement de page** : toute nouvelle page apparaît en **fondu** (300 ms, sans glissement),
   et repart en fondu au retour ; onglets compris. Réglé une fois pour toutes dans le thème
   (`VxFadePageTransitionsBuilder`, `vxFadeTransition`, `core/theme.dart`).

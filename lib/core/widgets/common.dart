@@ -309,6 +309,7 @@ class SectionHeader extends StatelessWidget {
     final layout = Layout.of(context);
     final large = layout.isLarge;
     final heading = Text(title, style: VxText.title(large ? layout.tv(30) : 18));
+    final seeAllSize = large ? layout.tv(48) : 28.0;
     return Padding(
       padding: padding ?? EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, layout.titleGap),
       child: onSeeAll == null
@@ -316,27 +317,16 @@ class SectionHeader extends StatelessWidget {
           : Row(
               children: [
                 Expanded(child: heading),
+                // Round arrow on the right of the title: opens the whole list.
                 VxFocusable(
-                  borderRadius: 8,
+                  borderRadius: seeAllSize / 2,
                   semanticLabel: 'Voir tout : $title',
                   onPressed: onSeeAll,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Voir tout',
-                          style: VxText.body(
-                            large ? layout.tv(20) : 13,
-                            color: VxColors.accent,
-                            weight: FontWeight.w600,
-                          ),
-                        ),
-                        SizedBox(width: large ? layout.tv(6) : 3),
-                        Icon(Icons.chevron_right_rounded, size: large ? layout.tv(24) : 18, color: VxColors.accent),
-                      ],
-                    ),
+                  child: Container(
+                    width: seeAllSize,
+                    height: seeAllSize,
+                    decoration: const BoxDecoration(color: VxColors.surfaceHigh, shape: BoxShape.circle),
+                    child: Icon(Icons.chevron_right_rounded, size: seeAllSize * 0.72, color: VxColors.text),
                   ),
                 ),
               ],

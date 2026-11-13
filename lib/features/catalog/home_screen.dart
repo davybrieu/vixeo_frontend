@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
@@ -11,6 +12,7 @@ import '../auth/session.dart';
 import '../library/library.dart';
 import 'catalog_repository.dart';
 import 'hero.dart';
+import 'list_screen.dart';
 import 'models.dart';
 import 'widgets.dart';
 
@@ -83,7 +85,15 @@ class _PhoneHome extends StatelessWidget {
             ),
           ),
         ],
-        for (final section in home.sections) ...[gap, PosterRow(title: section.title, items: section.items)],
+        for (final section in home.sections) ...[
+          gap,
+          PosterRow(
+            title: section.title,
+            items: section.items,
+            // The round arrow on the right of the title: the whole list.
+            onSeeAll: () => context.push(TitleListScreen.location(section.type, section.list, section.title)),
+          ),
+        ],
       ],
     );
   }
@@ -177,6 +187,8 @@ class _LargeHomeState extends State<_LargeHome> {
                     PosterRow(
                       title: section.title,
                       items: section.items,
+                      onSeeAll: () =>
+                          context.push(TitleListScreen.location(section.type, section.list, section.title)),
                       onFocused: _hero.select,
                       onHovered: _hero.hover,
                       // Nothing to resume: the first card of the first list takes the focus.
