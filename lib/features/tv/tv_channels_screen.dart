@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
+import '../profiles/row_preferences.dart';
 import '../tv/channel_row.dart';
 import '../tv/channel_search.dart';
 
@@ -27,7 +28,23 @@ class TvChannelsScreen extends ConsumerWidget {
       await ref.read(tvChannelRowsProvider.future);
     }
 
-    final List<Widget> content = switch (ref.watch(tvChannelRowsProvider)) {
+    // The categories the profile chose to show, in its order (« Paramètres »).
+    final rowPreferences = ref.watch(channelRowPreferencesProvider).value ?? RowPreferences.none;
+    final allRows = ref.watch(tvChannelRowsProvider);
+    final rows = allRows.whenData((all) => rowPreferences.visible(all, channelRowKey));
+    final everyRowHidden = (allRows.value?.isNotEmpty ?? false) && (rows.value?.isEmpty ?? false);
+
+    final List<Widget> content = switch (rows) {
+      AsyncData() when everyRowHidden => const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: EmptyState(
+            icon: Icons.visibility_off_outlined,
+            title: 'Toutes les catégories sont masquées',
+            message: 'Affichez-en dans Paramètres, « Catégories des chaînes TV ».',
+          ),
+        ),
+      ],
       AsyncData(:final value) when value.isEmpty => const [
         SliverFillRemaining(
           hasScrollBody: false,

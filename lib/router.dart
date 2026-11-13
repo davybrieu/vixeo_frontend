@@ -24,6 +24,8 @@ import 'features/profiles/parental_pin.dart';
 import 'features/profiles/profile_preferences_screen.dart';
 import 'features/profiles/profile_settings_screen.dart';
 import 'features/profiles/profiles_screen.dart';
+import 'features/profiles/row_preferences.dart';
+import 'features/profiles/rows_settings_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
@@ -172,6 +174,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),
           GoRoute(path: '/profil/code-pin', builder: (_, _) => const ParentalPinScreen()),
           GoRoute(path: '/profil/parametres', builder: (_, _) => const ProfilePreferencesScreen()),
+          // Order and visibility of the rows of the home page and of the « Chaînes TV » page.
+          GoRoute(
+            path: RowsSettingsScreen.homeLocation,
+            builder: (_, _) => const RowsSettingsScreen(page: RowsPage.home),
+          ),
+          GoRoute(
+            path: RowsSettingsScreen.channelsLocation,
+            builder: (_, _) => const RowsSettingsScreen(page: RowsPage.channels),
+          ),
           GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
           GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
           // Services linked to the profile (TMDb). The former addresses lead to the new pages.

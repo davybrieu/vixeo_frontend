@@ -10,6 +10,7 @@ import '../../core/widgets/page_header.dart';
 import '../../core/widgets/common.dart';
 import '../auth/session.dart';
 import '../library/library.dart';
+import '../profiles/row_preferences.dart';
 import 'catalog_repository.dart';
 import 'hero.dart';
 import 'list_screen.dart';
@@ -26,6 +27,8 @@ class HomeScreen extends ConsumerWidget {
     final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
     final resume = guest ? const <ProfileItem>[] : (ref.watch(libraryProvider).value?.continueWatching ?? const <ProfileItem>[]);
     final layout = Layout.of(context);
+    // The rows the profile chose to show, in its order (« Paramètres » → « Rangées de l’accueil »).
+    final rowPreferences = ref.watch(homeRowPreferencesProvider).value ?? RowPreferences.none;
 
     Future<void> refresh() async {
       ref.invalidate(homeProvider);
@@ -43,12 +46,16 @@ class HomeScreen extends ConsumerWidget {
             message: 'Le catalogue est vide pour ce profil.',
           );
         }
+        final shown = Home(
+          featured: data.featured,
+          sections: rowPreferences.visible(data.sections, (section) => section.key),
+        );
         return layout.isPhone
             ? RefreshIndicator(
                 onRefresh: refresh,
-                child: _PhoneHome(home: data, resume: resume),
+                child: _PhoneHome(home: shown, resume: resume),
               )
-            : _LargeHome(home: data, resume: resume);
+            : _LargeHome(home: shown, resume: resume);
       },
     );
   }
