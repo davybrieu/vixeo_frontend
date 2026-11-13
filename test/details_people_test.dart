@@ -185,7 +185,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Épisode 1'), findsOneWidget);
-      expect(find.bySemanticsLabel('Épisode 1, Le départ'), findsOneWidget);
+      // The card's label starts with the episode (its texts follow, for screen readers).
+      expect(find.bySemanticsLabel(RegExp('^Épisode 1, Le départ')), findsOneWidget);
       // Wide 16:9 image, most of the phone's width.
       final still = find.ancestor(of: find.text('Épisode 1'), matching: find.byType(AspectRatio)).first;
       final image = tester.getSize(still);
