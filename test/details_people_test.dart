@@ -161,6 +161,53 @@ void main() {
       expect(find.text('52 min'), findsOneWidget);
     });
 
+    testWidgets('are large cards in a horizontal row, with an "Épisode n" badge', (tester) async {
+      final long = Season(
+        showId: 1399,
+        number: 1,
+        name: 'Saison 1',
+        episodes: [
+          for (var n = 1; n <= 6; n++)
+            Episode(
+              id: n,
+              seasonNumber: 1,
+              number: n,
+              name: n == 1 ? 'Le départ' : 'Suite $n',
+              overview: 'Un très long résumé. ' * 30,
+              runtime: 52,
+              voteAverage: 7.1,
+              airDate: DateTime(2024, 3, n),
+            ),
+        ],
+      );
+      await pumpDetails(tester, show, overrides: [seasonProvider.overrideWith((ref, key) async => long)]);
+      await scrollToEpisodes(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Épisode 1'), findsOneWidget);
+      expect(find.bySemanticsLabel('Épisode 1, Le départ'), findsOneWidget);
+      // Wide 16:9 image, most of the phone's width.
+      final still = find.ancestor(of: find.text('Épisode 1'), matching: find.byType(AspectRatio)).first;
+      final image = tester.getSize(still);
+      expect(image.width, 300);
+      expect(image.height, closeTo(168.75, 0.1));
+      // The overview never takes more than 3 lines.
+      final overview = tester.widget<Text>(find.textContaining('Un très long résumé').first);
+      expect(overview.maxLines, 3);
+      // Runtime and rating on the left, air date on the right of the same line.
+      final runtime = tester.getCenter(find.text('52 min').first);
+      final date = tester.getCenter(find.text('1er mars 2024'));
+      expect(date.dy, closeTo(runtime.dy, 1));
+      expect(date.dx, greaterThan(runtime.dx));
+
+      // The row scrolls from left to right: the last episode comes into view.
+      expect(find.text('Épisode 6'), findsNothing);
+      final row = find.descendant(of: find.byKey(const ValueKey(1)), matching: find.byType(Scrollable));
+      expect(tester.widget<Scrollable>(row).axisDirection, AxisDirection.right);
+      await tester.scrollUntilVisible(find.text('Épisode 6'), 300, scrollable: row);
+      expect(find.text('Épisode 6'), findsOneWidget);
+    });
+
     testWidgets('hide the air date with No spoil', (tester) async {
       await pumpDetails(
         tester,
