@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/device/layout.dart';
+
 /// Intercepts system Back (Android, TV remote) inside a route: from a sub-page, back to the
 /// entry page (Home, or sign-in before signing in); from an entry page, the exit confirmation.
 /// Without it, Back from the sign-in page went to /accueil, which redirects to /connexion: the
@@ -18,6 +20,19 @@ class BackNavigationGuard extends StatelessWidget {
   /// Sign-in pages Back returns to the sign-in form from.
   static const _signInPages = {'/inscription', '/mot-de-passe-oublie'};
 
+  /// Moves the focus off the text field being edited, if any: to the element under it, or to
+  /// nothing. True when a field had the focus.
+  static bool leaveTextField() {
+    final focus = FocusManager.instance.primaryFocus;
+    final context = focus?.context;
+    if (focus == null || context == null) return false;
+    if (context.widget is! EditableText && context.findAncestorWidgetOfExactType<EditableText>() == null) {
+      return false;
+    }
+    if (!focus.focusInDirection(TraversalDirection.down)) focus.unfocus();
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final path = Uri.parse(location).path;
@@ -27,6 +42,10 @@ class BackNavigationGuard extends StatelessWidget {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
+
+        // On a TV, Back while a text field has the focus only leaves the field (which closes
+        // the on-screen keyboard): it must not also leave the page.
+        if (DeviceInfo.isTv && leaveTextField()) return;
 
         if (!isEntry) {
           context.go(_signInPages.contains(path) ? '/connexion' : '/accueil');
