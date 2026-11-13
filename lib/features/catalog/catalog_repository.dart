@@ -11,8 +11,7 @@ class CatalogRepository {
 
   final ApiClient _api;
 
-  Future<Home> home({MediaType? type}) async =>
-      Home.fromJson(await _api.get('/catalog/home', query: {'type': type?.name}));
+  Future<Home> home() async => Home.fromJson(await _api.get('/catalog/home'));
 
   Future<TitleDetails> movie(int id) async =>
       TitleDetails.fromJson((await _api.get('/catalog/movie/$id'))['data'] as Map<String, dynamic>);
@@ -100,9 +99,9 @@ final titlesByIdProvider = FutureProvider.autoDispose.family<Map<TitleRef, Media
 String titlesKey(Iterable<TitleRef> titles) =>
     (titles.map((t) => '${t.type.name}:${t.id}').toSet().toList()..sort()).join(',');
 
-final homeProvider = FutureProvider.autoDispose.family<Home, MediaType?>((ref, type) {
+final homeProvider = FutureProvider.autoDispose<Home>((ref) {
   ref.watch(_profileIdProvider);
-  return ref.read(catalogRepositoryProvider).home(type: type);
+  return ref.read(catalogRepositoryProvider).home();
 });
 
 final titleProvider = FutureProvider.autoDispose.family<TitleDetails, (MediaType, int)>((ref, key) {

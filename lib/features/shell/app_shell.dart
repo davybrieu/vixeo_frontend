@@ -27,8 +27,6 @@ class _Destination {
 const _guestPhoneTabs = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
-  _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
-  _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
 ];
 
@@ -48,16 +46,12 @@ final _tvSidebarFocusNode = FocusNode(debugLabel: 'Navigation latérale');
 const _guestRailItems = [
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
-  _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
-  _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
 ];
 
 const _railItems = [
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
-  _Destination('/films', 'Films', Icons.movie_outlined, Icons.movie_rounded),
-  _Destination('/series', 'Séries', Icons.tv_outlined, Icons.tv_rounded),
   _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
   _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
@@ -86,7 +80,7 @@ class AppShell extends ConsumerWidget {
     // without the navigation, until the home page can be drawn. Only once: coming back to the
     // home page later shows its own loading inside the navigation.
     if (location == '/accueil' && !_homeShown) {
-      final home = ref.watch(homeProvider(null));
+      final home = ref.watch(homeProvider);
       if (!home.hasValue && !home.hasError) {
         return BackNavigationGuard(
           location: location,
@@ -98,8 +92,8 @@ class AppShell extends ConsumerWidget {
 
     if (layout.isPhone) {
       final navigationPages = guest
-          ? {'/accueil', '/recherche', '/films', '/series', '/chaines-tv'}
-          : {'/accueil', '/recherche', '/ma-liste', '/avis', '/films', '/series', '/chaines-tv', '/profil'};
+          ? {'/accueil', '/recherche', '/chaines-tv'}
+          : {'/accueil', '/recherche', '/ma-liste', '/avis', '/chaines-tv', '/profil'};
       final showNavigation = navigationPages.contains(location);
       final index = location == '/profil' ? phoneTabs.length : phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;

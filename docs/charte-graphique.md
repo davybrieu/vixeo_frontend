@@ -153,7 +153,11 @@ Contenu                            pageContentPadding(context)
   Accueil, Recherche, TV, Ma liste, Avis et l'avatar du profil. Le contenu passe dessous :
   `MediaQuery.padding.bottom` comprend les 66 px de la barre.
 - **Tablette, ordinateur, TV** : un rail à gauche, avec l'avatar puis les icônes (Recherche,
-  Accueil, Films, Séries, TV, Ma liste, Avis). L'icône active est verte sur fond vert à 12 %.
+  Accueil, TV, Ma liste, Avis). L'icône active est verte sur fond vert à 12 %.
+
+- **Changement de page** : toute nouvelle page apparaît en **fondu** (300 ms, sans glissement),
+  et repart en fondu au retour ; onglets compris. Réglé une fois pour toutes dans le thème
+  (`VxFadePageTransitionsBuilder`, `vxFadeTransition`, `core/theme.dart`).
 
 ### Pages principales sans recherche
 

@@ -15,27 +15,24 @@ import 'models.dart';
 import 'widgets.dart';
 
 /// Home: featured titles, "Continuer à regarder", themed rows.
-/// [type] limits it to movies or TV shows.
 class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key, this.type});
-
-  final MediaType? type;
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final home = ref.watch(homeProvider(type));
+    final home = ref.watch(homeProvider);
     final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
     final resume = guest ? const <ProfileItem>[] : (ref.watch(libraryProvider).value?.continueWatching ?? const <ProfileItem>[]);
     final layout = Layout.of(context);
 
     Future<void> refresh() async {
-      ref.invalidate(homeProvider(type));
-      await Future.wait([ref.read(homeProvider(type).future), ref.read(libraryProvider.notifier).refresh()]);
+      ref.invalidate(homeProvider);
+      await Future.wait([ref.read(homeProvider.future), ref.read(libraryProvider.notifier).refresh()]);
     }
 
     return AsyncView(
       value: home,
-      onRetry: () => ref.invalidate(homeProvider(type)),
+      onRetry: () => ref.invalidate(homeProvider),
       data: (data) {
         if (data.sections.isEmpty && data.featured.isEmpty) {
           return const EmptyState(
@@ -44,14 +41,12 @@ class HomeScreen extends ConsumerWidget {
             message: 'Le catalogue est vide pour ce profil.',
           );
         }
-        // Continue watching only lists what matches this home (movies, TV shows or both).
-        final rows = type == null ? resume : resume.where((i) => i.tmdbTitle?.type == type).toList();
         return layout.isPhone
             ? RefreshIndicator(
                 onRefresh: refresh,
-                child: _PhoneHome(home: data, resume: rows, type: type),
+                child: _PhoneHome(home: data, resume: resume),
               )
-            : _LargeHome(home: data, resume: rows, type: type);
+            : _LargeHome(home: data, resume: resume);
       },
     );
   }
@@ -60,11 +55,10 @@ class HomeScreen extends ConsumerWidget {
 // ───────────────────────────── Phone ─────────────────────────────
 
 class _PhoneHome extends StatelessWidget {
-  const _PhoneHome({required this.home, required this.resume, required this.type});
+  const _PhoneHome({required this.home, required this.resume});
 
   final Home home;
   final List<ProfileItem> resume;
-  final MediaType? type;
 
   @override
   Widget build(BuildContext context) {
@@ -98,11 +92,10 @@ class _PhoneHome extends StatelessWidget {
 // ───────────────────────────── TV / large ─────────────────────────────
 
 class _LargeHome extends StatefulWidget {
-  const _LargeHome({required this.home, required this.resume, required this.type});
+  const _LargeHome({required this.home, required this.resume});
 
   final Home home;
   final List<ProfileItem> resume;
-  final MediaType? type;
 
   @override
   State<_LargeHome> createState() => _LargeHomeState();

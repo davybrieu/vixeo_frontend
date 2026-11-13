@@ -224,6 +224,16 @@ lib/
     le focus et occupe la grande image : pas de « titre à la une » (`featured`) sur grand écran,
     ni de bouton « Plus d'infos » ; OK ou un clic sur la carte ouvre la fiche. Le carrousel du
     téléphone garde les titres à la une.
+- **Transition entre les pages** (demande du développeur) : chaque nouvelle page apparaît en
+  **fondu** (300 ms, `vxPageFade`), sans glissement, et repart en fondu au retour. Le thème le
+  règle pour toutes les plateformes (`pageTransitionsTheme` → `VxFadePageTransitionsBuilder`,
+  `core/theme.dart`) : cela vaut pour toute route `builder:` de go_router et tout
+  `MaterialPageRoute`. Les pages principales (onglets) passent par `tab(state, …)` dans
+  `router.dart` (`CustomTransitionPage` avec le même fondu). Ne pas ajouter d'autre transition.
+- **Pas de pages « Films » ni « Séries »** (supprimées, demande du développeur) : ni route, ni
+  onglet, ni entrée du rail ; `/films` et `/series` redirigent vers `/accueil`. `HomeScreen` et
+  `homeProvider` n'ont plus de paramètre `type`. Pour ne voir que les films ou les séries : le
+  filtre de type de la recherche. Ne pas les réintroduire.
 - **Pas de « Favoris » ❤** (supprimés, demande du développeur ; supprimés aussi de l'API, groupe
   `liked`) : ni page `/favoris`, ni onglet, ni bouton cœur sur les titres, les épisodes ou les
   chaînes. « Ma liste » (`favorite`) reste. Ne pas les réintroduire.
@@ -361,7 +371,7 @@ lib/
 
 - Fait : connexion, inscription, session persistante (jeton chiffré), connexion TV par QR code
   (validée depuis le téléphone), « Qui regarde ? » (PIN de profil, ajout avec PIN parental si
-  activé), accueil (carrousel / grande image, « Continuer à regarder », rangées), Films / Séries,
+  activé), accueil (carrousel / grande image, « Continuer à regarder », rangées),
   fiche film et série (saisons, épisodes avec date de diffusion, distribution, recommandations,
   bande-annonce, Ma liste, Vu, notes TMDb du film, de la série et des épisodes), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (« Explorer », filtres type / genre / années /

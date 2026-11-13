@@ -57,7 +57,7 @@ Future<void> pumpHome(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        homeProvider.overrideWith((ref, type) async => withHome ?? home),
+        homeProvider.overrideWith((ref) async => withHome ?? home),
         libraryProvider.overrideWith(library),
         titleProvider.overrideWith((ref, key) async {
           asked.add(key.$2);
@@ -119,7 +119,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          homeProvider.overrideWith((ref, type) async => home),
+          homeProvider.overrideWith((ref) async => home),
           libraryProvider.overrideWith(EmptyLibrary.new),
           titleProvider.overrideWith((ref, key) async => details(key)),
         ],
