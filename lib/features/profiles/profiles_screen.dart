@@ -342,6 +342,7 @@ class _AddProfileDialog extends ConsumerStatefulWidget {
 
 class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
   final _name = TextEditingController();
+  final _username = TextEditingController();
   final _parentalPin = TextEditingController();
   bool _isKid = false;
   bool _loading = false;
@@ -350,6 +351,7 @@ class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
   @override
   void dispose() {
     _name.dispose();
+    _username.dispose();
     _parentalPin.dispose();
     super.dispose();
   }
@@ -388,6 +390,8 @@ class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(labelText: 'Prénom', errorText: error?.field('name')),
             ),
+            const SizedBox(height: 8),
+            TextField(controller: _username, autocorrect: false, decoration: InputDecoration(labelText: 'Pseudo', prefixText: '@', errorText: error?.field('username'))),
             const SizedBox(height: 8),
             SwitchListTile(
               value: _isKid,
