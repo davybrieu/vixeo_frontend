@@ -131,7 +131,7 @@ class SearchFilterBar extends ConsumerWidget {
       if (choice != null) onChanged(filters.copyWith(sort: () => choice.$1));
     }
 
-    final titles = filters.kind != SearchKind.person && !filters.kind.isChannels;
+    final titles = filters.kind != SearchKind.person && filters.kind != SearchKind.accounts && !filters.kind.isChannels;
 
     return FilterBar(
       child: Row(
