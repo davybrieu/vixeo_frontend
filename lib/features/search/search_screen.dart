@@ -264,6 +264,8 @@ class _Results extends ConsumerWidget {
     final List<Widget> content;
     if (filters.kind.isChannels) {
       content = [ChannelSearchResults(query: query, categoryId: filters.category?.id)];
+    } else if (filters.kind == SearchKind.accounts) {
+      content = [SliverToBoxAdapter(child: SocialSearchResults(query: query))];
     } else if (filters.kind == SearchKind.person) {
       content = [
         PagedGrid<Person>(
