@@ -19,7 +19,8 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();\n  final _username = TextEditingController();
+  final _name = TextEditingController();
+  final _username = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
@@ -27,7 +28,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   void dispose() {
-    _name.dispose();\n    _username.dispose();
+    _name.dispose();
+    _username.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
