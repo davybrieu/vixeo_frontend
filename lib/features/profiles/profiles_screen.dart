@@ -362,7 +362,7 @@ class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
     try {
       await ref
           .read(authRepositoryProvider)
-          .createProfile(name: _name.text.trim(), isKid: _isKid, parentalPin: _parentalPin.text);
+          .createProfile(name: _name.text.trim(), username: _username.text.trim(), isKid: _isKid, parentalPin: _parentalPin.text);
       if (mounted) Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
