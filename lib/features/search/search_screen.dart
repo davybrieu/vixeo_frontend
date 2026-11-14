@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_exception.dart';
@@ -11,6 +12,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/page_header.dart';
 import '../catalog/catalog_repository.dart';
 import '../social/social_search.dart';
+import '../social/social_repository.dart';
 import '../catalog/hero.dart';
 import '../catalog/models.dart';
 import '../catalog/widgets.dart';
@@ -415,9 +417,11 @@ class _SearchRows extends ConsumerWidget {
     // No title, no person and (when they are searched too) no channel: nothing matches.
     final channels = others ? ref.watch(channelSearchProvider((query, null))) : null;
     final noChannel = channels == null || channels.hasError || (channels.value?.isEmpty ?? false);
+    final accounts = ref.watch(socialSearchProvider(query));
+    final noAccounts = accounts.hasError || (accounts.value?.isEmpty ?? false);
 
     return switch (results) {
-      AsyncData(:final value) when value.isEmpty && noChannel => SliverFillRemaining(
+      AsyncData(:final value) when value.isEmpty && noChannel && noAccounts && !accounts.isLoading => SliverFillRemaining(
         hasScrollBody: false,
         child: _Empty(title: 'Aucun résultat', message: empty, onReset: onReset),
       ),
@@ -434,6 +438,8 @@ class _SearchRows extends ConsumerWidget {
             _ChannelsSection(query: query),
             gap,
             _PeopleSection(people: AsyncData(value.people), query: query),
+            gap,
+            _AccountsSection(accounts: accounts),
           ],
         ],
       ),
@@ -512,6 +518,32 @@ class _PeopleSection extends StatelessWidget {
       _ => const _SectionNote(title: 'Personnes', message: 'Chargement des personnes…'),
     };
   }
+}
+
+
+class _AccountsSection extends StatelessWidget {
+  const _AccountsSection({required this.accounts});
+  final AsyncValue<List<SocialProfile>> accounts;
+
+  @override
+  Widget build(BuildContext context) => switch (accounts) {
+    AsyncData(:final value) when value.isNotEmpty => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader('Comptes'),
+        for (final profile in value.take(8))
+          ListTile(
+            leading: CircleAvatar(child: Text(profile.name.isEmpty ? '?' : profile.name[0].toUpperCase())),
+            title: Text('@${profile.username}'),
+            subtitle: Text('${profile.followersCount} abonnés'),
+            onTap: () => context.push('/membre/${Uri.encodeComponent(profile.username)}'),
+          ),
+      ],
+    ),
+    AsyncData() => const _SectionNote(title: 'Comptes', message: 'Aucun compte trouvé.'),
+    AsyncError() => const _SectionNote(title: 'Comptes', message: 'Impossible de rechercher les comptes.'),
+    _ => const _SectionNote(title: 'Comptes', message: 'Recherche des comptes…'),
+  };
 }
 
 /// The API's French message, or a generic one.
