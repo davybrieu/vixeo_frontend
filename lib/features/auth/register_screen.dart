@@ -19,7 +19,7 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
+  final _name = TextEditingController();\n  final _username = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
@@ -27,7 +27,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   void dispose() {
-    _name.dispose();
+    _name.dispose();\n    _username.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -40,7 +40,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       _error = null;
     });
     try {
-      await ref.read(sessionProvider.notifier).register(_name.text.trim(), _email.text.trim(), _password.text);
+      await ref.read(sessionProvider.notifier).register(_name.text.trim(), _username.text.trim(), _email.text.trim(), _password.text);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {
