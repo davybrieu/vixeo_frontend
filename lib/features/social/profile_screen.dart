@@ -182,7 +182,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
                   if (mounted) setState(() => _busy = false);
                 }
               },
-              child: Text(_busy ? 'Patientez…' : profile.isFollowing ? 'Ne plus suivre' : 'Suivre'),
+              child: Text(_busy ? 'Patientez…' : ref.watch(sessionProvider).isSignedIn ? (profile.isFollowing ? 'Ne plus suivre' : 'Suivre') : 'Se connecter pour suivre'),
             ),
           const Divider(height: 32),
           ListTile(leading: const Icon(Icons.star_outline), title: const Text('Avis'), onTap: () => context.push('/membre/${Uri.encodeComponent(profile.username)}/reviews')),
