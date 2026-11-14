@@ -72,7 +72,7 @@ class AuthRepository {
     return (json['data'] as List).cast<Map<String, dynamic>>().map(Profile.fromJson).toList();
   }
 
-  Future<Profile> createProfile({required String name, bool isKid = false, String? parentalPin}) async {
+  Future<Profile> createProfile({required String name, required String username, bool isKid = false, String? parentalPin}) async {
     final json = await _api.post(
       '/profiles',
       body: {
