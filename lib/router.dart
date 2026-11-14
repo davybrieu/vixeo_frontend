@@ -10,7 +10,7 @@ import 'features/account/devices_screen.dart';
 import 'features/auth/device_login.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/password_reset_screen.dart';
-import 'features/auth/register_screen.dart';
+import 'features/auth/register_screen.dart' show RegisterScreen;
 import 'features/auth/session.dart';
 import 'features/catalog/details_screen.dart';
 import 'features/catalog/home_screen.dart';
