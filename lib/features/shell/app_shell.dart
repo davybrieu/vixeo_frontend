@@ -96,7 +96,7 @@ class AppShell extends ConsumerWidget {
           ? {'/accueil', '/recherche', '/chaines-tv'}
           : {'/accueil', '/recherche', '/ma-liste', '/avis', '/chaines-tv', '/profil'};
       final showNavigation = navigationPages.contains(location);
-      final index = location == '/profil' ? phoneTabs.length : phoneTabs.indexWhere((d) => location == d.path);
+      final index = phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
 
       // Content fills the screen so the glass bar can blur what is behind it.
@@ -135,7 +135,7 @@ class AppShell extends ConsumerWidget {
                     tabs: phoneTabs,
                     guest: guest,
                     onDestinationSelected: (i) {
-                      context.go(i < phoneTabs.length ? phoneTabs[i].path : (guest ? '/connexion' : '/profil'));
+                      context.go(phoneTabs[i].path);
                     },
                   ),
                 ),
