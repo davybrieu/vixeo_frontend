@@ -66,6 +66,8 @@ class SocialRepository {
 
 final socialRepositoryProvider = Provider<SocialRepository>((ref) => SocialRepository(ref.read(apiClientProvider)));
 final socialSearchProvider = FutureProvider.autoDispose.family<List<SocialProfile>, String>((ref, query) {
+  final activeProfile = ref.watch(sessionProvider.select((s) => s.profile));
+  if (activeProfile?.isKid == true) return Future.value(const <SocialProfile>[]);
   if (query.trim().length < 2) return Future.value(const <SocialProfile>[]);
   return ref.read(socialRepositoryProvider).search(query);
 });
