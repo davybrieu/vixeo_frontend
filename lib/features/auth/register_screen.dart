@@ -93,6 +93,59 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
+                      controller: _username,
+                      textInputAction: TextInputAction.next,
+                      autocorrect: false,
+                      decoration: InputDecoration(
+                        labelText: 'Pseudo',
+                        prefixText: '@',
+                        helperText: 'Unique sur Vixeo · 3 à 30 caractères',
+                        errorText: error?.field('username'),
+                      ),
+                      validator: (v) => RegExp(r'^[a-zA-Z0-9_]{3,30}
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
+                      textInputAction: TextInputAction.next,
+                      autocorrect: false,
+                      decoration: InputDecoration(labelText: 'Adresse e-mail', errorText: error?.field('email')),
+                      validator: (v) => (v ?? '').contains('@') ? null : 'Adresse e-mail invalide.',
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: true,
+                      autofillHints: const [AutofillHints.newPassword],
+                      onFieldSubmitted: (_) => _submit(),
+                      decoration: InputDecoration(
+                        labelText: 'Mot de passe',
+                        helperText: '8 caractères minimum',
+                        helperStyle: VxText.body(13, color: VxColors.textMuted),
+                        errorText: error?.field('password'),
+                      ),
+                      validator: (v) => (v ?? '').length < 8 ? 'Au moins 8 caractères.' : null,
+                    ),
+                    const SizedBox(height: 24),
+                    if (generalError != null) ...[
+                      Text(generalError, style: VxText.body(14, color: VxColors.error)),
+                      const SizedBox(height: 12),
+                    ],
+                    VxButton(label: 'Créer mon compte', onPressed: _submit, loading: _loading, expand: true),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+).hasMatch((v ?? '').trim())
+                          ? null : '3 à 30 lettres, chiffres ou _.',
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
