@@ -65,10 +65,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       const authPages = {'/connexion', '/inscription', '/mot-de-passe-oublie'};
       const guestAllowed = {
-        '/accueil', '/films', '/series', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/tv-live',
+        '/accueil', '/films', '/series', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/tv-live', '/membre',
       };
       const accountOnly = {
-        '/profils', '/profils/gestion', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes', '/membre', '/profil/avatar', '/profil/controle-parental',
+        '/profils', '/profils/gestion', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes', '/profil/avatar', '/profil/controle-parental',
         '/profil/code-pin', '/profil/parametres', '/profil/compte', '/profil/appareils',
         '/profil/connexions', '/profil/tmdb', '/profil/notes', '/tv',
       };
