@@ -135,6 +135,10 @@ class AppShell extends ConsumerWidget {
                     tabs: phoneTabs,
                     guest: guest,
                     onDestinationSelected: (i) {
+                      if (guest && i == phoneTabs.length) {
+                        context.go('/connexion?redirect=${Uri.encodeComponent(location)}');
+                        return;
+                      }
                       context.go(phoneTabs[i].path);
                     },
                   ),
