@@ -13,7 +13,7 @@ enum SearchKind {
   channels('Chaînes TV'),
 
   /// People: the search results with a text, TMDb's popular people without one.
-  person('Personnes');
+  person('Personnes'),\n\n  /// Public Vixeo profiles.\n  accounts('Comptes');
 
   const SearchKind(this.label);
 
