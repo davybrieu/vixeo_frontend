@@ -67,6 +67,8 @@ class Profile {
   const Profile({
     required this.id,
     required this.name,
+    this.username,
+    this.bio,
     this.avatar,
     this.posterFormat = PosterFormat.portrait,
     this.isKid = false,
@@ -87,6 +89,8 @@ class Profile {
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
     id: json['id'] as int,
     name: json['name'] as String,
+    username: json['username'] as String?,
+    bio: json['bio'] as String?,
     avatar: json['avatar'] as String?,
     posterFormat: PosterFormat.parse(json['poster_format']),
     isKid: json['is_kid'] as bool? ?? false,
@@ -106,6 +110,8 @@ class Profile {
 
   final int id;
   final String name;
+  final String? username;
+  final String? bio;
 
   /// Avatar id from `GET /avatars` (null = initial letter).
   final String? avatar;
