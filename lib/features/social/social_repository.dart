@@ -8,6 +8,7 @@ class SocialProfile {
     required this.id, required this.username, required this.name,
     this.avatar, this.bio, this.followersCount = 0, this.followingCount = 0,
     this.isFollowing = false, this.isSelf = false,
+    this.reviewsCount = 0, this.watchedCount = 0, this.listCount = 0,
   });
 
   factory SocialProfile.fromJson(Map<String, dynamic> json) => SocialProfile(
@@ -20,6 +21,9 @@ class SocialProfile {
     followingCount: json['following_count'] as int? ?? 0,
     isFollowing: json['is_following'] as bool? ?? false,
     isSelf: json['is_self'] as bool? ?? false,
+    reviewsCount: json['reviews_count'] as int? ?? 0,
+    watchedCount: json['watched_count'] as int? ?? 0,
+    listCount: json['list_count'] as int? ?? 0,
   );
 
   final int id;
@@ -31,6 +35,9 @@ class SocialProfile {
   final int followingCount;
   final bool isFollowing;
   final bool isSelf;
+  final int reviewsCount;
+  final int watchedCount;
+  final int listCount;
 }
 
 class SocialRepository {
