@@ -184,8 +184,8 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
               child: Text(_busy ? 'Patientez…' : profile.isFollowing ? 'Ne plus suivre' : 'Suivre'),
             ),
           const Divider(height: 32),
-          ListTile(leading: const Icon(Icons.star_outline), title: const Text('Avis')),
-          ListTile(leading: const Icon(Icons.bookmark_border), title: const Text('Ma liste')),
+          ListTile(leading: const Icon(Icons.star_outline), title: const Text('Avis'), onTap: () => context.push('/membre/${Uri.encodeComponent(profile.username)}/reviews')),
+          ListTile(leading: const Icon(Icons.bookmark_border), title: const Text('Ma liste'), onTap: () => context.push('/membre/${Uri.encodeComponent(profile.username)}/list')),
         ]);
       },
     ),
