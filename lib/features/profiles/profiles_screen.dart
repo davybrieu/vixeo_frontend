@@ -114,8 +114,7 @@ class ProfilesScreen extends ConsumerWidget {
                           ),
                         ),
                         SizedBox(height: layout.space(VxSpace.xl)),
-                        Text(
-                          'Les profils protégés par un code demandent le PIN à l’ouverture.',
+                        TextButton.icon(\n                          onPressed: () => context.go('/profils/gestion'),\n                          icon: const Icon(Icons.manage_accounts_outlined),\n                          label: const Text('Gérer mes profils'),\n                        ),\n                        Text(\n                          'Les profils protégés par un code demandent le PIN à l’ouverture.',
                           textAlign: TextAlign.center,
                           style: VxText.body(layout.isLarge ? layout.tv(19) : 13, color: VxColors.textMuted),
                         ),
@@ -429,6 +428,80 @@ class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
         TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
         VxButton(label: 'Créer', onPressed: _create, loading: _loading),
       ],
+    );
+  }
+}
+
+
+class ProfileManagementScreen extends ConsumerWidget {
+  const ProfileManagementScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profiles = ref.watch(profilesProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Gérer mes profils')),
+      body: profiles.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, _) => const Center(child: Text('Impossible de charger les profils.')),
+        data: (items) => ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            for (final profile in items)
+              Card(
+                child: ListTile(
+                  leading: CircleAvatar(child: Text(profile.initial)),
+                  title: Text(profile.name),
+                  subtitle: Text('@${profile.username ?? ''}'),
+                  trailing: IconButton(
+                    tooltip: 'Modifier',
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () async {
+                      final name = TextEditingController(text: profile.name);
+                      final username = TextEditingController(text: profile.username ?? '');
+                      final saved = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: Text('Modifier ${profile.name}'),
+                          content: Column(mainAxisSize: MainAxisSize.min, children: [
+                            TextField(controller: name, decoration: const InputDecoration(labelText: 'Nom du profil')),
+                            TextField(controller: username, decoration: const InputDecoration(labelText: 'Pseudo', prefixText: '@')),
+                          ]),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Annuler')),
+                            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Enregistrer')),
+                          ],
+                        ),
+                      );
+                      if (saved == true) {
+                        try {
+                          final updated = await ref.read(authRepositoryProvider).updateProfile(profile.id, {
+                            'name': name.text.trim(), 'username': username.text.trim(),
+                          });
+                          ref.read(sessionProvider.notifier).updateProfile(updated);
+                          ref.invalidate(profilesProvider);
+                        } on ApiException catch (e) {
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+                        }
+                      }
+                      name.dispose();
+                      username.dispose();
+                    },
+                  ),
+                ),
+              ),
+            if (items.length < 5)
+              ListTile(
+                leading: const Icon(Icons.add_circle_outline),
+                title: const Text('Ajouter un profil'),
+                onTap: () async {
+                  final created = await showDialog<bool>(context: context, builder: (_) => const _AddProfileDialog());
+                  if (created == true) ref.invalidate(profilesProvider);
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
