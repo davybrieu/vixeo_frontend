@@ -11,6 +11,7 @@ import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/search/filter_bar.dart';
 import 'package:vixeo/features/search/search_filters.dart';
 import 'package:vixeo/features/search/search_screen.dart';
+import 'package:vixeo/features/social/social_repository.dart';
 import 'package:vixeo/features/tv/channel_search.dart';
 import 'package:vixeo/features/tv/models.dart';
 import 'package:vixeo/features/tv/tv_repository.dart';
@@ -77,6 +78,7 @@ Future<FakeCatalog> pumpSearch(WidgetTester tester, {Size size = const Size(390,
         allGenresProvider.overrideWith((ref) async => genres),
         titlesProvider.overrideWith((ref, q) async => fake.titles(q)),
         searchProvider.overrideWith((ref, key) async => fake.search(key)),
+        socialSearchProvider.overrideWith((ref, query) async => const <SocialProfile>[]),
         peopleProvider.overrideWith((ref, key) async => const Paged(items: [Person(id: 9, name: 'Alma Meyer')])),
         channelSearchProvider.overrideWith((ref, key) async {
           fake.channelQueries.add(key);

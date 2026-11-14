@@ -114,6 +114,11 @@ class ProfilesScreen extends ConsumerWidget {
                           ),
                         ),
                         SizedBox(height: layout.space(VxSpace.xl)),
+                        TextButton.icon(
+                          onPressed: () => context.go('/profils/gestion'),
+                          icon: const Icon(Icons.manage_accounts_outlined),
+                          label: const Text('Gérer mes profils'),
+                        ),
                         Text(
                           'Les profils protégés par un code demandent le PIN à l’ouverture.',
                           textAlign: TextAlign.center,
@@ -342,6 +347,7 @@ class _AddProfileDialog extends ConsumerStatefulWidget {
 
 class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
   final _name = TextEditingController();
+  final _username = TextEditingController();
   final _parentalPin = TextEditingController();
   bool _isKid = false;
   bool _loading = false;
@@ -350,6 +356,7 @@ class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
   @override
   void dispose() {
     _name.dispose();
+    _username.dispose();
     _parentalPin.dispose();
     super.dispose();
   }
@@ -362,7 +369,7 @@ class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
     try {
       await ref
           .read(authRepositoryProvider)
-          .createProfile(name: _name.text.trim(), isKid: _isKid, parentalPin: _parentalPin.text);
+          .createProfile(name: _name.text.trim(), username: _username.text.trim(), isKid: _isKid, parentalPin: _parentalPin.text);
       if (mounted) Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
@@ -388,6 +395,8 @@ class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(labelText: 'Prénom', errorText: error?.field('name')),
             ),
+            const SizedBox(height: 8),
+            TextField(controller: _username, autocorrect: false, decoration: InputDecoration(labelText: 'Pseudo', prefixText: '@', errorText: error?.field('username'))),
             const SizedBox(height: 8),
             SwitchListTile(
               value: _isKid,
@@ -425,6 +434,80 @@ class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
         TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
         VxButton(label: 'Créer', onPressed: _create, loading: _loading),
       ],
+    );
+  }
+}
+
+
+class ProfileManagementScreen extends ConsumerWidget {
+  const ProfileManagementScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profiles = ref.watch(profilesProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Gérer mes profils')),
+      body: profiles.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, _) => const Center(child: Text('Impossible de charger les profils.')),
+        data: (items) => ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            for (final profile in items)
+              Card(
+                child: ListTile(
+                  leading: CircleAvatar(child: Text(profile.initial)),
+                  title: Text(profile.name),
+                  subtitle: Text('@${profile.username ?? ''}'),
+                  trailing: IconButton(
+                    tooltip: 'Modifier',
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () async {
+                      final name = TextEditingController(text: profile.name);
+                      final username = TextEditingController(text: profile.username ?? '');
+                      final saved = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: Text('Modifier ${profile.name}'),
+                          content: Column(mainAxisSize: MainAxisSize.min, children: [
+                            TextField(controller: name, decoration: const InputDecoration(labelText: 'Nom du profil')),
+                            TextField(controller: username, decoration: const InputDecoration(labelText: 'Pseudo', prefixText: '@')),
+                          ]),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Annuler')),
+                            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Enregistrer')),
+                          ],
+                        ),
+                      );
+                      if (saved == true) {
+                        try {
+                          final updated = await ref.read(authRepositoryProvider).updateProfile(profile.id, {
+                            'name': name.text.trim(), 'username': username.text.trim(),
+                          });
+                          ref.read(sessionProvider.notifier).updateProfile(updated);
+                          ref.invalidate(profilesProvider);
+                        } on ApiException catch (e) {
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+                        }
+                      }
+                      name.dispose();
+                      username.dispose();
+                    },
+                  ),
+                ),
+              ),
+            if (items.length < 5)
+              ListTile(
+                leading: const Icon(Icons.add_circle_outline),
+                title: const Text('Ajouter un profil'),
+                onTap: () async {
+                  final created = await showDialog<bool>(context: context, builder: (_) => const _AddProfileDialog());
+                  if (created == true) ref.invalidate(profilesProvider);
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

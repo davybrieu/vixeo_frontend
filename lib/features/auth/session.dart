@@ -120,8 +120,8 @@ class SessionController extends Notifier<SessionState> {
     await _signedIn(result.token, result.user);
   }
 
-  Future<void> register(String name, String email, String password) async {
-    final result = await _auth.register(name: name, email: email, password: password);
+  Future<void> register(String name, String username, String email, String password) async {
+    final result = await _auth.register(name: name, username: username, email: email, password: password);
     await _signedIn(result.token, result.user);
   }
 

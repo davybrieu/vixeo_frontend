@@ -10,7 +10,7 @@ import 'features/account/devices_screen.dart';
 import 'features/auth/device_login.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/password_reset_screen.dart';
-import 'features/auth/register_screen.dart';
+import 'features/auth/register_screen.dart' show RegisterScreen;
 import 'features/auth/session.dart';
 import 'features/catalog/details_screen.dart';
 import 'features/catalog/home_screen.dart';
@@ -27,6 +27,7 @@ import 'features/profiles/profiles_screen.dart';
 import 'features/profiles/row_preferences.dart';
 import 'features/profiles/rows_settings_screen.dart';
 import 'features/search/search_screen.dart';
+import 'features/social/profile_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
 import 'features/tv/channel_screen.dart';
@@ -64,10 +65,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       const authPages = {'/connexion', '/inscription', '/mot-de-passe-oublie'};
       const guestAllowed = {
-        '/accueil', '/films', '/series', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/tv-live',
+        '/accueil', '/films', '/series', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/tv-live', '/membre',
       };
       const accountOnly = {
-        '/profils', '/ma-liste', '/avis', '/profil', '/profil/avatar', '/profil/controle-parental',
+        '/profils', '/profils/gestion', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes', '/profil/avatar', '/profil/controle-parental',
         '/profil/code-pin', '/profil/parametres', '/profil/compte', '/profil/appareils',
         '/profil/connexions', '/profil/tmdb', '/profil/notes', '/tv',
       };
@@ -169,7 +170,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) =>
                 ReviewScreen(target: ReviewScreen.targetOf(state.pathParameters, state.uri.queryParameters)),
           ),
-          GoRoute(path: '/profil', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
+          GoRoute(path: '/profil', pageBuilder: (_, state) => tab(state, const ProfileScreen())),
+          GoRoute(path: '/profils/gestion', builder: (_, _) => const ProfileManagementScreen()),
+          GoRoute(path: '/parametres', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
+          GoRoute(path: '/profil/social/edition', builder: (_, _) => const SocialProfileEditScreen()),
+          GoRoute(path: '/membre/:username', builder: (_, state) => PublicProfileScreen(username: state.pathParameters['username'] ?? '')),
+          GoRoute(path: '/membre/:username/:section', builder: (_, state) => SocialCollectionScreen(
+            username: state.pathParameters['username'], section: state.pathParameters['section'] ?? 'list',
+          )),
+          GoRoute(path: '/profil/social/:section', builder: (_, state) => SocialCollectionScreen(
+            section: state.pathParameters['section'] ?? 'list',
+          )),
           GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
           GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),
           GoRoute(path: '/profil/code-pin', builder: (_, _) => const ParentalPinScreen()),
