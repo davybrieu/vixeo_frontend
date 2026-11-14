@@ -401,16 +401,16 @@ class _PhoneNavigationBar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
                 child: Row(
                   children: [
-                    for (var i = 0; i < tabs.length + 1; i++)
+                    for (var i = 0; i < tabs.length + (guest ? 1 : 0); i++)
                       Expanded(
                         child: _PhoneNavigationItem(
                           selected: selectedIndex == i,
                           onPressed: () => onDestinationSelected(i),
                           child: i == tabs.length
-                              ? (guest
-                                  ? const Icon(Icons.login_rounded, size: 24)
-                                  : ProfileAvatar(profile: profile, size: 28, radius: 15))
-                              : Icon(selectedIndex == i ? tabs[i].selectedIcon : tabs[i].icon, size: 24),
+                              ? const Icon(Icons.login_rounded, size: 24)
+                              : tabs[i].path == '/profil'
+                                  ? ProfileAvatar(profile: profile, size: 28, radius: 15)
+                                  : Icon(selectedIndex == i ? tabs[i].selectedIcon : tabs[i].icon, size: 24),
                         ),
                       ),
                   ],
