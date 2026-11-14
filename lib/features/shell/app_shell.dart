@@ -33,10 +33,10 @@ const _guestPhoneTabs = [
 
 const _phoneTabs = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
-  _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
-  _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
-  _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
+  _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
+  _Destination('/profil', 'Profil', Icons.person_outline_rounded, Icons.person_rounded),
+  _Destination('/parametres', 'Paramètres', Icons.settings_outlined, Icons.settings_rounded),
 ];
 
 /// Extra bottom inset so list content clears the floating pill (pill ~50 + margins).
@@ -51,11 +51,11 @@ const _guestRailItems = [
 ];
 
 const _railItems = [
-  _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
-  _Destination('/ma-liste', 'Ma liste', Icons.bookmark_border_rounded, Icons.bookmark_rounded),
-  _Destination('/avis', 'Avis', Icons.rate_review_outlined, Icons.rate_review_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
+  _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
+  _Destination('/profil', 'Profil', Icons.person_outline_rounded, Icons.person_rounded),
+  _Destination('/parametres', 'Paramètres', Icons.settings_outlined, Icons.settings_rounded),
 ];
 
 /// The home page was drawn once since the app started (see [AppShell.build]).
@@ -94,7 +94,7 @@ class AppShell extends ConsumerWidget {
     if (layout.isPhone) {
       final navigationPages = guest
           ? {'/accueil', '/recherche', '/chaines-tv'}
-          : {'/accueil', '/recherche', '/ma-liste', '/avis', '/chaines-tv', '/profil'};
+          : {'/accueil', '/chaines-tv', '/recherche', '/profil', '/parametres'};
       final showNavigation = navigationPages.contains(location);
       final index = phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
