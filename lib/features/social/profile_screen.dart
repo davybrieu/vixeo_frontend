@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/design.dart';
 import '../../core/theme.dart';
 import '../auth/session.dart';
-import '../auth/auth_repository.dart';
 import '../profiles/avatars.dart';
 import 'social_repository.dart';
 
