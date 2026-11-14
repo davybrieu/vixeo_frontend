@@ -114,7 +114,13 @@ class ProfilesScreen extends ConsumerWidget {
                           ),
                         ),
                         SizedBox(height: layout.space(VxSpace.xl)),
-                        TextButton.icon(\n                          onPressed: () => context.go('/profils/gestion'),\n                          icon: const Icon(Icons.manage_accounts_outlined),\n                          label: const Text('Gérer mes profils'),\n                        ),\n                        Text(\n                          'Les profils protégés par un code demandent le PIN à l’ouverture.',
+                        TextButton.icon(
+                          onPressed: () => context.go('/profils/gestion'),
+                          icon: const Icon(Icons.manage_accounts_outlined),
+                          label: const Text('Gérer mes profils'),
+                        ),
+                        Text(
+                          'Les profils protégés par un code demandent le PIN à l’ouverture.',
                           textAlign: TextAlign.center,
                           style: VxText.body(layout.isLarge ? layout.tv(19) : 13, color: VxColors.textMuted),
                         ),
