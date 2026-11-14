@@ -55,6 +55,11 @@ class SocialRepository {
     return SocialProfile.fromJson(json['data'] as Map<String, dynamic>);
   }
 
+  Future<List<Map<String, dynamic>>> collection(String username, String section) async {
+    final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/$section');
+    return (json['data'] as List).whereType<Map<String, dynamic>>().toList();
+  }
+
   Future<void> follow(String username) => _api.post('/social/profiles/${Uri.encodeComponent(username)}/follow');
   Future<void> unfollow(String username) => _api.delete('/social/profiles/${Uri.encodeComponent(username)}/follow');
 }
