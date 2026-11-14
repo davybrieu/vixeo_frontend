@@ -175,6 +175,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/parametres', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
           GoRoute(path: '/profil/social/edition', builder: (_, _) => const SocialProfileEditScreen()),
           GoRoute(path: '/membre/:username', builder: (_, state) => PublicProfileScreen(username: state.pathParameters['username'] ?? '')),
+          GoRoute(path: '/membre/:username/:section', builder: (_, state) => SocialCollectionScreen(
+            username: state.pathParameters['username'], section: state.pathParameters['section'] ?? 'list',
+          )),
+          GoRoute(path: '/profil/social/:section', builder: (_, state) => SocialCollectionScreen(
+            section: state.pathParameters['section'] ?? 'list',
+          )),
           GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
           GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),
           GoRoute(path: '/profil/code-pin', builder: (_, _) => const ParentalPinScreen()),
