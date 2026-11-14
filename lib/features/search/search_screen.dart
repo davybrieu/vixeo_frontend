@@ -9,7 +9,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/page_header.dart';
-import '../catalog/catalog_repository.dart';
+import '../catalog/catalog_repository.dart';\nimport '../social/social_search.dart';
 import '../catalog/hero.dart';
 import '../catalog/models.dart';
 import '../catalog/widgets.dart';
