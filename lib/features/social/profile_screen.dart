@@ -191,3 +191,62 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
     ),
   );
 }
+
+
+class SocialCollectionScreen extends ConsumerWidget {
+  const SocialCollectionScreen({super.key, required this.section, this.username});
+  final String section;
+  final String? username;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final active = ref.watch(sessionProvider).profile;
+    final handle = username ?? active?.username;
+    final titles = {
+      'avis': 'Avis', 'reviews': 'Avis', 'liste': 'Ma liste', 'list': 'Ma liste',
+      'abonnes': 'Abonnés', 'followers': 'Abonnés',
+      'abonnements': 'Abonnements', 'following': 'Abonnements',
+    };
+    final endpoint = switch (section) {
+      'avis' || 'reviews' => 'reviews',
+      'liste' || 'list' => 'list',
+      'abonnes' || 'followers' => 'followers',
+      _ => 'following',
+    };
+    return Scaffold(
+      appBar: AppBar(title: Text(titles[section] ?? 'Profil')),
+      body: handle == null
+          ? const Center(child: Text('Aucun profil sélectionné.'))
+          : FutureBuilder<List<Map<String, dynamic>>>(
+              future: ref.read(socialRepositoryProvider).collection(handle, endpoint),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) return const Center(child: Text('Impossible de charger cette rubrique.'));
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                final items = snapshot.data!;
+                if (items.isEmpty) return const Center(child: Text('Aucun élément à afficher.'));
+                return ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    final title = item['title'] as String? ?? item['name'] as String? ?? item['username'] as String? ?? 'Contenu';
+                    final subtitle = endpoint == 'reviews'
+                        ? 'Note : ${item['value'] ?? '—'} / 10 · ${item['comment'] ?? ''}'
+                        : endpoint == 'followers' || endpoint == 'following'
+                            ? '@${item['username'] ?? ''}'
+                            : item['year']?.toString() ?? '';
+                    return ListTile(
+                      leading: CircleAvatar(child: Text(title.isEmpty ? '?' : title[0].toUpperCase())),
+                      title: Text(title),
+                      subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      onTap: (endpoint == 'followers' || endpoint == 'following') && item['username'] != null
+                          ? () => context.push('/membre/${Uri.encodeComponent(item['username'] as String)}')
+                          : null,
+                    );
+                  },
+                );
+              },
+            ),
+    );
+  }
+}
