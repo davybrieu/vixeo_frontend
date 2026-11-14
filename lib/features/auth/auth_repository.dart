@@ -21,10 +21,11 @@ class AuthRepository {
     required String name,
     required String email,
     required String password,
+    required String username,
   }) async {
     final json = await _api.post(
       '/auth/register',
-      body: {'name': name, 'email': email, 'password': password, 'device_name': DeviceInfo.deviceName},
+      body: {'name': name, 'username': username, 'email': email, 'password': password, 'device_name': DeviceInfo.deviceName},
     );
     return (token: json['token'] as String, user: User.fromJson(json['user'] as Map<String, dynamic>));
   }
@@ -77,6 +78,7 @@ class AuthRepository {
       '/profiles',
       body: {
         'name': name,
+        'username': username,
         'is_kid': isKid,
         if (parentalPin != null && parentalPin.isNotEmpty) 'parental_pin': parentalPin,
       },
