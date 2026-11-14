@@ -21,6 +21,7 @@ class ProfileScreen extends ConsumerWidget {
         child: const Text('Choisir un profil'),
       )));
     }
+    if (profile.isKid) return const Scaffold(body: Center(child: Text('Les profils enfants ne disposent pas de profil public.')));
     return Scaffold(
       appBar: AppBar(title: const Text('Mon profil'), actions: [
         IconButton(tooltip: 'Modifier mon profil', onPressed: () => context.push('/profil/social/edition'), icon: const Icon(Icons.edit_outlined)),
