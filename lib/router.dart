@@ -68,7 +68,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         '/accueil', '/films', '/series', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/tv-live',
       };
       const accountOnly = {
-        '/profils', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes', '/membre', '/profil/avatar', '/profil/controle-parental',
+        '/profils', '/profils/gestion', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes', '/membre', '/profil/avatar', '/profil/controle-parental',
         '/profil/code-pin', '/profil/parametres', '/profil/compte', '/profil/appareils',
         '/profil/connexions', '/profil/tmdb', '/profil/notes', '/tv',
       };
@@ -171,6 +171,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ReviewScreen(target: ReviewScreen.targetOf(state.pathParameters, state.uri.queryParameters)),
           ),
           GoRoute(path: '/profil', pageBuilder: (_, state) => tab(state, const ProfileScreen())),
+          GoRoute(path: '/profils/gestion', builder: (_, _) => const ProfileManagementScreen()),
           GoRoute(path: '/parametres', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
           GoRoute(path: '/profil/social/edition', builder: (_, _) => const SocialProfileEditScreen()),
           GoRoute(path: '/membre/:username', builder: (_, state) => PublicProfileScreen(username: state.pathParameters['username'] ?? '')),
