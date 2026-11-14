@@ -62,14 +62,15 @@ class ProfilesScreen extends ConsumerWidget {
                 children: [
                   VxLogo(size: layout.isLarge ? layout.tv(36).clamp(22, 40).toDouble() : 22),
                   const Spacer(),
-                  TextButton.icon(
+                  VxButton(
+                    label: 'Se déconnecter',
+                    icon: Icons.logout_rounded,
+                    kind: VxButtonKind.danger,
+                    dense: true,
                     onPressed: () async {
                       await ref.read(sessionProvider.notifier).logout();
                       if (context.mounted) context.go('/accueil');
                     },
-                    icon: const Icon(Icons.logout_rounded, size: 18),
-                    label: const Text('Se déconnecter'),
-                    style: TextButton.styleFrom(foregroundColor: VxColors.textSecondary),
                   ),
                 ],
               ),
@@ -113,17 +114,7 @@ class ProfilesScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        SizedBox(height: layout.space(VxSpace.xl)),
-                        TextButton.icon(
-                          onPressed: () => context.go('/profils/gestion'),
-                          icon: const Icon(Icons.manage_accounts_outlined),
-                          label: const Text('Gérer mes profils'),
-                        ),
-                        Text(
-                          'Les profils protégés par un code demandent le PIN à l’ouverture.',
-                          textAlign: TextAlign.center,
-                          style: VxText.body(layout.isLarge ? layout.tv(19) : 13, color: VxColors.textMuted),
-                        ),
+
                       ],
                     ),
                   ),
@@ -131,6 +122,16 @@ class ProfilesScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: EdgeInsets.fromLTRB(layout.gutter, 8, layout.gutter, 16),
+        child: VxButton(
+          label: 'Gérer mes profils',
+          icon: Icons.manage_accounts_outlined,
+          kind: VxButtonKind.outline,
+          expand: true,
+          onPressed: () => context.go('/profils/gestion'),
         ),
       ),
     );
@@ -214,11 +215,22 @@ class _ProfileTile extends StatelessWidget {
           ),
           SizedBox(height: size * 0.1),
           ExcludeSemantics(
-            child: Text(
-              profile.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: VxText.body(size * 0.125, weight: FontWeight.w500),
+            child: Column(
+              children: [
+                Text(
+                  profile.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: VxText.body(size * 0.125, weight: FontWeight.w500),
+                ),
+                if (profile.username?.isNotEmpty == true)
+                  Text(
+                    '@${profile.username}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: VxText.body(size * 0.095, color: VxColors.textMuted),
+                  ),
+              ],
             ),
           ),
         ],
@@ -349,7 +361,6 @@ class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
   final _name = TextEditingController();
   final _username = TextEditingController();
   final _parentalPin = TextEditingController();
-  bool _isKid = false;
   bool _loading = false;
   ApiException? _error;
 
@@ -369,7 +380,7 @@ class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
     try {
       await ref
           .read(authRepositoryProvider)
-          .createProfile(name: _name.text.trim(), username: _username.text.trim(), isKid: _isKid, parentalPin: _parentalPin.text);
+          .createProfile(name: _name.text.trim(), username: _username.text.trim(), parentalPin: _parentalPin.text);
       if (mounted) Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
@@ -398,16 +409,6 @@ class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
             const SizedBox(height: 8),
             TextField(controller: _username, autocorrect: false, decoration: InputDecoration(labelText: 'Pseudo', prefixText: '@', errorText: error?.field('username'))),
             const SizedBox(height: 8),
-            SwitchListTile(
-              value: _isKid,
-              onChanged: (v) => setState(() => _isKid = v),
-              contentPadding: EdgeInsets.zero,
-              title: Text('Profil enfant', style: VxText.body(16, weight: FontWeight.w500)),
-              subtitle: Text(
-                'Titres adaptés aux 10 ans et moins',
-                style: VxText.body(13, color: VxColors.textSecondary),
-              ),
-            ),
             if (parental) ...[
               const SizedBox(height: 8),
               TextField(
