@@ -198,7 +198,7 @@ void main() {
   testWidgets('the side rail fits a low screen (smaller icons), then scrolls', (tester) async {
     addTearDown(tester.view.reset);
     tester.view.devicePixelRatio = 1;
-    const labels = ['Recherche', 'Accueil', 'Ma liste', 'Avis', 'Chaînes TV'];
+    const labels = ['Accueil', 'Chaînes TV', 'Recherche', 'Profil', 'Paramètres'];
 
     // A phone held sideways: everything is visible, with smaller icons than the usual 52.
     tester.view.physicalSize = const Size(700, 340);
