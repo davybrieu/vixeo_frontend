@@ -49,12 +49,19 @@ class ProfileScreen extends ConsumerWidget {
               _Count(label: 'Abonnements', count: social.followingCount),
             ]),
             const SizedBox(height: 24),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _Count(label: 'Avis', count: social.reviewsCount),
+                _Count(label: 'Films / séries vus', count: social.watchedCount),
+                _Count(label: 'Dans ma liste', count: social.listCount),
+              ],
+            ),
+            const SizedBox(height: 24),
             const Divider(),
             ListTile(leading: const Icon(Icons.star_outline), title: const Text('Mes avis'), onTap: () => context.push('/profil/social/avis')),
             ListTile(leading: const Icon(Icons.bookmark_border), title: const Text('Ma liste'), onTap: () => context.push('/profil/social/liste')),
-            ListTile(leading: const Icon(Icons.people_outline), title: const Text('Mes abonnements'), onTap: () => context.push('/profil/social/abonnements')),
-            ListTile(leading: const Icon(Icons.group_outlined), title: const Text('Mes abonnés'), onTap: () => context.push('/profil/social/abonnes')),
-            ListTile(leading: const Icon(Icons.settings_outlined), title: const Text('Paramètres'), onTap: () => context.go('/parametres')),
           ]);
         },
       ),
