@@ -1,0 +1,125 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/design.dart';
+import '../../core/theme.dart';
+import '../auth/session.dart';
+import '../profiles/avatars.dart';
+import 'social_repository.dart';
+
+class ProfileScreen extends ConsumerWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(sessionProvider).profile;
+    if (profile == null) {
+      return Scaffold(body: Center(child: TextButton(
+        onPressed: () => context.go('/profils'),
+        child: const Text('Choisir un profil'),
+      )));
+    }
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mon profil'), actions: [
+        IconButton(tooltip: 'Modifier mon profil', onPressed: () => context.push('/profil/social/edition'), icon: const Icon(Icons.edit_outlined)),
+      ]),
+      body: FutureBuilder<SocialProfile>(
+        future: ref.read(socialRepositoryProvider).profile(profile.username ?? ''),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) return Center(child: Text('Impossible de charger le profil.'));
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final social = snapshot.data!;
+          return ListView(padding: const EdgeInsets.all(20), children: [
+            Row(children: [
+              AvatarTile(avatarId: profile.avatar, initial: profile.initial, size: 88, radius: 44),
+              const SizedBox(width: 18),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('@${social.username}', style: VxText.title(22)),
+                Text(social.name, style: VxText.body(14, color: VxColors.textSecondary)),
+              ])),
+            ]),
+            const SizedBox(height: 18),
+            Text(social.bio?.isNotEmpty == true ? social.bio! : 'Ajoutez une biographie pour vous présenter.', style: VxText.body(15)),
+            const SizedBox(height: 20),
+            Row(children: [
+              _Count(label: 'Abonnés', count: social.followersCount),
+              const SizedBox(width: 28),
+              _Count(label: 'Abonnements', count: social.followingCount),
+            ]),
+            const SizedBox(height: 24),
+            const Divider(),
+            ListTile(leading: const Icon(Icons.star_outline), title: const Text('Mes avis'), onTap: () => context.push('/profil/social/avis')),
+            ListTile(leading: const Icon(Icons.bookmark_border), title: const Text('Ma liste'), onTap: () => context.push('/profil/social/liste')),
+            ListTile(leading: const Icon(Icons.people_outline), title: const Text('Mes abonnements'), onTap: () => context.push('/profil/social/abonnements')),
+            ListTile(leading: const Icon(Icons.group_outlined), title: const Text('Mes abonnés'), onTap: () => context.push('/profil/social/abonnes')),
+            ListTile(leading: const Icon(Icons.settings_outlined), title: const Text('Paramètres'), onTap: () => context.go('/parametres')),
+          ]);
+        },
+      ),
+    );
+  }
+}
+
+class _Count extends StatelessWidget {
+  const _Count({required this.label, required this.count});
+  final String label;
+  final int count;
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Text('$count', style: VxText.title(20)),
+    Text(label, style: VxText.body(13, color: VxColors.textSecondary)),
+  ]);
+}
+
+class SocialProfileEditScreen extends ConsumerStatefulWidget {
+  const SocialProfileEditScreen({super.key});
+  @override
+  ConsumerState<SocialProfileEditScreen> createState() => _SocialProfileEditScreenState();
+}
+
+class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScreen> {
+  final _username = TextEditingController();
+  final _bio = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() { _username.dispose(); _bio.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final active = ref.watch(sessionProvider).profile;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Modifier mon profil')),
+      body: FutureBuilder<SocialProfile>(
+        future: active == null ? null : ref.read(socialRepositoryProvider).profile(active.username ?? ''),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final social = snapshot.data!;
+          if (_username.text.isEmpty) _username.text = social.username;
+          if (_bio.text.isEmpty) _bio.text = social.bio ?? '';
+          return ListView(padding: const EdgeInsets.all(20), children: [
+            TextField(controller: _username, decoration: const InputDecoration(labelText: 'Pseudo', prefixText: '@', helperText: '3 à 30 caractères, lettres, chiffres et _')),
+            const SizedBox(height: 16),
+            TextField(controller: _bio, maxLength: 500, maxLines: 5, decoration: const InputDecoration(labelText: 'Biographie')),
+            if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: _loading ? null : () async {
+                setState(() { _loading = true; _error = null; });
+                try {
+                  await ref.read(socialRepositoryProvider).update(username: _username.text.trim(), bio: _bio.text.trim());
+                  ref.invalidate(sessionProvider);
+                  if (context.mounted) context.pop();
+                } catch (e) { if (mounted) setState(() => _error = e.toString()); }
+                finally { if (mounted) setState(() => _loading = false); }
+              },
+              child: Text(_loading ? 'Enregistrement…' : 'Enregistrer'),
+            ),
+          ]);
+        },
+      ),
+    );
+  }
+}
