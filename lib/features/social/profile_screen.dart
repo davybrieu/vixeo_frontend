@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/design.dart';
 import '../../core/theme.dart';
 import '../auth/session.dart';
+import '../auth/auth_repository.dart';
 import '../profiles/avatars.dart';
 import 'social_repository.dart';
 
@@ -109,8 +110,8 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
               onPressed: _loading ? null : () async {
                 setState(() { _loading = true; _error = null; });
                 try {
-                  await ref.read(socialRepositoryProvider).update(username: _username.text.trim(), bio: _bio.text.trim());
-                  ref.invalidate(sessionProvider);
+                  final updated = await ref.read(authRepositoryProvider).updateProfile(active!.id, {'username': _username.text.trim(), 'bio': _bio.text.trim()});
+                  ref.read(sessionProvider.notifier).updateProfile(updated);
                   if (context.mounted) context.pop();
                 } catch (e) { if (mounted) setState(() => _error = e.toString()); }
                 finally { if (mounted) setState(() => _loading = false); }
@@ -122,4 +123,71 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
       ),
     );
   }
+}
+
+
+class PublicProfileScreen extends ConsumerStatefulWidget {
+  const PublicProfileScreen({super.key, required this.username});
+  final String username;
+  @override
+  ConsumerState<PublicProfileScreen> createState() => _PublicProfileScreenState();
+}
+
+class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
+  late Future<SocialProfile> _future;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = ref.read(socialRepositoryProvider).profile(widget.username);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Profil')),
+    body: FutureBuilder<SocialProfile>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return const Center(child: Text('Profil introuvable.'));
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final profile = snapshot.data!;
+        return ListView(padding: const EdgeInsets.all(20), children: [
+          CircleAvatar(radius: 44, child: Text(profile.name.isEmpty ? '?' : profile.name[0].toUpperCase())),
+          const SizedBox(height: 12),
+          Center(child: Text('@${profile.username}', style: VxText.title(22))),
+          Center(child: Text(profile.name, style: VxText.body(14, color: VxColors.textSecondary))),
+          const SizedBox(height: 16),
+          Text(profile.bio ?? '', textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            _Count(label: 'Abonnés', count: profile.followersCount),
+            const SizedBox(width: 32),
+            _Count(label: 'Abonnements', count: profile.followingCount),
+          ]),
+          const SizedBox(height: 20),
+          if (!profile.isSelf)
+            FilledButton(
+              onPressed: _busy ? null : () async {
+                setState(() => _busy = true);
+                try {
+                  if (profile.isFollowing) {
+                    await ref.read(socialRepositoryProvider).unfollow(profile.username);
+                  } else {
+                    await ref.read(socialRepositoryProvider).follow(profile.username);
+                  }
+                  setState(() => _future = ref.read(socialRepositoryProvider).profile(profile.username));
+                } finally {
+                  if (mounted) setState(() => _busy = false);
+                }
+              },
+              child: Text(_busy ? 'Patientez…' : profile.isFollowing ? 'Ne plus suivre' : 'Suivre'),
+            ),
+          const Divider(height: 32),
+          ListTile(leading: const Icon(Icons.star_outline), title: const Text('Avis')),
+          ListTile(leading: const Icon(Icons.bookmark_border), title: const Text('Ma liste')),
+        ]);
+      },
+    ),
+  );
 }
