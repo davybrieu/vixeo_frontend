@@ -94,9 +94,8 @@ class _PhoneHome extends StatelessWidget {
         ],
         for (final section in home.sections) ...[
           gap,
-          PosterRow(
-            title: section.title,
-            items: section.items,
+          _HomeRow(
+            section: section,
             // The round arrow on the right of the title: the whole list.
             onSeeAll: () => context.push(TitleListScreen.location(section.type, section.list, section.title)),
           ),
@@ -191,9 +190,8 @@ class _LargeHomeState extends State<_LargeHome> {
                     SizedBox(height: layout.sectionGap),
                   ],
                   for (final (index, section) in widget.home.sections.indexed) ...[
-                    PosterRow(
-                      title: section.title,
-                      items: section.items,
+                    _HomeRow(
+                      section: section,
                       onSeeAll: () =>
                           context.push(TitleListScreen.location(section.type, section.list, section.title)),
                       onFocused: _hero.select,
@@ -209,6 +207,51 @@ class _LargeHomeState extends State<_LargeHome> {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// A row of the home page. The API gives some rows "light" (trends of the day, platforms,
+/// networks, studios, languages): their titles come without logo nor summary (length, genres, age
+/// rating). Once such a row is built (as it nears the screen), the titles that lack them are asked
+/// in one request (`/catalog/titles`, `titlesByIdProvider`): the cards get their logo and the TV
+/// hero shows everything at once, as for the other rows. Never one title page per card.
+class _HomeRow extends ConsumerWidget {
+  const _HomeRow({
+    required this.section,
+    required this.onSeeAll,
+    this.onFocused,
+    this.onHovered,
+    this.autofocusFirst = false,
+  });
+
+  final Section section;
+  final VoidCallback onSeeAll;
+  final void Function(MediaItem item)? onFocused;
+  final void Function(MediaItem item)? onHovered;
+  final bool autofocusFirst;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var items = section.items;
+    final missing = [
+      for (final item in items)
+        if (item.summary == null) (type: item.type, id: item.id),
+    ];
+    if (missing.isNotEmpty) {
+      // Until it answers (or if it fails), the row shows what the home gave.
+      final known = ref.watch(titlesByIdProvider(titlesKey(missing))).value;
+      if (known != null) {
+        items = [for (final item in items) item.withDetails(known[(type: item.type, id: item.id)])];
+      }
+    }
+    return PosterRow(
+      title: section.title,
+      items: items,
+      onSeeAll: onSeeAll,
+      onFocused: onFocused,
+      onHovered: onHovered,
+      autofocusFirst: autofocusFirst,
     );
   }
 }

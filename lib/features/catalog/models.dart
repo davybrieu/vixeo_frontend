@@ -58,6 +58,29 @@ class MediaItem {
     genreIds: [if (json['genre_ids'] is List) ...(json['genre_ids'] as List).whereType<int>()],
   );
 
+  /// This title completed by its catalog entry ([details], `GET /catalog/titles`): the logo, the
+  /// textless poster, the summary, the overview, the rating… it lacks. What it has stays.
+  MediaItem withDetails(MediaItem? details) => details == null
+      ? this
+      : MediaItem(
+          id: id,
+          type: type,
+          title: title,
+          overview: overview ?? details.overview,
+          year: year ?? details.year,
+          voteAverage: voteAverage > 0 ? voteAverage : details.voteAverage,
+          posterUrl: posterUrl ?? details.posterUrl,
+          backdropUrl: backdropUrl ?? details.backdropUrl,
+          posterPath: posterPath ?? details.posterPath,
+          backdropPath: backdropPath ?? details.backdropPath,
+          logoUrl: logoUrl ?? details.logoUrl,
+          logoAspectRatio: logoUrl != null ? logoAspectRatio : details.logoAspectRatio,
+          textlessPosterUrl: textlessPosterUrl ?? details.textlessPosterUrl,
+          textlessPosterPath: textlessPosterPath ?? details.textlessPosterPath,
+          summary: summary ?? details.summary,
+          genreIds: genreIds.isNotEmpty ? genreIds : details.genreIds,
+        );
+
   final int id;
   final MediaType type;
   final String title;

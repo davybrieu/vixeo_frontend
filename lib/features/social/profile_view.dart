@@ -330,21 +330,8 @@ AsyncValue<List<MediaItem>> withCatalogDetails(WidgetRef ref, List<MediaItem> ti
   final batch = ref.watch(titlesByIdProvider(titlesKey(titles.map((t) => (type: t.type, id: t.id)))));
   if (!batch.hasValue && batch.isLoading) return const AsyncLoading<List<MediaItem>>();
   final known = batch.value ?? const <TitleRef, MediaItem>{};
-  return AsyncData([for (final title in titles) _completed(title, known[(type: title.type, id: title.id)])]);
+  return AsyncData([for (final title in titles) title.withDetails(known[(type: title.type, id: title.id)])]);
 }
-
-MediaItem _completed(MediaItem title, MediaItem? details) => MediaItem(
-  id: title.id,
-  type: title.type,
-  title: title.title,
-  year: details?.year ?? title.year,
-  voteAverage: details?.voteAverage ?? title.voteAverage,
-  posterUrl: title.posterUrl ?? details?.posterUrl,
-  backdropUrl: title.backdropUrl ?? details?.backdropUrl,
-  logoUrl: details?.logoUrl,
-  logoAspectRatio: details?.logoAspectRatio,
-  summary: details?.summary,
-);
 
 /// A list of a profile (« Ma liste », « Sa liste »): a row of posters, as on the home page; the
 /// round arrow ([onSeeAll]) opens the whole list.

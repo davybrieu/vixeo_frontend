@@ -60,6 +60,8 @@ Future<void> pumpHome(WidgetTester tester, Size size) async {
       overrides: [
         homeProvider.overrideWith((ref) async => home),
         libraryProvider.overrideWith(EmptyLibrary.new),
+        // The catalog doesn't know "Le Phare" (the row stays as the home gave it).
+        titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
         // Its title page has a logo for "Le Phare".
         titleProvider.overrideWith(
           (ref, key) async => TitleDetails(

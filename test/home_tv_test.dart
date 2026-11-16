@@ -10,6 +10,7 @@ import 'package:vixeo/core/widgets/focusable.dart';
 import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/home_screen.dart';
 import 'package:vixeo/features/catalog/models.dart';
+import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 
 class EmptyLibrary extends LibraryController {
@@ -45,12 +46,17 @@ final home = Home(
 /// Title pages asked by the hero.
 final asked = <int>[];
 
+/// Batches of titles asked to the catalog (`/catalog/titles`) by the light rows.
+final batches = <String>[];
+
 Future<void> pumpHome(
   WidgetTester tester, {
   LibraryController Function() library = EmptyLibrary.new,
   Home? withHome,
+  Map<TitleRef, MediaItem> catalog = const {},
 }) async {
   asked.clear();
+  batches.clear();
   tester.view.physicalSize = const Size(1920, 1080);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -62,6 +68,10 @@ Future<void> pumpHome(
         titleProvider.overrideWith((ref, key) async {
           asked.add(key.$2);
           return details(key);
+        }),
+        titlesByIdProvider.overrideWith((ref, key) async {
+          batches.add(key);
+          return catalog;
         }),
       ],
       child: MaterialApp(
@@ -84,6 +94,33 @@ String? focusedLabel() {
 }
 
 void main() {
+  testWidgets('a light row (no logo nor summary from the home) completes its titles in one request', (tester) async {
+    const summary = TitleSummary(runtime: 126, genres: ['Drame']);
+    await pumpHome(
+      tester,
+      catalog: {
+        (type: MediaType.movie, id: 2): const MediaItem(
+          id: 2,
+          type: MediaType.movie,
+          title: 'Orbite 9',
+          logoUrl: 'https://image.tmdb.org/t/p/w500/orbite.png',
+          logoAspectRatio: 3,
+          summary: summary,
+        ),
+      },
+    );
+
+    // One request for the whole row, not one per card.
+    expect(batches, ['movie:2,movie:3']);
+    final items = tester.widget<PosterRow>(find.byType(PosterRow)).items;
+    expect(items.first.logoUrl, 'https://image.tmdb.org/t/p/w500/orbite.png');
+    expect(items.first.summary?.genres, ['Drame']);
+    // What the home gave stays (overview), and a title the catalog doesn't know is shown as is.
+    expect(items.first.overview, 'Résumé de Orbite 9');
+    expect(items.last.title, 'Le Phare');
+    expect(items.last.summary, isNull);
+  });
+
   testWidgets('TV home: the first card of the list has the focus, and the hero follows the focus', (tester) async {
     await pumpHome(tester);
 
@@ -122,6 +159,7 @@ void main() {
           homeProvider.overrideWith((ref) async => home),
           libraryProvider.overrideWith(EmptyLibrary.new),
           titleProvider.overrideWith((ref, key) async => details(key)),
+          titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
         ],
         child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
       ),
