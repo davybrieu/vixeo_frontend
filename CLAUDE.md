@@ -282,7 +282,8 @@ lib/
   ordinateur) ou s'affiche en QR code (grand écran), et la page interroge `link/complete` toutes les
   5 s (et au retour au premier plan) ; « Changer de compte », « Déconnecter » (supprime les
   commentaires). Une fois lié : bouton « Noter » sur la fiche (film, série) et étoile en haut à
-  droite de l'image de chaque épisode (« Ma note : 8/10 » en bas de l'image), seulement si un
+  droite de l'image de chaque épisode (« Ma note : 8/10 » en haut de l'image, après le badge
+  « Épisode 3 »), seulement si un
   compte est lié (`canRateProvider`) ;
   fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK ;
   **commentaire facultatif**, gardé par Vixeo, jamais envoyé à TMDb). **« Avis »** est un onglet de
@@ -351,10 +352,11 @@ lib/
 - **Épisodes d'une série** (`_Episodes`, `_EpisodeCard`, `catalog/details_screen.dart` ; demande
   du développeur) : sous les puces des saisons, une **rangée horizontale** de grandes cartes
   (largeur 300 téléphone, 340 tablette, 520 TV) qui défile de gauche à droite. Carte : image 16:9
-  avec le badge « Épisode 3 » en haut à gauche, puis le titre (1 ligne), le résumé (**3 lignes au
-  plus**, place toujours réservée) et, sur la dernière ligne, la durée puis la note TMDb à gauche
-  et la date de diffusion à droite. Hauteur de carte fixe (`_EpisodeCard.heightOf`, suit la
-  taille du texte du système). Changer de saison revient au premier épisode. Test :
+  avec le badge « Épisode 3 » en haut à gauche ; **le texte est sur l'image, en bas**, sur un
+  dégradé sombre (demande du développeur) : le titre (1 ligne), le résumé (**2 lignes au plus**,
+  pour laisser voir l'image) et, sur la dernière ligne, la durée puis la note TMDb à gauche et la
+  date de diffusion à droite. Hauteur de carte fixe (`_EpisodeCard.heightOf` : 16:9, plus haute
+  seulement si le texte du système est très grand). Changer de saison revient au premier épisode. Test :
   `test/details_people_test.dart`.
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
   horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Sur téléphone** (demande du

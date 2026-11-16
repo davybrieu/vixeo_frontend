@@ -219,10 +219,14 @@ class VxIconAction extends StatelessWidget {
   /// Smaller, in a list row (episodes, "Mes notes").
   final bool dense;
 
+  /// Diameter of the button, for a layout that leaves room for it (episode cards).
+  static double sizeOf(Layout layout, {bool dense = false}) =>
+      dense ? (layout.isLarge ? layout.tv(56) : 40.0) : (layout.isLarge ? layout.tv(76) : 52.0);
+
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final size = dense ? (layout.isLarge ? layout.tv(56) : 40.0) : (layout.isLarge ? layout.tv(76) : 52.0);
+    final size = sizeOf(layout, dense: dense);
     return VxFocusable(
       onPressed: onPressed,
       borderRadius: size,

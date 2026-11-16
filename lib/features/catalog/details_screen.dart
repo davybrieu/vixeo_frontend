@@ -1,3 +1,4 @@
+import 'dart:math' show max;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -269,9 +270,10 @@ class _EpisodesState extends ConsumerState<_Episodes> {
   }
 }
 
-/// An episode in the row: a large 16:9 image with the "Épisode 3" badge, then the name, the
-/// overview (3 lines at most) and, on the last line, the runtime and TMDb's rating on the left,
-/// the air date on the right. Pressing the card plays the episode.
+/// An episode in the row: a large 16:9 image with the "Épisode 3" badge at the top left and, at the
+/// bottom of the image over a dark gradient, the name, the overview (2 lines at most) and, on the
+/// last line, the runtime and TMDb's rating on the left, the air date on the right. Pressing the
+/// card plays the episode.
 class _EpisodeCard extends StatelessWidget {
   const _EpisodeCard({
     required this.episode,
@@ -285,31 +287,38 @@ class _EpisodeCard extends StatelessWidget {
   final bool noSpoiler;
   final VoidCallback onPressed;
 
-  /// The profile's rating ("Ma note : 8/10" on the image), null when not rated.
+  /// The profile's rating ("Ma note : 8/10" next to the badge), null when not rated.
   final MyRating? rating;
   final Widget? rateButton;
+
+  /// Lines of the overview, at most: the image stays visible above the texts.
+  static const overviewLines = 2;
 
   static double _scaleOf(Layout layout) => layout.isLarge ? layout.scale * 2 : 1.0;
 
   static double widthOf(Layout layout) => layout.isLarge ? layout.tv(520) : (layout.isPhone ? 300.0 : 340.0);
 
+  static double _insetOf(double s) => 8 * s;
+
   // Line heights follow the text size chosen in the system settings, so the card never overflows.
   static double _titleHeight(BuildContext context, double s) => MediaQuery.textScalerOf(context).scale(15 * s) * 1.3;
   static double _overviewHeight(BuildContext context, double s) =>
-      MediaQuery.textScalerOf(context).scale(13 * s) * 1.4 * 3;
+      MediaQuery.textScalerOf(context).scale(13 * s) * 1.4 * overviewLines;
   static double _factsHeight(BuildContext context, double s) => MediaQuery.textScalerOf(context).scale(12 * s) * 1.6;
+  static double _badgeHeight(BuildContext context, double s) =>
+      MediaQuery.textScalerOf(context).scale(12 * s) * 1.3 + 6 * s;
 
   /// Height of a card: the row is a horizontal list, which needs it before building its cards.
+  /// 16:9, taller only if the badges and the texts don't fit (large system text size).
   static double heightOf(BuildContext context) {
     final layout = Layout.of(context);
     final s = _scaleOf(layout);
-    return widthOf(layout) * 9 / 16 +
-        layout.space(VxSpace.s) +
-        _titleHeight(context, s) +
-        4 * s +
-        _overviewHeight(context, s) +
-        8 * s +
-        _factsHeight(context, s);
+    final inset = _insetOf(s);
+    // Top: the badge and the rating star; bottom: the texts.
+    final top = inset + max(_badgeHeight(context, s), VxIconAction.sizeOf(layout, dense: true)) + 8 * s;
+    final texts =
+        _titleHeight(context, s) + 4 * s + _overviewHeight(context, s) + 6 * s + _factsHeight(context, s) + 10 * s;
+    return max(widthOf(layout) * 9 / 16, top + texts);
   }
 
   @override
@@ -319,10 +328,11 @@ class _EpisodeCard extends StatelessWidget {
     final e = episode;
     final width = widthOf(layout);
     final radius = VxRadius.poster * s;
-    final inset = 8 * s;
-    final caption = VxText.body(12 * s, color: VxColors.textSecondary, height: 1.2);
+    final inset = _insetOf(s);
+    final caption = VxText.body(12 * s, color: VxColors.textSoft, height: 1.2);
     final image = NetImage(url: e.stillUrl, seed: e.id);
     final overview = e.overview?.trim() ?? '';
+    final showFacts = !noSpoiler && (e.runtime != null || e.voteAverage > 0 || e.airDate != null);
 
     return SizedBox(
       width: width,
@@ -335,90 +345,114 @@ class _EpisodeCard extends StatelessWidget {
             focusScale: 1.03,
             semanticLabel: 'Épisode ${e.number}, ${e.name}',
             onPressed: onPressed,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(radius),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        noSpoiler
-                            ? ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), child: image)
-                            : image,
-                        Positioned(left: inset, top: inset, child: _ImageBadge('Épisode ${e.number}', scale: s)),
-                        if (rating != null)
-                          Positioned(
-                            left: inset,
-                            bottom: inset,
-                            child: _ImageBadge('Ma note : ${formatScore(rating!.value)}/10', scale: s, accent: true),
-                          ),
-                      ],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(radius),
+              child: SizedBox(
+                width: width,
+                height: heightOf(context),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    noSpoiler
+                        ? ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), child: image)
+                        : image,
+                    // Top left: "Épisode 3", then "Ma note : 8/10" (the star is on the right).
+                    Positioned(
+                      left: inset,
+                      top: inset,
+                      right: inset + VxIconAction.sizeOf(layout, dense: true) + 6 * s,
+                      child: Wrap(
+                        spacing: 6 * s,
+                        runSpacing: 4 * s,
+                        children: [
+                          _ImageBadge('Épisode ${e.number}', scale: s),
+                          if (rating != null)
+                            _ImageBadge('Ma note : ${formatScore(rating!.value)}/10', scale: s, accent: true),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-                // Between an image and its text.
-                SizedBox(height: layout.space(VxSpace.s)),
-                SizedBox(
-                  height: _titleHeight(context, s),
-                  child: _episodeSpoiler(
-                    Text(
-                      e.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: VxText.body(15 * s, weight: FontWeight.w600, height: 1.3),
-                    ),
-                    noSpoiler,
-                  ),
-                ),
-                SizedBox(height: 4 * s),
-                // Always 3 lines high: the last line is at the same place on every card.
-                SizedBox(
-                  height: _overviewHeight(context, s),
-                  child: overview.isEmpty
-                      ? null
-                      : _episodeSpoiler(
-                          Text(
-                            overview,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: VxText.body(13 * s, color: VxColors.textSoft, height: 1.4),
+                    // Bottom: the texts, over a gradient that darkens the image under them.
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0x00070A08), Color(0xB8070A08), Color(0xEB070A08)],
+                            stops: [0, 0.35, 1],
                           ),
-                          noSpoiler,
                         ),
-                ),
-                SizedBox(height: 8 * s),
-                SizedBox(
-                  height: _factsHeight(context, s),
-                  child: Row(
-                    children: [
-                      // Left: runtime, then TMDb's rating (shrunk rather than cut when the line is full).
-                      Expanded(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Row(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(12 * s, 32 * s, 12 * s, 10 * s),
+                          child: Column(
                             mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (!noSpoiler && e.runtime != null) Text(formatRuntime(e.runtime), style: caption),
-                              if (!noSpoiler && e.runtime != null && e.voteAverage > 0) SizedBox(width: 10 * s),
-                              if (!noSpoiler && e.voteAverage > 0)
-                                TmdbRating(e.voteAverage, fontSize: 12 * s, color: VxColors.textSecondary),
+                              _episodeSpoiler(
+                                Text(
+                                  e.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: VxText.body(15 * s, weight: FontWeight.w600, height: 1.3).copyWith(
+                                    shadows: const [Shadow(color: Color(0x99000000), blurRadius: 6)],
+                                  ),
+                                ),
+                                noSpoiler,
+                              ),
+                              if (overview.isNotEmpty) ...[
+                                SizedBox(height: 4 * s),
+                                _episodeSpoiler(
+                                  Text(
+                                    overview,
+                                    maxLines: overviewLines,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: VxText.body(13 * s, color: VxColors.textSoft, height: 1.4),
+                                  ),
+                                  noSpoiler,
+                                ),
+                              ],
+                              if (showFacts) ...[
+                                SizedBox(height: 6 * s),
+                                SizedBox(
+                                  height: _factsHeight(context, s),
+                                  child: Row(
+                                    children: [
+                                      // Left: runtime, then TMDb's rating (shrunk rather than cut).
+                                      Expanded(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (e.runtime != null) Text(formatRuntime(e.runtime), style: caption),
+                                              if (e.runtime != null && e.voteAverage > 0) SizedBox(width: 10 * s),
+                                              if (e.voteAverage > 0)
+                                                TmdbRating(e.voteAverage, fontSize: 12 * s, color: VxColors.textSoft),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      // Right: first broadcast.
+                                      if (e.airDate != null) ...[
+                                        SizedBox(width: 10 * s),
+                                        Text(formatFrenchDate(e.airDate!), maxLines: 1, style: caption),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
                       ),
-                      // Right: first broadcast.
-                      if (!noSpoiler && e.airDate != null) ...[
-                        SizedBox(width: 10 * s),
-                        Text(formatFrenchDate(e.airDate!), maxLines: 1, style: caption),
-                      ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           if (rateButton != null)

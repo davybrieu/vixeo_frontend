@@ -188,18 +188,26 @@ void main() {
       // The card's label starts with the episode (its texts follow, for screen readers).
       expect(find.bySemanticsLabel(RegExp('^Épisode 1, Le départ')), findsOneWidget);
       // Wide 16:9 image, most of the phone's width.
-      final still = find.ancestor(of: find.text('Épisode 1'), matching: find.byType(AspectRatio)).first;
-      final image = tester.getSize(still);
-      expect(image.width, 300);
-      expect(image.height, closeTo(168.75, 0.1));
-      // The overview never takes more than 3 lines.
+      final still = tester.getRect(
+        find.ancestor(of: find.text('Épisode 1'), matching: find.byType(ClipRRect)).first,
+      );
+      expect(still.width, 300);
+      expect(still.height, closeTo(168.75, 0.1));
+      // The overview never takes more than 2 lines.
       final overview = tester.widget<Text>(find.textContaining('Un très long résumé').first);
-      expect(overview.maxLines, 3);
-      // Runtime and rating on the left, air date on the right of the same line.
+      expect(overview.maxLines, 2);
+      // Name, overview and facts are on the image, at the bottom, under the badge.
+      final badge = tester.getRect(find.text('Épisode 1'));
+      final name = tester.getRect(find.text('Le départ'));
+      expect(name.top, greaterThan(badge.bottom));
+      expect(name.bottom, lessThan(still.bottom));
+      // Runtime and rating on the left, air date on the right of the same line, at the bottom of the image.
       final runtime = tester.getCenter(find.text('52 min').first);
-      final date = tester.getCenter(find.text('1er mars 2024'));
-      expect(date.dy, closeTo(runtime.dy, 1));
-      expect(date.dx, greaterThan(runtime.dx));
+      final date = tester.getRect(find.text('1er mars 2024'));
+      expect(date.center.dy, closeTo(runtime.dy, 1));
+      expect(date.center.dx, greaterThan(runtime.dx));
+      expect(date.bottom, lessThanOrEqualTo(still.bottom));
+      expect(still.bottom - date.bottom, lessThan(20));
 
       // The row scrolls from left to right: the last episode comes into view.
       expect(find.text('Épisode 6'), findsNothing);
