@@ -10,6 +10,8 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
+import '../notifications/notifications_screen.dart';
+import 'advanced_settings_screen.dart';
 import 'avatars.dart';
 import 'profiles_screen.dart';
 import 'rows_settings_screen.dart';
@@ -126,6 +128,13 @@ class ProfileSettingsScreen extends ConsumerWidget {
                     ),
                     _SettingsTile(
                       scale: s,
+                      icon: Icons.notifications_outlined,
+                      title: 'Notifications',
+                      subtitle: 'Nouveaux épisodes des séries de Ma liste.',
+                      onPressed: () => context.push(NotificationsScreen.location),
+                    ),
+                    _SettingsTile(
+                      scale: s,
                       icon: Icons.view_stream_outlined,
                       title: 'Rangées de l’accueil',
                       subtitle: 'Trier, afficher ou masquer les rangées.',
@@ -158,6 +167,13 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       title: 'Avatar',
                       subtitle: 'Changer l’image de votre profil.',
                       onPressed: () => context.push('/profil/avatar'),
+                    ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.settings_suggest_outlined,
+                      title: 'Avancé',
+                      subtitle: 'Démarrage et cache de cet appareil.',
+                      onPressed: () => context.push(AdvancedSettingsScreen.location),
                     ),
                   ],
                 ),

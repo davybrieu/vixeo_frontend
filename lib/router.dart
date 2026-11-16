@@ -18,7 +18,9 @@ import 'features/catalog/list_screen.dart';
 import 'features/catalog/models.dart';
 import 'features/catalog/person_screen.dart';
 import 'features/library/my_list_screen.dart';
+import 'features/notifications/notifications_screen.dart';
 import 'features/playback/player_screen.dart';
+import 'features/profiles/advanced_settings_screen.dart';
 import 'features/profiles/parental_control_screen.dart';
 import 'features/profiles/parental_pin.dart';
 import 'features/profiles/profile_preferences_screen.dart';
@@ -66,7 +68,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       const accountOnly = {
         '/profils', '/profils/gestion', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes', '/profil/avatar', '/profil/controle-parental',
         '/profil/code-pin', '/profil/parametres', '/profil/compte', '/profil/appareils',
-        '/profil/connexions', '/profil/tmdb', '/profil/notes', '/tv',
+        '/profil/connexions', '/profil/tmdb', '/profil/notes', '/profil/notifications', '/profil/avance', '/tv',
       };
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
         if (location != '/demarrage') {
@@ -194,6 +196,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
           // Services linked to the profile (TMDb). The former addresses lead to the new pages.
           GoRoute(path: '/profil/connexions', builder: (_, _) => const ConnectionsScreen()),
+          GoRoute(path: NotificationsScreen.location, builder: (_, _) => const NotificationsScreen()),
+          GoRoute(path: AdvancedSettingsScreen.location, builder: (_, _) => const AdvancedSettingsScreen()),
           GoRoute(path: '/profil/tmdb', redirect: (_, _) => '/profil/connexions'),
           GoRoute(path: '/profil/notes', redirect: (_, _) => '/avis'),
           GoRoute(

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme.dart';
 import 'core/widgets/focusable.dart';
+import 'features/notifications/notifications_gate.dart';
 import 'features/updates/update_gate.dart';
 import 'router.dart';
 
@@ -42,7 +43,7 @@ class VixeoApp extends ConsumerWidget {
       theme: buildVixeoTheme(),
       themeMode: ThemeMode.dark,
       routerConfig: router,
-      builder: (context, child) => UpdateGate(child: child ?? const SizedBox()),
+      builder: (context, child) => UpdateGate(child: NotificationsGate(child: child ?? const SizedBox())),
       shortcuts: remoteShortcuts,
       actions: remoteActions,
       locale: const Locale('fr', 'FR'),

@@ -88,6 +88,8 @@ lib/
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
     tmdb/        compte TMDb du profil (page Connexions, QR code), notes et commentaires (fenêtre,
                  boutons, onglet « Avis »)
+    notifications/  notifications locales des nouveaux épisodes (page « Notifications »,
+                 programmation, `NotificationsGate`)
 ```
 
 ## Conventions
@@ -281,6 +283,31 @@ lib/
   liste, nouvelle catégorie) vient après les autres, affichée. Appliqué par `HomeScreen` et
   `TvChannelsScreen` (`visible`). « Continuer à regarder » et le carrousel ne sont pas concernés.
   Test : `test/row_preferences_test.dart`.
+- **Notifications** (`features/notifications`, « Paramètres » → « Notifications »,
+  `/profil/notifications` ; API : `vixeo_backend/docs/notifications.md` ; demande du développeur) :
+  **notifications locales** programmées par l'appli (`flutter_local_notifications`, canal Android
+  « Nouveaux épisodes »), **pas de push** ni de jeton d'appareil. Réglage « Nouveaux épisodes » par
+  profil **sur l'appareil** (`EpisodeAlertsSetting`, `LocalStore`, désactivé par défaut) ; l'activer
+  pose la question du système (Android 13+) ; refusé : carte « Notifications bloquées » et
+  « Ouvrir les réglages ». `EpisodeAlertsScheduler` demande `/catalog/episodes/upcoming` pour les
+  séries de « Ma liste » et **remplace** toutes les notifications programmées : au lancement, au
+  retour au premier plan (une fois par heure au plus), quand « Ma liste », le profil ou le réglage
+  change (`NotificationsGate`, dans le `builder` de `MaterialApp.router`, sous `UpdateGate`) ;
+  réglage désactivé ou déconnexion : tout est retiré. Les épisodes d'une série sortis au même moment
+  = une notification ; la nuit (23 h – 8 h, heure de l'appareil) est décalée à 8 h
+  (`alertTime`) ; 100 au plus. Un appui ouvre la fiche de la série (aussi quand la notification
+  lance l'appli). La page liste les « Prochaines alertes » (10) et envoie une notification de test.
+  Reprogrammées après un redémarrage (récepteurs de `AndroidManifest.xml`), icône
+  `drawable/ic_notification.xml` (gardée par `raw/keep.xml`), désucrage Java activé
+  (`build.gradle.kts`). Sur le web : une phrase, rien n'est programmé. Les tests passent par
+  `FakeNotifications` (`test/notifications_test.dart`).
+- **Avancé** (« Paramètres » → « Avancé », `/profil/avance`, `AdvancedSettingsScreen` ; demande du
+  développeur, sans rapports de plantage) : « Mémoriser le dernier profil » (sur l'appareil,
+  activé par défaut ; désactivé : « Qui regarde ? » à chaque lancement ; un profil à code demande
+  toujours son code) et « Vider le cache » (images sur le disque et en mémoire, titres, saisons,
+  accueil et « Ma liste » / « Continuer à regarder », rechargés à l'affichage). Lignes des
+  réglages communes : `profiles/settings_rows.dart` (`SettingsSection`, `SettingsChoiceRow`,
+  `SettingsSwitchRow`, `SettingsActionRow`). Test : `test/advanced_settings_test.dart`.
 - **Tuile « Connexions » des paramètres** : une seule phrase, « Lier ou déconnecter un service. »
   (demande du développeur : pas d'autre texte, ni le nom du compte lié).
 - **Rail de navigation sur un écran bas** : icônes et marges rétrécissent selon la hauteur
@@ -472,7 +499,8 @@ lib/
   note, tri, grande image sur grand écran, résultats groupés, recherches récentes synchronisées),
   Ma liste, « Avis » (notes TMDb et commentaires), « Mon profil » (avatar par licence, paramètres
   d’apparence, No spoil, langues et lecture automatique, contrôle parental et code PIN (deux pages),
-  connecter une TV, changer de profil, Connexions (TMDb),
+  connecter une TV, changer de profil, Connexions (TMDb), Notifications (nouveaux épisodes),
+  Avancé (dernier profil, cache),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
   mises à jour (Android / iOS), TV en direct (catégories, chaînes, lecture du flux ; HLS sur le
