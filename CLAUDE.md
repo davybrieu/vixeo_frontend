@@ -315,8 +315,10 @@ lib/
   **un serveur de push**, l'appli ne programme rien) : **Firebase Cloud Messaging**
   (`firebase_messaging`, `PushMessaging` / `FirebasePushMessaging`). Firebase est configuré par
   les ressources Android écrites au build depuis les secrets `FIREBASE_*` (`build.gradle.kts`,
-  `docs/android-release.md` § 6 ; **pas de `google-services.json`** dans le dépôt) ; sans eux,
-  pas de jeton : la page dit « Les notifications ne sont pas encore disponibles. ».
+  `docs/android-release.md` § 6 ; **pas de `google-services.json`** dans le dépôt ; il faut les
+  quatre, la CI nomme ceux qui manquent) ; sans eux, pas de jeton : la page dit « Cette version de
+  l'appli ne reçoit pas encore les notifications… » ; serveur sans `FCM_CREDENTIALS` : « Le
+  serveur n'envoie pas encore de notifications. ».
   `PushRegistration` donne le jeton à l'API (`PUT /push/device` : profil actif, réglage
   « Nouveaux épisodes », `utc_offset`) au lancement, au retour au premier plan (6 h au plus entre
   deux envois identiques), quand la session, le profil, le réglage ou le jeton change

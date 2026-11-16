@@ -118,11 +118,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       title: 'Notifications',
       fallback: '/parametres',
       children: [
-        if (availability.hasValue && !ready) ...[
+        // Why not (two different fixes): this version of the app has no Firebase configuration (a
+        // newer APK built with the FIREBASE_* secrets), or the server sends none (FCM_CREDENTIALS).
+        if (availability.value == PushAvailability.noToken) ...[
+          const _Notice(
+            icon: Icons.system_update_outlined,
+            title: 'Bientôt disponibles',
+            text: 'Cette version de l’appli ne reçoit pas encore les notifications. Installez la dernière version.',
+          ),
+          SizedBox(height: 24 * s),
+        ] else if (availability.value == PushAvailability.serverOff) ...[
           const _Notice(
             icon: Icons.notifications_paused_outlined,
             title: 'Bientôt disponibles',
-            text: 'Les notifications ne sont pas encore disponibles.',
+            text: 'Le serveur n’envoie pas encore de notifications.',
           ),
           SizedBox(height: 24 * s),
         ] else if (_allowed == false) ...[

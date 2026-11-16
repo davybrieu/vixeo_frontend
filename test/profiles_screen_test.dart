@@ -11,6 +11,7 @@ import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/profile_editor_screen.dart';
 import 'package:vixeo/features/profiles/profiles_screen.dart';
+import 'package:vixeo/features/profiles/settings_rows.dart';
 
 /// The profiles of an account, in memory; records what the pages ask.
 class ProfilesAuth extends AuthRepository {
@@ -367,7 +368,10 @@ void main() {
     await tester.ensureVisible(find.text('Titres sans classification'));
     await tester.tap(find.text('Titres sans classification'));
     await tester.pump();
-    expect(find.bySemanticsLabel('Titres sans classification, désactivé'), findsOneWidget);
+    SettingsSwitchRow unrated() =>
+        tester.widget<SettingsSwitchRow>(find.widgetWithText(SettingsSwitchRow, 'Titres sans classification'));
+    expect(unrated().value, isFalse);
+    expect(unrated().onChanged, isNull);
 
     await tester.tap(find.text('Âge maximum'));
     await tester.pumpAndSettle();
@@ -376,6 +380,7 @@ void main() {
     await tester.ensureVisible(find.text('Titres sans classification'));
     await tester.tap(find.text('Titres sans classification'));
     await tester.pump();
+    expect(unrated().value, isTrue);
 
     await tester.ensureVisible(find.text('Créer un profil'));
     await tester.tap(find.text('Créer un profil'));

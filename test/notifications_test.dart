@@ -233,7 +233,7 @@ void main() {
       final notifications = FakeNotifications();
       await pump(tester, notifications, available: false);
 
-      expect(find.text('Les notifications ne sont pas encore disponibles.'), findsOneWidget);
+      expect(find.text('Le serveur n’envoie pas encore de notifications.'), findsOneWidget);
       await tester.tap(find.text('Nouveaux épisodes'));
       await tester.pumpAndSettle();
       expect(notifications.permissionAsks, 0);
@@ -243,7 +243,7 @@ void main() {
     testWidgets('no Firebase in this build: says so too', (tester) async {
       await pump(tester, FakeNotifications(), push: FakePush(pushToken: null));
 
-      expect(find.text('Les notifications ne sont pas encore disponibles.'), findsOneWidget);
+      expect(find.textContaining('Cette version de l’appli ne reçoit pas encore les notifications.'), findsOneWidget);
     });
 
     testWidgets('refused by the system: stays off, says where to allow them', (tester) async {
