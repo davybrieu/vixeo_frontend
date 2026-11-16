@@ -85,10 +85,14 @@ class _ConnectionsScreenState extends ConsumerState<ConnectionsScreen> {
         showVxSnack(context, 'Compte TMDb lié : ${account.displayName}', icon: Icons.link_rounded);
       }
     } on ApiException catch (e) {
-      // 410: the approval page expired. Network hiccups: try again next time.
+      // 410: the approval page expired. 409: this TMDb account is linked to another Vixeo
+      // profile (one profile per TMDb account). Network hiccups: try again next time.
       if (e.status == 410 && mounted) {
         _stop();
         setState(() => _expired = true);
+      } else if (e.status == 409 && mounted) {
+        _stop();
+        showVxSnack(context, e.message, icon: Icons.error_outline_rounded);
       }
     } finally {
       _checking = false;
@@ -114,8 +118,8 @@ class _ConnectionsScreenState extends ConsumerState<ConnectionsScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Déconnecter le compte TMDb ?'),
         content: Text(
-          'Ce profil ne pourra plus noter. Vos notes restent sur TMDb (« ${account.displayName} ») ; vos '
-          'commentaires, gardés par Vixeo, seront supprimés.',
+          'Vos avis restent dans Vixeo, et vos notes sur TMDb (« ${account.displayName} ») ; ils ne seront '
+          'plus synchronisés.',
           style: VxText.body(15, color: VxColors.textSoft),
         ),
         actions: [
@@ -175,8 +179,9 @@ class _About extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = uiScale(context);
     return Text(
-      'Vos notes sont enregistrées sur TMDb : vous les retrouvez sur tous vos appareils, sur les autres profils '
-      'liés au même compte TMDb et sur themoviedb.org.',
+      'Vos avis sont gardés par Vixeo, avec ou sans compte TMDb. Une fois lié, chaque note donnée dans Vixeo '
+      'part sur TMDb, et vos notes de themoviedb.org arrivent dans « Mes avis ». À la liaison, les notes de '
+      'Vixeo remplacent celles de TMDb pour les mêmes titres. Un compte TMDb ne se lie qu’à un seul profil Vixeo.',
       style: VxText.body(15 * s, color: VxColors.textSecondary),
     );
   }
@@ -197,7 +202,7 @@ class _NotLinked extends StatelessWidget {
       children: [
         TmdbLogo(height: 22 * s),
         SizedBox(height: 16 * s),
-        Text('Notez films, séries et épisodes', style: VxText.title(22 * s)),
+        Text('Synchronisez vos avis avec TMDb', style: VxText.title(22 * s)),
         SizedBox(height: 8 * s),
         Text(
           'Liez votre compte TMDb à ce profil. Vous autorisez Vixeo sur le site de TMDb : Vixeo ne voit jamais '

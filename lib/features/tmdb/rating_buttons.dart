@@ -7,7 +7,7 @@ import 'rating_dialog.dart';
 import 'tmdb.dart';
 
 /// "Noter" on a movie or TV show page: the same round icon-only button as Ma liste / Vu, filled
-/// when rated. Only when a TMDb account is linked ([canRateProvider]).
+/// when rated. For every signed-in profile ([canRateProvider]), with or without a TMDb account.
 class RateTitleButton extends ConsumerWidget {
   const RateTitleButton({super.key, required this.type, required this.id, required this.name});
 

@@ -302,7 +302,7 @@ void main() {
       if (season != null) seasonProvider.overrideWith((ref, key) async => season),
     ];
 
-    testWidgets('no "Noter" without a TMDb account; the TMDb logo next to the rating', (tester) async {
+    testWidgets('« Noter » even without a TMDb account; the TMDb logo next to the rating', (tester) async {
       await pumpPage(
         tester,
         const DetailsScreen(type: MediaType.movie, id: 3),
@@ -310,7 +310,8 @@ void main() {
         overrides: details(movie),
       );
 
-      expect(find.bySemanticsLabel('Noter'), findsNothing);
+      // Vixeo owns the reviews: a TMDb account only syncs them.
+      expect(find.bySemanticsLabel('Noter'), findsOneWidget);
       expect(find.byType(TmdbLogo), findsOneWidget);
       expect(find.bySemanticsLabel('Note TMDb : 7,1 sur 10'), findsOneWidget);
     });
@@ -407,13 +408,13 @@ void main() {
       expect(find.text('Changer de compte'), findsOneWidget);
     });
 
-    testWidgets('disconnects after a confirmation that the comments go', (tester) async {
+    testWidgets('disconnects after a confirmation that the reviews stay in Vixeo', (tester) async {
       final tmdb = FakeTmdb(current: linkedAccount);
       await pumpPage(tester, const ConnectionsScreen(), tmdb: tmdb);
 
       await tester.tap(find.text('Déconnecter'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('vos commentaires, gardés par Vixeo, seront supprimés'), findsOneWidget);
+      expect(find.textContaining('Vos avis restent dans Vixeo'), findsOneWidget);
       await tester.tap(find.text('Déconnecter').last);
       await tester.pumpAndSettle();
 
@@ -552,13 +553,12 @@ void main() {
       expect(ReviewScreen.targetOf({'type': 'movie', 'id': '438631'}, {}), dune.target);
     });
 
-    testWidgets('without a TMDb account: a way to link one in Connexions', (tester) async {
-      await pumpPage(tester, const Scaffold(body: ReviewsScreen()), tmdb: FakeTmdb());
+    testWidgets('without a TMDb account: my reviews all the same (Vixeo owns them)', (tester) async {
+      final tmdb = FakeTmdb()..ratedItems = [dune];
+      await pumpPage(tester, const Scaffold(body: ReviewsScreen()), tmdb: tmdb);
 
-      expect(find.text('Aucun compte TMDb lié'), findsOneWidget);
-      await tester.tap(find.text('Lier mon compte TMDb'));
-      await tester.pumpAndSettle();
-      expect(find.text('Page Connexions'), findsOneWidget);
+      expect(find.text('Aucun compte TMDb lié'), findsNothing);
+      expect(find.text('Dune'), findsOneWidget);
     });
 
     test('searches ignore case and accents', () {

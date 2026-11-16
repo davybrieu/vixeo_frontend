@@ -120,36 +120,16 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
         },
       );
     } else {
-      final account = ref.watch(tmdbAccountProvider);
-      if (!account.hasValue) {
-        body = AsyncView(
-          value: account,
-          onRetry: () => ref.invalidate(tmdbAccountProvider),
-          data: (_) => const SizedBox(),
-        );
-      } else if (!account.value!.linked) {
-        body = EmptyState(
-          icon: Icons.rate_review_outlined,
-          title: 'Aucun compte TMDb lié',
-          message: 'Liez votre compte TMDb dans Paramètres › Connexions pour noter films, séries et épisodes.',
-          action: VxButton(
-            label: 'Lier mon compte TMDb',
-            icon: Icons.link_rounded,
-            autofocus: true,
-            onPressed: () => context.push('/profil/connexions'),
-          ),
-        );
-      } else {
-        body = _ReviewsList(
-          reviews: ref.watch(reviewsProvider),
-          filters: filters,
-          mine: true,
-          onRefresh: () async {
-            ref.invalidate(reviewsProvider);
-            await ref.read(reviewsProvider.future);
-          },
-        );
-      }
+      // Mine: with or without a TMDb account (Vixeo owns the reviews).
+      body = _ReviewsList(
+        reviews: ref.watch(reviewsProvider),
+        filters: filters,
+        mine: true,
+        onRefresh: () async {
+          ref.invalidate(reviewsProvider);
+          await ref.read(reviewsProvider.future);
+        },
+      );
     }
 
     final gap = FilterBar.gapOf(layout);

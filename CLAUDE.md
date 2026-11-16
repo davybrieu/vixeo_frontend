@@ -290,17 +290,19 @@ lib/
   Chaque action se confirme par une alerte (`showVxSnack`) : « Ajouté à votre liste », « Supprimé
   de votre liste », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
   « Note enregistrée : 8/10 », « Note supprimée ».
-- **Compte TMDb, notes et avis** (`features/tmdb`, API : `vixeo_backend/docs/compte-tmdb.md`) :
-  chaque profil peut lier un compte TMDb dans « Mon profil » → **Connexions**
-  (`/profil/connexions`, `ConnectionsScreen` ; pas de section TMDb ni « Mes notes » dans les
-  paramètres, demande du développeur) ; le même compte TMDb peut être lié à plusieurs profils,
-  même d'autres comptes Vixeo. Liaison : la page d'autorisation de TMDb s'ouvre (téléphone,
-  ordinateur) ou s'affiche en QR code (grand écran), et la page interroge `link/complete` toutes les
-  5 s (et au retour au premier plan) ; « Changer de compte », « Déconnecter » (supprime les
-  commentaires). Une fois lié : bouton « Noter » sur la fiche (film, série) et étoile en haut à
-  droite de l'image de chaque épisode (« Ma note : 8/10 » en haut de l'image, après le badge
-  « Épisode 3 »), seulement si un
-  compte est lié (`canRateProvider`) ;
+- **Avis et compte TMDb** (`features/tmdb`, API : `vixeo_backend/docs/compte-tmdb.md`) : **Vixeo
+  est propriétaire des avis** (demande du développeur) : tout profil connecté note, modifie et
+  supprime ses avis **sans compte TMDb** (`canRateProvider` = connecté avec un profil). Lier un
+  compte TMDb dans « Paramètres » → **Connexions** (`/profil/connexions`, `ConnectionsScreen`) ne
+  sert qu'à **synchroniser** : chaque note donnée dans Vixeo part sur TMDb ; à la liaison, les
+  notes de Vixeo remplacent celles de TMDb pour les mêmes titres, et les notes de themoviedb.org
+  absentes de Vixeo arrivent dans « Mes avis ». **Un compte TMDb ne se lie qu'à un seul profil
+  Vixeo** : sinon `link/complete` répond 409 (`taken`), la page arrête d'attendre et affiche le
+  message. Liaison : la page d'autorisation de TMDb s'ouvre (téléphone, ordinateur) ou s'affiche
+  en QR code (grand écran), et la page interroge `link/complete` toutes les 5 s (et au retour au
+  premier plan) ; « Changer de compte », « Déconnecter » (les avis restent dans Vixeo). Bouton
+  « Noter » sur la fiche (film, série) et étoile en haut à droite de l'image de chaque épisode
+  (« Ma note : 8/10 » en haut de l'image, après le badge « Épisode 3 ») ;
   fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK ;
   **commentaire facultatif**, gardé par Vixeo, jamais envoyé à TMDb). **« Mes avis »** (`/avis`,
   `ReviewsScreen`, ouverte depuis la page « Profil » ; « Ses avis » pour un membre,
@@ -313,9 +315,8 @@ lib/
   le même formulaire que la fenêtre de note) ; « Enregistrer » et « Supprimer l’avis »
   (confirmation) ramènent à la liste, « Voir la fiche » ouvre le titre. Toutes les notes sont chargées d'un coup
   (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche, les
-  épisodes et « Avis ». L'API de TMDb n'accepte que des notes (0,5 à 10). 409 de l'API → plus de
-  compte lié (`TmdbAccountController.lost`). Anciennes adresses `/profil/tmdb` et `/profil/notes`
-  redirigées.
+  épisodes et « Avis ». Les notes vont de 0,5 à 10 (échelle de TMDb). Anciennes adresses `/profil/tmdb` et
+  `/profil/notes` redirigées.
 - **Note TMDb** : la note moyenne de TMDb s'affiche partout avec `TmdbRating` (étoile, note, petit
   logo officiel TMDb `assets/images/tmdb_short.png`, « Primary short » de themoviedb.org converti
   en PNG sans modification). Pas de page de confidentialité ni de mention TMDb dans l'appli

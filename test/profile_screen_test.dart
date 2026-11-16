@@ -297,12 +297,11 @@ void main() {
     expect(find.text('Aucun résultat'), findsOneWidget);
   });
 
-  testWidgets('without a TMDb account, invites to link one', (tester) async {
+  testWidgets('without a TMDb account: my reviews all the same (Vixeo owns them)', (tester) async {
     await _pump(tester, linked: false);
-    expect(find.text('Lier mon compte TMDb'), findsOneWidget);
-    await tester.tap(find.text('Lier mon compte TMDb'));
-    await tester.pumpAndSettle();
-    expect(find.text('Page Connexions'), findsOneWidget);
+    expect(find.text('Lier mon compte TMDb'), findsNothing);
+    expect(find.text('Film noté 1'), findsOneWidget);
+    expect(find.bySemanticsLabel('Avis : 5'), findsOneWidget);
   });
 }
 

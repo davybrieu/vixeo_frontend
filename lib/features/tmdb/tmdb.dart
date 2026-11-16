@@ -329,8 +329,13 @@ class TmdbAccountController extends AsyncNotifier<TmdbAccount> {
   void lost() => state = const AsyncData(TmdbAccount.none);
 }
 
-/// The profile can rate: a TMDb account is linked.
-final canRateProvider = Provider<bool>((ref) => ref.watch(tmdbAccountProvider).value?.linked ?? false);
+/// The profile can rate: signed in, with a profile (no TMDb account needed).
+final canRateProvider = Provider<bool>((ref) {
+  // Vixeo owns the reviews (vixeo_backend/docs/compte-tmdb.md): every signed-in profile rates,
+  // with or without a TMDb account; a linked account only syncs them.
+  final session = ref.watch(sessionProvider);
+  return session.isSignedIn && session.profile != null;
+});
 
 /// The profile's rating and comment of a movie or TV show (null: not rated, or no account).
 final titleRatingProvider = FutureProvider.autoDispose.family<MyRating?, RatingTarget>((ref, target) async {

@@ -43,7 +43,6 @@ class ProfileScreen extends ConsumerWidget {
       );
     }
 
-    final layout = Layout.of(context);
     final username = profile.username?.trim() ?? '';
     final social = username.isEmpty ? null : ref.watch(socialProfileProvider(username)).value;
 
@@ -68,35 +67,8 @@ class ProfileScreen extends ConsumerWidget {
               ),
           ]);
     }
-    final account = ref.watch(tmdbAccountProvider);
-    final linked = account.value?.linked == true;
-    final reviews = linked ? ref.watch(reviewsProvider) : null;
-
-    const reviewsTitle = 'Mes avis';
-    final Widget reviewsSection;
-    if (reviews != null) {
-      reviewsSection = ProfileReviewsSection(
-        title: reviewsTitle,
-        reviews: reviews,
-        mine: true,
-        emptyMessage: 'Notez un film, une série ou un épisode depuis sa fiche : votre avis apparaîtra ici.',
-        onSeeAll: () => context.push('/avis'),
-      );
-    } else if (account.isLoading) {
-      reviewsSection = ProfileSectionLoading(title: reviewsTitle, height: layout.size(96, tv: 160));
-    } else {
-      reviewsSection = ProfileSectionMessage(
-        title: reviewsTitle,
-        message: 'Liez votre compte TMDb pour noter les films, les séries et les épisodes.',
-        action: VxButton(
-          label: 'Lier mon compte TMDb',
-          icon: Icons.link_rounded,
-          kind: VxButtonKind.outline,
-          dense: true,
-          onPressed: () => context.push('/profil/connexions'),
-        ),
-      );
-    }
+    // « Mes avis »: with or without a TMDb account (Vixeo owns the reviews).
+    final reviews = ref.watch(reviewsProvider);
 
     return ProfileView(
       onRefresh: () async {
@@ -125,7 +97,7 @@ class ProfileScreen extends ConsumerWidget {
         ),
       ),
       counters: ProfileCounters(
-        reviews: linked ? reviews?.value?.length : social?.reviewsCount,
+        reviews: reviews.value?.length ?? social?.reviewsCount,
         watched: social?.watchedCount,
         titles: favorites?.length ?? social?.listCount,
       ),
@@ -136,7 +108,13 @@ class ProfileScreen extends ConsumerWidget {
           emptyMessage: 'Ajoutez des films et des séries avec « Ma liste » : ils apparaîtront ici.',
           onSeeAll: () => context.push('/ma-liste'),
         ),
-        reviewsSection,
+        ProfileReviewsSection(
+          title: 'Mes avis',
+          reviews: reviews,
+          mine: true,
+          emptyMessage: 'Notez un film, une série ou un épisode depuis sa fiche : votre avis apparaîtra ici.',
+          onSeeAll: () => context.push('/avis'),
+        ),
       ],
     );
   }
