@@ -243,12 +243,17 @@ void main() {
     // The most recent first (the API's order).
     expect(y('Dune'), lessThan(y('Les Hautes Terres')));
 
+    // The filter bar scrolls sideways: the order is at its end.
+    await tester.ensureVisible(find.text('Tri : Plus récents'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Tri : Plus récents'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Meilleures notes'));
     await tester.pumpAndSettle();
     expect(y('Les Hautes Terres'), lessThan(y('Dune')));
 
+    await tester.ensureVisible(find.text('Films'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Films'));
     await tester.pumpAndSettle();
     expect(find.text('Les Hautes Terres'), findsNothing);
