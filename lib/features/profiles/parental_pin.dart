@@ -245,7 +245,6 @@ class _PinSettings extends ConsumerWidget {
                   ),
                   SizedBox(width: 10 * s),
                   Expanded(child: Text('Code PIN parental', style: VxText.title(18 * s))),
-                  VxBadge(enabled ? 'Activé' : 'Désactivé', accent: enabled, fontSize: 12 * s),
                 ],
               ),
               SizedBox(height: 10 * s),
@@ -272,7 +271,7 @@ class _PinSettings extends ConsumerWidget {
                       ]
                     : [
                         VxButton(
-                          label: 'Activer le contrôle parental',
+                          label: 'Activer',
                           icon: Icons.shield_rounded,
                           autofocus: true,
                           onPressed: enable,

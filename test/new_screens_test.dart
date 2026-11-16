@@ -221,9 +221,11 @@ void main() {
 
     // Only the PIN here: the restrictions are on "Contrôle parental".
     expect(find.text('Restrictions des profils'), findsNothing);
-    expect(find.text('Désactivé'), findsOneWidget);
+    // No "Activé / Désactivé" badge (developer's request): the button says it.
+    expect(find.text('Désactivé'), findsNothing);
+    expect(find.text('Désactiver'), findsNothing);
 
-    await tester.tap(find.text('Activer le contrôle parental'));
+    await tester.tap(find.text('Activer'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), '1234');
     await tester.enterText(find.byType(TextField).at(1), '1234');
@@ -233,7 +235,9 @@ void main() {
     expect(auth.pinsSet, ['1234']);
     expect(find.text('Contrôle parental activé'), findsOneWidget);
     expect(find.text('Changer le code'), findsOneWidget);
-    expect(find.text('Activé'), findsOneWidget);
+    expect(find.text('Désactiver'), findsOneWidget);
+    expect(find.text('Activé'), findsNothing);
+    expect(find.text('Activer'), findsNothing);
   });
 
   testWidgets('"Code PIN" page: asks the current PIN when one is set', (tester) async {
