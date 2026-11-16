@@ -5,33 +5,24 @@ import 'package:go_router/go_router.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
-import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
-import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
-import '../auth/models.dart';
 import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
 import '../catalog/widgets.dart';
 import '../library/library.dart';
-import '../profiles/avatars.dart';
 import '../tmdb/reviews_screen.dart';
 import '../tmdb/tmdb.dart';
+import 'profile_view.dart';
 import 'social_repository.dart';
 
-/// « Profil » (tab): the active profile's page. At the top, its avatar, name, @username, followers
-/// and following, bio and « Modifier le profil »; then its counters (reviews, watched, list) and
-/// its activity: « Ma liste » (a row of posters) and « Mes avis » (the latest reviews). The round
-/// arrow of each section opens the whole list or every review.
+/// « Profil » (tab): the active profile's page (`ProfileView`). At the top, its avatar, name,
+/// @username, followers and following, bio and « Modifier le profil »; then its counters and its
+/// activity: « Ma liste » (a row of posters) and « Mes avis » (the latest reviews). The round arrow
+/// of each section opens the whole list or every review.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
-
-  /// Latest reviews on the page; the others are on « Mes avis ».
-  static const reviewsShown = 3;
-
-  /// Titles of « Ma liste » in the row (the most recently added).
-  static const listShown = 20;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,130 +47,74 @@ class ProfileScreen extends ConsumerWidget {
     final username = profile.username?.trim() ?? '';
     final social = username.isEmpty ? null : ref.watch(socialProfileProvider(username)).value;
 
-    return SafeArea(
-      bottom: false,
-      child: RefreshIndicator(
-        onRefresh: () async {
-          if (username.isNotEmpty) ref.invalidate(socialProfileProvider(username));
-          ref.invalidate(reviewsProvider);
-          await ref.read(libraryProvider.notifier).refresh();
-        },
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.only(top: layout.space(VxSpace.m), bottom: pageBottomPadding(context)),
-          children: [
-            _ReadingColumn(child: _Header(profile: profile, social: social)),
-            SizedBox(height: layout.sectionGap),
-            _ReadingColumn(child: _Counters(social: social)),
-            SizedBox(height: layout.sectionGap),
-            const _MyList(),
-            SizedBox(height: layout.sectionGap),
-            const _MyReviews(),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The page's reading column: page margins, 900 wide at most (TV 1500), on the left.
-class _ReadingColumn extends StatelessWidget {
-  const _ReadingColumn({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: layout.gutter),
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: layout.size(900, tv: 1500)),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-/// Avatar, name, @username, followers and following, bio, then « Modifier le profil ».
-class _Header extends StatelessWidget {
-  const _Header({required this.profile, required this.social});
-
-  final Profile profile;
-
-  /// The public page (followers, following), null while it loads or without a username.
-  final SocialProfile? social;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final avatar = layout.size(88, tv: 160);
-    final username = profile.username?.trim() ?? '';
-    final bio = (profile.bio ?? social?.bio ?? '').trim();
-    final followers = social?.followersCount;
-    final following = social?.followingCount;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            ProfileAvatar(profile: profile, size: avatar, radius: avatar / 2),
-            SizedBox(width: layout.space(VxSpace.m)),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    profile.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: VxText.title(layout.size(24, tv: 48)),
-                  ),
-                  if (username.isNotEmpty) ...[
-                    SizedBox(height: layout.space(VxSpace.xxs)),
-                    Text(
-                      '@$username',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: VxText.body(layout.bodySize, color: VxColors.textSecondary),
-                    ),
-                  ],
-                  if (followers != null && following != null) ...[
-                    SizedBox(height: layout.space(VxSpace.xxs)),
-                    Wrap(
-                      spacing: layout.space(VxSpace.m),
-                      children: [
-                        _FollowLink(
-                          count: followers,
-                          one: 'abonné',
-                          many: 'abonnés',
-                          location: '/profil/social/abonnes',
-                        ),
-                        _FollowLink(
-                          count: following,
-                          one: 'abonnement',
-                          many: 'abonnements',
-                          location: '/profil/social/abonnements',
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
+    // « Ma liste » and « Mes avis » from what this device keeps up to date (a change shows at once).
+    final library = ref.watch(libraryProvider);
+    final favorites = library.value == null ? null : favoriteTitles(library.value!.favorites);
+    final AsyncValue<List<MediaItem>> titles;
+    if (favorites == null) {
+      titles = library.hasError
+          ? AsyncError<List<MediaItem>>(library.error!, StackTrace.empty)
+          : const AsyncLoading<List<MediaItem>>();
+    } else {
+      titles = withCatalogDetails(ref, [
+            for (final (:favorite, :title) in favorites.take(profileTitlesShown))
+              MediaItem(
+                id: title.id,
+                type: title.type,
+                title: favorite.title,
+                year: favorite.year,
+                posterUrl: favorite.posterUrl,
+                backdropUrl: favorite.backdropUrl,
               ),
-            ),
-          ],
+          ]);
+    }
+    final account = ref.watch(tmdbAccountProvider);
+    final linked = account.value?.linked == true;
+    final reviews = linked ? ref.watch(reviewsProvider) : null;
+
+    const reviewsTitle = 'Mes avis';
+    final Widget reviewsSection;
+    if (reviews != null) {
+      reviewsSection = ProfileReviewsSection(
+        title: reviewsTitle,
+        reviews: reviews,
+        mine: true,
+        emptyMessage: 'Notez un film, une série ou un épisode depuis sa fiche : votre avis apparaîtra ici.',
+        onSeeAll: () => context.push('/avis'),
+      );
+    } else if (account.isLoading) {
+      reviewsSection = ProfileSectionLoading(title: reviewsTitle, height: layout.size(96, tv: 160));
+    } else {
+      reviewsSection = ProfileSectionMessage(
+        title: reviewsTitle,
+        message: 'Liez votre compte TMDb pour noter les films, les séries et les épisodes.',
+        action: VxButton(
+          label: 'Lier mon compte TMDb',
+          icon: Icons.link_rounded,
+          kind: VxButtonKind.outline,
+          dense: true,
+          onPressed: () => context.push('/profil/connexions'),
         ),
-        SizedBox(height: layout.space(VxSpace.m)),
-        Text(
-          bio.isEmpty ? 'Ajoutez une biographie pour vous présenter.' : bio,
-          style: VxText.body(layout.bodySize, color: bio.isEmpty ? VxColors.textMuted : VxColors.textSoft),
-        ),
-        SizedBox(height: layout.space(VxSpace.m)),
-        VxButton(
+      );
+    }
+
+    return ProfileView(
+      onRefresh: () async {
+        if (username.isNotEmpty) ref.invalidate(socialProfileProvider(username));
+        ref.invalidate(reviewsProvider);
+        await ref.read(libraryProvider.notifier).refresh();
+      },
+      header: ProfileHeader(
+        name: profile.name,
+        avatarId: profile.avatar,
+        username: username,
+        bio: profile.bio ?? social?.bio,
+        emptyBio: 'Ajoutez une biographie pour vous présenter.',
+        followers: social?.followersCount,
+        following: social?.followingCount,
+        onFollowers: () => context.push('/profil/social/abonnes'),
+        onFollowing: () => context.push('/profil/social/abonnements'),
+        action: VxButton(
           label: username.isEmpty ? 'Choisir un pseudo' : 'Modifier le profil',
           icon: Icons.edit_outlined,
           kind: VxButtonKind.secondary,
@@ -188,115 +123,21 @@ class _Header extends StatelessWidget {
           autofocus: true,
           onPressed: () => context.push('/profil/social/edition'),
         ),
-      ],
-    );
-  }
-}
-
-/// "12 abonnés": opens the list of followers (or of followed profiles).
-class _FollowLink extends StatelessWidget {
-  const _FollowLink({required this.count, required this.one, required this.many, required this.location});
-
-  final int count;
-  final String one;
-  final String many;
-  final String location;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final size = layout.bodySize;
-    // French: "0 abonné", "1 abonné", "2 abonnés".
-    final word = count > 1 ? many : one;
-    return VxFocusable(
-      borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
-      semanticLabel: '$count $word',
-      onPressed: () => context.push(location),
-      child: ConstrainedBox(
-        // A touch target of 44 at least.
-        constraints: BoxConstraints(minHeight: layout.size(44, tv: 60)),
-        child: Align(
-          widthFactor: 1,
-          heightFactor: 1,
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: '$count ', style: VxText.body(size, weight: FontWeight.w700)),
-                TextSpan(text: word, style: VxText.body(size, color: VxColors.textSecondary)),
-              ],
-            ),
-          ),
+      ),
+      counters: ProfileCounters(
+        reviews: linked ? reviews?.value?.length : social?.reviewsCount,
+        watched: social?.watchedCount,
+        titles: favorites?.length ?? social?.listCount,
+      ),
+      sections: [
+        ProfileTitlesSection(
+          title: 'Ma liste',
+          titles: titles,
+          emptyMessage: 'Ajoutez des films et des séries avec « Ma liste » : ils apparaîtront ici.',
+          onSeeAll: () => context.push('/ma-liste'),
         ),
-      ),
-    );
-  }
-}
-
-/// Reviews, watched titles and titles in « Ma liste », side by side in a card. The list and the
-/// reviews are counted from what the page shows (up to date at once), the rest by the API.
-class _Counters extends ConsumerWidget {
-  const _Counters({required this.social});
-
-  final SocialProfile? social;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final layout = Layout.of(context);
-    final favorites = ref.watch(libraryProvider).value?.favorites;
-    final reviews = ref.watch(canRateProvider) ? ref.watch(reviewsProvider).value : null;
-    final divider = Container(width: 1, height: layout.size(36, tv: 64), color: VxColors.line);
-
-    return VxCard(
-      padding: EdgeInsets.symmetric(vertical: layout.space(VxSpace.m), horizontal: layout.space(VxSpace.xs)),
-      child: Row(
-        children: [
-          Expanded(child: _Counter(value: reviews?.length ?? social?.reviewsCount, label: 'Avis')),
-          divider,
-          Expanded(child: _Counter(value: social?.watchedCount, label: 'Vus')),
-          divider,
-          Expanded(
-            child: _Counter(
-              value: favorites == null ? social?.listCount : favoriteTitles(favorites).length,
-              label: 'Ma liste',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Counter extends StatelessWidget {
-  const _Counter({required this.value, required this.label});
-
-  /// Null while it loads: a dash.
-  final int? value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    return Semantics(
-      container: true,
-      label: '$label : ${value ?? 'chargement'}',
-      excludeSemantics: true,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value?.toString() ?? '–',
-            maxLines: 1,
-            style: VxText.title(layout.size(22, tv: 44)),
-          ),
-          SizedBox(height: layout.space(VxSpace.xxs)),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: VxText.body(layout.captionSize, color: VxColors.textSecondary),
-          ),
-        ],
-      ),
+        reviewsSection,
+      ],
     );
   }
 }
@@ -312,173 +153,162 @@ List<({ProfileItem favorite, TitleRef title})> favoriteTitles(List<ProfileItem> 
   ];
 }
 
-/// « Ma liste »: a row of posters, as on the home page; the arrow opens the whole list.
-class _MyList extends ConsumerWidget {
-  const _MyList();
+/// A member's page (`/membre/:username`): the same page as mine (`ProfileView`), with their list,
+/// their reviews and « Suivre ». My own page opened from a list shows « Modifier le profil ».
+class PublicProfileScreen extends ConsumerWidget {
+  const PublicProfileScreen({super.key, required this.username});
 
-  static const title = 'Ma liste';
+  final String username;
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final layout = Layout.of(context);
-    final format = posterFormatOf(ref);
-    final width = rowCardWidth(layout, format);
-    final rowHeight =
-        PosterCard.heightFor(width, format) +
-        PosterCard.captionHeightOf(context) +
-        (layout.isLarge ? layout.tv(16) * 2 : 0);
-    void seeAll() => context.push('/ma-liste');
-
-    final library = ref.watch(libraryProvider);
-    final state = library.value;
-    if (state == null) {
-      return library.hasError
-          ? const _SectionMessage(title: title, message: 'Impossible de charger votre liste.')
-          : _SectionLoading(title: title, height: rowHeight);
-    }
-    final favorites = favoriteTitles(state.favorites).take(ProfileScreen.listShown).toList();
-    if (favorites.isEmpty) {
-      return const _SectionMessage(
-        title: title,
-        message: 'Ajoutez des films et des séries avec « Ma liste » : ils apparaîtront ici.',
-      );
-    }
-
-    // Every title of the row in one request (poster, rating, logo): never one per card.
-    final batch = ref.watch(titlesByIdProvider(titlesKey(favorites.map((f) => f.title))));
-    if (!batch.hasValue && batch.isLoading) return _SectionLoading(title: title, height: rowHeight);
-    final known = batch.value ?? const <TitleRef, MediaItem>{};
-
-    return PosterRow(
-      title: title,
-      onSeeAll: seeAll,
-      items: [for (final f in favorites) _item(f.favorite, f.title, known[f.title])],
-    );
-  }
-
-  /// A title of the list, completed by the catalog (rating, logo, summary) once read.
-  static MediaItem _item(ProfileItem favorite, TitleRef id, MediaItem? details) => MediaItem(
-    id: id.id,
-    type: id.type,
-    title: favorite.title,
-    year: details?.year ?? favorite.year,
-    voteAverage: details?.voteAverage ?? 0,
-    posterUrl: favorite.posterUrl ?? details?.posterUrl,
-    backdropUrl: favorite.backdropUrl ?? details?.backdropUrl,
-    logoUrl: details?.logoUrl,
-    logoAspectRatio: details?.logoAspectRatio,
-    summary: details?.summary,
-  );
-}
-
-/// « Mes avis »: the latest reviews (the same rows as the « Mes avis » page); the arrow opens them
-/// all. Without a TMDb account, an invitation to link one.
-class _MyReviews extends ConsumerWidget {
-  const _MyReviews();
-
-  static const title = 'Mes avis';
+  /// Where a member's list or reviews open: `list`, `reviews`, `followers`, `following`.
+  String _section(String section) => '/membre/${Uri.encodeComponent(username)}/$section';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final layout = Layout.of(context);
-    final loadingHeight = layout.size(96, tv: 160);
-    final account = ref.watch(tmdbAccountProvider);
+    final profile = ref.watch(socialProfileProvider(username));
+    final social = profile.value;
 
-    if (account.value?.linked != true) {
-      if (account.isLoading) return _SectionLoading(title: title, height: loadingHeight);
-      return _SectionMessage(
-        title: title,
-        message: 'Liez votre compte TMDb pour noter les films, les séries et les épisodes.',
-        action: VxButton(
-          label: 'Lier mon compte TMDb',
-          icon: Icons.link_rounded,
-          kind: VxButtonKind.outline,
-          dense: true,
-          onPressed: () => context.push('/profil/connexions'),
+    if (social == null) {
+      return Scaffold(
+        body: SafeArea(
+          child: profile.hasError
+              ? EmptyState(
+                  icon: Icons.person_off_outlined,
+                  title: 'Profil introuvable',
+                  message: 'Ce profil n’existe pas ou n’est pas public.',
+                  action: VxButton(
+                    label: 'Retour',
+                    autofocus: true,
+                    onPressed: () => context.canPop() ? context.pop() : context.go('/accueil'),
+                  ),
+                )
+              : const Center(child: CircularProgressIndicator()),
         ),
       );
     }
 
-    final reviews = ref.watch(reviewsProvider);
-    final all = reviews.value;
-    if (all == null) {
-      return reviews.hasError
-          ? const _SectionMessage(title: title, message: 'Impossible de charger vos avis.')
-          : _SectionLoading(title: title, height: loadingHeight);
-    }
-    if (all.isEmpty) {
-      return const _SectionMessage(
-        title: title,
-        message: 'Notez un film, une série ou un épisode depuis sa fiche : votre avis apparaîtra ici.',
-      );
-    }
+    final titles = ref.watch(socialTitlesProvider(username));
+    final reviews = ref.watch(socialReviewsProvider(username));
 
-    final latest = all.take(ProfileScreen.reviewsShown).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(title, onSeeAll: () => context.push('/avis')),
-        _ReadingColumn(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final (i, item) in latest.indexed) ...[
-                if (i > 0) SizedBox(height: layout.listGap),
-                ReviewRow(item: item),
-              ],
-            ],
+    return Scaffold(
+      body: ProfileView(
+        back: true,
+        onRefresh: () async {
+          ref.invalidate(socialTitlesProvider(username));
+          ref.invalidate(socialReviewsProvider(username));
+          await ref.refresh(socialProfileProvider(username).future);
+        },
+        header: ProfileHeader(
+          name: social.name,
+          avatarId: social.avatar,
+          username: social.username,
+          bio: social.bio,
+          followers: social.followersCount,
+          following: social.followingCount,
+          onFollowers: () => context.push(_section('followers')),
+          onFollowing: () => context.push(_section('following')),
+          action: social.isSelf
+              ? VxButton(
+                  label: 'Modifier le profil',
+                  icon: Icons.edit_outlined,
+                  kind: VxButtonKind.secondary,
+                  dense: true,
+                  autofocus: true,
+                  onPressed: () => context.push('/profil/social/edition'),
+                )
+              : _FollowButton(profile: social),
+        ),
+        counters: ProfileCounters(
+          reviews: social.reviewsCount,
+          watched: social.watchedCount,
+          titles: social.listCount,
+          titlesLabel: 'Sa liste',
+        ),
+        sections: [
+          ProfileTitlesSection(
+            title: 'Sa liste',
+            titles: switch (titles.value) {
+              final list? => withCatalogDetails(ref, list.take(profileTitlesShown).toList()),
+              null when titles.hasError => AsyncError<List<MediaItem>>(titles.error!, StackTrace.empty),
+              null => const AsyncLoading<List<MediaItem>>(),
+            },
+            emptyMessage: 'Sa liste est vide pour l’instant.',
+            onSeeAll: () => context.push(_section('list')),
           ),
-        ),
-      ],
+          ProfileReviewsSection(
+            title: 'Ses avis',
+            reviews: reviews,
+            mine: false,
+            emptyMessage: 'Aucun avis pour l’instant.',
+            onSeeAll: () => context.push(_section('reviews')),
+          ),
+        ],
+      ),
     );
   }
 }
 
-/// A section without anything to show yet: its title and a sentence (and a button, if an action
-/// exists).
-class _SectionMessage extends StatelessWidget {
-  const _SectionMessage({required this.title, required this.message, this.action});
+/// « Suivre » / « Ne plus suivre » (signed in), or « Se connecter pour suivre » (guest).
+class _FollowButton extends ConsumerStatefulWidget {
+  const _FollowButton({required this.profile});
 
-  final String title;
-  final String message;
-  final Widget? action;
+  final SocialProfile profile;
+
+  @override
+  ConsumerState<_FollowButton> createState() => _FollowButtonState();
+}
+
+class _FollowButtonState extends ConsumerState<_FollowButton> {
+  bool _busy = false;
+
+  Future<void> _toggle() async {
+    final profile = widget.profile;
+    final repository = ref.read(socialRepositoryProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      if (profile.isFollowing) {
+        await repository.unfollow(profile.username);
+      } else {
+        await repository.follow(profile.username);
+      }
+      if (!mounted) return;
+      ref.invalidate(socialProfileProvider(profile.username));
+      showVxSnackOn(
+        messenger,
+        profile.isFollowing ? 'Vous ne suivez plus @${profile.username}' : 'Vous suivez @${profile.username}',
+      );
+    } catch (_) {
+      showVxSnackOn(messenger, 'Impossible de modifier l’abonnement.', icon: Icons.error_outline_rounded);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(title),
-        _ReadingColumn(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(message, style: VxText.body(layout.bodySize, color: VxColors.textSecondary)),
-              if (action != null) ...[SizedBox(height: layout.space(VxSpace.s)), action!],
-            ],
-          ),
+    final signedIn = ref.watch(sessionProvider.select((s) => s.isSignedIn));
+    final following = widget.profile.isFollowing;
+    if (!signedIn) {
+      return VxButton(
+        label: 'Se connecter pour suivre',
+        dense: true,
+        autofocus: true,
+        onPressed: () => context.go(
+          '/connexion?redirect=${Uri.encodeComponent(AccountTile.location(widget.profile.username))}',
         ),
-      ],
+      );
+    }
+    return VxButton(
+      label: following ? 'Ne plus suivre' : 'Suivre',
+      icon: following ? Icons.person_remove_outlined : Icons.person_add_alt_1_rounded,
+      kind: following ? VxButtonKind.secondary : VxButtonKind.primary,
+      dense: true,
+      autofocus: true,
+      loading: _busy,
+      onPressed: _toggle,
     );
   }
-}
-
-/// A section while it loads: its title and the room of its content (nothing moves when it comes).
-class _SectionLoading extends StatelessWidget {
-  const _SectionLoading({required this.title, required this.height});
-
-  final String title;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      SectionHeader(title),
-      SizedBox(height: height, child: const Center(child: CircularProgressIndicator())),
-    ],
-  );
 }
 
 class SocialProfileEditScreen extends ConsumerStatefulWidget {
@@ -535,142 +365,121 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
   }
 }
 
-
-class PublicProfileScreen extends ConsumerStatefulWidget {
-  const PublicProfileScreen({super.key, required this.username});
-  final String username;
-  @override
-  ConsumerState<PublicProfileScreen> createState() => _PublicProfileScreenState();
-}
-
-class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
-  late Future<SocialProfile> _future;
-  bool _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = ref.read(socialRepositoryProvider).profile(widget.username);
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Profil')),
-    body: FutureBuilder<SocialProfile>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) return const Center(child: Text('Profil introuvable.'));
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final profile = snapshot.data!;
-        return ListView(padding: const EdgeInsets.all(20), children: [
-          CircleAvatar(radius: 44, child: Text(profile.name.isEmpty ? '?' : profile.name[0].toUpperCase())),
-          const SizedBox(height: 12),
-          Center(child: Text('@${profile.username}', style: VxText.title(22))),
-          Center(child: Text(profile.name, style: VxText.body(14, color: VxColors.textSecondary))),
-          const SizedBox(height: 16),
-          Text(profile.bio ?? '', textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            _Count(label: 'Abonnés', count: profile.followersCount),
-            const SizedBox(width: 32),
-            _Count(label: 'Abonnements', count: profile.followingCount),
-          ]),
-          const SizedBox(height: 20),
-          if (!profile.isSelf)
-            FilledButton(
-              onPressed: _busy ? null : () async {
-                setState(() => _busy = true);
-                try {
-                  if (profile.isFollowing) {
-                    await ref.read(socialRepositoryProvider).unfollow(profile.username);
-                  } else {
-                    await ref.read(socialRepositoryProvider).follow(profile.username);
-                  }
-                  setState(() => _future = ref.read(socialRepositoryProvider).profile(profile.username));
-                } finally {
-                  if (mounted) setState(() => _busy = false);
-                }
-              },
-              child: Text(_busy ? 'Patientez…' : ref.watch(sessionProvider).isSignedIn ? (profile.isFollowing ? 'Ne plus suivre' : 'Suivre') : 'Se connecter pour suivre'),
-            ),
-          const Divider(height: 32),
-          ListTile(leading: const Icon(Icons.star_outline), title: const Text('Avis'), onTap: () => context.push('/membre/${Uri.encodeComponent(profile.username)}/reviews')),
-          ListTile(leading: const Icon(Icons.bookmark_border), title: const Text('Ma liste'), onTap: () => context.push('/membre/${Uri.encodeComponent(profile.username)}/list')),
-        ]);
-      },
-    ),
-  );
-}
-
-
+/// The whole list, reviews, followers or followed profiles of a member (`/membre/:username/list`…)
+/// or of the active profile (`/profil/social/abonnes`…): back button, title, then a grid of
+/// posters, the reviews or the members.
 class SocialCollectionScreen extends ConsumerWidget {
   const SocialCollectionScreen({super.key, required this.section, this.username});
+
+  /// `list` / `liste`, `reviews` / `avis`, `followers` / `abonnes`, `following` / `abonnements`.
   final String section;
+
+  /// Null: the active profile.
   final String? username;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final layout = Layout.of(context);
     final active = ref.watch(sessionProvider).profile;
     final handle = username ?? active?.username;
-    final titles = {
-      'avis': 'Avis', 'reviews': 'Avis', 'liste': 'Ma liste', 'list': 'Ma liste',
-      'abonnes': 'Abonnés', 'followers': 'Abonnés',
-      'abonnements': 'Abonnements', 'following': 'Abonnements',
+    final mine = handle != null && handle == active?.username;
+    final kind = switch (section) {
+      'avis' || 'reviews' => _Kind.reviews,
+      'liste' || 'list' => _Kind.list,
+      'abonnes' || 'followers' => _Kind.followers,
+      _ => _Kind.following,
     };
-    final endpoint = switch (section) {
-      'avis' || 'reviews' => 'reviews',
-      'liste' || 'list' => 'list',
-      'abonnes' || 'followers' => 'followers',
-      _ => 'following',
+    final title = switch (kind) {
+      _Kind.list => mine ? 'Ma liste' : 'Sa liste',
+      _Kind.reviews => mine ? 'Mes avis' : 'Ses avis',
+      _Kind.followers => 'Abonnés',
+      _Kind.following => 'Abonnements',
     };
+
+    final Widget content;
+    if (handle == null || handle.isEmpty) {
+      content = const EmptyState(icon: Icons.person_outline_rounded, title: 'Aucun profil choisi');
+    } else {
+      final padding = pageContentPadding(context);
+      content = switch (kind) {
+        _Kind.list => _Async(
+          value: switch (ref.watch(socialTitlesProvider(handle))) {
+            AsyncValue(value: final list?) => withCatalogDetails(ref, list),
+            AsyncValue(hasError: true, :final error) => AsyncError<List<MediaItem>>(error!, StackTrace.empty),
+            _ => const AsyncLoading<List<MediaItem>>(),
+          },
+          empty: 'Aucun film ni série dans cette liste.',
+          builder: (items) => PosterGrid(items: items, alwaysScrollable: true, padding: padding),
+        ),
+        _Kind.reviews => _Async(
+          value: ref.watch(socialReviewsProvider(handle)),
+          empty: 'Aucun avis pour l’instant.',
+          builder: (reviews) => ListView.separated(
+            padding: padding,
+            itemCount: reviews.length,
+            separatorBuilder: (_, _) => SizedBox(height: layout.listGap),
+            itemBuilder: (_, i) => ProfileColumn(child: ReviewRow(item: reviews[i], mine: mine)),
+          ),
+        ),
+        _Kind.followers || _Kind.following => _Async(
+          value: ref.watch(socialConnectionsProvider((username: handle, followers: kind == _Kind.followers))),
+          empty: kind == _Kind.followers ? 'Aucun abonné pour l’instant.' : 'Aucun abonnement pour l’instant.',
+          builder: (profiles) => ListView.separated(
+            padding: padding,
+            itemCount: profiles.length,
+            separatorBuilder: (_, _) => SizedBox(height: layout.listGap),
+            itemBuilder: (_, i) => ProfileColumn(child: AccountTile(profile: profiles[i], autofocus: i == 0)),
+          ),
+        ),
+      };
+    }
+
     return Scaffold(
-      appBar: AppBar(title: Text(titles[section] ?? 'Profil')),
-      body: handle == null
-          ? const Center(child: Text('Aucun profil sélectionné.'))
-          : FutureBuilder<List<Map<String, dynamic>>>(
-              future: ref.read(socialRepositoryProvider).collection(handle, endpoint),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) return const Center(child: Text('Impossible de charger cette rubrique.'));
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                final items = snapshot.data!;
-                if (items.isEmpty) return const Center(child: Text('Aucun élément à afficher.'));
-                return ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    final title = item['title'] as String? ?? item['name'] as String? ?? item['username'] as String? ?? 'Contenu';
-                    final subtitle = endpoint == 'reviews'
-                        ? 'Note : ${item['value'] ?? '—'} / 10 · ${item['comment'] ?? ''}'
-                        : endpoint == 'followers' || endpoint == 'following'
-                            ? '@${item['username'] ?? ''}'
-                            : item['year']?.toString() ?? '';
-                    return ListTile(
-                      leading: CircleAvatar(child: Text(title.isEmpty ? '?' : title[0].toUpperCase())),
-                      title: Text(title),
-                      subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
-                      onTap: (endpoint == 'followers' || endpoint == 'following') && item['username'] != null
-                          ? () => context.push('/membre/${Uri.encodeComponent(item['username'] as String)}')
-                          : null,
-                    );
-                  },
-                );
-              },
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.xs), layout.gutter, 0),
+              child: const VxBackButton(),
             ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                layout.gutter,
+                layout.space(VxSpace.m),
+                layout.gutter,
+                layout.space(VxSpace.m),
+              ),
+              child: Text(title, style: VxText.title(layout.pageTitleSize)),
+            ),
+            Expanded(child: content),
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _Count extends StatelessWidget {
-  const _Count({required this.label, required this.count});
-  final String label;
-  final int count;
+enum _Kind { list, reviews, followers, following }
+
+/// [value] loading, failed, empty, or its content.
+class _Async<T> extends StatelessWidget {
+  const _Async({required this.value, required this.empty, required this.builder});
+
+  final AsyncValue<List<T>> value;
+  final String empty;
+  final Widget Function(List<T> items) builder;
+
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text('$count', style: VxText.title(20)),
-      Text(label, style: VxText.body(13, color: VxColors.textSecondary)),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final items = value.value;
+    if (items == null) {
+      return value.hasError
+          ? const EmptyState(icon: Icons.error_outline_rounded, title: 'Impossible de charger cette page')
+          : const Center(child: CircularProgressIndicator());
+    }
+    if (items.isEmpty) return EmptyState(icon: Icons.inbox_outlined, title: empty);
+    return builder(items);
+  }
 }

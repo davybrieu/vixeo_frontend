@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../auth/session.dart';
+import '../catalog/models.dart';
+import '../tmdb/tmdb.dart';
 
 class SocialProfile {
   const SocialProfile({
@@ -62,6 +64,45 @@ class SocialRepository {
     return SocialProfile.fromJson(json['data'] as Map<String, dynamic>);
   }
 
+  /// The movies and series of a member's list, the most recently added first.
+  Future<List<MediaItem>> titles(String username) async {
+    final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/list');
+    return [
+      for (final item in (json['data'] as List).whereType<Map<String, dynamic>>())
+        if (titleOf(item) case final title?) title,
+    ];
+  }
+
+  /// A title of a member's list (`{type, item_id: "movie:550", title, year, poster_url}`), or null
+  /// for what is not a movie or a series (a channel…).
+  static MediaItem? titleOf(Map<String, dynamic> json) {
+    final type = json['type'];
+    if (type != 'movie' && type != 'tv') return null;
+    final id = int.tryParse((json['item_id'] as String? ?? '').split(':').last);
+    if (id == null) return null;
+    return MediaItem(
+      id: id,
+      type: MediaType.parse(type),
+      title: json['title'] as String? ?? '',
+      year: json['year'] as int?,
+      posterUrl: json['poster_url'] as String?,
+    );
+  }
+
+  /// A member's reviews, the most recently rated first (the fields of « Mes avis »).
+  Future<List<RatedItem>> reviews(String username) async {
+    final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/reviews');
+    return (json['data'] as List).whereType<Map<String, dynamic>>().map(RatedItem.fromJson).toList();
+  }
+
+  /// The profiles following a member ([followers]), or followed by them.
+  Future<List<SocialProfile>> connections(String username, {required bool followers}) async {
+    final json = await _api.get(
+      '/social/profiles/${Uri.encodeComponent(username)}/${followers ? 'followers' : 'following'}',
+    );
+    return (json['data'] as List).whereType<Map<String, dynamic>>().map(SocialProfile.fromJson).toList();
+  }
+
   Future<List<Map<String, dynamic>>> collection(String username, String section) async {
     final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/$section');
     return (json['data'] as List).whereType<Map<String, dynamic>>().toList();
@@ -84,3 +125,19 @@ final socialSearchProvider = FutureProvider.autoDispose.family<List<SocialProfil
   if (query.trim().length < 2) return Future.value(const <SocialProfile>[]);
   return ref.read(socialRepositoryProvider).search(query);
 });
+
+/// A member's list (movies and series), by username.
+final socialTitlesProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>(
+  (ref, username) => ref.read(socialRepositoryProvider).titles(username),
+);
+
+/// A member's reviews, by username.
+final socialReviewsProvider = FutureProvider.autoDispose.family<List<RatedItem>, String>(
+  (ref, username) => ref.read(socialRepositoryProvider).reviews(username),
+);
+
+/// The followers (`followers: true`) or the followed profiles of a member.
+final socialConnectionsProvider =
+    FutureProvider.autoDispose.family<List<SocialProfile>, ({String username, bool followers})>(
+      (ref, key) => ref.read(socialRepositoryProvider).connections(key.username, followers: key.followers),
+    );

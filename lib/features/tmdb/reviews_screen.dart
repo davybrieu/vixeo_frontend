@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
+import '../catalog/widgets.dart' show titlePath;
 import '../search/filter_bar.dart';
 import 'rating_dialog.dart';
 import 'review_screen.dart';
@@ -154,12 +155,15 @@ class _ReviewsList extends ConsumerWidget {
   }
 }
 
-/// One review: image, title, its stars and the comment. Opens « Mon avis » (`ReviewScreen`), where
-/// it is changed or removed.
+/// One review: image, title, its stars and the comment. One of mine opens « Mon avis »
+/// (`ReviewScreen`), where it is changed or removed; another member's opens the title.
 class ReviewRow extends StatelessWidget {
-  const ReviewRow({super.key, required this.item});
+  const ReviewRow({super.key, required this.item, this.mine = true});
 
   final RatedItem item;
+
+  /// A review of the active profile (« Mes avis »), not of another member (their profile page).
+  final bool mine;
 
   @override
   Widget build(BuildContext context) {
@@ -172,8 +176,9 @@ class ReviewRow extends StatelessWidget {
     return VxFocusable(
       borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
       semanticLabel:
-          '${item.label}, ma note : ${formatScore(item.value)} sur 10${item.comment == null ? '' : ', ${item.comment}'}',
-      onPressed: () => context.push(ReviewScreen.location(item.target)),
+          '${item.label}, ${mine ? 'ma note' : 'note'} : ${formatScore(item.value)} sur 10'
+          '${item.comment == null ? '' : ', ${item.comment}'}',
+      onPressed: () => context.push(mine ? ReviewScreen.location(item.target) : titlePath(item.mediaType, item.id)),
       child: Padding(
         padding: EdgeInsets.all(layout.space(VxSpace.xxs)),
         child: Row(

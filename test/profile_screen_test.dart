@@ -13,6 +13,7 @@ import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/social/profile_screen.dart';
+import 'package:vixeo/features/social/social_search.dart';
 import 'package:vixeo/features/social/social_repository.dart';
 import 'package:vixeo/features/tmdb/tmdb.dart';
 
@@ -166,6 +167,55 @@ void main() {
     expect(find.text('Page abonnes'), findsOneWidget);
   });
 
+  testWidgets('a member\'s page: the same page, with their list, their reviews and « Suivre »', (tester) async {
+    final social = await _pumpMember(tester);
+
+    expect(find.text('Max'), findsOneWidget);
+    expect(find.text('@max'), findsOneWidget);
+    expect(find.text('Cinéphile.'), findsOneWidget);
+    expect(_pressable('3 abonnés'), findsOneWidget);
+    expect(find.bySemanticsLabel('Sa liste : 1'), findsOneWidget);
+    expect(find.text('Dune'), findsWidgets);
+    expect(find.text('Fight Club'), findsOneWidget);
+
+    await tester.tap(find.text('Suivre'));
+    await tester.pumpAndSettle();
+    expect(social.calls, ['follow max']);
+
+    // Their review opens the title, not « Mon avis ».
+    await tester.tap(find.text('Fight Club'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fiche 550'), findsOneWidget);
+  });
+
+  testWidgets('a member\'s whole list opens from the arrow', (tester) async {
+    await _pumpMember(tester);
+    await tester.tap(_pressable('Voir tout : Sa liste'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page list'), findsOneWidget);
+  });
+
+  testWidgets('account search: avatar, name and @username, no follower count', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          sessionProvider.overrideWith(_Signed.new),
+          socialSearchProvider.overrideWith((ref, query) async => const [_member]),
+        ],
+        child: MaterialApp(
+          theme: buildVixeoTheme(),
+          home: const Scaffold(body: SocialSearchResults(query: 'ma')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Max'), findsOneWidget);
+    expect(find.text('@max'), findsOneWidget);
+    expect(find.text('M'), findsOneWidget, reason: 'without an avatar of the catalog, the initial');
+    expect(find.textContaining('abonné'), findsNothing);
+  });
+
   testWidgets('without a TMDb account, invites to link one', (tester) async {
     await _pump(tester, linked: false);
     expect(find.text('Lier mon compte TMDb'), findsOneWidget);
@@ -174,3 +224,63 @@ void main() {
     expect(find.text('Page Connexions'), findsOneWidget);
   });
 }
+
+class _FakeSocial extends SocialRepository {
+  _FakeSocial() : super(ApiClient(token: () => null, profileId: () => null));
+
+  final calls = <String>[];
+
+  @override
+  Future<void> follow(String username) async => calls.add('follow $username');
+
+  @override
+  Future<void> unfollow(String username) async => calls.add('unfollow $username');
+}
+
+const _member = SocialProfile(
+  id: 7,
+  username: 'max',
+  name: 'Max',
+  bio: 'Cinéphile.',
+  followersCount: 3,
+  followingCount: 0,
+  reviewsCount: 1,
+  watchedCount: 9,
+  listCount: 1,
+);
+
+Future<_FakeSocial> _pumpMember(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(430, 1400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final social = _FakeSocial();
+  Widget page(String text) => Scaffold(body: Text(text));
+  final router = GoRouter(
+    routes: [
+      GoRoute(path: '/', builder: (_, _) => const PublicProfileScreen(username: 'max')),
+      GoRoute(path: '/membre/:username/:section', builder: (_, state) => page('Page ${state.pathParameters['section']}')),
+      GoRoute(path: '/titre/:type/:id', builder: (_, state) => page('Fiche ${state.pathParameters['id']}')),
+    ],
+  );
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: <Override>[
+        sessionProvider.overrideWith(_Signed.new),
+        libraryProvider.overrideWith(_Library.new),
+        socialRepositoryProvider.overrideWithValue(social),
+        socialProfileProvider.overrideWith((ref, username) async => _member),
+        socialTitlesProvider.overrideWith(
+          (ref, username) async => const [MediaItem(id: 438631, type: MediaType.movie, title: 'Dune', year: 2021)],
+        ),
+        socialReviewsProvider.overrideWith(
+          (ref, username) async => const [RatedItem(type: RatedType.movie, id: 550, title: 'Fight Club', value: 9)],
+        ),
+        titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
+      ],
+      child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return social;
+}
+

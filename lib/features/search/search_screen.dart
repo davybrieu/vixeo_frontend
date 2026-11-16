@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_exception.dart';
@@ -11,6 +10,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/page_header.dart';
 import '../catalog/catalog_repository.dart';
+import '../social/profile_view.dart' show AccountTile, ProfileColumn;
 import '../social/social_search.dart';
 import '../social/social_repository.dart';
 import '../catalog/hero.dart';
@@ -533,13 +533,11 @@ class _AccountsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader('Comptes'),
-        for (final profile in value.take(8))
-          ListTile(
-            leading: CircleAvatar(child: Text(profile.name.isEmpty ? '?' : profile.name[0].toUpperCase())),
-            title: Text('@${profile.username}'),
-            subtitle: Text('${profile.followersCount} abonnés'),
-            onTap: () => context.push('/membre/${Uri.encodeComponent(profile.username)}'),
-          ),
+        // Avatar, name and @username (no follower count, developer's request).
+        for (final (i, profile) in value.take(8).indexed) ...[
+          if (i > 0) SizedBox(height: Layout.of(context).listGap),
+          ProfileColumn(child: AccountTile(profile: profile)),
+        ],
       ],
     ),
     AsyncData() => const _SectionNote(title: 'Comptes', message: 'Aucun compte trouvé.'),

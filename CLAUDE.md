@@ -388,17 +388,26 @@ lib/
   (demande du développeur). Choisir un avatar l'enregistre et **reste sur la page** (pas de
   retour en arrière, demande du développeur). L'initiale reste affichée pour un ancien profil sans
   avatar. La tuile « Avatar » des paramètres n'écrit pas le nom du profil.
-- **Page « Profil »** (onglet `/profil`, `ProfileScreen`, `features/social/profile_screen.dart` ;
-  demande du développeur) : en haut, avatar, nom, @pseudo, « 12 abonnés » et « 3 abonnements »
-  (ouvrent `/profil/social/abonnes` et `/profil/social/abonnements`), biographie et « Modifier le
-  profil » (focus à l'arrivée) ; puis une carte de compteurs (Avis, Vus, Ma liste) ; puis
-  **« Ma liste »** (rangée d'affiches `PosterRow`, 20 titres au plus, une seule requête
-  `titlesByIdProvider`) et **« Mes avis »** (les 3 derniers, mêmes lignes `ReviewRow` que la page
-  « Mes avis ») ; le bouton rond « Voir tout » de chaque section ouvre `/ma-liste` ou `/avis`. Sans
-  compte TMDb : une phrase et « Lier mon compte TMDb ». La liste et les avis viennent des
-  providers locaux (`libraryProvider`, `reviewsProvider` : à jour tout de suite), les abonnés et
-  « Vus » de l'API sociale (`socialProfileProvider`, invalidé après « Modifier mon profil »).
-  Profil enfant : pas de page. Test : `test/profile_screen_test.dart`.
+- **Pages de profil** (demande du développeur) : « Profil » (onglet `/profil`, `ProfileScreen`)
+  et la page d'un membre (`/membre/:username`, `PublicProfileScreen`) sont **la même page** :
+  le composant `ProfileView` (`features/social/profile_view.dart`) et ses morceaux
+  `ProfileHeader`, `ProfileCounters`, `ProfileTitlesSection`, `ProfileReviewsSection`,
+  `ProfileSectionMessage` / `ProfileSectionLoading`. **Modifier la page = modifier ce fichier**
+  (pas de copie dans les écrans) ; chaque écran ne donne que ses données et son bouton. En haut,
+  avatar, nom, @pseudo, « 12 abonnés » et « 3 abonnements » (ouvrent la liste), biographie, puis
+  le bouton (focus à l'arrivée) : « Modifier le profil » (le mien), « Suivre » / « Ne plus
+  suivre » (un membre ; invité : « Se connecter pour suivre ») ; puis une carte de compteurs
+  (Avis, Vus, Ma liste / Sa liste) ; puis la liste (rangée `PosterRow`, 20 titres au plus, une
+  seule requête `titlesByIdProvider` via `withCatalogDetails`) et les 3 derniers avis
+  (`ReviewRow`) ; le bouton rond « Voir tout » ouvre `/ma-liste` et `/avis` (le mien) ou
+  `/membre/:username/list|reviews` (`SocialCollectionScreen` : grille d'affiches, avis,
+  abonnés / abonnements). Un avis d'un membre (`ReviewRow(mine: false)`) ouvre la fiche du
+  titre, pas « Mon avis ». Le mien : liste et avis des providers locaux (`libraryProvider`,
+  `reviewsProvider`), sans compte TMDb une phrase et « Lier mon compte TMDb ». Un membre :
+  `socialProfileProvider`, `socialTitlesProvider`, `socialReviewsProvider` (API
+  `/social/profiles/{username}…` ; les avis ont les champs de « Mes avis »). Profil enfant : pas
+  de page. **Comptes** (recherche, abonnés) : `AccountTile` = avatar, nom, @pseudo, **sans le
+  nombre d'abonnés** (demande du développeur). Test : `test/profile_screen_test.dart`.
 - **Espacements** (charte, § 5) : les écarts d'une page ont un nom dans `core/design.dart`
   (`layout.sectionGap`, `titleGap`, `introGap`, `listGap`, `cardGap`) et le bas d'une page qui
   défile passe par `pageBottomPadding(context)` (place de la barre d'onglets comprise). Pages
