@@ -139,6 +139,11 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(user: await _auth.me());
   }
 
+  /// The account was edited (new e-mail address…).
+  void updateUser(User user) {
+    if (state.isSignedIn) state = state.copyWith(user: user);
+  }
+
   /// The active profile was edited (avatar, poster format…).
   void updateProfile(Profile profile) {
     if (state.profile?.id == profile.id) {

@@ -63,6 +63,35 @@ class FakeAccountAuth extends AuthRepository {
   }
 
   @override
+  Future<User> updateEmail({required String email, required String password}) async {
+    calls.add('email $email');
+    if (password != 'secret-password') {
+      throw const ApiException(
+        'Mot de passe incorrect.',
+        status: 422,
+        fieldErrors: {
+          'password': ['Mot de passe incorrect.'],
+        },
+      );
+    }
+    return User(id: davy.id, name: davy.name, email: email, parentalControl: false);
+  }
+
+  @override
+  Future<void> updatePassword({required String current, required String password}) async {
+    calls.add('password $current → $password');
+    if (current != 'secret-password') {
+      throw const ApiException(
+        'Mot de passe incorrect.',
+        status: 422,
+        fieldErrors: {
+          'current_password': ['Mot de passe incorrect.'],
+        },
+      );
+    }
+  }
+
+  @override
   Future<void> deleteAccount(String password) async {
     calls.add('delete $password');
     if (password != 'secret-password') {
@@ -176,6 +205,8 @@ void main() {
     final (container, auth, storage) = setUpContainer(session: SignedIn.new);
     await tester.pumpWidget(app(container, const AccountScreen()));
 
+    await tester.ensureVisible(find.text('Supprimer mon compte'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Supprimer mon compte'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'wrong');
@@ -198,11 +229,58 @@ void main() {
     final (container, auth, _) = setUpContainer(session: SignedIn.new);
     await tester.pumpWidget(app(container, const AccountScreen()));
 
+    await tester.ensureVisible(find.text('Recevoir mes données'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Recevoir mes données'));
     await tester.pumpAndSettle();
 
     expect(auth.calls, ['export']);
     expect(find.text('Vos données ont été envoyées à davy@exemple.fr.'), findsOneWidget);
+  });
+
+  testWidgets('changes the e-mail address with the password', (tester) async {
+    final (container, auth, _) = setUpContainer(session: SignedIn.new);
+    await tester.pumpWidget(app(container, const AccountScreen()));
+    expect(find.text('davy@exemple.fr'), findsOneWidget);
+
+    await tester.tap(find.text('Modifier l’adresse e-mail'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Nouvelle adresse e-mail'), 'nouveau@exemple.fr');
+    await tester.enterText(find.widgetWithText(TextField, 'Mot de passe'), 'wrong');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mot de passe incorrect.'), findsOneWidget);
+
+    // The eye shows the password in clear.
+    await tester.tap(find.byTooltip('Afficher le mot de passe'));
+    await tester.pump();
+    expect(tester.widget<TextField>(find.widgetWithText(TextField, 'Mot de passe')).obscureText, isFalse);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Mot de passe'), 'secret-password');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(auth.calls.last, 'email nouveau@exemple.fr');
+    expect(container.read(sessionProvider).user?.email, 'nouveau@exemple.fr');
+    expect(find.text('Adresse e-mail modifiée'), findsOneWidget);
+    expect(find.text('nouveau@exemple.fr'), findsOneWidget);
+  });
+
+  testWidgets('changes the password with the current one', (tester) async {
+    final (container, auth, _) = setUpContainer(session: SignedIn.new);
+    await tester.pumpWidget(app(container, const AccountScreen()));
+
+    await tester.ensureVisible(find.text('Changer le mot de passe'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Changer le mot de passe'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Mot de passe actuel'), 'secret-password');
+    await tester.enterText(find.widgetWithText(TextField, 'Nouveau mot de passe'), 'un-nouveau-mot-de-passe');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    expect(auth.calls.last, 'password secret-password → un-nouveau-mot-de-passe');
+    expect(find.text('Mot de passe modifié. Vos autres appareils ont été déconnectés.'), findsOneWidget);
+    expect(container.read(sessionProvider).isSignedIn, isTrue);
   });
 
   testWidgets('lists the devices and signs another one out', (tester) async {

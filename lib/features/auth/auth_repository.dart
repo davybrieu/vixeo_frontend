@@ -63,6 +63,18 @@ class AuthRepository {
   /// E-mails the account's data (JSON). Returns the API's message.
   Future<String> exportData() async => (await _api.post('/me/export'))['message'] as String? ?? '';
 
+  /// New e-mail address, confirmed with the account password. Throws an [ApiException] (`email`,
+  /// `password`) when refused.
+  Future<User> updateEmail({required String email, required String password}) async {
+    final json = await _api.post('/me/email', body: {'email': email, 'password': password});
+    return User.fromJson(json['data'] as Map<String, dynamic>);
+  }
+
+  /// New password, confirmed with the current one: the other devices are signed out, this one
+  /// stays. Throws an [ApiException] (`current_password`, `password`) when refused.
+  Future<void> updatePassword({required String current, required String password}) =>
+      _api.post('/me/password', body: {'current_password': current, 'password': password});
+
   /// Deletes the account and all its data. Throws an [ApiException] (`password`) when wrong.
   Future<void> deleteAccount(String password) => _api.post('/me/delete', body: {'password': password});
 

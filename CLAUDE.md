@@ -189,6 +189,13 @@ lib/
   `AppShell` au premier chargement de l'accueil (sans la navigation, une seule fois par lancement).
   La carte TV de la connexion montre une forme vide, pas de cercle, en attendant son code. Ne pas
   ajouter d'autre indicateur au démarrage. Test : `test/app_loading_test.dart`.
+- **Mon compte** (`/profil/compte`, `AccountScreen`, « Paramètres » → « Compte » ; API :
+  `vixeo_backend/docs/compte.md`) : « Adresse e-mail » (l'adresse, « Modifier l'adresse e-mail » :
+  nouvelle adresse + mot de passe, `POST /me/email`, la session garde la nouvelle adresse,
+  `SessionController.updateUser`), « Mot de passe » (« Changer le mot de passe » : actuel +
+  nouveau, `POST /me/password`, les autres appareils sont déconnectés), « Vos données »,
+  « Supprimer le compte ». Les champs de mot de passe passent par `PasswordField` (œil). Test :
+  `test/account_test.dart`.
 - **Inscription et mot de passe** (demande du développeur) : pas de texte d'aide sous les champs
   (ni « Unique sur Vixeo · 3 à 30 caractères », ni « 8 caractères minimum ») ; les règles
   n'apparaissent qu'en message d'erreur. Chaque champ de mot de passe a l'œil « Afficher / Masquer
