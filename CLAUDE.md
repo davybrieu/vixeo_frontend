@@ -226,12 +226,18 @@ lib/
     le focus et occupe la grande image : pas de « titre à la une » (`featured`) sur grand écran,
     ni de bouton « Plus d'infos » ; OK ou un clic sur la carte ouvre la fiche. Le carrousel du
     téléphone garde les titres à la une.
-- **Transition entre les pages** (demande du développeur) : chaque nouvelle page apparaît en
-  **fondu** (300 ms, `vxPageFade`), sans glissement, et repart en fondu au retour. Le thème le
-  règle pour toutes les plateformes (`pageTransitionsTheme` → `VxFadePageTransitionsBuilder`,
-  `core/theme.dart`) : cela vaut pour toute route `builder:` de go_router et tout
-  `MaterialPageRoute`. Les pages principales (onglets) passent par `tab(state, …)` dans
-  `router.dart` (`CustomTransitionPage` avec le même fondu). Ne pas ajouter d'autre transition.
+- **Transition entre les pages** (demande du développeur) : un **fondu enchaîné « fade
+  through »** (300 ms, `vxPageFade`, `VxPageTransition` dans `core/theme.dart`), sans glissement :
+  la page qui part s'efface d'abord (les premiers 40 %), puis la nouvelle apparaît (de 30 % à la
+  fin) en grandissant un peu (96 % → 100 %). Les deux pages ne sont jamais visibles l'une sur
+  l'autre (l'ancien fondu les superposait : effet « double image », peu naturel). Le retour a
+  exactement le même rythme (courbes inverses dédiées, `reverseCurve`). Le thème le règle pour
+  toutes les plateformes (`pageTransitionsTheme` → `VxFadePageTransitionsBuilder`) : toute route
+  `builder:` de go_router et tout `MaterialPageRoute`. Les onglets passent par `tab(state, …)`
+  dans `router.dart`, qui renvoie une **`MaterialPage`** : une `MaterialPageRoute` n'anime sa
+  sortie que sous une autre `MaterialPageRoute` (avec une `CustomTransitionPage`, la page
+  quittée restait visible dessous). Ne pas ajouter d'autre transition. Test :
+  `test/page_transition_test.dart`.
 - **Rangées de l'accueil : « Voir tout »** (demande du développeur) : à droite du titre de chaque
   rangée, un bouton rond à flèche (`SectionHeader(onSeeAll:)`) ouvre la liste entière
   (`TitleListScreen`, `catalog/list_screen.dart`, `/liste/:type/:list?titre=…`) : bouton retour,

@@ -160,9 +160,11 @@ Contenu                            pageContentPadding(context)
   pas, le rail défile, avec une barre de défilement (`_Rail`, `app_shell.dart`).
 - **Titre de rangée** (`SectionHeader`) : avec `onSeeAll`, un bouton rond à flèche (28, TV 48) à
   droite du titre ouvre la liste entière (libellé « Voir tout : … » pour les lecteurs d'écran).
-- **Changement de page** : toute nouvelle page apparaît en **fondu** (300 ms, sans glissement),
-  et repart en fondu au retour ; onglets compris. Réglé une fois pour toutes dans le thème
-  (`VxFadePageTransitionsBuilder`, `vxFadeTransition`, `core/theme.dart`).
+- **Changement de page** : un **fondu enchaîné** (« fade through », 300 ms, sans glissement) :
+  la page qui part s'efface d'abord, puis la nouvelle apparaît en grandissant légèrement (96 % →
+  100 %) ; jamais les deux pages l'une sur l'autre. Même rythme au retour ; onglets compris.
+  Réglé une fois pour toutes dans le thème (`VxFadePageTransitionsBuilder`, `VxPageTransition`,
+  `core/theme.dart`).
 
 ### Pages principales sans recherche
 

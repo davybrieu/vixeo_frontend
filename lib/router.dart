@@ -47,14 +47,10 @@ final routerProvider = Provider<GoRouter>((ref) {
   // Deep link opened before session restoration, or a protected page requested by a guest.
   String? pending;
 
-  // A main page (tab of the navigation) fades in like every other page.
-  Page<void> tab(GoRouterState state, Widget child) => CustomTransitionPage(
-    key: state.pageKey,
-    child: child,
-    transitionDuration: vxPageFade,
-    reverseTransitionDuration: vxPageFade,
-    transitionsBuilder: (_, animation, _, child) => vxFadeTransition(animation, child),
-  );
+  // A main page (tab of the navigation) is a MaterialPage, like every other page: it changes with
+  // the theme's transition (vxPageTransition), and the page it replaces fades out with it (a
+  // MaterialPageRoute only animates its exit under another MaterialPageRoute).
+  Page<void> tab(GoRouterState state, Widget child) => MaterialPage<void>(key: state.pageKey, child: child);
   Widget guarded(String location, Widget child) => BackNavigationGuard(location: location, child: child);
 
   return GoRouter(

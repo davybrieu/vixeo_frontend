@@ -65,16 +65,133 @@ class VxText {
   }) => TextStyle(fontFamily: VxFonts.text, fontSize: size, fontWeight: weight, color: color, height: height);
 }
 
-/// Duration of the fade between two pages.
+/// Duration of a page change (forward and back).
 const vxPageFade = Duration(milliseconds: 300);
 
-/// A page appears by fading in over the previous one, and leaves by fading out (no slide).
-Widget vxFadeTransition(Animation<double> animation, Widget child) =>
-    FadeTransition(opacity: animation.drive(CurveTween(curve: Curves.easeOut)), child: child);
+/// A page change, on every platform and for the tabs: a "fade through". The page that leaves
+/// fades out first, then the new one fades in while growing slightly (96 % → 100 %): the two
+/// pages are never seen on top of each other, and nothing slides. Back looks the same: the page
+/// that closes fades out, then the one below comes back.
+Widget vxPageTransition(Animation<double> animation, Animation<double> secondaryAnimation, Widget child) =>
+    VxPageTransition(animation: animation, secondaryAnimation: secondaryAnimation, child: child);
 
-/// The page transition of the whole app, on every platform: a fade ([vxFadeTransition]).
+/// See [vxPageTransition].
+class VxPageTransition extends StatefulWidget {
+  const VxPageTransition({
+    super.key,
+    required this.animation,
+    required this.secondaryAnimation,
+    required this.child,
+  });
+
+  /// This page arriving (0 → 1), or closing (1 → 0).
+  final Animation<double> animation;
+
+  /// Another page arriving over this one (0 → 1), or closing and uncovering it (1 → 0).
+  final Animation<double> secondaryAnimation;
+  final Widget child;
+
+  /// Size of a page when it starts to appear.
+  static const startScale = 0.96;
+
+  @override
+  State<VxPageTransition> createState() => _VxPageTransitionState();
+}
+
+class _VxPageTransitionState extends State<VxPageTransition> {
+  // In time, whatever the direction: the page that leaves fades out over the first 40 %, the page
+  // that arrives fades in (and grows) from 30 % to the end. Going back, the animations run from 1
+  // to 0: each one gets a reverse curve that gives the same timing (`FlippedCurve`, intervals
+  // mirrored), otherwise the old page would linger and the new one would appear late.
+  static const _arrive = Interval(0.3, 1, curve: Curves.easeOut);
+  static const _grow = Interval(0.3, 1, curve: Curves.easeOutCubic);
+  static const _leave = Interval(0, 0.4, curve: Curves.easeOut);
+
+  /// This page's opacity: arrives (push) or leaves (back).
+  late CurvedAnimation _shown;
+
+  /// This page growing as it arrives (push); full size when it leaves.
+  late CurvedAnimation _grown;
+
+  /// Hidden by a page arriving over it (push), shown again when that page closes (back).
+  late CurvedAnimation _covered;
+
+  /// Shrunk as it comes back (back), so that it grows like an arriving page.
+  late CurvedAnimation _shrunk;
+
+  late Animation<double> _opacity;
+  late Animation<double> _scale;
+  late Animation<double> _comeBackScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _create();
+  }
+
+  @override
+  void didUpdateWidget(VxPageTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.animation != widget.animation || oldWidget.secondaryAnimation != widget.secondaryAnimation) {
+      _dispose();
+      _create();
+    }
+  }
+
+  void _create() {
+    _shown = CurvedAnimation(
+      parent: widget.animation,
+      curve: _arrive,
+      reverseCurve: const Interval(0.6, 1, curve: FlippedCurve(Curves.easeOut)),
+    );
+    _grown = CurvedAnimation(parent: widget.animation, curve: _grow, reverseCurve: const Threshold(0));
+    _covered = CurvedAnimation(
+      parent: widget.secondaryAnimation,
+      curve: _leave,
+      reverseCurve: const Interval(0, 0.7, curve: FlippedCurve(Curves.easeOut)),
+    );
+    _shrunk = CurvedAnimation(
+      parent: widget.secondaryAnimation,
+      curve: const Threshold(1),
+      reverseCurve: const Interval(0, 0.7, curve: FlippedCurve(Curves.easeOutCubic)),
+    );
+    _opacity = ReverseAnimation(_covered);
+    _scale = _grown.drive(Tween(begin: VxPageTransition.startScale, end: 1.0));
+    _comeBackScale = _shrunk.drive(Tween(begin: 1.0, end: VxPageTransition.startScale));
+  }
+
+  void _dispose() {
+    _shown.dispose();
+    _grown.dispose();
+    _covered.dispose();
+    _shrunk.dispose();
+  }
+
+  @override
+  void dispose() {
+    _dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: _shown,
+    child: FadeTransition(
+      opacity: _opacity,
+      child: ScaleTransition(
+        scale: _scale,
+        child: ScaleTransition(scale: _comeBackScale, child: widget.child),
+      ),
+    ),
+  );
+}
+
+/// The page transition of the whole app, on every platform: [vxPageTransition].
 class VxFadePageTransitionsBuilder extends PageTransitionsBuilder {
   const VxFadePageTransitionsBuilder();
+
+  @override
+  Duration get transitionDuration => vxPageFade;
 
   @override
   Widget buildTransitions<T>(
@@ -83,7 +200,7 @@ class VxFadePageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) => vxFadeTransition(animation, child);
+  ) => vxPageTransition(animation, secondaryAnimation, child);
 }
 
 ThemeData buildVixeoTheme() {
@@ -91,7 +208,7 @@ ThemeData buildVixeoTheme() {
     useMaterial3: true,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: VxColors.background,
-    // Every pushed page (go_router `builder`, MaterialPageRoute) fades in.
+    // Every pushed page (go_router `builder`, MaterialPageRoute): fade through, see vxPageTransition.
     pageTransitionsTheme: PageTransitionsTheme(
       builders: {for (final platform in TargetPlatform.values) platform: const VxFadePageTransitionsBuilder()},
     ),
