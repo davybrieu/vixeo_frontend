@@ -14,7 +14,7 @@ import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/person_screen.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
-import 'package:vixeo/features/profiles/parental_control_screen.dart';
+import 'package:vixeo/features/profiles/parental_pin.dart';
 import 'package:vixeo/features/profiles/profiles_screen.dart';
 
 const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: true);
@@ -184,93 +184,64 @@ void main() {
     expect(find.text('C’est fait !'), findsOneWidget);
   });
 
-  testWidgets('parental control: asks the PIN, then sends it with every change', (tester) async {
-    final auth = FakeAuth();
-    await tester.pumpWidget(
-      wrap(const ParentalControlScreen(), auth, overrides: [sessionProvider.overrideWith(SignedIn.new)]),
-    );
+  Future<void> typePin(WidgetTester tester, String pin) async {
+    for (final digit in pin.split('')) {
+      await tester.tap(find.bySemanticsLabel(digit).last);
+      await tester.pump();
+    }
     await tester.pumpAndSettle();
+  }
 
-    // Gate: wrong PIN, then the right one.
-    await tester.enterText(find.byType(TextField), '0000');
-    await tester.tap(find.text('Valider'));
-    await tester.pumpAndSettle();
-    expect(find.text('Code PIN parental incorrect.'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), '9999');
-    await tester.tap(find.text('Valider'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Restrictions des profils'), findsOneWidget);
-    expect(find.text('Léa'), findsOneWidget);
-
-    await tester.ensureVisible(find.text('12 ans'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('12 ans'));
-    await tester.pumpAndSettle();
-    expect(auth.updates.last, {'max_age_rating': 12, 'parental_pin': '9999'});
-  });
-
-  testWidgets('« Contrôle parental »: turns the parental PIN on, then offers to change it', (tester) async {
+  testWidgets('« Mon compte »: turns the parental PIN on, on the keypad, then offers to change it', (tester) async {
     final auth = FakeAuth()..user = noParentalControl;
     await tester.pumpWidget(
-      wrap(const ParentalControlScreen(), auth, overrides: [sessionProvider.overrideWith(SignedInWithoutPin.new)]),
+      wrap(
+        ListView(children: const [ParentalPinSection()]),
+        auth,
+        overrides: [sessionProvider.overrideWith(SignedInWithoutPin.new)],
+      ),
     );
     await tester.pumpAndSettle();
 
-    // The PIN and the restrictions on the same page (the « Code PIN » page was merged into it).
     expect(find.text('Code PIN parental'), findsOneWidget);
-    expect(find.text('Restrictions des profils'), findsOneWidget);
     // No "Activé / Désactivé" badge (developer's request): the button says it.
     expect(find.text('Désactivé'), findsNothing);
     expect(find.text('Désactiver'), findsNothing);
 
     await tester.tap(find.text('Activer'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), '1234');
-    await tester.enterText(find.byType(TextField).at(1), '1234');
-    await tester.tap(find.text('Enregistrer'));
-    await tester.pumpAndSettle();
+    await typePin(tester, '1234');
+    await typePin(tester, '1234');
 
     expect(auth.pinsSet, ['1234']);
     expect(find.text('Contrôle parental activé'), findsOneWidget);
     expect(find.text('Changer le code'), findsOneWidget);
     expect(find.text('Désactiver'), findsOneWidget);
-    expect(find.text('Activé'), findsNothing);
     expect(find.text('Activer'), findsNothing);
   });
 
-  testWidgets('« Contrôle parental »: asks the current PIN when one is set', (tester) async {
+  testWidgets('« Mon compte »: changing the parental PIN asks the current one first', (tester) async {
     final auth = FakeAuth();
     await tester.pumpWidget(
-      wrap(const ParentalControlScreen(), auth, overrides: [sessionProvider.overrideWith(SignedIn.new)]),
+      wrap(
+        ListView(children: const [ParentalPinSection()]),
+        auth,
+        overrides: [sessionProvider.overrideWith(SignedIn.new)],
+      ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Changer le code'), findsNothing);
-    await tester.enterText(find.byType(TextField), '9999');
-    await tester.tap(find.text('Valider'));
+    await tester.tap(find.text('Changer le code'));
     await tester.pumpAndSettle();
-    expect(find.text('Changer le code'), findsOneWidget);
-    expect(find.text('Désactiver'), findsOneWidget);
-  });
+    await typePin(tester, '0000');
+    expect(find.text('Code PIN parental incorrect.'), findsOneWidget);
+    await typePin(tester, '9999');
+    // The new code, twice.
+    await typePin(tester, '4321');
+    await typePin(tester, '4321');
 
-  testWidgets('parental control without a PIN: the restrictions, and a way to set a code', (tester) async {
-    final auth = FakeAuth()..user = noParentalControl;
-    await tester.pumpWidget(
-      wrap(const ParentalControlScreen(), auth, overrides: [sessionProvider.overrideWith(SignedInWithoutPin.new)]),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Code PIN parental'), findsOneWidget);
-    expect(find.text('Activer'), findsOneWidget);
-    expect(find.text('Restrictions des profils'), findsOneWidget);
-
-    await tester.ensureVisible(find.text('12 ans'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('12 ans'));
-    await tester.pumpAndSettle();
-    expect(auth.updates.last, {'max_age_rating': 12});
+    expect(auth.pinsSet, ['9999→4321']);
+    expect(find.text('Code PIN parental modifié'), findsOneWidget);
   });
 
   test('reads a person and formats dates the French way', () {

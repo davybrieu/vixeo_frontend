@@ -165,22 +165,26 @@ lib/
   `ProfileEditorScreen` (`profile_editor_screen.dart`, hors de la navigation) : aperçu (avatar,
   nom et @pseudo tapés ; **pas de ligne « Avatar : … »**), « Nom du profil », « Pseudo » (choisi à
   l'ajout comme à la modification ; vide à l'ajout : l'API en fait un), « Choisir un avatar » (par
-  licence, ronds, avatar au hasard pour un nouveau profil), puis pour un profil existant
+  licence, ronds, avatar au hasard pour un nouveau profil), « Restrictions » (« Profil enfant »,
+  « Âge maximum » (`showVxChoice`), « Titres sans classification » (seulement avec une limite
+  d'âge)), puis pour un profil existant
   « Sécurité » (« Ajouter un code PIN » / « Retirer le code PIN » : libellés courts, lisibles en
   entier sur téléphone), « Enregistrer les modifications » et « Supprimer le profil » (confirmation ; jamais le dernier). Contrôle parental
-  activé : le code PIN parental est demandé pour créer et supprimer. Les restrictions (profil
-  enfant, âge) restent sur « Contrôle parental ». `/profils/gestion` redirige vers `/profils`.
+  activé : le code PIN parental est demandé pour créer, supprimer et changer les restrictions.
+  `/profils/gestion` redirige vers `/profils`.
   Test : `test/profiles_screen_test.dart`.
-- **Contrôle parental** : **une seule page** (« Paramètres » → « Contrôle parental »,
-  `parental_control_screen.dart`, `/profil/controle-parental` ; la page « Code PIN » et sa tuile
-  ont été supprimées, demande du développeur, `/profil/code-pin` y redirige) : en haut le code PIN
-  parental (`ParentalPinCard`, `parental_pin.dart` : « Activer », ou « Changer le code » et
-  « Désactiver » ; **pas de badge « Activé / Désactivé »**), puis les restrictions de chaque profil
-  (profil enfant, âge maximum, titres sans classification). Elle passe par `ParentalPinPage` : si
-  un PIN parental existe, il est demandé à l'arrivée (`ParentalPinGate`), gardé en mémoire tant
-  que la page est ouverte et envoyé (`parental_pin` / `current_pin`) avec chaque modification ;
-  « Code oublié ? » désactive le contrôle avec le mot de passe du compte. Après une modification
-  de restriction : invalider `profilesProvider` et `homeProvider` (le catalogue dépend des limites).
+- **Contrôle parental** (API : `vixeo_backend/docs/controle-parental.md`) : **plus de page ni de
+  tuile « Contrôle parental » ni « Code PIN »** (supprimées, demande du développeur ;
+  `/profil/controle-parental` et `/profil/code-pin` redirigent vers `/profil/compte`). Les
+  **restrictions** d'un profil (profil enfant, âge maximum, titres sans classification) sont dans
+  « Ajouter / Modifier le profil » (section « Restrictions ») ; le **code PIN parental** du compte
+  est dans « Mon compte » (`ParentalPinSection`, `parental_pin.dart` : « Activer », ou « Changer
+  le code » (le code actuel d'abord), « Désactiver » et « Code oublié ? » (mot de passe du compte) ;
+  **pas de badge « Activé / Désactivé »**). Tous les codes se tapent sur le pavé `showPinPad` ;
+  `askParentalPin` demande le code parental (vérifié par l'API) pour créer ou supprimer un profil
+  et changer ses restrictions, et il est envoyé avec la modification (`parental_pin`). Après une
+  modification de restriction : invalider `profilesProvider` et `homeProvider` (le catalogue
+  dépend des limites).
 - **Mises à jour** (`features/updates`, API : `vixeo_backend/docs/mise-a-jour.md`) : sur Android et
   iOS, `UpdateGate` (dans le `builder` de `MaterialApp.router`) interroge `GET /app/update` avec le
   **build** installé (`package_info_plus`) au lancement et au retour au premier plan (toutes les 6 h
@@ -217,7 +221,8 @@ lib/
   demande du développeur ; « Modifier l'adresse e-mail » : l'adresse actuelle en lecture seule,
   nouvelle adresse + mot de passe, `POST /me/email`, la session garde la nouvelle adresse,
   `SessionController.updateUser`), « Mot de passe » (« Changer le mot de passe » : actuel +
-  nouveau, `POST /me/password`, les autres appareils sont déconnectés), « Vos données »,
+  nouveau, `POST /me/password`, les autres appareils sont déconnectés), « Code PIN parental »
+  (`ParentalPinSection`, voir « Contrôle parental »), « Vos données »,
   « Supprimer le compte ». Les champs de mot de passe passent par `PasswordField` (œil). Test :
   `test/account_test.dart`.
 - **Inscription et mot de passe** (demande du développeur) : pas de texte d'aide sous les champs
@@ -522,7 +527,8 @@ lib/
   la distribution et la recherche), recherche (« Explorer », filtres type / genre / années /
   note, tri, grande image sur grand écran, résultats groupés, recherches récentes synchronisées),
   Ma liste, « Avis » (notes TMDb et commentaires), « Mon profil » (paramètres
-  d’apparence, No spoil, langues et lecture automatique, contrôle parental et code PIN (une page),
+  d’apparence, No spoil, langues et lecture automatique, code PIN parental dans « Mon compte »,
+  restrictions dans « Modifier le profil »,
   connecter une TV, changer de profil, Connexions (TMDb), Notifications (nouveaux épisodes),
   Avancé (dernier profil, cache),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,

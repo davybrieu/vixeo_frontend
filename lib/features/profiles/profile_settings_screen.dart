@@ -77,7 +77,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       scale: s,
                       icon: Icons.person_outline_rounded,
                       title: 'Compte',
-                      subtitle: 'Gérez votre compte, déconnectez-vous ou supprimez-le.',
+                      subtitle: 'Adresse e-mail, mot de passe, code PIN parental, vos données.',
                       onPressed: () => context.push('/profil/compte'),
                     ),
                     _SettingsTile(
@@ -145,13 +145,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       title: 'Catégories des chaînes TV',
                       subtitle: 'Trier, afficher ou masquer les catégories.',
                       onPressed: () => context.push(RowsSettingsScreen.channelsLocation),
-                    ),
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.shield_outlined,
-                      title: 'Contrôle parental',
-                      subtitle: 'Code PIN parental et restrictions des profils.',
-                      onPressed: () => context.push('/profil/controle-parental'),
                     ),
                     _SettingsTile(
                       scale: s,

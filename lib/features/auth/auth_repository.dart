@@ -91,6 +91,8 @@ class AuthRepository {
     String? username,
     String? avatar,
     bool isKid = false,
+    int? maxAgeRating,
+    bool allowUnrated = false,
     String? parentalPin,
   }) async {
     final json = await _api.post(
@@ -100,6 +102,8 @@ class AuthRepository {
         if (username != null && username.isNotEmpty) 'username': username,
         'avatar': ?avatar,
         'is_kid': isKid,
+        'max_age_rating': ?maxAgeRating,
+        'allow_unrated': allowUnrated,
         if (parentalPin != null && parentalPin.isNotEmpty) 'parental_pin': parentalPin,
       },
     );
