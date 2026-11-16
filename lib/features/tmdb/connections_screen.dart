@@ -171,22 +171,6 @@ class _ConnectionsScreenState extends ConsumerState<ConnectionsScreen> {
   }
 }
 
-/// What linking does, said once on each state.
-class _About extends StatelessWidget {
-  const _About();
-
-  @override
-  Widget build(BuildContext context) {
-    final s = uiScale(context);
-    return Text(
-      'Vos avis sont gardés par Vixeo, avec ou sans compte TMDb. Une fois lié, chaque note donnée dans Vixeo '
-      'part sur TMDb, et vos notes de themoviedb.org arrivent dans « Mes avis ». À la liaison, les notes de '
-      'Vixeo remplacent celles de TMDb pour les mêmes titres. Un compte TMDb ne se lie qu’à un seul profil Vixeo.',
-      style: VxText.body(15 * s, color: VxColors.textSecondary),
-    );
-  }
-}
-
 class _NotLinked extends StatelessWidget {
   const _NotLinked({required this.expired, required this.busy, required this.onLink});
 
@@ -205,12 +189,9 @@ class _NotLinked extends StatelessWidget {
         Text('Synchronisez vos avis avec TMDb', style: VxText.title(22 * s)),
         SizedBox(height: 8 * s),
         Text(
-          'Liez votre compte TMDb à ce profil. Vous autorisez Vixeo sur le site de TMDb : Vixeo ne voit jamais '
-          'votre mot de passe.',
+          'Liez votre compte TMDb à ce profil pour y envoyer vos notes.',
           style: VxText.body(15 * s, color: VxColors.textSoft),
         ),
-        SizedBox(height: 8 * s),
-        const _About(),
         if (expired) ...[
           SizedBox(height: 16 * s),
           Text('La page d’autorisation a expiré. Recommencez.', style: VxText.body(15 * s, color: VxColors.error)),
@@ -327,6 +308,9 @@ class _Waiting extends StatelessWidget {
   }
 }
 
+/// The linked account: TMDb's logo, then the avatar, the name (one line) and the link date, then
+/// the buttons, one under the other and as wide as the card on a phone (developer's request: the
+/// logo beside the name left it no room on a phone).
 class _Linked extends StatelessWidget {
   const _Linked({required this.account, required this.onRelink, required this.onUnlink, required this.busy});
 
@@ -338,31 +322,63 @@ class _Linked extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = uiScale(context);
+    final phone = Layout.of(context).isPhone;
     final initial = account.displayName.isEmpty ? '?' : account.displayName.characters.first.toUpperCase();
+
+    final buttons = [
+      VxButton(
+        label: 'Changer de compte',
+        icon: Icons.swap_horiz_rounded,
+        kind: VxButtonKind.outline,
+        autofocus: true,
+        loading: busy,
+        expand: phone,
+        onPressed: onRelink,
+      ),
+      VxButton(
+        label: 'Déconnecter',
+        icon: Icons.link_off_rounded,
+        kind: VxButtonKind.danger,
+        expand: phone,
+        onPressed: onUnlink,
+      ),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        TmdbLogo(height: 14 * s),
+        SizedBox(height: 18 * s),
         Row(
           children: [
             ClipOval(
               child: SizedBox.square(
-                dimension: 56 * s,
+                dimension: 52 * s,
                 child: NetImage(
                   url: account.avatarUrl,
                   seed: account.accountId ?? 0,
-                  fallback: Center(child: Text(initial, style: VxText.title(24 * s))),
+                  fallback: Center(child: Text(initial, style: VxText.title(22 * s))),
                 ),
               ),
             ),
-            SizedBox(width: 16 * s),
+            SizedBox(width: 14 * s),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(account.displayName, style: VxText.title(20 * s)),
+                  Text(
+                    account.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: VxText.title(20 * s),
+                  ),
                   if (account.username != null && account.username != account.displayName)
-                    Text('@${account.username}', style: VxText.body(14 * s, color: VxColors.textSecondary)),
+                    Text(
+                      '@${account.username}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: VxText.body(14 * s, color: VxColors.textSecondary),
+                    ),
                   if (account.linkedAt != null)
                     Text(
                       'Lié le ${formatFrenchDate(account.linkedAt!)}',
@@ -371,32 +387,16 @@ class _Linked extends StatelessWidget {
                 ],
               ),
             ),
-            TmdbLogo(height: 14 * s),
           ],
         ),
-        SizedBox(height: 16 * s),
-        const _About(),
-        SizedBox(height: 24 * s),
-        Wrap(
-          spacing: 12 * s,
-          runSpacing: 12 * s,
-          children: [
-            VxButton(
-              label: 'Changer de compte',
-              icon: Icons.swap_horiz_rounded,
-              kind: VxButtonKind.outline,
-              autofocus: true,
-              loading: busy,
-              onPressed: onRelink,
-            ),
-            VxButton(
-              label: 'Déconnecter',
-              icon: Icons.link_off_rounded,
-              kind: VxButtonKind.danger,
-              onPressed: onUnlink,
-            ),
-          ],
-        ),
+        SizedBox(height: 22 * s),
+        if (phone)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [buttons[0], SizedBox(height: 12 * s), buttons[1]],
+          )
+        else
+          Wrap(spacing: 12 * s, runSpacing: 12 * s, children: buttons),
       ],
     );
   }

@@ -153,7 +153,8 @@ lib/
   « Contrôle parental » (`parental_control_screen.dart`, `/profil/controle-parental`) : les
   restrictions de chaque profil (profil enfant, âge maximum, titres sans classification) ; sans
   code, une carte invite à en définir un. « Code PIN » (`parental_pin.dart`, `/profil/code-pin`) :
-  activer, changer ou désactiver le code PIN parental. Les deux passent par `ParentalPinPage` : si
+  activer, changer ou désactiver le code PIN parental (boutons « Activer » / « Désactiver », **pas
+  de badge « Activé / Désactivé »**, demande du développeur). Les deux passent par `ParentalPinPage` : si
   un PIN parental existe, il est demandé à l'arrivée (`ParentalPinGate`), gardé en mémoire tant
   que la page est ouverte et envoyé (`parental_pin` / `current_pin`) avec chaque modification ;
   « Code oublié ? » désactive le contrôle avec le mot de passe du compte. Après une modification
@@ -308,7 +309,9 @@ lib/
   Vixeo** : sinon `link/complete` répond 409 (`taken`), la page arrête d'attendre et affiche le
   message. Liaison : la page d'autorisation de TMDb s'ouvre (téléphone, ordinateur) ou s'affiche
   en QR code (grand écran), et la page interroge `link/complete` toutes les 5 s (et au retour au
-  premier plan) ; « Changer de compte », « Déconnecter » (les avis restent dans Vixeo). Bouton
+  premier plan) ; « Changer de compte », « Déconnecter » (les avis restent dans Vixeo). **Pas de
+  paragraphe d'explication** sur la page (demande du développeur) ; compte lié : logo TMDb au-dessus
+  du nom (une ligne), boutons l'un sous l'autre sur téléphone. Bouton
   « Noter » sur la fiche (film, série) et étoile en haut à droite de l'image de chaque épisode
   (« Ma note : 8/10 » en haut de l'image, après le badge « Épisode 3 ») ;
   fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK ;

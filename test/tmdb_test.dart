@@ -409,6 +409,24 @@ void main() {
       expect(find.text('Changer de compte'), findsOneWidget);
     });
 
+    testWidgets('linked account on a phone: name on one line, buttons as wide as the card, no long text', (
+      tester,
+    ) async {
+      await pumpPage(tester, const ConnectionsScreen(), tmdb: FakeTmdb(current: linkedAccount));
+
+      // The name has the width of the card (the TMDb logo is above it).
+      expect(tester.getTopLeft(find.byType(TmdbLogo)).dy, lessThan(tester.getTopLeft(find.text('Davy B.')).dy));
+      expect(tester.getSize(find.text('Davy B.')).height, lessThan(30));
+      // Developer's request: no paragraph on the synchronisation.
+      expect(find.textContaining('Vos avis sont gardés'), findsNothing);
+      expect(find.textContaining('themoviedb.org'), findsNothing);
+      // Buttons one under the other, same width.
+      final relink = tester.getRect(find.widgetWithText(VxButton, 'Changer de compte'));
+      final unlink = tester.getRect(find.widgetWithText(VxButton, 'Déconnecter'));
+      expect(unlink.top, greaterThan(relink.bottom));
+      expect(unlink.width, relink.width);
+    });
+
     testWidgets('disconnects after a confirmation that the reviews stay in Vixeo', (tester) async {
       final tmdb = FakeTmdb(current: linkedAccount);
       await pumpPage(tester, const ConnectionsScreen(), tmdb: tmdb);
