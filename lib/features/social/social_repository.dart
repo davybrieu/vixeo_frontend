@@ -68,8 +68,7 @@ class SocialRepository {
   Future<List<MediaItem>> titles(String username) async {
     final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/list');
     return [
-      for (final item in (json['data'] as List).whereType<Map<String, dynamic>>())
-        if (titleOf(item) case final title?) title,
+      for (final item in (json['data'] as List).whereType<Map<String, dynamic>>()) ?titleOf(item),
     ];
   }
 

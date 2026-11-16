@@ -196,7 +196,8 @@ class PublicProfileScreen extends ConsumerWidget {
         onRefresh: () async {
           ref.invalidate(socialTitlesProvider(username));
           ref.invalidate(socialReviewsProvider(username));
-          await ref.refresh(socialProfileProvider(username).future);
+          ref.invalidate(socialProfileProvider(username));
+          await ref.read(socialProfileProvider(username).future);
         },
         header: ProfileHeader(
           name: social.name,
