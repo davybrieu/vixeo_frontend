@@ -78,28 +78,6 @@ class ProfileView extends StatelessWidget {
   }
 }
 
-/// Round back button at the top of a page opened over another one: back, or to the home page.
-class VxBackButton extends StatelessWidget {
-  const VxBackButton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final size = layout.size(44, tv: 76);
-    return VxFocusable(
-      borderRadius: size / 2,
-      semanticLabel: 'Retour',
-      onPressed: () => context.canPop() ? context.pop() : context.go('/accueil'),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: const BoxDecoration(color: VxColors.surfaceHigh, shape: BoxShape.circle),
-        child: Icon(Icons.arrow_back_rounded, color: VxColors.text, size: size / 2),
-      ),
-    );
-  }
-}
-
 /// The reading column of a profile page: page margins, 900 wide at most (TV 1500), on the left.
 class ProfileColumn extends StatelessWidget {
   const ProfileColumn({super.key, required this.child});

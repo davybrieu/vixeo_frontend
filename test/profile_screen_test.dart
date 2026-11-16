@@ -12,9 +12,11 @@ import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
+import 'package:vixeo/features/library/my_list_screen.dart';
 import 'package:vixeo/features/social/profile_screen.dart';
 import 'package:vixeo/features/social/social_search.dart';
 import 'package:vixeo/features/social/social_repository.dart';
+import 'package:vixeo/features/tmdb/reviews_screen.dart';
 import 'package:vixeo/features/tmdb/tmdb.dart';
 
 const _user = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
@@ -214,6 +216,80 @@ void main() {
     expect(find.text('@max'), findsOneWidget);
     expect(find.text('M'), findsOneWidget, reason: 'without an avatar of the catalog, the initial');
     expect(find.textContaining('abonné'), findsNothing);
+  });
+
+  testWidgets('« Ses avis »: a member\'s reviews, searched, filtered and sorted like « Mes avis »', (tester) async {
+    tester.view.physicalSize = const Size(430, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          sessionProvider.overrideWith(_Signed.new),
+          socialReviewsProvider.overrideWith(
+            (ref, username) async => const [
+              RatedItem(type: RatedType.movie, id: 1, title: 'Dune', value: 6),
+              RatedItem(type: RatedType.tv, id: 2, title: 'Les Hautes Terres', value: 9, comment: 'Superbe.'),
+            ],
+          ),
+        ],
+        child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: ReviewsScreen(username: 'max'))),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ses avis'), findsOneWidget);
+    double y(String title) => tester.getTopLeft(find.text(title)).dy;
+    // The most recent first (the API's order).
+    expect(y('Dune'), lessThan(y('Les Hautes Terres')));
+
+    await tester.tap(find.text('Tri : Plus récents'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Meilleures notes'));
+    await tester.pumpAndSettle();
+    expect(y('Les Hautes Terres'), lessThan(y('Dune')));
+
+    await tester.tap(find.text('Films'));
+    await tester.pumpAndSettle();
+    expect(find.text('Les Hautes Terres'), findsNothing);
+    expect(find.text('Dune'), findsOneWidget);
+  });
+
+  testWidgets('« Sa liste »: a member\'s list with the search and the filters of « Ma liste »', (tester) async {
+    tester.view.physicalSize = const Size(430, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          sessionProvider.overrideWith(_Signed.new),
+          libraryProvider.overrideWith(_Library.new),
+          allGenresProvider.overrideWith((ref) async => const {MediaType.movie: <Genre>[], MediaType.tv: <Genre>[]}),
+          socialTitlesProvider.overrideWith(
+            (ref, username) async => const [
+              MediaItem(id: 1, type: MediaType.movie, title: 'Dune', year: 2021),
+              MediaItem(id: 2, type: MediaType.tv, title: 'Les Hautes Terres', year: 2011),
+            ],
+          ),
+          titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
+        ],
+        child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: MyListScreen(username: 'max'))),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sa liste'), findsOneWidget);
+    expect(find.byType(PosterCard), findsNWidgets(2));
+    // No channels in a member's list.
+    expect(find.text('Chaînes TV'), findsNothing);
+
+    await tester.tap(find.text('Séries'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PosterCard), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'dune');
+    await tester.pumpAndSettle();
+    expect(find.text('Aucun résultat'), findsOneWidget);
   });
 
   testWidgets('without a TMDb account, invites to link one', (tester) async {

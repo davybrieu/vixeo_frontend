@@ -24,6 +24,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
+
+  /// The password shown in clear (eye button of the field).
+  bool _showPassword = false;
   ApiException? _error;
 
   @override
@@ -115,7 +118,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       decoration: InputDecoration(
                         labelText: 'Pseudo',
                         prefixText: '@',
-                        helperText: 'Unique sur Vixeo · 3 à 30 caractères',
                         errorText: error?.field('username'),
                       ),
                       validator: (v) =>
@@ -141,14 +143,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _password,
-                      obscureText: true,
+                      obscureText: !_showPassword,
                       autofillHints: const [AutofillHints.newPassword],
                       onFieldSubmitted: (_) => _submit(),
                       decoration: InputDecoration(
                         labelText: 'Mot de passe',
-                        helperText: '8 caractères minimum',
-                        helperStyle: VxText.body(13, color: VxColors.textMuted),
                         errorText: error?.field('password'),
+                        suffixIcon: IconButton(
+                          tooltip: _showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe',
+                          icon: Icon(_showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                          color: VxColors.textSecondary,
+                          onPressed: () => setState(() => _showPassword = !_showPassword),
+                        ),
                       ),
                       validator: (v) => (v ?? '').length < 8
                           ? 'Au moins 8 caractères.'

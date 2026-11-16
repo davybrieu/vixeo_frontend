@@ -189,6 +189,10 @@ lib/
   `AppShell` au premier chargement de l'accueil (sans la navigation, une seule fois par lancement).
   La carte TV de la connexion montre une forme vide, pas de cercle, en attendant son code. Ne pas
   ajouter d'autre indicateur au démarrage. Test : `test/app_loading_test.dart`.
+- **Inscription et mot de passe** (demande du développeur) : pas de texte d'aide sous les champs
+  (ni « Unique sur Vixeo · 3 à 30 caractères », ni « 8 caractères minimum ») ; les règles
+  n'apparaissent qu'en message d'erreur. Chaque champ de mot de passe a l'œil « Afficher / Masquer
+  le mot de passe » (connexion, inscription, mot de passe oublié).
 - **Polices** : Sora et Inter sont dans `assets/fonts` (licence OFL) ; rien n'est téléchargé au
   lancement (pas de `google_fonts`).
 - **API** : passer par `ApiClient` (jeton Bearer + en-tête `X-Profile-Id` ajoutés automatiquement,
@@ -226,6 +230,12 @@ lib/
     le focus et occupe la grande image : pas de « titre à la une » (`featured`) sur grand écran,
     ni de bouton « Plus d'infos » ; OK ou un clic sur la carte ouvre la fiche. Le carrousel du
     téléphone garde les titres à la une.
+- **Rangées « légères » de l'accueil** (tendances du jour, plateformes, chaînes, studios,
+  langues : l'API les donne sans logo ni `summary`) : `_HomeRow` (`home_screen.dart`) demande les
+  titres qui n'en ont pas **en une requête par rangée** (`titlesByIdProvider`, API
+  `/catalog/titles`), quand la rangée est construite (près de l'écran) ; les cartes ont alors leur
+  logo et la grande image (TV) tout d'un coup, comme les autres rangées. `MediaItem.withDetails`
+  complète un titre. Test : `test/home_tv_test.dart`.
 - **Transition entre les pages** (demande du développeur) : un **fondu enchaîné « fade
   through »** (300 ms, `vxPageFade`, `VxPageTransition` dans `core/theme.dart`), sans glissement :
   la page qui part s'efface d'abord (les premiers 40 %), puis la nouvelle apparaît (de 30 % à la
@@ -292,10 +302,12 @@ lib/
   « Épisode 3 »), seulement si un
   compte est lié (`canRateProvider`) ;
   fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK ;
-  **commentaire facultatif**, gardé par Vixeo, jamais envoyé à TMDb). **« Avis »** est un onglet de
-  la navigation (`/avis`, `ReviewsScreen`) : en-tête commun avec recherche (titre, épisode,
-  commentaire, sans accents ni casse), filtres Tout (par défaut) / Films / Séries / Épisodes, la
-  plus récente d'abord. Chaque avis montre ses étoiles (`StarRow`) et **aucun bouton** (demande
+  **commentaire facultatif**, gardé par Vixeo, jamais envoyé à TMDb). **« Mes avis »** (`/avis`,
+  `ReviewsScreen`, ouverte depuis la page « Profil » ; « Ses avis » pour un membre,
+  `ReviewsScreen(username:)`) : en-tête commun avec recherche (titre, épisode, commentaire, sans
+  accents ni casse) et, comme la recherche (demande du développeur), filtres Tout (par défaut) /
+  Films / Séries / Épisodes, « Années », « Note » (note de l'avis) et « Tri » (`ReviewSort` : plus
+  récents par défaut, plus anciens, meilleures / moins bonnes notes, titre), « Réinitialiser ». Chaque avis montre ses étoiles (`StarRow`) et **aucun bouton** (demande
   du développeur) : un appui ouvre « Mon avis » (`ReviewScreen`, `/avis/movie/550`,
   `/avis/tv/1399?saison=1&episode=2`), où l'on change les étoiles et le commentaire (`RatingForm`,
   le même formulaire que la fenêtre de note) ; « Enregistrer » et « Supprimer l’avis »
@@ -400,8 +412,11 @@ lib/
   (Avis, Vus, Ma liste / Sa liste) ; puis la liste (rangée `PosterRow`, 20 titres au plus, une
   seule requête `titlesByIdProvider` via `withCatalogDetails`) et les 3 derniers avis
   (`ReviewRow`) ; le bouton rond « Voir tout » ouvre `/ma-liste` et `/avis` (le mien) ou
-  `/membre/:username/list|reviews` (`SocialCollectionScreen` : grille d'affiches, avis,
-  abonnés / abonnements). Un avis d'un membre (`ReviewRow(mine: false)`) ouvre la fiche du
+  `/membre/:username/list|reviews` : **les mêmes pages** « Sa liste » (`MyListScreen(username:)`,
+  sans les chaînes) et « Ses avis » (`ReviewsScreen(username:)`), avec recherche, filtres et tri
+  (demande du développeur) ; `SocialCollectionScreen` n'affiche lui-même que les abonnés /
+  abonnements. Ouvertes par-dessus une autre page, elles ont le bouton retour de
+  `VxPageHeader(back:)` (`VxBackButton`) ; pas les onglets. Un avis d'un membre (`ReviewRow(mine: false)`) ouvre la fiche du
   titre, pas « Mon avis ». Le mien : liste et avis des providers locaux (`libraryProvider`,
   `reviewsProvider`), sans compte TMDb une phrase et « Lier mon compte TMDb ». Un membre :
   `socialProfileProvider`, `socialTitlesProvider`, `socialReviewsProvider` (API

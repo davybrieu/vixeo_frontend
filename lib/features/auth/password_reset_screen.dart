@@ -180,8 +180,6 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
             textInputAction: TextInputAction.next,
             decoration: InputDecoration(
               labelText: 'Nouveau mot de passe',
-              helperText: '8 caractères minimum',
-              helperStyle: VxText.body(13, color: VxColors.textMuted),
               errorText: _error?.field('password'),
               suffixIcon: IconButton(
                 tooltip: _showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe',

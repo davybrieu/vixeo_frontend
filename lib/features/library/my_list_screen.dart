@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
@@ -11,13 +12,20 @@ import '../catalog/models.dart';
 import '../catalog/widgets.dart';
 import '../search/filter_bar.dart';
 import '../search/search_filters.dart';
+import '../social/social_repository.dart';
 import '../tv/channel_search.dart';
 import '../tv/channel_screen.dart';
 import 'library.dart';
 
-/// "Ma liste": the active profile's favorites (synced between devices).
+/// "Ma liste": the active profile's favorites (synced between devices), with the search field,
+/// the filters (type, genre, years, rating) and the order of the search page. With [username],
+/// « Sa liste »: another member's list (their profile page, `/membre/:username/list`), the same
+/// page without the channels.
 class MyListScreen extends ConsumerStatefulWidget {
-  const MyListScreen({super.key});
+  const MyListScreen({super.key, this.username});
+
+  /// A member's list; null: mine.
+  final String? username;
 
   @override
   ConsumerState<MyListScreen> createState() => _MyListScreenState();
@@ -44,7 +52,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final library = ref.watch(libraryProvider);
+    final member = widget.username;
 
     return SafeArea(
       bottom: false,
@@ -52,7 +60,9 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           VxPageHeader(
-            title: 'Ma liste',
+            title: member == null ? 'Ma liste' : 'Sa liste',
+            // Opened from a profile page: a way back.
+            back: GoRouter.maybeOf(context)?.canPop() ?? false,
             search: VxSearchField(
               controller: _searchController,
               fontSize: layout.size(16, tv: 24),
@@ -69,14 +79,40 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
               filters: _filters,
               withText: false,
               onChanged: _setFilters,
-              // Saved titles and channels: no people, no channel category.
-              kinds: const [SearchKind.all, SearchKind.movie, SearchKind.tv, SearchKind.channels],
+              // Saved titles and channels (a member's list: titles only): no people, no channel category.
+              kinds: member == null
+                  ? const [SearchKind.all, SearchKind.movie, SearchKind.tv, SearchKind.channels]
+                  : const [SearchKind.all, SearchKind.movie, SearchKind.tv],
               channelCategories: false,
             ),
           ),
           Expanded(
-            child: AsyncView(
-              value: library,
+            child: member == null
+                ? _mine(context)
+                : AsyncView(
+                    value: ref.watch(socialTitlesProvider(member)),
+                    onRetry: () => ref.invalidate(socialTitlesProvider(member)),
+                    data: (titles) => _titles(
+                      context,
+                      titles,
+                      mine: false,
+                      onRefresh: () async {
+                        ref.invalidate(socialTitlesProvider(member));
+                        await ref.read(socialTitlesProvider(member).future);
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// My list: channels (« Chaînes TV ») or titles, from the synced library.
+  Widget _mine(BuildContext context) {
+    final layout = Layout.of(context);
+    return AsyncView(
+              value: ref.watch(libraryProvider),
               onRetry: () => ref.invalidate(libraryProvider),
               data: (state) {
                 if (_filters.kind.isChannels) {
@@ -154,97 +190,94 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                         },
                       );
                 }
-                // Every title of the list in one request (logo, rating, genres): never one per card.
-                final refs = [
-                  for (final favorite in state.favorites)
-                    if (favorite.tmdbTitle case final t?) (type: t.type, id: t.id),
-                ];
-                final batch = ref.watch(titlesByIdProvider(titlesKey(refs)));
-                _known.addAll(batch.value ?? const {});
-                // First visit: the cards come with their logo, not before it.
-                if (_known.isEmpty && refs.isNotEmpty && batch.isLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final matching = <({ProfileItem favorite, MediaItem item, double rating, int? year})>[];
-
-                for (final favorite in state.favorites) {
-                  final title = favorite.tmdbTitle;
-                  if (title == null) continue;
-                  if (_filters.kind.mediaType != null && title.type != _filters.kind.mediaType) continue;
-                  if (_query.isNotEmpty && !favorite.title.toLowerCase().contains(_query.toLowerCase())) continue;
-
-                  final details = _known[(type: title.type, id: title.id)];
-                  final year = details?.year ?? favorite.year;
-                  final rating = details?.voteAverage ?? 0;
-
-                  final decade = _filters.decade;
-                  if (decade != null && year != null && (year < (decade.from ?? 0) || year > decade.to)) {
-                    continue;
-                  }
-                  if (_filters.minRating != null && details != null && rating < _filters.minRating!) {
-                    continue;
-                  }
-                  if (_filters.genre != null && details != null && !details.genreIds.contains(_filters.genre!.id)) {
-                    continue;
-                  }
-
-                  matching.add((
-                    favorite: favorite,
-                    item: MediaItem(
-                      id: title.id,
-                      type: title.type,
-                      title: favorite.title,
-                      year: year,
-                      voteAverage: rating,
-                      posterUrl: favorite.posterUrl ?? details?.posterUrl,
-                      backdropUrl: favorite.backdropUrl ?? details?.backdropUrl,
-                      logoUrl: details?.logoUrl,
-                      logoAspectRatio: details?.logoAspectRatio,
-                      summary: details?.summary,
-                    ),
-                    rating: rating,
-                    year: year,
-                  ));
-                }
-
-                switch (_filters.sortFor(withText: false)) {
-                  case SearchSort.rating:
-                    matching.sort((a, b) => b.rating.compareTo(a.rating));
-                    break;
-                  case SearchSort.recent:
-                    matching.sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));
-                    break;
-                  case SearchSort.oldest:
-                    matching.sort((a, b) => (a.year ?? 9999).compareTo(b.year ?? 9999));
-                    break;
-                  case SearchSort.relevance:
-                  case SearchSort.popularity:
-                    // Keep the library's existing order (most recently favorited first).
-                    break;
-                }
-
-                final items = matching.map((entry) => entry.item).toList();
-                if (items.isEmpty) {
-                  final isEmpty = state.favorites.where((item) => item.tmdbTitle != null).isEmpty;
-                  return EmptyState(
-                    icon: Icons.bookmark_border_rounded,
-                    title: isEmpty ? 'Votre liste est vide' : 'Aucun résultat',
-                    message: isEmpty
-                        ? 'Ajoutez des films et des séries avec « Ma liste » pour les retrouver ici, sur tous vos écrans.'
-                        : 'Aucun titre de votre liste ne correspond à votre recherche ou à ces filtres.',
-                  );
-                }
-
-                return RefreshIndicator(
+                return _titles(
+                  context,
+                  [
+                    for (final favorite in state.favorites)
+                      if (favorite.tmdbTitle case final t?)
+                        MediaItem(
+                          id: t.id,
+                          type: t.type,
+                          title: favorite.title,
+                          year: favorite.year,
+                          posterUrl: favorite.posterUrl,
+                          backdropUrl: favorite.backdropUrl,
+                        ),
+                  ],
+                  mine: true,
                   onRefresh: () => ref.read(libraryProvider.notifier).refresh(),
-                  child: PosterGrid(items: items, alwaysScrollable: true, padding: pageContentPadding(context)),
                 );
               },
-            ),
-          ),
-        ],
-      ),
+    );
+  }
+
+  /// The movies and series of the list (most recently added first), completed by the catalog in
+  /// one request (logo, rating, genres: never one per card), then searched, filtered and sorted.
+  Widget _titles(
+    BuildContext context,
+    List<MediaItem> titles, {
+    required bool mine,
+    required Future<void> Function() onRefresh,
+  }) {
+    final refs = [for (final t in titles) (type: t.type, id: t.id)];
+    final batch = ref.watch(titlesByIdProvider(titlesKey(refs)));
+    _known.addAll(batch.value ?? const {});
+    // First visit: the cards come with their logo, not before it.
+    if (_known.isEmpty && refs.isNotEmpty && batch.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final matching = <MediaItem>[];
+    final seen = <TitleRef>{};
+    for (final title in titles) {
+      final key = (type: title.type, id: title.id);
+      // An episode in the list counts for its series: once.
+      if (!seen.add(key)) continue;
+      if (_filters.kind.mediaType != null && title.type != _filters.kind.mediaType) continue;
+      if (_query.isNotEmpty && !title.title.toLowerCase().contains(_query.toLowerCase())) continue;
+
+      final details = _known[key];
+      final item = title.withDetails(details);
+      final year = item.year;
+      final decade = _filters.decade;
+      if (decade != null && year != null && (year < (decade.from ?? 0) || year > decade.to)) continue;
+      if (_filters.minRating != null && details != null && item.voteAverage < _filters.minRating!) continue;
+      if (_filters.genre != null && details != null && !details.genreIds.contains(_filters.genre!.id)) continue;
+      matching.add(item);
+    }
+
+    switch (_filters.sortFor(withText: false)) {
+      case SearchSort.rating:
+        matching.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
+        break;
+      case SearchSort.recent:
+        matching.sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));
+        break;
+      case SearchSort.oldest:
+        matching.sort((a, b) => (a.year ?? 9999).compareTo(b.year ?? 9999));
+        break;
+      case SearchSort.relevance:
+      case SearchSort.popularity:
+        // Keep the list's own order (most recently added first).
+        break;
+    }
+
+    if (matching.isEmpty) {
+      final isEmpty = titles.isEmpty;
+      return EmptyState(
+        icon: Icons.bookmark_border_rounded,
+        title: isEmpty ? (mine ? 'Votre liste est vide' : 'Sa liste est vide') : 'Aucun résultat',
+        message: isEmpty
+            ? (mine
+                  ? 'Ajoutez des films et des séries avec « Ma liste » pour les retrouver ici, sur tous vos écrans.'
+                  : 'Aucun film ni série dans sa liste pour l’instant.')
+            : 'Aucun titre de ${mine ? 'votre' : 'sa'} liste ne correspond à cette recherche ou à ces filtres.',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: PosterGrid(items: matching, alwaysScrollable: true, padding: pageContentPadding(context)),
     );
   }
 }

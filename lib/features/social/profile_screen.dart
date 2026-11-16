@@ -10,8 +10,8 @@ import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
-import '../catalog/widgets.dart';
 import '../library/library.dart';
+import '../library/my_list_screen.dart';
 import '../tmdb/reviews_screen.dart';
 import '../tmdb/tmdb.dart';
 import 'profile_view.dart';
@@ -340,7 +340,7 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
           if (_username.text.isEmpty) _username.text = social.username;
           if (_bio.text.isEmpty) _bio.text = social.bio ?? '';
           return ListView(padding: const EdgeInsets.all(20), children: [
-            TextField(controller: _username, decoration: const InputDecoration(labelText: 'Pseudo', prefixText: '@', helperText: '3 à 30 caractères, lettres, chiffres et _')),
+            TextField(controller: _username, decoration: const InputDecoration(labelText: 'Pseudo', prefixText: '@')),
             const SizedBox(height: 16),
             TextField(controller: _bio, maxLength: 500, maxLines: 5, decoration: const InputDecoration(labelText: 'Biographie')),
             if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
@@ -367,8 +367,10 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
 }
 
 /// The whole list, reviews, followers or followed profiles of a member (`/membre/:username/list`…)
-/// or of the active profile (`/profil/social/abonnes`…): back button, title, then a grid of
-/// posters, the reviews or the members.
+/// or of the active profile (`/profil/social/abonnes`…). The list and the reviews are the pages of
+/// « Ma liste » and « Mes avis » (`MyListScreen`, `ReviewsScreen`: search, filters, order), « Sa
+/// liste » and « Ses avis » for a member; followers and followed profiles: back button, title and
+/// the members (`AccountTile`).
 class SocialCollectionScreen extends ConsumerWidget {
   const SocialCollectionScreen({super.key, required this.section, this.username});
 
@@ -383,57 +385,22 @@ class SocialCollectionScreen extends ConsumerWidget {
     final layout = Layout.of(context);
     final active = ref.watch(sessionProvider).profile;
     final handle = username ?? active?.username;
-    final mine = handle != null && handle == active?.username;
+    final mine = handle == null || handle == active?.username;
     final kind = switch (section) {
       'avis' || 'reviews' => _Kind.reviews,
       'liste' || 'list' => _Kind.list,
       'abonnes' || 'followers' => _Kind.followers,
       _ => _Kind.following,
     };
-    final title = switch (kind) {
-      _Kind.list => mine ? 'Ma liste' : 'Sa liste',
-      _Kind.reviews => mine ? 'Mes avis' : 'Ses avis',
-      _Kind.followers => 'Abonnés',
-      _Kind.following => 'Abonnements',
-    };
-
-    final Widget content;
-    if (handle == null || handle.isEmpty) {
-      content = const EmptyState(icon: Icons.person_outline_rounded, title: 'Aucun profil choisi');
-    } else {
-      final padding = pageContentPadding(context);
-      content = switch (kind) {
-        _Kind.list => _Async(
-          value: switch (ref.watch(socialTitlesProvider(handle))) {
-            AsyncValue(value: final list?) => withCatalogDetails(ref, list),
-            AsyncValue(hasError: true, :final error) => AsyncError<List<MediaItem>>(error!, StackTrace.empty),
-            _ => const AsyncLoading<List<MediaItem>>(),
-          },
-          empty: 'Aucun film ni série dans cette liste.',
-          builder: (items) => PosterGrid(items: items, alwaysScrollable: true, padding: padding),
-        ),
-        _Kind.reviews => _Async(
-          value: ref.watch(socialReviewsProvider(handle)),
-          empty: 'Aucun avis pour l’instant.',
-          builder: (reviews) => ListView.separated(
-            padding: padding,
-            itemCount: reviews.length,
-            separatorBuilder: (_, _) => SizedBox(height: layout.listGap),
-            itemBuilder: (_, i) => ProfileColumn(child: ReviewRow(item: reviews[i], mine: mine)),
-          ),
-        ),
-        _Kind.followers || _Kind.following => _Async(
-          value: ref.watch(socialConnectionsProvider((username: handle, followers: kind == _Kind.followers))),
-          empty: kind == _Kind.followers ? 'Aucun abonné pour l’instant.' : 'Aucun abonnement pour l’instant.',
-          builder: (profiles) => ListView.separated(
-            padding: padding,
-            itemCount: profiles.length,
-            separatorBuilder: (_, _) => SizedBox(height: layout.listGap),
-            itemBuilder: (_, i) => ProfileColumn(child: AccountTile(profile: profiles[i], autofocus: i == 0)),
-          ),
-        ),
-      };
+    switch (kind) {
+      case _Kind.list:
+        return mine ? const MyListScreen() : MyListScreen(username: handle);
+      case _Kind.reviews:
+        return mine ? const ReviewsScreen() : ReviewsScreen(username: handle);
+      case _Kind.followers || _Kind.following:
+        break;
     }
+    final followers = kind == _Kind.followers;
 
     return Scaffold(
       body: SafeArea(
@@ -442,7 +409,7 @@ class SocialCollectionScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.xs), layout.gutter, 0),
+              padding: EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.m), layout.gutter, 0),
               child: const VxBackButton(),
             ),
             Padding(
@@ -452,9 +419,23 @@ class SocialCollectionScreen extends ConsumerWidget {
                 layout.gutter,
                 layout.space(VxSpace.m),
               ),
-              child: Text(title, style: VxText.title(layout.pageTitleSize)),
+              child: Text(followers ? 'Abonnés' : 'Abonnements', style: VxText.title(layout.pageTitleSize)),
             ),
-            Expanded(child: content),
+            Expanded(
+              child: handle == null || handle.isEmpty
+                  ? const EmptyState(icon: Icons.person_outline_rounded, title: 'Aucun profil choisi')
+                  : _Async(
+                      value: ref.watch(socialConnectionsProvider((username: handle, followers: followers))),
+                      empty: followers ? 'Aucun abonné pour l’instant.' : 'Aucun abonnement pour l’instant.',
+                      builder: (profiles) => ListView.separated(
+                        padding: pageContentPadding(context),
+                        itemCount: profiles.length,
+                        separatorBuilder: (_, _) => SizedBox(height: layout.listGap),
+                        itemBuilder: (_, i) =>
+                            ProfileColumn(child: AccountTile(profile: profiles[i], autofocus: i == 0)),
+                      ),
+                    ),
+            ),
           ],
         ),
       ),
