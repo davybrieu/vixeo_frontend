@@ -15,7 +15,6 @@ import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/person_screen.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/parental_control_screen.dart';
-import 'package:vixeo/features/profiles/parental_pin.dart';
 import 'package:vixeo/features/profiles/profiles_screen.dart';
 
 const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: true);
@@ -212,15 +211,16 @@ void main() {
     expect(auth.updates.last, {'max_age_rating': 12, 'parental_pin': '9999'});
   });
 
-  testWidgets('"Code PIN" page: turns the parental PIN on, then offers to change it', (tester) async {
+  testWidgets('« Contrôle parental »: turns the parental PIN on, then offers to change it', (tester) async {
     final auth = FakeAuth()..user = noParentalControl;
     await tester.pumpWidget(
-      wrap(const ParentalPinScreen(), auth, overrides: [sessionProvider.overrideWith(SignedInWithoutPin.new)]),
+      wrap(const ParentalControlScreen(), auth, overrides: [sessionProvider.overrideWith(SignedInWithoutPin.new)]),
     );
     await tester.pumpAndSettle();
 
-    // Only the PIN here: the restrictions are on "Contrôle parental".
-    expect(find.text('Restrictions des profils'), findsNothing);
+    // The PIN and the restrictions on the same page (the « Code PIN » page was merged into it).
+    expect(find.text('Code PIN parental'), findsOneWidget);
+    expect(find.text('Restrictions des profils'), findsOneWidget);
     // No "Activé / Désactivé" badge (developer's request): the button says it.
     expect(find.text('Désactivé'), findsNothing);
     expect(find.text('Désactiver'), findsNothing);
@@ -240,10 +240,10 @@ void main() {
     expect(find.text('Activer'), findsNothing);
   });
 
-  testWidgets('"Code PIN" page: asks the current PIN when one is set', (tester) async {
+  testWidgets('« Contrôle parental »: asks the current PIN when one is set', (tester) async {
     final auth = FakeAuth();
     await tester.pumpWidget(
-      wrap(const ParentalPinScreen(), auth, overrides: [sessionProvider.overrideWith(SignedIn.new)]),
+      wrap(const ParentalControlScreen(), auth, overrides: [sessionProvider.overrideWith(SignedIn.new)]),
     );
     await tester.pumpAndSettle();
 
@@ -262,9 +262,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Aucun code PIN parental'), findsOneWidget);
-    expect(find.text('Définir un code PIN'), findsOneWidget);
-    expect(find.text('Activer le contrôle parental'), findsNothing);
+    expect(find.text('Code PIN parental'), findsOneWidget);
+    expect(find.text('Activer'), findsOneWidget);
     expect(find.text('Restrictions des profils'), findsOneWidget);
 
     await tester.ensureVisible(find.text('12 ans'));

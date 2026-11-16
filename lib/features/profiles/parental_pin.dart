@@ -154,23 +154,16 @@ class _ParentalPinGateState extends ConsumerState<ParentalPinGate> {
   }
 }
 
-/// "Code PIN" (`/profil/code-pin`): turns the parental PIN on, changes it or turns it off. The PIN
-/// is asked for creating or deleting a profile and for changing its restrictions.
-class ParentalPinScreen extends StatelessWidget {
-  const ParentalPinScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) => ParentalPinPage(
-    title: 'Code PIN',
-    builder: (context, pin, onPinChanged) => _PinSettings(pin: pin, onPinChanged: onPinChanged),
-  );
-}
-
-class _PinSettings extends ConsumerWidget {
-  const _PinSettings({required this.pin, required this.onPinChanged});
+/// The parental PIN, at the top of « Contrôle parental » (the former « Code PIN » page was merged
+/// into it, demande du développeur): « Activer » without a code; « Changer le code » and
+/// « Désactiver » with one. The PIN is asked for creating or deleting a profile and for changing
+/// its restrictions.
+class ParentalPinCard extends ConsumerWidget {
+  const ParentalPinCard({super.key, required this.pin, required this.onPinChanged, this.autofocus = false});
 
   final String? pin;
   final ValueChanged<String?> onPinChanged;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -229,10 +222,7 @@ class _PinSettings extends ConsumerWidget {
       }
     }
 
-    // The same column as the other secondary pages (InfoBody), with the charter's card.
-    return InfoBody(
-      children: [
-        VxCard(
+    return VxCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -264,7 +254,7 @@ class _PinSettings extends ConsumerWidget {
                           label: 'Changer le code',
                           icon: Icons.password_rounded,
                           kind: VxButtonKind.secondary,
-                          autofocus: true,
+                          autofocus: autofocus,
                           onPressed: change,
                         ),
                         VxButton(label: 'Désactiver', kind: VxButtonKind.outline, onPressed: disable),
@@ -273,16 +263,14 @@ class _PinSettings extends ConsumerWidget {
                         VxButton(
                           label: 'Activer',
                           icon: Icons.shield_rounded,
-                          autofocus: true,
+                          autofocus: autofocus,
                           onPressed: enable,
                         ),
                       ],
               ),
             ],
           ),
-        ),
-      ],
-    );
+        );
   }
 }
 

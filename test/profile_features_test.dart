@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/core/widgets/common.dart';
 import 'package:vixeo/core/widgets/focusable.dart';
-import 'package:vixeo/features/auth/auth_repository.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/models.dart';
@@ -14,7 +12,6 @@ import 'package:vixeo/features/library/actions.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
-import 'package:vixeo/features/profiles/profile_settings_screen.dart';
 import 'package:vixeo/features/shell/app_shell.dart';
 
 /// In-memory library: records favorites / watched like the sync API would.
@@ -52,19 +49,6 @@ class FakeSession extends SessionController {
 
   @override
   SessionState build() => SessionState(status: SessionStatus.signedIn, token: 't', profile: profile);
-}
-
-/// Saves profile fields without the API.
-class SavingAuth extends AuthRepository {
-  SavingAuth() : super(ApiClient(token: () => null, profileId: () => null));
-
-  final updates = <Map<String, Object?>>[];
-
-  @override
-  Future<Profile> updateProfile(int profileId, Map<String, Object?> fields) async {
-    updates.add(fields);
-    return Profile(id: profileId, name: 'Davy', avatar: fields['avatar'] as String?);
-  }
 }
 
 const movie = MediaItem(id: 550, type: MediaType.movie, title: 'Nord Sauvage');
@@ -262,95 +246,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('D'), findsOneWidget);
-  });
-
-  testWidgets('the avatar picker only offers avatars: no "initial" choice at the top', (tester) async {
-    const licenses = [
-      AvatarLicense(
-        id: 'vixeo-arcade',
-        name: 'Vixeo Arcade',
-        avatars: [
-          AvatarDef(id: 'arcade-cat', name: 'Chat', background: Color(0xFF2A2112)),
-          AvatarDef(id: 'arcade-fox', name: 'Renard', background: Color(0xFF2A2112)),
-        ],
-      ),
-    ];
-    Future<void> open(Profile profile) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          key: ValueKey(profile.avatar),
-          overrides: [
-            avatarCatalogProvider.overrideWith((ref) async => licenses),
-            sessionProvider.overrideWith(() => FakeSession(profile)),
-          ],
-          child: MaterialApp(theme: buildVixeoTheme(), home: const AvatarPickerScreen()),
-        ),
-      );
-      await tester.pumpAndSettle();
-    }
-
-    String? focused() => FocusManager.instance.primaryFocus?.debugLabel;
-
-    // A profile without an avatar yet (made before avatars were given): the first one has the focus.
-    await open(const Profile(id: 1, name: 'Davy'));
-    expect(find.text('Initiale'), findsNothing);
-    expect(find.text('D'), findsNothing);
-    expect(find.text('Chat'), findsOneWidget);
-    expect(find.text('Renard'), findsOneWidget);
-    expect(focused(), contains('Chat'));
-
-    // With an avatar: that one has the focus.
-    await open(const Profile(id: 1, name: 'Davy', avatar: 'arcade-fox'));
-    expect(focused(), contains('Renard'));
-  });
-
-  testWidgets('choosing an avatar saves it and stays on the page', (tester) async {
-    final auth = SavingAuth();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          avatarCatalogProvider.overrideWith(
-            (ref) async => const [
-              AvatarLicense(
-                id: 'vixeo-arcade',
-                name: 'Vixeo Arcade',
-                avatars: [
-                  AvatarDef(id: 'arcade-cat', name: 'Chat', background: Color(0xFF2A2112)),
-                  AvatarDef(id: 'arcade-fox', name: 'Renard', background: Color(0xFF2A2112)),
-                ],
-              ),
-            ],
-          ),
-          authRepositoryProvider.overrideWithValue(auth),
-          sessionProvider.overrideWith(() => FakeSession(const Profile(id: 1, name: 'Davy', avatar: 'arcade-cat'))),
-        ],
-        child: MaterialApp(
-          theme: buildVixeoTheme(),
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () =>
-                    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AvatarPickerScreen())),
-                child: const Text('Paramètres'),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('Paramètres'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.bySemanticsLabel('Renard'));
-    await tester.pumpAndSettle();
-    expect(auth.updates, [
-      {'avatar': 'arcade-fox'},
-    ]);
-    expect(find.text('Avatar mis à jour'), findsOneWidget);
-    // Still on the page, the new one selected.
-    expect(find.text('Choisir un avatar'), findsOneWidget);
-    expect(find.bySemanticsLabel('Renard, sélectionné'), findsOneWidget);
-    expect(find.bySemanticsLabel('Chat'), findsOneWidget);
   });
 
   testWidgets('Paramètres: the same gaps between every section', (tester) async {

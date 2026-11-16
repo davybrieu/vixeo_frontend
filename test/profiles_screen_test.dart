@@ -35,7 +35,7 @@ class ProfilesAuth extends AuthRepository {
     bool isKid = false,
     String? parentalPin,
   }) async {
-    created.add({'name': name, 'avatar': avatar, 'parental_pin': parentalPin});
+    created.add({'name': name, 'username': username, 'avatar': avatar, 'parental_pin': parentalPin});
     final profile = Profile(id: 10 + created.length, name: name, avatar: avatar);
     list = [...list, profile];
     return profile;
@@ -54,6 +54,7 @@ class ProfilesAuth extends AuthRepository {
             : Profile(
                 id: p.id,
                 name: fields['name'] as String? ?? p.name,
+                username: fields['username'] as String? ?? p.username,
                 avatar: fields.containsKey('avatar') ? fields['avatar'] as String? : p.avatar,
                 hasPin: fields.containsKey('pin') ? fields['pin'] != null : p.hasPin,
               ),
@@ -237,15 +238,19 @@ void main() {
     await tester.pump();
     // The preview follows the name.
     expect(find.byWidgetPredicate((w) => w is Text && w.data == 'Tom'), findsOneWidget);
+    // The pseudo, chosen at once.
+    await tester.enterText(find.widgetWithText(TextField, 'Pseudo'), 'Tom_42');
+    await tester.pump();
+    expect(find.byWidgetPredicate((w) => w is Text && w.data == '@Tom_42'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel(RegExp(r'^Bram')));
     await tester.pump();
-    expect(find.text('Avatar : Bram'), findsOneWidget);
+    expect(find.bySemanticsLabel('Bram, choisi'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Créer un profil'));
     await tester.tap(find.text('Créer un profil'));
     await tester.pumpAndSettle();
 
-    expect(auth.created.single, {'name': 'Tom', 'avatar': 'bear', 'parental_pin': null});
+    expect(auth.created.single, {'name': 'Tom', 'username': 'tom_42', 'avatar': 'bear', 'parental_pin': null});
     expect(find.text('Qui regarde ?'), findsOneWidget);
     expect(find.text('Tom'), findsOneWidget);
   });
@@ -274,14 +279,19 @@ void main() {
     await tester.tap(find.text('Davy'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Avatar : Milo'), findsOneWidget);
+    // No « Avatar : … » line (developer's request).
+    expect(find.textContaining('Avatar :'), findsNothing);
     await tester.enterText(find.widgetWithText(TextField, 'Nom du profil'), 'David');
+    // The pseudo can be changed too.
+    await tester.enterText(find.widgetWithText(TextField, 'Pseudo'), 'david_b');
+    await tester.pump();
+    expect(find.byWidgetPredicate((w) => w is Text && w.data == '@david_b'), findsOneWidget);
     await tester.tap(find.bySemanticsLabel(RegExp(r'^Bram')));
     await tester.pump();
 
     // The PIN: typed twice.
-    await tester.ensureVisible(find.text('Configurer le verrouillage PIN'));
-    await tester.tap(find.text('Configurer le verrouillage PIN'));
+    await tester.ensureVisible(find.text('Ajouter un code PIN'));
+    await tester.tap(find.text('Ajouter un code PIN'));
     await tester.pumpAndSettle();
     expect(find.text('Saisir un nouveau code PIN'), findsOneWidget);
     await typePin(tester, '1234');
@@ -293,7 +303,7 @@ void main() {
     await tester.ensureVisible(find.text('Enregistrer les modifications'));
     await tester.tap(find.text('Enregistrer les modifications'));
     await tester.pumpAndSettle();
-    expect(auth.updates.last, {'id': 1, 'name': 'David', 'avatar': 'bear'});
+    expect(auth.updates.last, {'id': 1, 'name': 'David', 'username': 'david_b', 'avatar': 'bear'});
     expect(find.text('Qui regarde ?'), findsOneWidget);
     expect(find.text('David'), findsOneWidget);
   });
@@ -308,14 +318,14 @@ void main() {
     await tester.tap(find.text('Davy'));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Supprimer le verrouillage PIN'));
-    await tester.tap(find.text('Supprimer le verrouillage PIN'));
+    await tester.ensureVisible(find.text('Retirer le code PIN'));
+    await tester.tap(find.text('Retirer le code PIN'));
     await tester.pumpAndSettle();
     await typePin(tester, '9999');
     expect(find.text('Code PIN incorrect.'), findsOneWidget);
     await typePin(tester, '1234');
     expect(auth.updates.last, {'id': 1, 'pin': null, 'current_pin': '1234'});
-    expect(find.text('Configurer le verrouillage PIN'), findsOneWidget);
+    expect(find.text('Ajouter un code PIN'), findsOneWidget);
   });
 
   testWidgets('deletes a profile after a confirmation (parental PIN when on)', (tester) async {

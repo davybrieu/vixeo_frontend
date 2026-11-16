@@ -19,8 +19,8 @@ import 'pin_pad.dart';
 import 'profiles_screen.dart';
 
 /// « Ajouter un profil » and « Modifier le profil », opened from « Qui regarde ? » →
-/// « Gérer les profils » (demande du développeur, like other media centers): the avatar and name
-/// as they will look, the name, the avatars by license, then (to change one) « Sécurité » (the
+/// « Gérer les profils » (demande du développeur, like other media centers): the avatar, name and
+/// pseudo as they will look, the name, the pseudo, the avatars by license, then (to change one) « Sécurité » (the
 /// profile's PIN) and « Supprimer le profil ». The parental PIN is asked when parental control is
 /// on to create or delete a profile (vixeo_backend/docs/controle-parental.md).
 class ProfileEditorScreen extends ConsumerStatefulWidget {
@@ -39,6 +39,7 @@ class ProfileEditorScreen extends ConsumerStatefulWidget {
 
 class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   final _name = TextEditingController();
+  final _username = TextEditingController();
   String? _avatar;
   bool _ready = false;
   bool _saving = false;
@@ -50,6 +51,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   @override
   void dispose() {
     _name.dispose();
+    _username.dispose();
     super.dispose();
   }
 
@@ -81,6 +83,8 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   Future<void> _save(Profile? profile) async {
     final name = _name.text.trim();
     if (name.isEmpty) return;
+    // Without a pseudo, the API makes one from the name.
+    final username = _username.text.trim().toLowerCase();
     String? parentalPin;
     if (_creating && _parental) {
       parentalPin = await _parentalPin('Nécessaire pour créer un profil');
@@ -93,10 +97,11 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
     final repository = ref.read(authRepositoryProvider);
     try {
       if (_creating) {
-        await repository.createProfile(name: name, avatar: _avatar, parentalPin: parentalPin);
+        await repository.createProfile(name: name, username: username, avatar: _avatar, parentalPin: parentalPin);
       } else if (profile != null) {
         final fields = <String, Object?>{
           if (name != profile.name) 'name': name,
+          if (username.isNotEmpty && username != profile.username) 'username': username,
           if (_avatar != null && _avatar != profile.avatar) 'avatar': _avatar,
         };
         if (fields.isNotEmpty) {
@@ -220,6 +225,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
     if (!_ready) {
       if (profile != null) {
         _name.text = profile.name;
+        _username.text = profile.username ?? '';
         _avatar = profile.avatar;
         _ready = true;
       } else if (_creating && catalog.hasValue) {
@@ -244,7 +250,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
     }
 
     final name = _name.text.trim();
-    final avatar = ref.watch(avatarByIdProvider(_avatar));
+    final username = _username.text.trim();
     final error = _error;
     final canDelete = (profiles.value?.length ?? 0) > 1;
 
@@ -275,19 +281,12 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: VxText.title(18 * s),
                         ),
-                        if (profile?.username?.isNotEmpty == true)
+                        if (username.isNotEmpty)
                           Text(
-                            '@${profile!.username}',
+                            '@$username',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: VxText.body(13 * s, color: VxColors.textSecondary),
-                          ),
-                        if (avatar != null)
-                          Text(
-                            'Avatar : ${avatar.name}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: VxText.body(13 * s, color: VxColors.textMuted),
                           ),
                       ],
                     ),
@@ -308,6 +307,23 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
                   labelText: 'Nom du profil',
                   counterText: '',
                   errorText: error?.field('name'),
+                ),
+              ),
+              SizedBox(height: 12 * s),
+              TextField(
+                controller: _username,
+                maxLength: 30,
+                autocorrect: false,
+                enableSuggestions: false,
+                textInputAction: TextInputAction.done,
+                // The preview follows the pseudo.
+                onChanged: (_) => setState(() {}),
+                style: VxText.body(16 * s),
+                decoration: InputDecoration(
+                  labelText: 'Pseudo',
+                  prefixText: '@',
+                  counterText: '',
+                  errorText: error?.field('username'),
                 ),
               ),
             ],
@@ -350,7 +366,8 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
                 ),
                 SizedBox(height: 14 * s),
                 VxButton(
-                  label: profile.hasPin ? 'Supprimer le verrouillage PIN' : 'Configurer le verrouillage PIN',
+                  // Short: the whole label fits on a phone.
+                  label: profile.hasPin ? 'Retirer le code PIN' : 'Ajouter un code PIN',
                   icon: profile.hasPin ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
                   kind: VxButtonKind.secondary,
                   expand: true,

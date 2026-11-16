@@ -23,10 +23,11 @@ final profilesProvider = FutureProvider.autoDispose<List<Profile>>((ref) {
 /// Profiles per account, at most (the API refuses a sixth).
 const maxProfiles = 5;
 
-/// « Qui regarde ? » (demande du développeur, like other media centers): the logo, the round
-/// avatars and « Gérer les profils ». Managing: a pencil on each profile (a tap opens « Modifier le
-/// profil »), « Ajouter un profil », and « Terminé ». No « Se déconnecter » here (it is in
-/// « Paramètres »). The back button returns to the profile left with « Changer de profil ».
+/// « Qui regarde ? » (demande du développeur, like other media centers): the title, the round
+/// avatars and, at the bottom of the screen, « Gérer les profils ». Managing: a pencil on each
+/// profile (a tap opens « Modifier le profil »), « Ajouter un profil », and « Terminé ». No logo
+/// and no « Se déconnecter » here (it is in « Paramètres »). The back button returns to the
+/// profile left with « Changer de profil ».
 class ProfilesScreen extends ConsumerStatefulWidget {
   const ProfilesScreen({super.key});
 
@@ -83,62 +84,72 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
           ),
         ),
         child: SafeArea(
-          child: Stack(
+          child: Column(
             children: [
-              Positioned.fill(
-                child: AsyncView(
-                  value: profiles,
-                  onRetry: () => ref.invalidate(profilesProvider),
-                  data: (list) => Center(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.symmetric(vertical: layout.space(VxSpace.l), horizontal: layout.gutter),
-                      child: Column(
-                        children: [
-                          VxLogo(size: large ? layout.tv(48) : 30),
-                          SizedBox(height: layout.space(VxSpace.m)),
-                          Text('Qui regarde ?', style: VxText.title(large ? layout.tv(60) : 28)),
-                          SizedBox(height: layout.space(VxSpace.xxl)),
-                          FocusTraversalGroup(
-                            child: Wrap(
-                              alignment: WrapAlignment.center,
-                              spacing: layout.space(VxSpace.xl),
-                              runSpacing: layout.space(VxSpace.l),
+              Expanded(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: AsyncView(
+                        value: profiles,
+                        onRetry: () => ref.invalidate(profilesProvider),
+                        data: (list) => Center(
+                          child: SingleChildScrollView(
+                            padding: EdgeInsets.symmetric(vertical: layout.space(VxSpace.l), horizontal: layout.gutter),
+                            child: Column(
                               children: [
-                                for (final (i, profile) in list.indexed)
-                                  _ProfileTile(
-                                    profile: profile,
-                                    size: tile,
-                                    managing: _managing,
-                                    autofocus: i == 0,
-                                    onPressed: () => _open(profile),
+                                Text('Qui regarde ?', style: VxText.title(large ? layout.tv(60) : 28)),
+                                SizedBox(height: layout.space(VxSpace.xxl)),
+                                FocusTraversalGroup(
+                                  child: Wrap(
+                                    alignment: WrapAlignment.center,
+                                    spacing: layout.space(VxSpace.xl),
+                                    runSpacing: layout.space(VxSpace.l),
+                                    children: [
+                                      for (final (i, profile) in list.indexed)
+                                        _ProfileTile(
+                                          profile: profile,
+                                          size: tile,
+                                          managing: _managing,
+                                          autofocus: i == 0,
+                                          onPressed: () => _open(profile),
+                                        ),
+                                      if (_managing && list.length < maxProfiles)
+                                        _AddTile(
+                                          size: tile,
+                                          onPressed: () => context.push(ProfileEditorScreen.newLocation),
+                                        ),
+                                    ],
                                   ),
-                                if (_managing && list.length < maxProfiles)
-                                  _AddTile(size: tile, onPressed: () => context.push(ProfileEditorScreen.newLocation)),
+                                ),
                               ],
                             ),
                           ),
-                          SizedBox(height: layout.space(VxSpace.xxl)),
-                          VxButton(
-                            label: _managing ? 'Terminé' : 'Gérer les profils',
-                            kind: _managing ? VxButtonKind.secondary : VxButtonKind.outline,
-                            dense: true,
-                            onPressed: () => setState(() => _managing = !_managing),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                    if (previous != null)
+                      Positioned(
+                        left: layout.gutter - 4,
+                        top: 8,
+                        child: VxIconAction(
+                          icon: Icons.arrow_back_rounded,
+                          label: 'Retour au profil de ${previous.name}',
+                          dense: true,
+                          onPressed: () => ref.read(sessionProvider.notifier).cancelSwitch(),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (previous != null)
-                Positioned(
-                  left: layout.gutter - 4,
-                  top: 8,
-                  child: VxIconAction(
-                    icon: Icons.arrow_back_rounded,
-                    label: 'Retour au profil de ${previous.name}',
-                    dense: true,
-                    onPressed: () => ref.read(sessionProvider.notifier).cancelSwitch(),
+              // At the bottom of the screen (developer's request), once the profiles are there.
+              if (profiles.hasValue)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(layout.gutter, 8, layout.gutter, layout.space(VxSpace.l)),
+                  child: VxButton(
+                    label: _managing ? 'Terminé' : 'Gérer les profils',
+                    kind: _managing ? VxButtonKind.secondary : VxButtonKind.outline,
+                    onPressed: () => setState(() => _managing = !_managing),
                   ),
                 ),
             ],

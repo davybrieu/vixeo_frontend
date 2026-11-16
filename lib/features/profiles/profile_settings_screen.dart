@@ -12,7 +12,6 @@ import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../notifications/notifications_screen.dart';
 import 'advanced_settings_screen.dart';
-import 'avatars.dart';
 import 'profiles_screen.dart';
 import 'rows_settings_screen.dart';
 
@@ -151,22 +150,8 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       scale: s,
                       icon: Icons.shield_outlined,
                       title: 'Contrôle parental',
-                      subtitle: 'Profil enfant, âge maximum et titres sans classification.',
+                      subtitle: 'Code PIN parental et restrictions des profils.',
                       onPressed: () => context.push('/profil/controle-parental'),
-                    ),
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.password_rounded,
-                      title: 'Code PIN',
-                      subtitle: 'Code parental demandé pour créer un profil ou changer ses restrictions.',
-                      onPressed: () => context.push('/profil/code-pin'),
-                    ),
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.face_rounded,
-                      title: 'Avatar',
-                      subtitle: 'Changer l’image de votre profil.',
-                      onPressed: () => context.push('/profil/avatar'),
                     ),
                     _SettingsTile(
                       scale: s,
@@ -288,141 +273,4 @@ class _SettingsTile extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Avatar picker, grouped by license. Every profile has one (a new profile gets one at random):
-/// no "initial only" choice. Choosing one saves it and stays on the page.
-class AvatarPickerScreen extends ConsumerWidget {
-  const AvatarPickerScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final layout = Layout.of(context);
-    final catalog = ref.watch(avatarCatalogProvider);
-    final profile = ref.watch(sessionProvider).profile;
-    final size = layout.isLarge ? layout.tv(140) : (layout.isPhone ? 84.0 : 100.0);
-    final gap = layout.cardGap;
-
-    // The page stays open (the developer's choice): the new avatar is marked selected at once.
-    void pick(String avatarId) {
-      if (avatarId != profile?.avatar) {
-        saveProfile(context, {'avatar': avatarId}, done: 'Avatar mis à jour', icon: Icons.face_rounded);
-      }
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: VxColors.background,
-        title: Text('Choisir un avatar', style: VxText.title(layout.isLarge ? layout.tv(30) : 20)),
-      ),
-      body: AsyncView(
-        value: catalog,
-        onRetry: () => ref.invalidate(avatarCatalogProvider),
-        data: (licenses) {
-          final hasCurrent = licenses.any((l) => l.avatars.any((a) => a.id == profile?.avatar));
-          return ListView(
-            padding: EdgeInsets.only(top: layout.space(VxSpace.xs), bottom: pageBottomPadding(context)),
-            children: [
-              for (final (i, license) in licenses.indexed) ...[
-                if (i > 0) SizedBox(height: layout.sectionGap),
-                SectionHeader(license.name),
-                FocusTraversalGroup(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: layout.gutter),
-                    child: Wrap(
-                      spacing: gap,
-                      runSpacing: gap,
-                      children: [
-                        for (final (j, avatar) in license.avatars.indexed)
-                          _AvatarChoice(
-                            label: avatar.name,
-                            selected: profile?.avatar == avatar.id,
-                            size: size,
-                            // TV: the current avatar, else (none yet) the first one.
-                            autofocus: hasCurrent ? profile?.avatar == avatar.id : i == 0 && j == 0,
-                            onPressed: () => pick(avatar.id),
-                            child: AvatarTile(avatarId: avatar.id, initial: '?', size: size),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _AvatarChoice extends StatelessWidget {
-  const _AvatarChoice({
-    required this.label,
-    required this.selected,
-    required this.size,
-    required this.onPressed,
-    required this.child,
-    this.autofocus = false,
-  });
-
-  final String label;
-  final bool selected;
-  final double size;
-  final VoidCallback onPressed;
-  final Widget child;
-  final bool autofocus;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: size + 8,
-    child: Column(
-      children: [
-        VxFocusable(
-          autofocus: autofocus,
-          borderRadius: size * 0.22,
-          focusScale: 1.08,
-          semanticLabel: '$label${selected ? ', sélectionné' : ''}',
-          onPressed: onPressed,
-          child: Stack(
-            children: [
-              child,
-              if (selected)
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(size * 0.22),
-                      border: Border.all(color: VxColors.accent, width: 3),
-                    ),
-                  ),
-                ),
-              if (selected)
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: Container(
-                    decoration: const BoxDecoration(color: VxColors.accent, shape: BoxShape.circle),
-                    padding: const EdgeInsets.all(2),
-                    child: Icon(Icons.check_rounded, size: size * 0.18, color: VxColors.onAccent),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        SizedBox(height: size * 0.08),
-        ExcludeSemantics(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: VxText.body(
-              (size * 0.14).clamp(11, 22).toDouble(),
-              color: selected ? VxColors.accent : VxColors.textSoft,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
 }

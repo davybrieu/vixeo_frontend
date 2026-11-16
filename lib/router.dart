@@ -22,7 +22,6 @@ import 'features/notifications/notifications_screen.dart';
 import 'features/playback/player_screen.dart';
 import 'features/profiles/advanced_settings_screen.dart';
 import 'features/profiles/parental_control_screen.dart';
-import 'features/profiles/parental_pin.dart';
 import 'features/profiles/profile_editor_screen.dart';
 import 'features/profiles/profile_preferences_screen.dart';
 import 'features/profiles/profile_settings_screen.dart';
@@ -189,9 +188,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profil/social/:section', builder: (_, state) => SocialCollectionScreen(
             section: state.pathParameters['section'] ?? 'list',
           )),
-          GoRoute(path: '/profil/avatar', builder: (_, _) => const AvatarPickerScreen()),
+          // Former pages (developer's request): the avatar is changed in « Modifier le profil »
+          // (« Qui regarde ? » → « Gérer les profils »), the parental PIN on « Contrôle parental ».
+          GoRoute(path: '/profil/avatar', redirect: (_, _) => '/parametres'),
           GoRoute(path: '/profil/controle-parental', builder: (_, _) => const ParentalControlScreen()),
-          GoRoute(path: '/profil/code-pin', builder: (_, _) => const ParentalPinScreen()),
+          GoRoute(path: '/profil/code-pin', redirect: (_, _) => '/profil/controle-parental'),
           GoRoute(path: '/profil/parametres', builder: (_, _) => const ProfilePreferencesScreen()),
           // Order and visibility of the rows of the home page and of the « Chaînes TV » page.
           GoRoute(

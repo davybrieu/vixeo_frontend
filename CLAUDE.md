@@ -152,10 +152,10 @@ lib/
   dans « Licences ») est chargé par `web/index.html` et le plugin `video_player_web_hls` s'en sert
   pour les flux HLS. Android / iOS / Safari lisent le HLS nativement. Test : `test/web_hls_test.dart`.
 - **« Qui regarde ? »** (`profiles_screen.dart`, `/profils` ; demande du développeur, d'après
-  une vidéo d'un autre media center) : fond sombre éclairé de vert en haut, logo, « Qui
-  regarde ? », avatars **ronds** avec le nom dessous (cadenas si le profil a un code, « Enfant »)
-  et le bouton « Gérer les profils ». **Pas de « Se déconnecter »** sur cette page (il est dans
-  « Paramètres »). « Gérer les profils » : un crayon sur chaque avatar (un appui ouvre
+  une vidéo d'un autre media center) : fond sombre éclairé de vert en haut, « Qui regarde ? »
+  (**sans logo**), avatars **ronds** avec le nom dessous (cadenas si le profil a un code,
+  « Enfant ») et, **tout en bas de l'écran**, le bouton « Gérer les profils » / « Terminé ».
+  **Pas de « Se déconnecter »** sur cette page (il est dans « Paramètres »). « Gérer les profils » : un crayon sur chaque avatar (un appui ouvre
   « Modifier le profil »), la tuile « Ajouter un profil » (moins de 5 profils) et « Terminé ».
   Flèche retour en haut à gauche seulement après « Changer de profil » : elle revient au profil
   quitté (`SessionController.previousProfile` / `cancelSwitch`). Code d'un profil : le pavé
@@ -163,19 +163,20 @@ lib/
   clavier ou de la télécommande, `confirm` = saisi deux fois). **« Ajouter un profil »**
   (`/profils/nouveau`) et **« Modifier le profil »** (`/profils/modifier/:id`) :
   `ProfileEditorScreen` (`profile_editor_screen.dart`, hors de la navigation) : aperçu (avatar,
-  nom tapé, « Avatar : … »), « Nom du profil », « Choisir un avatar » (par licence, ronds, avatar
-  au hasard pour un nouveau profil ; le pseudo est fait par l'API), puis pour un profil existant
-  « Sécurité » (« Configurer / Supprimer le verrouillage PIN »), « Enregistrer les
-  modifications » et « Supprimer le profil » (confirmation ; jamais le dernier). Contrôle parental
+  nom et @pseudo tapés ; **pas de ligne « Avatar : … »**), « Nom du profil », « Pseudo » (choisi à
+  l'ajout comme à la modification ; vide à l'ajout : l'API en fait un), « Choisir un avatar » (par
+  licence, ronds, avatar au hasard pour un nouveau profil), puis pour un profil existant
+  « Sécurité » (« Ajouter un code PIN » / « Retirer le code PIN » : libellés courts, lisibles en
+  entier sur téléphone), « Enregistrer les modifications » et « Supprimer le profil » (confirmation ; jamais le dernier). Contrôle parental
   activé : le code PIN parental est demandé pour créer et supprimer. Les restrictions (profil
   enfant, âge) restent sur « Contrôle parental ». `/profils/gestion` redirige vers `/profils`.
   Test : `test/profiles_screen_test.dart`.
-- **Contrôle parental** : deux pages séparées dans « Mon profil » (demande du développeur).
-  « Contrôle parental » (`parental_control_screen.dart`, `/profil/controle-parental`) : les
-  restrictions de chaque profil (profil enfant, âge maximum, titres sans classification) ; sans
-  code, une carte invite à en définir un. « Code PIN » (`parental_pin.dart`, `/profil/code-pin`) :
-  activer, changer ou désactiver le code PIN parental (boutons « Activer » / « Désactiver », **pas
-  de badge « Activé / Désactivé »**, demande du développeur). Les deux passent par `ParentalPinPage` : si
+- **Contrôle parental** : **une seule page** (« Paramètres » → « Contrôle parental »,
+  `parental_control_screen.dart`, `/profil/controle-parental` ; la page « Code PIN » et sa tuile
+  ont été supprimées, demande du développeur, `/profil/code-pin` y redirige) : en haut le code PIN
+  parental (`ParentalPinCard`, `parental_pin.dart` : « Activer », ou « Changer le code » et
+  « Désactiver » ; **pas de badge « Activé / Désactivé »**), puis les restrictions de chaque profil
+  (profil enfant, âge maximum, titres sans classification). Elle passe par `ParentalPinPage` : si
   un PIN parental existe, il est demandé à l'arrivée (`ParentalPinGate`), gardé en mémoire tant
   que la page est ouverte et envoyé (`parental_pin` / `current_pin`) avec chaque modification ;
   « Code oublié ? » désactive le contrôle avec le mot de passe du compte. Après une modification
@@ -459,10 +460,10 @@ lib/
   pixel art dessiné par `PixelAvatarPainter`, ou `image_url`) ; `ProfileAvatar` partout où le
   profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits. Chaque
   nouveau profil (y compris celui créé à l'inscription) reçoit un avatar du catalogue au hasard
-  (côté API) ; la page « Choisir un avatar » ne propose que des avatars, plus de choix « Initiale »
-  (demande du développeur). Choisir un avatar l'enregistre et **reste sur la page** (pas de
-  retour en arrière, demande du développeur). L'initiale reste affichée pour un ancien profil sans
-  avatar. La tuile « Avatar » des paramètres n'écrit pas le nom du profil.
+  (côté API) ; l'avatar se choisit dans « Ajouter / Modifier le profil » (« Qui regarde ? » →
+  « Gérer les profils ») : **plus de page ni de tuile « Avatar » dans les paramètres** (demande
+  du développeur, `/profil/avatar` redirige vers `/parametres`). L'initiale reste affichée pour un
+  ancien profil sans avatar.
 - **Pages de profil** (demande du développeur) : « Profil » (onglet `/profil`, `ProfileScreen`)
   et la page d'un membre (`/membre/:username`, `PublicProfileScreen`) sont **la même page** :
   le composant `ProfileView` (`features/social/profile_view.dart`) et ses morceaux
@@ -520,8 +521,8 @@ lib/
   bande-annonce, Ma liste, Vu, notes TMDb du film, de la série et des épisodes), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (« Explorer », filtres type / genre / années /
   note, tri, grande image sur grand écran, résultats groupés, recherches récentes synchronisées),
-  Ma liste, « Avis » (notes TMDb et commentaires), « Mon profil » (avatar par licence, paramètres
-  d’apparence, No spoil, langues et lecture automatique, contrôle parental et code PIN (deux pages),
+  Ma liste, « Avis » (notes TMDb et commentaires), « Mon profil » (paramètres
+  d’apparence, No spoil, langues et lecture automatique, contrôle parental et code PIN (une page),
   connecter une TV, changer de profil, Connexions (TMDb), Notifications (nouveaux épisodes),
   Avancé (dernier profil, cache),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,

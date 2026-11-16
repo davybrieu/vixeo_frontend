@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
@@ -26,64 +25,37 @@ String _ageLabel(int? age, {required bool kid}) => switch (age) {
   final a => '$a ans',
 };
 
-/// "Contrôle parental" (`/profil/controle-parental`): each profile's restrictions (kid profile,
-/// maximum age, unrated titles). The parental PIN itself is on its own page, "Code PIN"
-/// (`/profil/code-pin`). When a PIN is set, it is asked on arrival and sent with every change.
+/// "Contrôle parental" (`/profil/controle-parental`): the parental PIN (turn it on, change it,
+/// turn it off: `ParentalPinCard`), then each profile's restrictions (kid profile, maximum age,
+/// unrated titles). When a PIN is set, it is asked on arrival and sent with every change.
 class ParentalControlScreen extends StatelessWidget {
   const ParentalControlScreen({super.key});
 
   @override
   Widget build(BuildContext context) => ParentalPinPage(
     title: 'Contrôle parental',
-    builder: (context, pin, _) => _Restrictions(pin: pin),
+    builder: (context, pin, onPinChanged) => _Restrictions(pin: pin, onPinChanged: onPinChanged),
   );
 }
 
 class _Restrictions extends ConsumerWidget {
-  const _Restrictions({required this.pin});
+  const _Restrictions({required this.pin, required this.onPinChanged});
 
   final String? pin;
+  final ValueChanged<String?> onPinChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final s = uiScale(context);
     final profiles = ref.watch(profilesProvider);
-    final protected = ref.watch(sessionProvider.select((s) => s.user?.parentalControl ?? false));
 
     // The same column as the other secondary pages (InfoBody), with the charter's cards and gaps.
     return InfoBody(
       children: [
-        if (!protected) ...[
-          VxCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.shield_outlined, size: 24 * s, color: VxColors.textMuted),
-                    SizedBox(width: 10 * s),
-                    Expanded(child: Text('Aucun code PIN parental', style: VxText.title(18 * s))),
-                  ],
-                ),
-                SizedBox(height: 10 * s),
-                Text(
-                  'N’importe qui peut modifier ces restrictions. Définissez un code pour les protéger.',
-                  style: VxText.body(14 * s, color: VxColors.textSecondary),
-                ),
-                SizedBox(height: 16 * s),
-                VxButton(
-                  label: 'Définir un code PIN',
-                  icon: Icons.password_rounded,
-                  kind: VxButtonKind.secondary,
-                  autofocus: true,
-                  onPressed: () => context.push('/profil/code-pin'),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: layout.sectionGap),
-        ],
+        // TV: the focus starts on the PIN's first button.
+        ParentalPinCard(pin: pin, onPinChanged: onPinChanged, autofocus: true),
+        SizedBox(height: layout.sectionGap),
         Text('Restrictions des profils', style: VxText.title(18 * s)),
         SizedBox(height: layout.space(VxSpace.xxs)),
         Text(
@@ -99,8 +71,7 @@ class _Restrictions extends ConsumerWidget {
               for (final (i, profile) in list.indexed)
                 Padding(
                   padding: EdgeInsets.only(top: i == 0 ? 0 : layout.listGap),
-                  // TV: the first switch has the focus when there is no button above.
-                  child: _ProfileRestrictions(profile: profile, pin: pin, autofocus: protected && i == 0),
+                  child: _ProfileRestrictions(profile: profile, pin: pin),
                 ),
             ],
           ),
