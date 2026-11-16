@@ -190,7 +190,8 @@ lib/
   La carte TV de la connexion montre une forme vide, pas de cercle, en attendant son code. Ne pas
   ajouter d'autre indicateur au démarrage. Test : `test/app_loading_test.dart`.
 - **Mon compte** (`/profil/compte`, `AccountScreen`, « Paramètres » → « Compte » ; API :
-  `vixeo_backend/docs/compte.md`) : « Adresse e-mail » (l'adresse, « Modifier l'adresse e-mail » :
+  `vixeo_backend/docs/compte.md`) : « Adresse e-mail » (une phrase, **pas l'adresse sur la page**,
+  demande du développeur ; « Modifier l'adresse e-mail » : l'adresse actuelle en lecture seule,
   nouvelle adresse + mot de passe, `POST /me/email`, la session garde la nouvelle adresse,
   `SessionController.updateUser`), « Mot de passe » (« Changer le mot de passe » : actuel +
   nouveau, `POST /me/password`, les autres appareils sont déconnectés), « Vos données »,
@@ -311,7 +312,8 @@ lib/
   « Noter » sur la fiche (film, série) et étoile en haut à droite de l'image de chaque épisode
   (« Ma note : 8/10 » en haut de l'image, après le badge « Épisode 3 ») ;
   fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK ;
-  **commentaire facultatif**, gardé par Vixeo, jamais envoyé à TMDb). **« Mes avis »** (`/avis`,
+  **commentaire facultatif**, gardé par Vixeo, jamais envoyé à TMDb). La fenêtre et « Mon avis »
+  ne parlent pas de TMDb et le bouton s'appelle « Supprimer » (demande du développeur). **« Mes avis »** (`/avis`,
   `ReviewsScreen`, ouverte depuis la page « Profil » ; « Ses avis » pour un membre,
   `ReviewsScreen(username:)`) : en-tête commun avec recherche (titre, épisode, commentaire, sans
   accents ni casse) et, comme la recherche (demande du développeur), filtres Tout (par défaut) /
@@ -319,7 +321,7 @@ lib/
   récents par défaut, plus anciens, meilleures / moins bonnes notes, titre), « Réinitialiser ». Chaque avis montre ses étoiles (`StarRow`) et **aucun bouton** (demande
   du développeur) : un appui ouvre « Mon avis » (`ReviewScreen`, `/avis/movie/550`,
   `/avis/tv/1399?saison=1&episode=2`), où l'on change les étoiles et le commentaire (`RatingForm`,
-  le même formulaire que la fenêtre de note) ; « Enregistrer » et « Supprimer l’avis »
+  le même formulaire que la fenêtre de note) ; « Enregistrer » et « Supprimer »
   (confirmation) ramènent à la liste, « Voir la fiche » ouvre le titre. Toutes les notes sont chargées d'un coup
   (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche, les
   épisodes et « Avis ». Les notes vont de 0,5 à 10 (échelle de TMDb). Anciennes adresses `/profil/tmdb` et

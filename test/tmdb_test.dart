@@ -247,7 +247,8 @@ void main() {
     testWidgets('an optional comment, kept by Vixeo', (tester) async {
       final results = await open(tester, current: const MyRating(7, comment: 'Bien.'));
       expect(find.text('Bien.'), findsOneWidget);
-      expect(find.text('Gardé dans Vixeo, il n’est pas publié sur TMDb.'), findsOneWidget);
+      // No word on TMDb in the dialog (developer's request).
+      expect(find.textContaining('TMDb'), findsNothing);
 
       await tester.enterText(find.byType(TextField), '  Une claque.  ');
       await tester.tap(find.text('Enregistrer'));
@@ -288,7 +289,7 @@ void main() {
       final results = await open(tester, current: const MyRating(7.5));
       expect(find.text('7,5 / 10'), findsOneWidget);
 
-      await tester.tap(find.text('Supprimer mon avis'));
+      await tester.tap(find.text('Supprimer'));
       await tester.pumpAndSettle();
       expect(results, [(null,)]);
     });
@@ -337,7 +338,7 @@ void main() {
 
       await tester.tap(find.bySemanticsLabel('Ma note : 8 sur 10, modifier'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Supprimer mon avis'));
+      await tester.tap(find.text('Supprimer'));
       await tester.pumpAndSettle();
       expect(tmdb.calls.last, 'unrate movie/3');
       expect(find.bySemanticsLabel('Noter'), findsOneWidget);
@@ -509,10 +510,11 @@ void main() {
 
       await tester.tap(find.text('Dune'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Supprimer l’avis'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('sera aussi supprimée sur TMDb'), findsOneWidget);
+      expect(find.textContaining('TMDb'), findsNothing);
       await tester.tap(find.text('Supprimer'));
+      await tester.pumpAndSettle();
+      expect(find.text('Votre note et votre commentaire de « Dune » seront supprimés.'), findsOneWidget);
+      await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Supprimer')));
       await tester.pumpAndSettle();
       expect(tmdb.calls.last, 'unrate movie/438631');
       expect(find.text('Mon avis'), findsNothing);

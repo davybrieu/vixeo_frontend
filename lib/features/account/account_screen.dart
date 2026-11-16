@@ -55,7 +55,6 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final email = ref.watch(sessionProvider.select((s) => s.user?.email)) ?? '';
     return InfoPage(
       title: 'Mon compte',
       fallback: '/profil',
@@ -63,7 +62,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         InfoSection(
           title: 'Adresse e-mail',
           children: [
-            InfoText(email),
+            const InfoText('Changez l’adresse e-mail de votre compte, celle qui sert à vous connecter.'),
             SizedBox(height: layout.space(VxSpace.xs)),
             VxButton(
               label: 'Modifier l’adresse e-mail',
@@ -306,6 +305,15 @@ class _EmailDialogState extends ConsumerState<_EmailDialog> {
           Text(
             'Elle sert à vous connecter et à recevoir les codes « mot de passe oublié ».',
             style: VxText.body(14, color: VxColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          // The address in use, to read only.
+          TextFormField(
+            initialValue: ref.watch(sessionProvider.select((s) => s.user?.email)) ?? '',
+            readOnly: true,
+            enableInteractiveSelection: true,
+            style: VxText.body(16, color: VxColors.textSecondary),
+            decoration: const InputDecoration(labelText: 'Adresse e-mail actuelle'),
           ),
           const SizedBox(height: 16),
           TextField(

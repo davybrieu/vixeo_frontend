@@ -241,10 +241,14 @@ void main() {
   testWidgets('changes the e-mail address with the password', (tester) async {
     final (container, auth, _) = setUpContainer(session: SignedIn.new);
     await tester.pumpWidget(app(container, const AccountScreen()));
-    expect(find.text('davy@exemple.fr'), findsOneWidget);
+    // The page doesn't show the address; the dialog does, to read only.
+    expect(find.text('davy@exemple.fr'), findsNothing);
 
     await tester.tap(find.text('Modifier l’adresse e-mail'));
     await tester.pumpAndSettle();
+    final current = tester.widget<TextField>(find.widgetWithText(TextField, 'Adresse e-mail actuelle'));
+    expect(current.readOnly, isTrue);
+    expect(current.controller?.text, 'davy@exemple.fr');
     await tester.enterText(find.widgetWithText(TextField, 'Nouvelle adresse e-mail'), 'nouveau@exemple.fr');
     await tester.enterText(find.widgetWithText(TextField, 'Mot de passe'), 'wrong');
     await tester.tap(find.text('Enregistrer'));
@@ -262,7 +266,6 @@ void main() {
     expect(auth.calls.last, 'email nouveau@exemple.fr');
     expect(container.read(sessionProvider).user?.email, 'nouveau@exemple.fr');
     expect(find.text('Adresse e-mail modifiée'), findsOneWidget);
-    expect(find.text('nouveau@exemple.fr'), findsOneWidget);
   });
 
   testWidgets('changes the password with the current one', (tester) async {

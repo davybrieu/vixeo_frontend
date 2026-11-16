@@ -14,7 +14,7 @@ import 'rating_dialog.dart';
 import 'tmdb.dart';
 
 /// « Mon avis » (`/avis/movie/550`, `/avis/tv/1399?saison=1&episode=2`), opened from a review of
-/// « Mes avis »: the title, then its stars and comment to change, and « Supprimer l'avis ». Saving
+/// « Mes avis »: the title, then its stars and comment to change, and « Supprimer ». Saving
 /// or removing goes back to the list; « Voir la fiche » opens the movie or the TV show.
 class ReviewScreen extends ConsumerStatefulWidget {
   const ReviewScreen({super.key, required this.target});
@@ -70,7 +70,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Supprimer cet avis ?'),
         content: Text(
-          'Votre note de « ${item.label} » sera aussi supprimée sur TMDb, et votre commentaire de Vixeo.',
+          'Votre note et votre commentaire de « ${item.label} » seront supprimés.',
           style: VxText.body(15, color: VxColors.textSoft),
         ),
         actions: [
@@ -117,7 +117,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             data: (_) => const EmptyState(
               icon: Icons.rate_review_outlined,
               title: 'Avis introuvable',
-              message: 'Cet avis a peut-être été supprimé, ici ou sur TMDb.',
+              message: 'Cet avis a peut-être été supprimé.',
             ),
           )
         else ...[
@@ -131,7 +131,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               onSave: (rating) => _save(item, rating),
               actions: [
                 VxButton(
-                  label: 'Supprimer l’avis',
+                  label: 'Supprimer',
                   icon: Icons.delete_outline_rounded,
                   kind: VxButtonKind.danger,
                   expand: true,

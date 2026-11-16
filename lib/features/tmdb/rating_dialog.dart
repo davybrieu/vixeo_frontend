@@ -9,7 +9,6 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
-import '../catalog/widgets.dart';
 import 'tmdb.dart';
 
 /// Rates [target] (or changes / removes its rating and comment) in a dialog, saves the rating on
@@ -93,7 +92,7 @@ class _RatingDialog extends StatelessWidget {
                 actions: [
                   if (current != null)
                     VxButton(
-                      label: 'Supprimer mon avis',
+                      label: 'Supprimer',
                       icon: Icons.delete_outline_rounded,
                       kind: VxButtonKind.outline,
                       expand: true,
@@ -115,7 +114,7 @@ class _RatingDialog extends StatelessWidget {
   }
 }
 
-/// The score, the stars (they have the focus), where the rating is saved and the optional comment,
+/// The score, the stars (they have the focus) and the optional comment,
 /// then « Enregistrer » and [actions] under it: in the rating dialog and on the page of a review
 /// (« Mon avis »). [scale]: 1 on phones, the TV factor on large screens.
 class RatingForm extends StatefulWidget {
@@ -183,16 +182,6 @@ class _RatingFormState extends State<RatingForm> {
           onChanged: (value) => setState(() => _value = value),
           onSubmitted: _save,
         ),
-        SizedBox(height: 8 * s),
-        Wrap(
-          alignment: WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 6 * s,
-          children: [
-            Text('Votre note est enregistrée sur', style: VxText.body(12 * s, color: VxColors.textMuted)),
-            TmdbLogo(height: 9 * s),
-          ],
-        ),
         SizedBox(height: 18 * s),
         TextField(
           controller: _comment,
@@ -204,8 +193,6 @@ class _RatingFormState extends State<RatingForm> {
           decoration: InputDecoration(
             labelText: 'Commentaire (facultatif)',
             hintText: 'Ce que vous en avez pensé…',
-            helperText: 'Gardé dans Vixeo, il n’est pas publié sur TMDb.',
-            helperMaxLines: 2,
             counterText: '',
             alignLabelWithHint: true,
           ),
