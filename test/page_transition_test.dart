@@ -30,8 +30,14 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildVixeoTheme(),
-        navigatorKey: navigator,
-        home: const Scaffold(body: Text('Accueil')),
+        // A navigator without heroes: the app's one builds a new page offstage for its first frame
+        // (to place the heroes), which would shift the timing of the push by one frame here.
+        home: HeroControllerScope.none(
+          child: Navigator(
+            key: navigator,
+            onGenerateRoute: (_) => MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Accueil'))),
+          ),
+        ),
       ),
     );
 
@@ -71,8 +77,9 @@ void main() {
       final leaving = _opacityOf(tester, 'Fiche');
       final arriving = _opacityOf(tester, 'Accueil');
       expect(leaving * arriving, lessThan(0.05), reason: 'at ${i * step.inMilliseconds} ms');
-      expect(leaving, closeTo(leavingForward[i], 0.03), reason: 'leaves like forward, at ${i * step.inMilliseconds} ms');
-      expect(arriving, closeTo(arrivingForward[i], 0.03), reason: 'arrives like forward, at ${i * step.inMilliseconds} ms');
+      final at = 'at ${i * step.inMilliseconds} ms';
+      expect(leaving, closeTo(leavingForward[i], 0.03), reason: 'leaves like forward, $at');
+      expect(arriving, closeTo(arrivingForward[i], 0.03), reason: 'arrives like forward, $at');
       await tester.pump(step);
     }
     await tester.pumpAndSettle();
