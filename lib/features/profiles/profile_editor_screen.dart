@@ -22,21 +22,25 @@ import 'pin_pad.dart';
 import 'profiles_screen.dart';
 import 'settings_rows.dart';
 
-/// Age limits offered for a profile (null = none, or 10 for a kid profile).
+/// Age limits offered for a profile (null = none).
 const ageOptions = <int?>[null, 0, 7, 10, 12, 16, 18];
 
-String ageLabel(int? age, {required bool kid}) => switch (age) {
-  null => kid ? 'Par défaut (10 ans)' : 'Aucune limite',
+String ageLabel(int? age) => switch (age) {
+  null => 'Aucune limite',
   0 => 'Tous publics',
   final a => '$a ans',
 };
 
+/// The age limit that applies: a former « profil enfant » without an age is limited to 10 (API).
+int? effectiveMaxAge(Profile profile) => profile.maxAgeRating ?? (profile.isKid ? 10 : null);
+
 /// « Ajouter un profil » and « Modifier le profil », opened from « Qui regarde ? » →
 /// « Gérer les profils » (demande du développeur, like other media centers): the avatar, name and
-/// pseudo as they will look, the name, the pseudo, the avatars by license, the restrictions (kid
-/// profile, maximum age, unrated titles), then (to change one) « Sécurité » (the profile's PIN) and
-/// « Supprimer le profil ». With parental control on, the parental PIN is asked to create or delete
-/// a profile and to change its restrictions (vixeo_backend/docs/controle-parental.md).
+/// pseudo as they will look, the name, the pseudo, the avatars by license, the restrictions
+/// (maximum age, unrated titles; no « profil enfant », demande du développeur), then (to change
+/// one) « Sécurité » (the profile's PIN) and « Supprimer le profil ». With parental control on, the
+/// parental PIN is asked to create or delete a profile and to change its restrictions
+/// (vixeo_backend/docs/controle-parental.md).
 class ProfileEditorScreen extends ConsumerStatefulWidget {
   const ProfileEditorScreen({super.key, this.profileId});
 
@@ -55,7 +59,6 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   final _name = TextEditingController();
   final _username = TextEditingController();
   String? _avatar;
-  bool _isKid = false;
   int? _maxAge;
   bool _allowUnrated = false;
   bool _ready = false;
@@ -82,14 +85,14 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
 
   /// The restrictions differ from the profile's (a new profile: from no restriction).
   bool _restrictionsChanged(Profile? profile) => profile == null
-      ? _isKid || _maxAge != null || _allowUnrated
-      : _isKid != profile.isKid || _maxAge != profile.maxAgeRating || _allowUnrated != profile.allowUnrated;
+      ? _maxAge != null || _allowUnrated
+      : _maxAge != effectiveMaxAge(profile) || _allowUnrated != profile.allowUnrated;
 
   Future<void> _pickAge() async {
     final choice = await showVxChoice<int>(
       context,
       title: 'Âge maximum',
-      options: [for (final age in ageOptions) (age, ageLabel(age, kid: _isKid))],
+      options: [for (final age in ageOptions) (age, ageLabel(age))],
       selected: _maxAge,
     );
     if (choice != null && mounted) setState(() => _maxAge = choice.$1);
@@ -122,7 +125,6 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           name: name,
           username: username,
           avatar: _avatar,
-          isKid: _isKid,
           maxAgeRating: _maxAge,
           allowUnrated: _allowUnrated,
           parentalPin: parentalPin,
@@ -132,8 +134,9 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           if (name != profile.name) 'name': name,
           if (username.isNotEmpty && username != profile.username) 'username': username,
           if (_avatar != null && _avatar != profile.avatar) 'avatar': _avatar,
-          if (_isKid != profile.isKid) 'is_kid': _isKid,
-          if (_maxAge != profile.maxAgeRating) 'max_age_rating': _maxAge,
+          // A former « profil enfant » becomes a profile with an explicit age limit.
+          if (restrictions && profile.isKid) 'is_kid': false,
+          if (restrictions && (_maxAge != profile.maxAgeRating || profile.isKid)) 'max_age_rating': _maxAge,
           if (_allowUnrated != profile.allowUnrated) 'allow_unrated': _allowUnrated,
           if (restrictions && parentalPin != null) 'parental_pin': parentalPin,
         };
@@ -261,8 +264,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
       if (profile != null) {
         _name.text = profile.name;
         _username.text = profile.username ?? '';
-        _isKid = profile.isKid;
-        _maxAge = profile.maxAgeRating;
+        _maxAge = effectiveMaxAge(profile);
         _allowUnrated = profile.allowUnrated;
         _avatar = profile.avatar;
         _ready = true;
@@ -395,25 +397,19 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           scale: s,
           last: true,
           children: [
-            SettingsSwitchRow(
-              label: 'Profil enfant',
-              detail: 'Sans âge choisi : titres pour les 10 ans et moins.',
-              value: _isKid,
-              onChanged: (value) => setState(() => _isKid = value),
-            ),
             SettingsChoiceRow(
               icon: Icons.shield_outlined,
               label: 'Âge maximum',
-              value: ageLabel(_maxAge, kid: _isKid),
+              value: ageLabel(_maxAge),
               onPressed: _pickAge,
             ),
             SettingsSwitchRow(
               label: 'Titres sans classification',
-              detail: _isKid || _maxAge != null
+              detail: _maxAge != null
                   ? 'Afficher aussi les titres sans âge conseillé.'
                   : 'Seulement avec une limite d’âge.',
               value: _allowUnrated,
-              onChanged: _isKid || _maxAge != null ? (value) => setState(() => _allowUnrated = value) : null,
+              onChanged: _maxAge != null ? (value) => setState(() => _allowUnrated = value) : null,
             ),
           ],
         ),

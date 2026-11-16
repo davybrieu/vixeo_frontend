@@ -153,8 +153,8 @@ lib/
   pour les flux HLS. Android / iOS / Safari lisent le HLS nativement. Test : `test/web_hls_test.dart`.
 - **« Qui regarde ? »** (`profiles_screen.dart`, `/profils` ; demande du développeur, d'après
   une vidéo d'un autre media center) : fond sombre éclairé de vert en haut, « Qui regarde ? »
-  (**sans logo**), avatars **ronds** avec le nom dessous (cadenas si le profil a un code,
-  « Enfant ») et, **tout en bas de l'écran**, le bouton « Gérer les profils » / « Terminé ».
+  (**sans logo**), avatars **ronds** avec le nom dessous (cadenas si le profil a un code ; plus
+  de badge « Enfant ») et, **tout en bas de l'écran**, le bouton « Gérer les profils » / « Terminé ».
   **Pas de « Se déconnecter »** sur cette page (il est dans « Paramètres »). « Gérer les profils » : un crayon sur chaque avatar (un appui ouvre
   « Modifier le profil »), la tuile « Ajouter un profil » (moins de 5 profils) et « Terminé ».
   Flèche retour en haut à gauche seulement après « Changer de profil » : elle revient au profil
@@ -165,9 +165,11 @@ lib/
   `ProfileEditorScreen` (`profile_editor_screen.dart`, hors de la navigation) : aperçu (avatar,
   nom et @pseudo tapés ; **pas de ligne « Avatar : … »**), « Nom du profil », « Pseudo » (choisi à
   l'ajout comme à la modification ; vide à l'ajout : l'API en fait un), « Choisir un avatar » (par
-  licence, ronds, avatar au hasard pour un nouveau profil), « Restrictions » (« Profil enfant »,
-  « Âge maximum » (`showVxChoice`), « Titres sans classification » (seulement avec une limite
-  d'âge)), puis pour un profil existant
+  licence, ronds, avatar au hasard pour un nouveau profil), « Restrictions » (« Âge maximum »
+  (`showVxChoice`) et « Titres sans classification » (seulement avec une limite d'âge) ; **pas de
+  « Profil enfant »**, demande du développeur : un ancien profil enfant affiche sa limite de 10 ans
+  (`effectiveMaxAge`) et devient, à la première modification de ses restrictions, un profil
+  avec `is_kid: false` et une limite d'âge explicite), puis pour un profil existant
   « Sécurité » (« Ajouter un code PIN » / « Retirer le code PIN » : libellés courts, lisibles en
   entier sur téléphone), « Enregistrer les modifications » et « Supprimer le profil » (confirmation ; jamais le dernier). Contrôle parental
   activé : le code PIN parental est demandé pour créer, supprimer et changer les restrictions.
@@ -176,7 +178,7 @@ lib/
 - **Contrôle parental** (API : `vixeo_backend/docs/controle-parental.md`) : **plus de page ni de
   tuile « Contrôle parental » ni « Code PIN »** (supprimées, demande du développeur ;
   `/profil/controle-parental` et `/profil/code-pin` redirigent vers `/profil/compte`). Les
-  **restrictions** d'un profil (profil enfant, âge maximum, titres sans classification) sont dans
+  **restrictions** d'un profil (âge maximum, titres sans classification) sont dans
   « Ajouter / Modifier le profil » (section « Restrictions ») ; le **code PIN parental** du compte
   est dans « Mon compte » (`ParentalPinSection`, `parental_pin.dart` : « Activer », ou « Changer
   le code » (le code actuel d'abord), « Désactiver » et « Code oublié ? » (mot de passe du compte) ;

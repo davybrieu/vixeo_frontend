@@ -352,7 +352,7 @@ void main() {
     expect(find.text('Léa'), findsNothing);
   });
 
-  testWidgets('adds a kid profile: the restrictions are on the page', (tester) async {
+  testWidgets('adds a profile with an age limit: no « Profil enfant »', (tester) async {
     await pump(tester);
     await tester.tap(find.text('Gérer les profils'));
     await tester.pumpAndSettle();
@@ -362,18 +362,45 @@ void main() {
     await tester.pump();
 
     expect(find.text('Restrictions'), findsOneWidget);
+    expect(find.text('Profil enfant'), findsNothing);
     // Unrated titles: only with an age limit.
     await tester.ensureVisible(find.text('Titres sans classification'));
     await tester.tap(find.text('Titres sans classification'));
     await tester.pump();
-    await tester.tap(find.text('Profil enfant'));
+    expect(find.bySemanticsLabel('Titres sans classification, désactivé'), findsOneWidget);
+
+    await tester.tap(find.text('Âge maximum'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('12 ans'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Titres sans classification'));
+    await tester.tap(find.text('Titres sans classification'));
     await tester.pump();
-    expect(find.bySemanticsLabel('Âge maximum : Par défaut (10 ans)'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Créer un profil'));
     await tester.tap(find.text('Créer un profil'));
     await tester.pumpAndSettle();
-    expect(auth.restrictions.single, {'is_kid': true, 'max_age_rating': null, 'allow_unrated': false});
+    expect(auth.restrictions.single, {'is_kid': false, 'max_age_rating': 12, 'allow_unrated': true});
+  });
+
+  testWidgets('a former kid profile shows its 10-year limit, kept explicit when changed', (tester) async {
+    await pump(tester, profiles: [const Profile(id: 1, name: 'Davy'), const Profile(id: 2, name: 'Léa', isKid: true)]);
+    await tester.tap(find.text('Gérer les profils'));
+    await tester.pumpAndSettle();
+    // No « Enfant » badge either.
+    expect(find.text('Enfant'), findsNothing);
+    await tester.tap(find.text('Léa'));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Âge maximum : 10 ans'), findsOneWidget);
+    await tester.ensureVisible(find.text('Titres sans classification'));
+    await tester.tap(find.text('Titres sans classification'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Enregistrer les modifications'));
+    await tester.tap(find.text('Enregistrer les modifications'));
+    await tester.pumpAndSettle();
+
+    expect(auth.updates.last, {'id': 2, 'is_kid': false, 'max_age_rating': 10, 'allow_unrated': true});
   });
 
   testWidgets('changing restrictions asks the parental PIN and sends it', (tester) async {

@@ -181,7 +181,7 @@ class _ProfileTile extends StatelessWidget {
     final badge = size * 0.28;
     final label = managing
         ? 'Modifier le profil de ${profile.name}'
-        : [profile.name, if (profile.isKid) 'profil enfant', if (profile.hasPin) 'protégé par un code'].join(', ');
+        : [profile.name, if (profile.hasPin) 'protégé par un code'].join(', ');
     return SizedBox(
       width: size + 24,
       child: Column(
@@ -198,22 +198,6 @@ class _ProfileTile extends StatelessWidget {
                 clipBehavior: Clip.none,
                 children: [
                   AvatarTile(avatarId: profile.avatar, initial: profile.initial, size: size, radius: size / 2),
-                  if (profile.isKid && !managing)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: -size * 0.04,
-                      child: Center(
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: size * 0.08, vertical: size * 0.02),
-                          decoration: BoxDecoration(
-                            color: VxColors.background,
-                            borderRadius: BorderRadius.circular(size),
-                          ),
-                          child: Text('Enfant', style: VxText.body(size * 0.1, weight: FontWeight.w600)),
-                        ),
-                      ),
-                    ),
                   if (managing || profile.hasPin)
                     Positioned(
                       right: 0,
