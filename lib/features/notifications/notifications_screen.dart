@@ -1,22 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
-import '../../core/widgets/focusable.dart';
 import '../account/info_page.dart';
-import '../catalog/models.dart';
-import '../catalog/widgets.dart' show titlePath;
-import '../library/library.dart';
 import '../profiles/settings_rows.dart';
 import 'episode_alerts.dart';
+import 'push_registration.dart';
 import 'system_notifications.dart';
 
-/// « Notifications » (Paramètres): the new-episode alerts of the profile's « Ma liste » shows, on
-/// this device, the coming ones, and a test notification. Local notifications programmed by the
-/// app (docs: vixeo_backend/docs/notifications.md); a browser can't program them.
+/// « Notifications » (Paramètres): the new-episode alerts of the profile's « Ma liste » shows on
+/// this device, and a test notification. The server sends them (push, docs:
+/// vixeo_backend/docs/notifications.md); a browser can't receive them.
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -72,6 +69,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   Future<void> _toggle(bool value) async {
     if (value && !await _permission()) return;
+    // NotificationsGate sends the new setting to the server.
     await ref.read(episodeAlertsSettingProvider.notifier).set(value);
     if (!mounted) return;
     showVxSnack(
@@ -81,64 +79,64 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  /// A show of « Ma liste » for the example, if there is one.
-  ({int id, String title})? _exampleShow() {
-    final library = ref.read(libraryProvider).value;
-    if (library == null) return null;
-    for (final item in library.favorites) {
-      final title = item.tmdbTitle;
-      if (item.type == 'tv' && title?.type == MediaType.tv && item.title.isNotEmpty) {
-        return (id: title!.id, title: item.title);
-      }
-    }
-    return null;
-  }
-
   Future<void> _sendTest() async {
     if (!await _permission()) return;
     setState(() => _sending = true);
-    final show = _exampleShow();
-    await _notifications.show(
-      LocalNotification(
-        id: testNotificationId,
-        title: show?.title ?? 'Vixeo',
-        body: show == null
-            ? 'Test : les notifications de Vixeo fonctionnent.'
-            : 'Test : les nouveaux épisodes arriveront comme ceci.',
-        path: show == null ? NotificationsScreen.location : titlePath(MediaType.tv, show.id),
-      ),
-    );
+    String message;
+    var failed = false;
+    try {
+      message = await ref.read(pushRegistrationProvider).sendTest();
+    } on ApiException catch (e) {
+      message = e.message;
+      failed = true;
+    } on PushUnavailable catch (e) {
+      message = e.message;
+      failed = true;
+    }
     if (!mounted) return;
     setState(() => _sending = false);
-    showVxSnack(context, 'Notification de test envoyée', icon: Icons.notifications_active_outlined);
+    showVxSnack(context, message, icon: failed ? Icons.error_outline_rounded : Icons.notifications_active_outlined);
   }
 
   @override
   Widget build(BuildContext context) {
     final s = uiScale(context);
+    final availability = ref.watch(pushAvailabilityProvider);
 
-    if (!_notifications.supported) {
+    if (availability.value == PushAvailability.unsupported || !_notifications.supported) {
       return const InfoPage(
         title: 'Notifications',
         fallback: '/parametres',
-        children: [
-          InfoIntro(
-            'Les notifications sont disponibles dans l’appli Android : un navigateur ne peut pas les programmer.',
-          ),
-        ],
+        children: [InfoIntro('Les notifications sont disponibles dans l’appli Android.')],
       );
     }
 
+    final ready = availability.value == PushAvailability.ready;
     final enabled = ref.watch(episodeAlertsSettingProvider).value ?? false;
-    ref.watch(libraryProvider);
-    final example = _exampleShow();
 
     return InfoPage(
       title: 'Notifications',
       fallback: '/parametres',
       children: [
-        if (_allowed == false) ...[
-          _Blocked(onOpenSettings: _notifications.openSettings),
+        if (availability.hasValue && !ready) ...[
+          const _Notice(
+            icon: Icons.notifications_paused_outlined,
+            title: 'Bientôt disponibles',
+            text: 'Les notifications ne sont pas encore disponibles.',
+          ),
+          SizedBox(height: 24 * s),
+        ] else if (_allowed == false) ...[
+          _Notice(
+            icon: Icons.notifications_off_outlined,
+            title: 'Notifications bloquées',
+            text: 'Les notifications de Vixeo sont désactivées dans les réglages de l’appareil.',
+            action: VxButton(
+              label: 'Ouvrir les réglages',
+              icon: Icons.settings_outlined,
+              kind: VxButtonKind.secondary,
+              onPressed: _notifications.openSettings,
+            ),
+          ),
           SizedBox(height: 24 * s),
         ],
         SettingsSection(
@@ -150,11 +148,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               detail: 'Quand un nouvel épisode d’une série de Ma liste sort.',
               value: enabled,
               autofocus: true,
-              onChanged: _toggle,
+              onChanged: ready ? _toggle : null,
             ),
           ],
         ),
-        if (enabled) const _ComingAlerts(),
         SettingsSection(
           'Test',
           scale: s,
@@ -163,11 +160,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             SettingsActionRow(
               icon: Icons.notifications_active_outlined,
               label: 'Envoyer une notification de test',
-              detail: example == null
-                  ? 'Pour vérifier que les notifications arrivent.'
-                  : 'Une notification d’exemple pour « ${example.title} ».',
+              detail: 'Pour vérifier que les notifications arrivent sur cet appareil.',
               busy: _sending,
-              onPressed: _sendTest,
+              onPressed: ready ? _sendTest : null,
             ),
           ],
         ),
@@ -176,11 +171,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 }
 
-/// The system refuses Vixeo's notifications: where to allow them.
-class _Blocked extends StatelessWidget {
-  const _Blocked({required this.onOpenSettings});
+/// Why the notifications can't come (not available yet, blocked by the system).
+class _Notice extends StatelessWidget {
+  const _Notice({required this.icon, required this.title, required this.text, this.action});
 
-  final Future<void> Function() onOpenSettings;
+  final IconData icon;
+  final String title;
+  final String text;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -191,122 +189,15 @@ class _Blocked extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.notifications_off_outlined, size: 22 * s, color: VxColors.dangerText),
+              Icon(icon, size: 22 * s, color: VxColors.dangerText),
               SizedBox(width: 10 * s),
-              Expanded(
-                child: Text('Notifications bloquées', style: VxText.title(17 * s)),
-              ),
+              Expanded(child: Text(title, style: VxText.title(17 * s))),
             ],
           ),
           SizedBox(height: 8 * s),
-          Text(
-            'Les notifications de Vixeo sont désactivées dans les réglages de l’appareil.',
-            style: VxText.body(14 * s, color: VxColors.textSecondary),
-          ),
-          SizedBox(height: 14 * s),
-          VxButton(
-            label: 'Ouvrir les réglages',
-            icon: Icons.settings_outlined,
-            kind: VxButtonKind.secondary,
-            onPressed: onOpenSettings,
-          ),
+          Text(text, style: VxText.body(14 * s, color: VxColors.textSecondary)),
+          if (action != null) ...[SizedBox(height: 14 * s), action!],
         ],
-      ),
-    );
-  }
-}
-
-/// « Prochaines alertes »: what is programmed, the soonest first (10 shown).
-class _ComingAlerts extends ConsumerWidget {
-  const _ComingAlerts();
-
-  static const shown = 10;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s = uiScale(context);
-    final alerts = ref.watch(upcomingAlertsProvider);
-    final now = DateTime.now();
-
-    Widget message(String text) => Text(text, style: VxText.body(14 * s, color: VxColors.textSecondary));
-
-    return SettingsSection(
-      'Prochaines alertes',
-      scale: s,
-      children: [
-        switch (alerts) {
-          AsyncData(:final value) when value.isEmpty => message(
-            'Aucun nouvel épisode annoncé dans les 60 prochains jours pour les séries de Ma liste.',
-          ),
-          AsyncData(:final value) => Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final (i, alert) in value.take(shown).indexed) ...[
-                if (i > 0) SizedBox(height: 8 * s),
-                _AlertRow(alert: alert, when: alertDateLabel(alert.at, now: now)),
-              ],
-            ],
-          ),
-          AsyncError() => message('Les prochains épisodes ne sont pas disponibles pour le moment.'),
-          _ => Padding(
-            padding: EdgeInsets.symmetric(vertical: 8 * s),
-            child: const Center(child: CircularProgressIndicator()),
-          ),
-        },
-      ],
-    );
-  }
-}
-
-class _AlertRow extends StatelessWidget {
-  const _AlertRow({required this.alert, required this.when});
-
-  final EpisodeAlert alert;
-  final String when;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = uiScale(context);
-    final poster = alert.episodes.first.posterUrl;
-    return VxFocusable(
-      borderRadius: 14 * s,
-      focusScale: 1.02,
-      semanticLabel: '${alert.showName}, ${alert.codes}, $when',
-      onPressed: () => context.push(alert.path),
-      child: ExcludeSemantics(
-        child: Container(
-          padding: EdgeInsets.all(10 * s),
-          decoration: BoxDecoration(color: VxColors.surface, borderRadius: BorderRadius.circular(14 * s)),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8 * s),
-                child: SizedBox(
-                  width: 40 * s,
-                  height: 60 * s,
-                  child: NetImage(url: poster, seed: alert.showId),
-                ),
-              ),
-              SizedBox(width: 12 * s),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      alert.showName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: VxText.body(15 * s, weight: FontWeight.w600),
-                    ),
-                    SizedBox(height: 2 * s),
-                    Text(alert.codes, style: VxText.body(13 * s, color: VxColors.textSecondary)),
-                    Text(when, style: VxText.body(13 * s, color: VxColors.accent, weight: FontWeight.w600)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

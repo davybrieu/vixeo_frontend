@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Vixeo green (VxColors.accent): behind the small icon of the notifications. -->
+    <color name="vixeo_accent">#2EE58A</color>
+</resources>

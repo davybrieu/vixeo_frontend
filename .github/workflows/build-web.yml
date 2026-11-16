@@ -149,7 +149,15 @@ jobs:
           VIXEO_KEYSTORE_PASSWORD: ${{ secrets.VIXEO_KEYSTORE_PASSWORD }}
           VIXEO_KEY_ALIAS: ${{ secrets.VIXEO_KEY_ALIAS }}
           VIXEO_KEY_PASSWORD: ${{ secrets.VIXEO_KEY_PASSWORD }}
+          # Push notifications (docs/android-release.md): the Firebase project's Android app.
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_SENDER_ID: ${{ secrets.FIREBASE_SENDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
         run: |
+          if [ -z "$FIREBASE_APP_ID" ]; then
+            echo "::warning::No FIREBASE_* secrets: this APK receives no push notification (docs/android-release.md)"
+          fi
           flutter build apk --release \
             --build-number="${{ github.run_number }}" \
             --dart-define=API_URL="${{ env.API_URL }}" \

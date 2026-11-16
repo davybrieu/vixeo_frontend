@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,12 +8,14 @@ import 'package:vixeo/core/local_store.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
-import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/notifications/episode_alerts.dart';
+import 'package:vixeo/features/notifications/notifications_gate.dart';
 import 'package:vixeo/features/notifications/notifications_screen.dart';
+import 'package:vixeo/features/notifications/push_messaging.dart';
+import 'package:vixeo/features/notifications/push_registration.dart';
 import 'package:vixeo/features/notifications/system_notifications.dart';
 
-/// The device's notifications, in memory.
+/// The device's notification system, in memory.
 class FakeNotifications implements SystemNotifications {
   FakeNotifications({this.supported = true, this.isAllowed = false, this.grant = true});
 
@@ -22,7 +26,6 @@ class FakeNotifications implements SystemNotifications {
   int permissionAsks = 0;
   bool settingsOpened = false;
   final shown = <LocalNotification>[];
-  final schedules = <List<LocalNotification>>[];
 
   @override
   Future<void> init(void Function(String path) onOpen) async {}
@@ -43,143 +46,95 @@ class FakeNotifications implements SystemNotifications {
   Future<void> show(LocalNotification notification) async => shown.add(notification);
 
   @override
-  Future<void> schedule(List<LocalNotification> notifications) async => schedules.add(notifications);
-
-  @override
   Future<void> openSettings() async => settingsOpened = true;
 }
 
-/// `/catalog/episodes/upcoming`, recorded.
-class UpcomingApi extends ApiClient {
-  UpcomingApi(this.episodes) : super(token: () => 't', profileId: () => 1);
+/// Firebase Cloud Messaging, in memory: [pushToken] null = no Firebase in this build.
+class FakePush implements PushMessaging {
+  FakePush({this.supported = true, this.pushToken = 'fcm-token'});
 
-  final List<Map<String, dynamic>> episodes;
-  final asked = <String>[];
+  @override
+  final bool supported;
+  String? pushToken;
+  final receivedController = StreamController<PushNotification>.broadcast();
+  final openedController = StreamController<String>.broadcast();
+  final refreshController = StreamController<String>.broadcast();
+
+  @override
+  Future<String?> token() async => pushToken;
+
+  @override
+  Stream<String> get tokenRefresh => refreshController.stream;
+
+  @override
+  Stream<PushNotification> get received => receivedController.stream;
+
+  @override
+  Stream<String> get opened => openedController.stream;
+
+  @override
+  Future<String?> launchPath() async => null;
+}
+
+/// The API's `/push/device`, recorded.
+class PushApi extends ApiClient {
+  PushApi({this.available = true, this.testAnswer}) : super(token: () => 't', profileId: () => 1);
+
+  final bool available;
+  final Map<String, dynamic>? testAnswer;
+  final registrations = <Map<String, dynamic>>[];
+  int tests = 0;
 
   @override
   Future<Map<String, dynamic>> get(String path, {Map<String, dynamic>? query, Duration? receiveTimeout}) async {
-    asked.add('$path?ids=${query?['ids']}');
-    return {'data': episodes};
+    expect(path, '/push/device');
+    return {'data': null, 'available': available};
+  }
+
+  @override
+  Future<Map<String, dynamic>> put(String path, {Object? body}) async {
+    expect(path, '/push/device');
+    registrations.add(Map<String, dynamic>.from(body! as Map));
+    return {'data': <String, dynamic>{}};
+  }
+
+  @override
+  Future<Map<String, dynamic>> post(String path, {Object? body, Map<String, String>? headers}) async {
+    expect(path, '/push/device/test');
+    tests++;
+    return testAnswer ?? {'message': 'Notification de test envoyée.'};
   }
 }
 
-/// « Ma liste »: Lupin and a movie; Game of Thrones only watched.
-class ShowsLibrary extends LibraryController {
-  @override
-  Future<LibraryState> build() async => LibraryState({
-    'tmdb|tv:100088': ProfileItem(
-      source: 'tmdb',
-      itemId: 'tv:100088',
-      type: 'tv',
-      title: 'Lupin',
-      isFavorite: true,
-      favoritedAt: DateTime(2026, 11, 10),
-    ),
-    'tmdb|movie:550': ProfileItem(
-      source: 'tmdb',
-      itemId: 'movie:550',
-      type: 'movie',
-      title: 'Fight Club',
-      isFavorite: true,
-      favoritedAt: DateTime(2026, 11, 12),
-    ),
-    'tmdb|tv:1399': const ProfileItem(source: 'tmdb', itemId: 'tv:1399', type: 'tv', title: 'Game of Thrones'),
-  });
-}
-
 class SignedInSession extends SessionController {
-  SignedInSession([this.status = SessionStatus.signedIn]);
+  SignedInSession([this.status = SessionStatus.signedIn, this.withProfile = true]);
 
   final SessionStatus status;
+  final bool withProfile;
 
   @override
   SessionState build() => SessionState(
     status: status,
     token: 't',
-    profile: status == SessionStatus.signedIn ? const Profile(id: 1, name: 'Davy') : null,
+    profile: status == SessionStatus.signedIn && withProfile ? const Profile(id: 1, name: 'Davy') : null,
   );
 }
 
-/// Noon, [days] from now (out of the night: notified at that time).
-DateTime noonIn(int days) {
-  final day = DateTime.now().add(Duration(days: days));
-  return DateTime(day.year, day.month, day.day, 12);
-}
-
-Map<String, dynamic> episodeJson(int showId, String show, int season, int number, DateTime at, {String? name}) => {
-  'show_id': showId,
-  'show_name': show,
-  'poster_url': null,
-  'season_number': season,
-  'episode_number': number,
-  'name': name ?? 'Épisode $number',
-  'air_date': '2026-11-20',
-  'available_at': at.toUtc().toIso8601String(),
-  'still_url': null,
-};
-
-UpcomingEpisode episode(int showId, int season, int number, DateTime at, {String? name, String show = 'Lupin'}) =>
-    UpcomingEpisode.fromJson(episodeJson(showId, show, season, number, at, name: name));
-
 void main() {
-  group('alerts', () {
-    test('the night is moved to 08:00', () {
-      expect(alertTime(DateTime(2026, 11, 18, 3)), DateTime(2026, 11, 18, 8));
-      expect(alertTime(DateTime(2026, 11, 18, 23, 30)), DateTime(2026, 11, 19, 8));
-      expect(alertTime(DateTime(2026, 11, 30, 23)), DateTime(2026, 12, 1, 8));
-      expect(alertTime(DateTime(2026, 11, 18, 21)), DateTime(2026, 11, 18, 21));
-    });
-
-    test('a show’s episodes at the same time make one notification, the soonest first', () {
-      final now = DateTime(2026, 11, 16, 10);
-      final alerts = episodeAlerts([
-        episode(1399, 2, 4, DateTime(2026, 11, 25, 21), show: 'Game of Thrones'),
-        episode(100088, 1, 2, DateTime(2026, 11, 20, 9)),
-        episode(100088, 1, 1, DateTime(2026, 11, 20, 9)),
-        episode(1399, 2, 3, DateTime(2026, 11, 18, 21), name: 'Le Pont', show: 'Game of Thrones'),
-        // Already out.
-        episode(1399, 2, 2, DateTime(2026, 11, 16, 9), show: 'Game of Thrones'),
-      ], now: now);
-
-      expect([for (final a in alerts) a.showName], ['Game of Thrones', 'Lupin', 'Game of Thrones']);
-      expect(alerts[0].body, 'S2 · É3 « Le Pont » est disponible.');
-      expect(alerts[1].body, '2 nouveaux épisodes de la saison 1 sont disponibles.');
-      expect(alerts[1].codes, 'S1 · É1 à É2');
-      // TMDb's "Épisode 4" says nothing more than the number.
-      expect(alerts[2].body, 'S2 · É4 est disponible.');
-      expect(alerts[1].path, '/titre/tv/100088');
-
-      final ids = {for (final a in alerts) a.id};
-      expect(ids, hasLength(3));
-      expect(ids, isNot(contains(testNotificationId)));
-      // The same alert, the same id: programmed again, it replaces itself.
-      expect(episodeAlerts([episode(100088, 1, 1, DateTime(2026, 11, 20, 9))], now: now).single.id, alerts[1].id);
-    });
-
-    test('dates in French', () {
-      final now = DateTime(2026, 11, 16, 10);
-      expect(alertDateLabel(DateTime(2026, 11, 16, 21), now: now), 'Aujourd’hui, 21:00');
-      expect(alertDateLabel(DateTime(2026, 11, 17, 8), now: now), 'Demain, 08:00');
-      expect(alertDateLabel(DateTime(2026, 11, 20, 8), now: now), 'Vendredi 20 novembre, 08:00');
-      expect(alertDateLabel(DateTime(2026, 12, 1, 21, 5), now: now), 'Mardi 1er décembre, 21:05');
-    });
-  });
-
-  group('scheduler', () {
+  group('registration with the server', () {
     ProviderContainer container({
-      required FakeNotifications notifications,
-      required UpcomingApi api,
+      required FakePush push,
+      required PushApi api,
       bool enabled = true,
-      SessionStatus status = SessionStatus.signedIn,
+      SessionController Function()? session,
     }) {
       final store = MemoryLocalStore();
       if (enabled) store.values[EpisodeAlertsSetting.keyFor(1)] = '1';
       final c = ProviderContainer(
         overrides: [
-          sessionProvider.overrideWith(() => SignedInSession(status)),
-          libraryProvider.overrideWith(ShowsLibrary.new),
+          sessionProvider.overrideWith(session ?? SignedInSession.new),
           apiClientProvider.overrideWithValue(api),
-          systemNotificationsProvider.overrideWithValue(notifications),
+          pushMessagingProvider.overrideWithValue(push),
           localStoreProvider.overrideWithValue(store),
         ],
       );
@@ -187,81 +142,108 @@ void main() {
       return c;
     }
 
-    test('programs the coming episodes of the « Ma liste » shows', () async {
-      final notifications = FakeNotifications();
-      final at = noonIn(3);
-      final api = UpcomingApi([
-        episodeJson(100088, 'Lupin', 4, 1, at),
-        episodeJson(100088, 'Lupin', 4, 2, at),
-        episodeJson(100088, 'Lupin', 3, 9, noonIn(-1)),
-      ]);
-      final c = container(notifications: notifications, api: api);
+    test('gives the token, the setting and the time zone, once in a while', () async {
+      final api = PushApi();
+      final c = container(push: FakePush(), api: api);
 
-      await c.read(episodeAlertsSchedulerProvider).sync();
+      expect(await c.read(pushRegistrationProvider).sync(), isTrue);
+      expect(api.registrations.single, {
+        'token': 'fcm-token',
+        'platform': 'android',
+        'new_episodes': true,
+        'utc_offset': DateTime.now().timeZoneOffset.inMinutes,
+      });
 
-      // TV shows of « Ma liste » only.
-      expect(api.asked, ['/catalog/episodes/upcoming?ids=100088']);
-      final programmed = notifications.schedules.single;
-      expect(programmed, hasLength(1));
-      expect(programmed.single.title, 'Lupin');
-      expect(programmed.single.body, '2 nouveaux épisodes de la saison 4 sont disponibles.');
-      expect(programmed.single.at, at);
-      expect(programmed.single.path, '/titre/tv/100088');
+      // Nothing new: not sent again (back in the foreground…), unless asked.
+      await c.read(pushRegistrationProvider).sync();
+      expect(api.registrations, hasLength(1));
+      await c.read(pushRegistrationProvider).sync(force: true);
+      expect(api.registrations, hasLength(2));
     });
 
-    test('alerts off: nothing programmed', () async {
-      final notifications = FakeNotifications();
-      final api = UpcomingApi([episodeJson(100088, 'Lupin', 4, 1, noonIn(3))]);
-      final c = container(notifications: notifications, api: api, enabled: false);
+    test('alerts off: registered all the same (messages of Vixeo), without the episodes', () async {
+      final api = PushApi();
+      final c = container(push: FakePush(), api: api, enabled: false);
 
-      await c.read(episodeAlertsSchedulerProvider).sync();
-
-      expect(api.asked, isEmpty);
-      expect(notifications.schedules, [isEmpty]);
+      await c.read(pushRegistrationProvider).sync();
+      expect(api.registrations.single['new_episodes'], isFalse);
     });
 
-    test('session not ready yet: what is programmed stays', () async {
-      final notifications = FakeNotifications();
-      final c = container(notifications: notifications, api: UpcomingApi([]), status: SessionStatus.restoring);
+    test('nothing without a token, a profile or a session', () async {
+      final api = PushApi();
+      Future<bool> sync(ProviderContainer c) => c.read(pushRegistrationProvider).sync();
 
-      await c.read(episodeAlertsSchedulerProvider).sync();
-
-      expect(notifications.schedules, isEmpty);
+      expect(await sync(container(push: FakePush(pushToken: null), api: api)), isFalse);
+      expect(
+        await sync(
+          container(push: FakePush(), api: api, session: () => SignedInSession(SessionStatus.signedIn, false)),
+        ),
+        isFalse,
+      );
+      expect(
+        await sync(container(push: FakePush(), api: api, session: () => SignedInSession(SessionStatus.restoring))),
+        isFalse,
+      );
+      expect(await sync(container(push: FakePush(supported: false), api: api)), isFalse);
+      expect(api.registrations, isEmpty);
     });
   });
 
   group('« Notifications » page', () {
     late MemoryLocalStore store;
+    late PushApi api;
 
     Future<void> pump(
       WidgetTester tester,
       FakeNotifications notifications, {
-      List<Map<String, dynamic>>? episodes,
+      FakePush? push,
+      bool available = true,
     }) async {
-      tester.view.physicalSize = const Size(520, 1600);
+      tester.view.physicalSize = const Size(520, 1400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       store = MemoryLocalStore();
+      api = PushApi(available: available);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             sessionProvider.overrideWith(SignedInSession.new),
-            libraryProvider.overrideWith(ShowsLibrary.new),
-            apiClientProvider.overrideWithValue(UpcomingApi(episodes ?? const [])),
+            apiClientProvider.overrideWithValue(api),
+            pushMessagingProvider.overrideWithValue(push ?? FakePush()),
             systemNotificationsProvider.overrideWithValue(notifications),
             localStoreProvider.overrideWithValue(store),
           ],
-          child: MaterialApp(theme: buildVixeoTheme(), home: const NotificationsScreen()),
+          child: MaterialApp(
+            theme: buildVixeoTheme(),
+            home: const NotificationsGate(child: NotificationsScreen()),
+          ),
         ),
       );
       await tester.pumpAndSettle();
     }
 
-    testWidgets('in a browser: says where notifications are', (tester) async {
-      await pump(tester, FakeNotifications(supported: false));
+    testWidgets('in a browser: one sentence', (tester) async {
+      await pump(tester, FakeNotifications(supported: false), push: FakePush(supported: false));
 
-      expect(find.textContaining('disponibles dans l’appli Android'), findsOneWidget);
+      expect(find.text('Les notifications sont disponibles dans l’appli Android.'), findsOneWidget);
       expect(find.text('Nouveaux épisodes'), findsNothing);
+    });
+
+    testWidgets('not available yet (server off): says so, nothing to turn on', (tester) async {
+      final notifications = FakeNotifications();
+      await pump(tester, notifications, available: false);
+
+      expect(find.text('Les notifications ne sont pas encore disponibles.'), findsOneWidget);
+      await tester.tap(find.text('Nouveaux épisodes'));
+      await tester.pumpAndSettle();
+      expect(notifications.permissionAsks, 0);
+      expect(store.values, isEmpty);
+    });
+
+    testWidgets('no Firebase in this build: says so too', (tester) async {
+      await pump(tester, FakeNotifications(), push: FakePush(pushToken: null));
+
+      expect(find.text('Les notifications ne sont pas encore disponibles.'), findsOneWidget);
     });
 
     testWidgets('refused by the system: stays off, says where to allow them', (tester) async {
@@ -279,14 +261,12 @@ void main() {
       expect(notifications.settingsOpened, isTrue);
     });
 
-    testWidgets('turned on: asks, keeps the setting, lists the coming alerts', (tester) async {
+    testWidgets('turned on: asks, keeps the setting and tells the server', (tester) async {
       final notifications = FakeNotifications();
-      final at = noonIn(3);
-      await pump(
-        tester,
-        notifications,
-        episodes: [episodeJson(100088, 'Lupin', 4, 1, at), episodeJson(100088, 'Lupin', 4, 2, at)],
-      );
+      await pump(tester, notifications);
+      // Registered at launch, alerts off.
+      expect(api.registrations.last['new_episodes'], isFalse);
+      // No list of the coming alerts (developer's request).
       expect(find.text('Prochaines alertes'), findsNothing);
 
       await tester.tap(find.text('Nouveaux épisodes'));
@@ -295,24 +275,38 @@ void main() {
       expect(notifications.permissionAsks, 1);
       expect(store.values[EpisodeAlertsSetting.keyFor(1)], '1');
       expect(find.text('Alertes de nouveaux épisodes activées'), findsOneWidget);
-      expect(find.text('Prochaines alertes'), findsOneWidget);
-      expect(find.text('Lupin'), findsOneWidget);
-      expect(find.text('S4 · É1 à É2'), findsOneWidget);
+      expect(api.registrations.last['new_episodes'], isTrue);
     });
 
-    testWidgets('sends a test notification for a show of « Ma liste »', (tester) async {
-      final notifications = FakeNotifications(isAllowed: true);
-      await pump(tester, notifications);
-      expect(find.text('Une notification d’exemple pour « Lupin ».'), findsOneWidget);
+    testWidgets('the server sends a test notification', (tester) async {
+      await pump(tester, FakeNotifications(isAllowed: true));
 
       await tester.tap(find.text('Envoyer une notification de test'));
       await tester.pumpAndSettle();
 
-      expect(notifications.permissionAsks, 0);
-      expect(notifications.shown.single.id, testNotificationId);
-      expect(notifications.shown.single.title, 'Lupin');
-      expect(notifications.shown.single.path, '/titre/tv/100088');
-      expect(find.text('Notification de test envoyée'), findsOneWidget);
+      expect(api.tests, 1);
+      expect(find.text('Notification de test envoyée.'), findsOneWidget);
+    });
+
+    testWidgets('a push received while the app is open is shown by the app', (tester) async {
+      final notifications = FakeNotifications(isAllowed: true);
+      final push = FakePush();
+      await pump(tester, notifications, push: push);
+
+      push.receivedController.add(
+        const PushNotification(
+          title: 'Lupin',
+          body: '2 nouveaux épisodes de la saison 4 sont disponibles.',
+          path: '/titre/tv/100088',
+          channel: 'episodes',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final shown = notifications.shown.single;
+      expect(shown.title, 'Lupin');
+      expect(shown.path, '/titre/tv/100088');
+      expect(shown.channel, NotificationChannel.episodes);
     });
   });
 }

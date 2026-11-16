@@ -20,14 +20,27 @@ fun signingValue(property: String, variable: String): String? =
 
 val releaseStoreFile = signingValue("storeFile", "VIXEO_KEYSTORE_PATH")
 
+// Push notifications (Firebase Cloud Messaging, docs/android-release.md): the values of the
+// Firebase project's Android app, from the FIREBASE_* environment variables (CI secrets) or
+// android/key.properties, written as the resources Firebase reads at startup (what the
+// google-services plugin would generate). Without them, the app receives no notification.
+val firebaseResources = mapOf(
+    "google_app_id" to "FIREBASE_APP_ID",
+    "google_api_key" to "FIREBASE_API_KEY",
+    "gcm_defaultSenderId" to "FIREBASE_SENDER_ID",
+    "project_id" to "FIREBASE_PROJECT_ID",
+).mapNotNull { (resource, variable) ->
+    (keyProperties.getProperty(variable) ?: System.getenv(variable))?.takeIf { it.isNotBlank() }?.let { resource to it }
+}
+
 android {
     namespace = "app.vixeo.vixeo"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        // flutter_local_notifications (programmed notifications) needs the newer Java APIs on
-        // older Android versions.
+        // flutter_local_notifications (push received while the app is open) needs the newer Java
+        // APIs on older Android versions.
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -46,6 +59,11 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        firebaseResources.forEach { (name, value) -> resValue("string", name, value) }
+    }
+
+    buildFeatures {
+        resValues = true
     }
 
     signingConfigs {

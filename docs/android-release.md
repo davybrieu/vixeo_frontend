@@ -87,3 +87,32 @@ Pour les applis installées hors Play Store, Google exige que le développeur so
 Il faut créer un compte dans l'**Android Developer Console** et y enregistrer l'appli
 (`app.vixeo.vixeo`) et sa clé avant cette date. Sinon, les appareils Android certifiés
 refuseront l'installation.
+
+## 6. Notifications push (Firebase)
+
+Les notifications viennent du serveur Vixeo par **Firebase Cloud Messaging** (API :
+`vixeo_backend/docs/notifications.md`). L'appli n'a besoin que des identifiants de l'appli
+Android du projet Firebase, sans `google-services.json` dans le dépôt :
+
+1. Sur <https://console.firebase.google.com>, dans le projet Vixeo, ajouter une appli
+   **Android** au nom de paquet `app.vixeo.vixeo`, puis télécharger son `google-services.json`.
+2. En tirer quatre valeurs et les mettre dans les **secrets GitHub** du dépôt
+   (*Settings → Secrets and variables → Actions*) :
+
+| Secret | Dans `google-services.json` |
+|---|---|
+| `FIREBASE_APP_ID` | `client[0].client_info.mobilesdk_app_id` (`1:…:android:…`) |
+| `FIREBASE_API_KEY` | `client[0].api_key[0].current_key` |
+| `FIREBASE_SENDER_ID` | `project_info.project_number` |
+| `FIREBASE_PROJECT_ID` | `project_info.project_id` |
+
+La CI les donne au build (`android/app/build.gradle.kts` les écrit dans les ressources que
+Firebase lit au démarrage, comme le ferait le plugin `google-services`). Compilation à la main :
+les mêmes clés dans `android/key.properties` (jamais commité) ou en variables d'environnement.
+Sans elles, l'APK se construit mais ne reçoit aucune notification (la page « Notifications » dit
+qu'elles ne sont pas encore disponibles). Ces valeurs ne sont pas des secrets (elles sont dans
+l'APK) ; la clé du **compte de service**, elle, l'est et ne va que sur le serveur
+(`FCM_CREDENTIALS`).
+
+Vérifier sur un téléphone : « Paramètres » → « Notifications » → « Envoyer une notification de
+test », ou côté serveur `php artisan vixeo:push "Test" --user=<adresse> --force`.

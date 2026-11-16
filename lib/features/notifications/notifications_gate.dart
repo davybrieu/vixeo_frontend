@@ -1,21 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../router.dart';
 import '../auth/session.dart';
-import '../library/library.dart';
 import 'episode_alerts.dart';
+import 'push_messaging.dart';
+import 'push_registration.dart';
 import 'system_notifications.dart';
 
-/// TV show ids of « Ma liste », as a key: the alerts are programmed again when it changes.
-final _favoriteShowsKeyProvider = Provider<String>(
-  (ref) => favoriteShowIds(ref.watch(libraryProvider).value ?? const LibraryState({})).join(','),
-);
-
-/// Around the app (`MaterialApp.builder`), like UpdateGate: prepares the notifications, opens the
-/// page of a tapped notification (also one that launched the app), and programs the new-episode
-/// alerts at launch, back in the foreground (once an hour at most) and when « Ma liste », the
-/// profile or the setting changes. Nothing in a browser.
+/// Around the app (`MaterialApp.builder`), like UpdateGate: prepares the notification channels,
+/// registers the app with the server (at launch, back in the foreground, when the session, the
+/// profile, the « Nouveaux épisodes » setting or the push token changes), shows a push received
+/// while the app is open, and opens the page of a tapped notification (also one that launched
+/// the app). Nothing in a browser.
 class NotificationsGate extends ConsumerStatefulWidget {
   const NotificationsGate({super.key, required this.child});
 
@@ -26,29 +25,58 @@ class NotificationsGate extends ConsumerStatefulWidget {
 }
 
 class _NotificationsGateState extends ConsumerState<NotificationsGate> {
-  late final bool _supported = ref.read(systemNotificationsProvider).supported;
+  late final bool _supported = ref.read(pushMessagingProvider).supported;
   AppLifecycleListener? _lifecycle;
-  DateTime? _synced;
+  final _subscriptions = <StreamSubscription<Object?>>[];
+  int _shown = 0;
 
   @override
   void initState() {
     super.initState();
     if (!_supported) return;
-    _lifecycle = AppLifecycleListener(onResume: _syncIfStale);
+    _lifecycle = AppLifecycleListener(onResume: _register);
     WidgetsBinding.instance.addPostFrameCallback((_) => _start());
   }
 
   @override
   void dispose() {
     _lifecycle?.dispose();
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
+    }
     super.dispose();
   }
 
   Future<void> _start() async {
-    final notifications = ref.read(systemNotificationsProvider);
-    await notifications.init(_open);
-    final path = await notifications.launchPath();
+    final system = ref.read(systemNotificationsProvider);
+    final push = ref.read(pushMessagingProvider);
+    await system.init(_open);
+    if (!mounted) return;
+    _subscriptions
+      ..add(push.received.listen(_show))
+      ..add(push.opened.listen(_open))
+      ..add(push.tokenRefresh.listen((_) => ref.read(pushRegistrationProvider).sync(force: true)));
+    final path = await push.launchPath() ?? await system.launchPath();
     if (path != null) _open(path);
+    _register();
+  }
+
+  void _register() => ref.read(pushRegistrationProvider).sync();
+
+  /// Android only shows the push of a closed app: the app shows the others itself.
+  void _show(PushNotification notification) {
+    ref
+        .read(systemNotificationsProvider)
+        .show(
+          LocalNotification(
+            // Positive, never 0, different each time.
+            id: 1000 + (_shown++ % 100000),
+            title: notification.title,
+            body: notification.body,
+            path: notification.path,
+            channel: NotificationChannel.of(notification.channel),
+          ),
+        );
   }
 
   /// A notification's page. Before the session is ready, the router keeps it and opens it once
@@ -64,24 +92,17 @@ class _NotificationsGateState extends ConsumerState<NotificationsGate> {
     }
   }
 
-  void _sync() {
-    _synced = DateTime.now();
-    ref.read(episodeAlertsSchedulerProvider).sync();
-  }
-
-  void _syncIfStale() {
-    final last = _synced;
-    if (last == null || DateTime.now().difference(last) > const Duration(hours: 1)) _sync();
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_supported) {
-      ref.listen(episodeAlertsSettingProvider, (previous, next) {
-        if (next.hasValue && previous?.value != next.value) _sync();
+      ref.listen(sessionProvider.select((s) => (s.status, s.token, s.profile?.id)), (previous, next) {
+        if (previous != next) _register();
       });
-      ref.listen(_favoriteShowsKeyProvider, (previous, next) {
-        if (previous != next) _sync();
+      // Turned on or off (not its first reading: the launch registers already).
+      ref.listen(episodeAlertsSettingProvider, (previous, next) {
+        if (previous != null && previous.hasValue && next.hasValue && previous.value != next.value) {
+          ref.read(pushRegistrationProvider).sync(force: true);
+        }
       });
     }
     return widget.child;

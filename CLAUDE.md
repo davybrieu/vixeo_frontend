@@ -88,8 +88,8 @@ lib/
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
     tmdb/        compte TMDb du profil (page Connexions, QR code), notes et commentaires (fenêtre,
                  boutons, onglet « Avis »)
-    notifications/  notifications locales des nouveaux épisodes (page « Notifications »,
-                 programmation, `NotificationsGate`)
+    notifications/  notifications push (FCM) : page « Notifications », inscription auprès de
+                 l'API (`PushRegistration`), affichage et appui (`NotificationsGate`)
 ```
 
 ## Conventions
@@ -284,23 +284,27 @@ lib/
   `TvChannelsScreen` (`visible`). « Continuer à regarder » et le carrousel ne sont pas concernés.
   Test : `test/row_preferences_test.dart`.
 - **Notifications** (`features/notifications`, « Paramètres » → « Notifications »,
-  `/profil/notifications` ; API : `vixeo_backend/docs/notifications.md` ; demande du développeur) :
-  **notifications locales** programmées par l'appli (`flutter_local_notifications`, canal Android
-  « Nouveaux épisodes »), **pas de push** ni de jeton d'appareil. Réglage « Nouveaux épisodes » par
-  profil **sur l'appareil** (`EpisodeAlertsSetting`, `LocalStore`, désactivé par défaut) ; l'activer
-  pose la question du système (Android 13+) ; refusé : carte « Notifications bloquées » et
-  « Ouvrir les réglages ». `EpisodeAlertsScheduler` demande `/catalog/episodes/upcoming` pour les
-  séries de « Ma liste » et **remplace** toutes les notifications programmées : au lancement, au
-  retour au premier plan (une fois par heure au plus), quand « Ma liste », le profil ou le réglage
-  change (`NotificationsGate`, dans le `builder` de `MaterialApp.router`, sous `UpdateGate`) ;
-  réglage désactivé ou déconnexion : tout est retiré. Les épisodes d'une série sortis au même moment
-  = une notification ; la nuit (23 h – 8 h, heure de l'appareil) est décalée à 8 h
-  (`alertTime`) ; 100 au plus. Un appui ouvre la fiche de la série (aussi quand la notification
-  lance l'appli). La page liste les « Prochaines alertes » (10) et envoie une notification de test.
-  Reprogrammées après un redémarrage (récepteurs de `AndroidManifest.xml`), icône
-  `drawable/ic_notification.xml` (gardée par `raw/keep.xml`), désucrage Java activé
-  (`build.gradle.kts`). Sur le web : une phrase, rien n'est programmé. Les tests passent par
-  `FakeNotifications` (`test/notifications_test.dart`).
+  `/profil/notifications` ; API : `vixeo_backend/docs/notifications.md` ; demande du développeur :
+  **un serveur de push**, l'appli ne programme rien) : **Firebase Cloud Messaging**
+  (`firebase_messaging`, `PushMessaging` / `FirebasePushMessaging`). Firebase est configuré par
+  les ressources Android écrites au build depuis les secrets `FIREBASE_*` (`build.gradle.kts`,
+  `docs/android-release.md` § 6 ; **pas de `google-services.json`** dans le dépôt) ; sans eux,
+  pas de jeton : la page dit « Les notifications ne sont pas encore disponibles. ».
+  `PushRegistration` donne le jeton à l'API (`PUT /push/device` : profil actif, réglage
+  « Nouveaux épisodes », `utc_offset`) au lancement, au retour au premier plan (6 h au plus entre
+  deux envois identiques), quand la session, le profil, le réglage ou le jeton change
+  (`NotificationsGate`, dans le `builder` de `MaterialApp.router`, sous `UpdateGate`) ; la
+  déconnexion supprime l'inscription côté serveur. Réglage « Nouveaux épisodes » par profil **sur
+  l'appareil** (`EpisodeAlertsSetting`, `LocalStore`, désactivé par défaut) ; l'activer pose la
+  question du système (Android 13+) ; refusé : carte « Notifications bloquées » et « Ouvrir les
+  réglages ». « Envoyer une notification de test » : le serveur l'envoie
+  (`POST /push/device/test`). **Pas de liste des prochaines alertes** (demande du développeur).
+  Une notification reçue appli ouverte est affichée par l'appli (`flutter_local_notifications`,
+  `SystemNotifications`, canaux Android `episodes` et `general` créés au lancement) ; un appui
+  ouvre `data.path` (aussi quand la notification lance l'appli). Icône
+  `drawable/ic_notification.xml` (gardée par `raw/keep.xml`), couleur `values/colors.xml`,
+  désucrage Java activé (`build.gradle.kts`). Sur le web : une phrase. Les tests passent par
+  `FakePush` et `FakeNotifications` (`test/notifications_test.dart`).
 - **Avancé** (« Paramètres » → « Avancé », `/profil/avance`, `AdvancedSettingsScreen` ; demande du
   développeur, sans rapports de plantage) : « Mémoriser le dernier profil » (sur l'appareil,
   activé par défaut ; désactivé : « Qui regarde ? » à chaque lancement ; un profil à code demande
