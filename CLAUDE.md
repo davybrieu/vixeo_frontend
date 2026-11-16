@@ -382,6 +382,17 @@ lib/
   (demande du développeur). Choisir un avatar l'enregistre et **reste sur la page** (pas de
   retour en arrière, demande du développeur). L'initiale reste affichée pour un ancien profil sans
   avatar. La tuile « Avatar » des paramètres n'écrit pas le nom du profil.
+- **Page « Profil »** (onglet `/profil`, `ProfileScreen`, `features/social/profile_screen.dart` ;
+  demande du développeur) : en haut, avatar, nom, @pseudo, « 12 abonnés » et « 3 abonnements »
+  (ouvrent `/profil/social/abonnes` et `/profil/social/abonnements`), biographie et « Modifier le
+  profil » (focus à l'arrivée) ; puis une carte de compteurs (Avis, Vus, Ma liste) ; puis
+  **« Ma liste »** (rangée d'affiches `PosterRow`, 20 titres au plus, une seule requête
+  `titlesByIdProvider`) et **« Mes avis »** (les 3 derniers, mêmes lignes `ReviewRow` que la page
+  « Mes avis ») ; le bouton rond « Voir tout » de chaque section ouvre `/ma-liste` ou `/avis`. Sans
+  compte TMDb : une phrase et « Lier mon compte TMDb ». La liste et les avis viennent des
+  providers locaux (`libraryProvider`, `reviewsProvider` : à jour tout de suite), les abonnés et
+  « Vus » de l'API sociale (`socialProfileProvider`, invalidé après « Modifier mon profil »).
+  Profil enfant : pas de page. Test : `test/profile_screen_test.dart`.
 - **Espacements** (charte, § 5) : les écarts d'une page ont un nom dans `core/design.dart`
   (`layout.sectionGap`, `titleGap`, `introGap`, `listGap`, `cardGap`) et le bas d'une page qui
   défile passe par `pageBottomPadding(context)` (place de la barre d'onglets comprise). Pages

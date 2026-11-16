@@ -72,6 +72,12 @@ class SocialRepository {
 }
 
 final socialRepositoryProvider = Provider<SocialRepository>((ref) => SocialRepository(ref.read(apiClientProvider)));
+
+/// The public page of a profile (bio, followers, counters), by username. Invalidated when the
+/// active profile edits its own.
+final socialProfileProvider = FutureProvider.autoDispose.family<SocialProfile, String>(
+  (ref, username) => ref.read(socialRepositoryProvider).profile(username),
+);
 final socialSearchProvider = FutureProvider.autoDispose.family<List<SocialProfile>, String>((ref, query) {
   final activeProfile = ref.watch(sessionProvider.select((s) => s.profile));
   if (activeProfile?.isKid == true) return Future.value(const <SocialProfile>[]);
