@@ -10,6 +10,7 @@ import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/models.dart';
+import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/social/profile_screen.dart';
 import 'package:vixeo/features/social/social_repository.dart';
@@ -131,10 +132,11 @@ void main() {
     expect(find.bySemanticsLabel('Vus : 34'), findsOneWidget);
     expect(find.bySemanticsLabel('Ma liste : 2'), findsOneWidget);
 
-    // « Ma liste »: a row of posters, the most recently added first (without an image, a card
-    // writes its name on the placeholder and under it).
-    final series = tester.getTopLeft(find.text('Les Hautes Terres').first);
-    final movie = tester.getTopLeft(find.text('Dune').first);
+    // « Ma liste »: a row of posters, the most recently added first.
+    Offset card(String title) =>
+        tester.getTopLeft(find.ancestor(of: find.text(title).first, matching: find.byType(PosterCard)).first);
+    final series = card('Les Hautes Terres');
+    final movie = card('Dune');
     expect(series.dy, closeTo(movie.dy, 1));
     expect(series.dx, lessThan(movie.dx));
     expect(find.text('Fight Club'), findsNothing);
