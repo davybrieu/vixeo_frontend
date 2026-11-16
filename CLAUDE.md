@@ -151,6 +151,25 @@ lib/
   lisent pas le HLS : `web/hls.min.js` (hls.js, Apache-2.0, servi depuis notre origine, licence
   dans « Licences ») est chargé par `web/index.html` et le plugin `video_player_web_hls` s'en sert
   pour les flux HLS. Android / iOS / Safari lisent le HLS nativement. Test : `test/web_hls_test.dart`.
+- **« Qui regarde ? »** (`profiles_screen.dart`, `/profils` ; demande du développeur, d'après
+  une vidéo d'un autre media center) : fond sombre éclairé de vert en haut, logo, « Qui
+  regarde ? », avatars **ronds** avec le nom dessous (cadenas si le profil a un code, « Enfant »)
+  et le bouton « Gérer les profils ». **Pas de « Se déconnecter »** sur cette page (il est dans
+  « Paramètres »). « Gérer les profils » : un crayon sur chaque avatar (un appui ouvre
+  « Modifier le profil »), la tuile « Ajouter un profil » (moins de 5 profils) et « Terminé ».
+  Flèche retour en haut à gauche seulement après « Changer de profil » : elle revient au profil
+  quitté (`SessionController.previousProfile` / `cancelSwitch`). Code d'un profil : le pavé
+  numérique `showPinPad` (`pin_pad.dart` : 4 points, touches 0-9 focalisables, chiffres du
+  clavier ou de la télécommande, `confirm` = saisi deux fois). **« Ajouter un profil »**
+  (`/profils/nouveau`) et **« Modifier le profil »** (`/profils/modifier/:id`) :
+  `ProfileEditorScreen` (`profile_editor_screen.dart`, hors de la navigation) : aperçu (avatar,
+  nom tapé, « Avatar : … »), « Nom du profil », « Choisir un avatar » (par licence, ronds, avatar
+  au hasard pour un nouveau profil ; le pseudo est fait par l'API), puis pour un profil existant
+  « Sécurité » (« Configurer / Supprimer le verrouillage PIN »), « Enregistrer les
+  modifications » et « Supprimer le profil » (confirmation ; jamais le dernier). Contrôle parental
+  activé : le code PIN parental est demandé pour créer et supprimer. Les restrictions (profil
+  enfant, âge) restent sur « Contrôle parental ». `/profils/gestion` redirige vers `/profils`.
+  Test : `test/profiles_screen_test.dart`.
 - **Contrôle parental** : deux pages séparées dans « Mon profil » (demande du développeur).
   « Contrôle parental » (`parental_control_screen.dart`, `/profil/controle-parental`) : les
   restrictions de chaque profil (profil enfant, âge maximum, titres sans classification) ; sans

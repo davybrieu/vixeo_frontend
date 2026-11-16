@@ -85,18 +85,33 @@ class AuthRepository {
     return (json['data'] as List).cast<Map<String, dynamic>>().map(Profile.fromJson).toList();
   }
 
-  Future<Profile> createProfile({required String name, required String username, bool isKid = false, String? parentalPin}) async {
+  /// Without [username], the API makes one from the name; without [avatar], it picks one.
+  Future<Profile> createProfile({
+    required String name,
+    String? username,
+    String? avatar,
+    bool isKid = false,
+    String? parentalPin,
+  }) async {
     final json = await _api.post(
       '/profiles',
       body: {
         'name': name,
-        'username': username,
+        if (username != null && username.isNotEmpty) 'username': username,
+        'avatar': ?avatar,
         'is_kid': isKid,
         if (parentalPin != null && parentalPin.isNotEmpty) 'parental_pin': parentalPin,
       },
     );
     return Profile.fromJson(json['data'] as Map<String, dynamic>);
   }
+
+  /// The parental PIN goes in a header (a DELETE has no body, a PIN is never in a URL). Throws an
+  /// [ApiException] with a `parental_pin` field error when it is wrong.
+  Future<void> deleteProfile(int profileId, {String? parentalPin}) => _api.delete(
+    '/profiles/$profileId',
+    headers: {if (parentalPin != null && parentalPin.isNotEmpty) 'X-Parental-Pin': parentalPin},
+  );
 
   /// Changes harmless profile fields (`name`, `avatar`, `poster_format`…).
   Future<Profile> updateProfile(int profileId, Map<String, Object?> fields) async {

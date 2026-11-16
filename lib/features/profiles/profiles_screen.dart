@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,200 +12,214 @@ import '../../core/widgets/focusable.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
 import 'avatars.dart';
+import 'pin_pad.dart';
+import 'profile_editor_screen.dart';
 
 final profilesProvider = FutureProvider.autoDispose<List<Profile>>((ref) {
   ref.watch(sessionProvider.select((s) => s.token));
   return ref.read(authRepositoryProvider).profiles();
 });
 
-/// Avatar colors, by position.
-const _tileColors = [
-  (VxColors.accent, VxColors.onAccent),
-  (Color(0xFF15524A), Color(0xFFE7F7F0)),
-  (Color(0xFFC9B98F), Color(0xFF1A1710)),
-  (Color(0xFF334039), VxColors.accent),
-  (Color(0xFF3A2A30), Color(0xFFF4E3EA)),
-];
+/// Profiles per account, at most (the API refuses a sixth).
+const maxProfiles = 5;
 
-/// "Qui regarde ?"
-class ProfilesScreen extends ConsumerWidget {
+/// « Qui regarde ? » (demande du développeur, like other media centers): the logo, the round
+/// avatars and « Gérer les profils ». Managing: a pencil on each profile (a tap opens « Modifier le
+/// profil »), « Ajouter un profil », and « Terminé ». No « Se déconnecter » here (it is in
+/// « Paramètres »). The back button returns to the profile left with « Changer de profil ».
+class ProfilesScreen extends ConsumerStatefulWidget {
   const ProfilesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfilesScreen> createState() => _ProfilesScreenState();
+}
+
+class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
+  bool _managing = false;
+
+  Future<void> _open(Profile profile) async {
+    if (_managing) {
+      await context.push(ProfileEditorScreen.editLocation(profile.id));
+      return;
+    }
+    if (profile.hasPin) {
+      final pin = await showPinPad(
+        context,
+        title: 'Saisir le code PIN',
+        subtitle: 'Profil de ${profile.name}',
+        onSubmit: (pin) async {
+          try {
+            await ref.read(authRepositoryProvider).verifyProfilePin(profile.id, pin);
+            return null;
+          } on ApiException catch (e) {
+            return e.field('pin') ?? e.message;
+          }
+        },
+      );
+      if (pin == null) return;
+    }
+    await ref.read(sessionProvider.notifier).selectProfile(profile);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final profiles = ref.watch(profilesProvider);
-    final tile = layout.isLarge ? layout.tv(220) : 120.0;
-
-    Future<void> open(Profile profile) async {
-      if (profile.hasPin) {
-        final ok = await showDialog<bool>(
-          context: context,
-          builder: (_) => _PinDialog(profile: profile),
-        );
-        if (ok != true) return;
-      }
-      await ref.read(sessionProvider.notifier).selectProfile(profile);
-    }
+    final large = layout.isLarge;
+    final tile = large ? layout.tv(200) : 104.0;
+    final previous = ref.read(sessionProvider.notifier).previousProfile;
 
     // Right after the start-up loading: the same one until the profiles are there.
     if (!profiles.hasValue && !profiles.hasError) return const Scaffold(body: AppLoading());
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(layout.gutter, 12, layout.isPhone ? 8 : layout.gutter, 0),
-              child: Row(
-                children: [
-                  VxLogo(size: layout.isLarge ? layout.tv(36).clamp(22, 40).toDouble() : 22),
-                  const Spacer(),
-                  VxButton(
-                    label: 'Se déconnecter',
-                    icon: Icons.logout_rounded,
-                    kind: VxButtonKind.danger,
-                    dense: true,
-                    onPressed: () async {
-                      await ref.read(sessionProvider.notifier).logout();
-                      if (context.mounted) context.go('/accueil');
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: AsyncView(
-                value: profiles,
-                onRetry: () => ref.invalidate(profilesProvider),
-                data: (list) => Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(vertical: layout.space(VxSpace.l), horizontal: layout.gutter),
-                    child: Column(
-                      children: [
-                        Text('Qui regarde ?', style: VxText.title(layout.isLarge ? layout.tv(64) : 28)),
-                        SizedBox(height: layout.space(VxSpace.xxl)),
-                        FocusTraversalGroup(
-                          child: Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: layout.space(VxSpace.xl),
-                            runSpacing: layout.space(VxSpace.xl),
-                            children: [
-                              for (var i = 0; i < list.length; i++)
-                                _ProfileTile(
-                                  profile: list[i],
-                                  colors: _tileColors[i % _tileColors.length],
-                                  size: tile,
-                                  autofocus: i == 0,
-                                  onPressed: () => open(list[i]),
-                                ),
-                              if (list.length < 5)
-                                _AddTile(
-                                  size: tile,
-                                  onPressed: () async {
-                                    final created = await showDialog<bool>(
-                                      context: context,
-                                      builder: (_) => const _AddProfileDialog(),
-                                    );
-                                    if (created == true) ref.invalidate(profilesProvider);
-                                  },
-                                ),
-                            ],
+      body: DecoratedBox(
+        // A green glow from the top, as on the other media centers' profile page.
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(0, -1.25),
+            radius: 1.25,
+            colors: [VxColors.accent.withValues(alpha: 0.26), VxColors.background],
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: AsyncView(
+                  value: profiles,
+                  onRetry: () => ref.invalidate(profilesProvider),
+                  data: (list) => Center(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(vertical: layout.space(VxSpace.l), horizontal: layout.gutter),
+                      child: Column(
+                        children: [
+                          VxLogo(size: large ? layout.tv(48) : 30),
+                          SizedBox(height: layout.space(VxSpace.m)),
+                          Text('Qui regarde ?', style: VxText.title(large ? layout.tv(60) : 28)),
+                          SizedBox(height: layout.space(VxSpace.xxl)),
+                          FocusTraversalGroup(
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: layout.space(VxSpace.xl),
+                              runSpacing: layout.space(VxSpace.l),
+                              children: [
+                                for (final (i, profile) in list.indexed)
+                                  _ProfileTile(
+                                    profile: profile,
+                                    size: tile,
+                                    managing: _managing,
+                                    autofocus: i == 0,
+                                    onPressed: () => _open(profile),
+                                  ),
+                                if (_managing && list.length < maxProfiles)
+                                  _AddTile(size: tile, onPressed: () => context.push(ProfileEditorScreen.newLocation)),
+                              ],
+                            ),
                           ),
-                        ),
-
-                      ],
+                          SizedBox(height: layout.space(VxSpace.xxl)),
+                          VxButton(
+                            label: _managing ? 'Terminé' : 'Gérer les profils',
+                            kind: _managing ? VxButtonKind.secondary : VxButtonKind.outline,
+                            dense: true,
+                            onPressed: () => setState(() => _managing = !_managing),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: EdgeInsets.fromLTRB(layout.gutter, 8, layout.gutter, 16),
-        child: VxButton(
-          label: 'Gérer mes profils',
-          icon: Icons.manage_accounts_outlined,
-          kind: VxButtonKind.outline,
-          expand: true,
-          onPressed: () => context.go('/profils/gestion'),
+              if (previous != null)
+                Positioned(
+                  left: layout.gutter - 4,
+                  top: 8,
+                  child: VxIconAction(
+                    icon: Icons.arrow_back_rounded,
+                    label: 'Retour au profil de ${previous.name}',
+                    dense: true,
+                    onPressed: () => ref.read(sessionProvider.notifier).cancelSwitch(),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
+/// A profile: its round avatar and its name. Managing: a pencil instead of the lock.
 class _ProfileTile extends StatelessWidget {
   const _ProfileTile({
     required this.profile,
-    required this.colors,
     required this.size,
+    required this.managing,
     required this.onPressed,
     this.autofocus = false,
   });
 
   final Profile profile;
-  final (Color, Color) colors;
   final double size;
+  final bool managing;
   final VoidCallback onPressed;
   final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
-    final radius = size * 0.2;
-    final label = [
-      profile.name,
-      if (profile.isKid) 'profil enfant',
-      if (profile.hasPin) 'protégé par un code',
-    ].join(', ');
+    final badge = size * 0.28;
+    final label = managing
+        ? 'Modifier le profil de ${profile.name}'
+        : [profile.name, if (profile.isKid) 'profil enfant', if (profile.hasPin) 'protégé par un code'].join(', ');
     return SizedBox(
-      width: size + 16,
+      width: size + 24,
       child: Column(
         children: [
           VxFocusable(
             autofocus: autofocus,
             onPressed: onPressed,
-            borderRadius: radius,
-            onAccent: profile.avatar == null && colors.$1 == VxColors.accent,
+            borderRadius: size,
             focusScale: 1.08,
             semanticLabel: label,
-            child: SizedBox(
-              width: size,
-              height: size,
+            child: SizedBox.square(
+              dimension: size,
               child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  AvatarTile(
-                    avatarId: profile.avatar,
-                    initial: profile.initial,
-                    size: size,
-                    radius: radius,
-                    fallbackColor: colors.$1,
-                    fallbackInk: colors.$2,
-                  ),
-                  if (profile.isKid)
+                  AvatarTile(avatarId: profile.avatar, initial: profile.initial, size: size, radius: size / 2),
+                  if (profile.isKid && !managing)
                     Positioned(
-                      left: size * 0.07,
-                      top: size * 0.07,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: size * 0.07, vertical: size * 0.02),
-                        decoration: BoxDecoration(
-                          color: VxColors.background,
-                          borderRadius: BorderRadius.circular(size),
+                      left: 0,
+                      right: 0,
+                      top: -size * 0.04,
+                      child: Center(
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: size * 0.08, vertical: size * 0.02),
+                          decoration: BoxDecoration(
+                            color: VxColors.background,
+                            borderRadius: BorderRadius.circular(size),
+                          ),
+                          child: Text('Enfant', style: VxText.body(size * 0.1, weight: FontWeight.w600)),
                         ),
-                        child: Text('Enfant', style: VxText.body(size * 0.09, weight: FontWeight.w600)),
                       ),
                     ),
-                  if (profile.hasPin)
+                  if (managing || profile.hasPin)
                     Positioned(
-                      right: size * 0.07,
-                      bottom: size * 0.07,
+                      right: 0,
+                      bottom: 0,
                       child: Container(
-                        width: size * 0.23,
-                        height: size * 0.23,
-                        decoration: const BoxDecoration(color: Color(0xB8070A08), shape: BoxShape.circle),
-                        child: Icon(Icons.lock_outline_rounded, size: size * 0.13, color: VxColors.text),
+                        width: badge,
+                        height: badge,
+                        decoration: BoxDecoration(
+                          color: managing ? VxColors.text : VxColors.background,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: VxColors.background, width: size * 0.025),
+                        ),
+                        child: Icon(
+                          managing ? Icons.edit_rounded : Icons.lock_outline_rounded,
+                          size: badge * 0.5,
+                          color: managing ? VxColors.background : VxColors.text,
+                        ),
                       ),
                     ),
                 ],
@@ -214,23 +227,17 @@ class _ProfileTile extends StatelessWidget {
             ),
           ),
           SizedBox(height: size * 0.1),
-          ExcludeSemantics(
-            child: Column(
-              children: [
-                Text(
-                  profile.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: VxText.body(size * 0.125, weight: FontWeight.w500),
-                ),
-                if (profile.username?.isNotEmpty == true)
-                  Text(
-                    '@${profile.username}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: VxText.body(size * 0.095, color: VxColors.textMuted),
-                  ),
-              ],
+          // The name under the avatar opens the profile too (touch, mouse).
+          GestureDetector(
+            onTap: onPressed,
+            child: ExcludeSemantics(
+              child: Text(
+                profile.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: VxText.body(size * 0.14, weight: FontWeight.w600),
+              ),
             ),
           ),
         ],
@@ -239,6 +246,7 @@ class _ProfileTile extends StatelessWidget {
   }
 }
 
+/// « Ajouter un profil » (managing only): a dark circle with a +.
 class _AddTile extends StatelessWidget {
   const _AddTile({required this.size, required this.onPressed});
 
@@ -247,268 +255,38 @@ class _AddTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: size + 16,
+    width: size + 24,
     child: Column(
       children: [
         VxFocusable(
           onPressed: onPressed,
-          borderRadius: size * 0.2,
+          borderRadius: size,
+          focusScale: 1.08,
           semanticLabel: 'Ajouter un profil',
           child: Container(
             width: size,
             height: size,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(size * 0.2),
-              border: Border.all(color: VxColors.lineStrong, width: 2),
+              shape: BoxShape.circle,
+              color: VxColors.text.withValues(alpha: 0.08),
+              border: Border.all(color: VxColors.line, width: 1.5),
             ),
-            child: Icon(Icons.add_rounded, size: size * 0.3, color: VxColors.textSecondary),
+            child: Icon(Icons.add_rounded, size: size * 0.32, color: VxColors.textSecondary),
           ),
         ),
         SizedBox(height: size * 0.1),
-        ExcludeSemantics(
-          child: Text(
-            'Ajouter',
-            style: VxText.body(size * 0.125, weight: FontWeight.w500, color: VxColors.textSecondary),
+        GestureDetector(
+          onTap: onPressed,
+          child: ExcludeSemantics(
+            child: Text(
+              'Ajouter un profil',
+            maxLines: 2,
+            textAlign: TextAlign.center,
+              style: VxText.body(size * 0.14, weight: FontWeight.w500, color: VxColors.textSecondary),
+            ),
           ),
         ),
       ],
     ),
   );
-}
-
-/// Asks a profile's PIN and checks it with the API. Pops `true` when correct.
-class _PinDialog extends ConsumerStatefulWidget {
-  const _PinDialog({required this.profile});
-
-  final Profile profile;
-
-  @override
-  ConsumerState<_PinDialog> createState() => _PinDialogState();
-}
-
-class _PinDialogState extends ConsumerState<_PinDialog> {
-  final _pin = TextEditingController();
-  String? _error;
-  bool _loading = false;
-
-  @override
-  void dispose() {
-    _pin.dispose();
-    super.dispose();
-  }
-
-  Future<void> _check() async {
-    if (_pin.text.length != 4) {
-      setState(() => _error = 'Saisissez les 4 chiffres.');
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      await ref.read(authRepositoryProvider).verifyProfilePin(widget.profile.id, _pin.text);
-      if (mounted) Navigator.of(context).pop(true);
-    } on ApiException catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.field('pin') ?? e.message;
-          _pin.clear();
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text('Code de ${widget.profile.name}'),
-    content: SizedBox(
-      width: 320,
-      child: TextField(
-        controller: _pin,
-        autofocus: true,
-        obscureText: true,
-        keyboardType: TextInputType.number,
-        maxLength: 4,
-        textAlign: TextAlign.center,
-        style: VxText.title(28).copyWith(letterSpacing: 16),
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        onSubmitted: (_) => _check(),
-        onChanged: (v) {
-          if (v.length == 4) _check();
-        },
-        decoration: InputDecoration(counterText: '', hintText: '••••', errorText: _error),
-      ),
-    ),
-    actions: [
-      TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
-      VxButton(label: 'Valider', onPressed: _check, loading: _loading),
-    ],
-  );
-}
-
-/// Creates a profile. The parental PIN is asked when parental control is on.
-class _AddProfileDialog extends ConsumerStatefulWidget {
-  const _AddProfileDialog();
-
-  @override
-  ConsumerState<_AddProfileDialog> createState() => _AddProfileDialogState();
-}
-
-class _AddProfileDialogState extends ConsumerState<_AddProfileDialog> {
-  final _name = TextEditingController();
-  final _username = TextEditingController();
-  final _parentalPin = TextEditingController();
-  bool _loading = false;
-  ApiException? _error;
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _username.dispose();
-    _parentalPin.dispose();
-    super.dispose();
-  }
-
-  Future<void> _create() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      await ref
-          .read(authRepositoryProvider)
-          .createProfile(name: _name.text.trim(), username: _username.text.trim(), parentalPin: _parentalPin.text);
-      if (mounted) Navigator.of(context).pop(true);
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final parental = ref.watch(sessionProvider).user?.parentalControl ?? false;
-    final error = _error;
-    return AlertDialog(
-      title: const Text('Nouveau profil'),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _name,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              decoration: InputDecoration(labelText: 'Prénom', errorText: error?.field('name')),
-            ),
-            const SizedBox(height: 8),
-            TextField(controller: _username, autocorrect: false, decoration: InputDecoration(labelText: 'Pseudo', prefixText: '@', errorText: error?.field('username'))),
-            const SizedBox(height: 8),
-            if (parental) ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: _parentalPin,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  labelText: 'Code PIN parental',
-                  counterText: '',
-                  errorText: error?.field('parental_pin'),
-                ),
-              ),
-            ],
-            if (error != null && error.fieldErrors.isEmpty) ...[
-              const SizedBox(height: 8),
-              Text(error.message, style: VxText.body(14, color: VxColors.error)),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
-        VxButton(label: 'Créer', onPressed: _create, loading: _loading),
-      ],
-    );
-  }
-}
-
-
-class ProfileManagementScreen extends ConsumerWidget {
-  const ProfileManagementScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final profiles = ref.watch(profilesProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Gérer mes profils')),
-      body: profiles.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const Center(child: Text('Impossible de charger les profils.')),
-        data: (items) => ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            for (final profile in items)
-              Card(
-                child: ListTile(
-                  leading: CircleAvatar(child: Text(profile.initial)),
-                  title: Text(profile.name),
-                  subtitle: Text('@${profile.username ?? ''}'),
-                  trailing: IconButton(
-                    tooltip: 'Modifier',
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: () async {
-                      final name = TextEditingController(text: profile.name);
-                      final username = TextEditingController(text: profile.username ?? '');
-                      final saved = await showDialog<bool>(
-                        context: context,
-                        builder: (dialogContext) => AlertDialog(
-                          title: Text('Modifier ${profile.name}'),
-                          content: Column(mainAxisSize: MainAxisSize.min, children: [
-                            TextField(controller: name, decoration: const InputDecoration(labelText: 'Nom du profil')),
-                            TextField(controller: username, decoration: const InputDecoration(labelText: 'Pseudo', prefixText: '@')),
-                          ]),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Annuler')),
-                            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Enregistrer')),
-                          ],
-                        ),
-                      );
-                      if (saved == true) {
-                        try {
-                          final updated = await ref.read(authRepositoryProvider).updateProfile(profile.id, {
-                            'name': name.text.trim(), 'username': username.text.trim(),
-                          });
-                          ref.read(sessionProvider.notifier).updateProfile(updated);
-                          ref.invalidate(profilesProvider);
-                        } on ApiException catch (e) {
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-                        }
-                      }
-                      name.dispose();
-                      username.dispose();
-                    },
-                  ),
-                ),
-              ),
-            if (items.length < 5)
-              ListTile(
-                leading: const Icon(Icons.add_circle_outline),
-                title: const Text('Ajouter un profil'),
-                onTap: () async {
-                  final created = await showDialog<bool>(context: context, builder: (_) => const _AddProfileDialog());
-                  if (created == true) ref.invalidate(profilesProvider);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 }

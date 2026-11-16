@@ -23,6 +23,7 @@ import 'features/playback/player_screen.dart';
 import 'features/profiles/advanced_settings_screen.dart';
 import 'features/profiles/parental_control_screen.dart';
 import 'features/profiles/parental_pin.dart';
+import 'features/profiles/profile_editor_screen.dart';
 import 'features/profiles/profile_preferences_screen.dart';
 import 'features/profiles/profile_settings_screen.dart';
 import 'features/profiles/profiles_screen.dart';
@@ -120,7 +121,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         return target;
       }
       if (session.profile == null) {
-        return location == '/profils' ? null : '/profils';
+        // « Qui regarde ? » and its « Ajouter / Modifier un profil » pages.
+        final picker = location == '/profils' || (location.startsWith('/profils/') && location != '/profils/gestion');
+        return picker ? null : '/profils';
       }
       if (authPages.contains(location) || location == '/profils' || location == '/demarrage') {
         final target = pending ?? '/accueil';
@@ -138,6 +141,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => guarded(state.uri.path, PasswordResetScreen(initialEmail: state.extra as String?)),
       ),
       GoRoute(path: '/profils', builder: (_, state) => guarded(state.uri.path, const ProfilesScreen())),
+      // « Gérer les profils » (« Qui regarde ? »): add and change a profile, without the navigation.
+      GoRoute(path: ProfileEditorScreen.newLocation, builder: (_, _) => const ProfileEditorScreen()),
+      GoRoute(
+        path: '/profils/modifier/:id',
+        builder: (_, state) => ProfileEditorScreen(profileId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+      ),
       ShellRoute(
         builder: (context, state, child) => AppShell(location: state.uri.path, child: child),
         routes: [
@@ -169,7 +178,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ReviewScreen(target: ReviewScreen.targetOf(state.pathParameters, state.uri.queryParameters)),
           ),
           GoRoute(path: '/profil', pageBuilder: (_, state) => tab(state, const ProfileScreen())),
-          GoRoute(path: '/profils/gestion', builder: (_, _) => const ProfileManagementScreen()),
+          // Former page: managing is on « Qui regarde ? » now.
+          GoRoute(path: '/profils/gestion', redirect: (_, _) => '/profils'),
           GoRoute(path: '/parametres', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
           GoRoute(path: '/profil/social/edition', builder: (_, _) => const SocialProfileEditScreen()),
           GoRoute(path: '/membre/:username', builder: (_, state) => PublicProfileScreen(username: state.pathParameters['username'] ?? '')),

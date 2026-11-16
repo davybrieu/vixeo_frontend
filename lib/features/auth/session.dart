@@ -136,6 +136,7 @@ class SessionController extends Notifier<SessionState> {
   }
 
   Future<void> selectProfile(Profile profile) async {
+    _previous = null;
     await _storage.writeProfileId(profile.id);
     state = state.copyWith(profile: profile);
   }
@@ -161,10 +162,29 @@ class SessionController extends Notifier<SessionState> {
     }
   }
 
+  /// The profile left with « Changer de profil »: « Qui regarde ? » can go back to it.
+  Profile? _previous;
+
+  Profile? get previousProfile => _previous;
+
   /// Back to "Qui regarde ?".
   Future<void> switchProfile() async {
+    _previous = state.profile;
     await _storage.writeProfileId(null);
     state = state.copyWith(clearProfile: true);
+  }
+
+  /// « Qui regarde ? »'s back button: the profile in use before, without asking its PIN again.
+  Future<void> cancelSwitch() async {
+    final previous = _previous;
+    if (previous == null) return;
+    _previous = null;
+    await selectProfile(previous);
+  }
+
+  /// A profile deleted (« Qui regarde ? » → « Gérer les profils »): never back to it.
+  void forgetProfile(int profileId) {
+    if (_previous?.id == profileId) _previous = null;
   }
 
   /// Explicitly enter guest mode from the login screen.
