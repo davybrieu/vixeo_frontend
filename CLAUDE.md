@@ -177,8 +177,10 @@ lib/
 - **Commandes du lecteur** (demande du développeur, d'après un autre lecteur ; `docs/lecteur.md`) :
   retour **en haut à gauche** (`VxBackButton`, comme les autres pages), « EN DIRECT » en haut à
   droite (chaîne qui joue) ; au milieu −10 s, lecture / pause (cercle de chargement à sa place),
-  +10 s (J / L) ; en bas à gauche le titre, l'année ou l'épisode et « Via » la source, la barre de
-  progression, puis les icônes (blanches, sans fond) et le temps à droite. **Cinq icônes au
+  +10 s (J / L), toujours blancs (lecture ouvre les sources tant qu'aucune n'est choisie) ; en bas
+  à gauche le titre, l'année ou l'épisode et « Via » la source, la barre de progression (toujours
+  là pour un titre, à 0 avant la vidéo), puis les icônes (blanches, sans fond ; curseur de volume
+  seulement avec une souris, pas sur Android / iOS) et le temps à droite. **Cinq icônes au
   plus** : au-delà, une flèche `>` déroule les autres, et `<` les replie (`_ActionsRow`). Tests :
   `test/player_engine_test.dart`.
 - **« Qui regarde ? »** (`profiles_screen.dart`, `/profils` ; demande du développeur, d'après

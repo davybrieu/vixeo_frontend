@@ -894,7 +894,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         : providers.where((p) => p.id == source.provider).firstOrNull?.name ?? source.provider;
 
     // The actions of the bottom bar, the most used first: five on screen, the others behind the
-    // arrow. A mouse also gets a volume slider (phones and TVs have volume keys).
+    // arrow.
     final layout = Layout.of(context);
     final fullscreen = isFullscreen();
     final actions = <Widget>[
@@ -908,7 +908,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _VolumeAction(
         silent: _muted || _volume == 0,
         volume: _muted ? 0 : _volume,
-        slider: !layout.isPhone && !DeviceInfo.isTv,
+        // A mouse (web or desktop): phones and tablets in landscape have volume keys, and a green
+        // slider there looked like the seek bar.
+        slider: !DeviceInfo.isTv &&
+            defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS,
         onMute: _toggleMute,
         onVolume: _setVolume,
       ),
@@ -1015,10 +1019,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   child: _CenterControls(
                     playFocus: _playFocus,
                     live: widget.live,
-                    ready: ready,
                     playing: _playing,
                     loading: loading,
-                    onPlayPause: _togglePlay,
+                    // No source chosen yet: play opens the sources.
+                    onPlayPause: waiting ? _openSources : _togglePlay,
                     onRewind: () => _seekBy(-_seekStep),
                     onForward: () => _seekBy(_seekStep),
                   ),
@@ -1232,12 +1236,12 @@ class _LiveBadge extends StatelessWidget {
 }
 
 /// The middle of the controls: 10 s back, play / pause (a spinner while there is no picture) and
-/// 10 s forward; play / pause only for a live stream.
+/// 10 s forward; play / pause only for a live stream. Before a source is chosen, play opens the
+/// sources.
 class _CenterControls extends StatelessWidget {
   const _CenterControls({
     required this.playFocus,
     required this.live,
-    required this.ready,
     required this.playing,
     required this.loading,
     required this.onPlayPause,
@@ -1247,7 +1251,6 @@ class _CenterControls extends StatelessWidget {
 
   final FocusNode playFocus;
   final bool live;
-  final bool ready;
   final bool playing;
   final bool loading;
   final VoidCallback onPlayPause;
@@ -1263,12 +1266,14 @@ class _CenterControls extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Always white and pressable (they do nothing until the video is there): greyed, they
+          // could not be seen over a dark picture.
           if (!live) ...[
             _BarAction(
               icon: Icons.replay_10_rounded,
               label: 'Reculer de 10 secondes',
               size: seekSize,
-              onPressed: ready ? onRewind : null,
+              onPressed: onRewind,
             ),
             spacing,
           ],
@@ -1276,7 +1281,7 @@ class _CenterControls extends StatelessWidget {
             focusNode: playFocus,
             playing: playing,
             loading: loading,
-            onPressed: ready ? onPlayPause : null,
+            onPressed: loading ? null : onPlayPause,
           ),
           if (!live) ...[
             spacing,
@@ -1284,7 +1289,7 @@ class _CenterControls extends StatelessWidget {
               icon: Icons.forward_10_rounded,
               label: 'Avancer de 10 secondes',
               size: seekSize,
-              onPressed: ready ? onForward : null,
+              onPressed: onForward,
             ),
           ],
         ],
@@ -1323,11 +1328,7 @@ class _PlayButton extends StatelessWidget {
                   dimension: size * 0.5,
                   child: const CircularProgressIndicator(color: VxColors.accent, strokeWidth: 3),
                 )
-              : Icon(
-                  playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  size: size,
-                  color: onPressed == null ? Colors.white38 : Colors.white,
-                ),
+              : Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded, size: size, color: Colors.white),
         ),
       ),
     );
@@ -1424,6 +1425,10 @@ SliderThemeData _sliderTheme(BuildContext context) => SliderTheme.of(context).co
   activeTrackColor: VxColors.accent,
   inactiveTrackColor: Colors.white.withValues(alpha: 0.28),
   thumbColor: VxColors.accent,
+  // Before the video is there the seek bar cannot move, but it shows as usual.
+  disabledActiveTrackColor: VxColors.accent,
+  disabledInactiveTrackColor: Colors.white.withValues(alpha: 0.28),
+  disabledThumbColor: VxColors.accent,
   overlayColor: VxColors.accent.withValues(alpha: 0.2),
   trackHeight: 4,
   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
@@ -1534,7 +1539,8 @@ class _BottomBar extends StatelessWidget {
                   ],
                 ),
               SizedBox(height: gap / 2),
-              if (!live && ready)
+              // A title always has its seek bar and its time, at 0 until the video is there.
+              if (!live)
                 SizedBox(
                   height: layout.size(32, tv: 48),
                   child: SliderTheme(
@@ -1543,7 +1549,9 @@ class _BottomBar extends StatelessWidget {
                       value: duration.inMilliseconds > 0
                           ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0).toDouble()
                           : 0.0,
-                      onChanged: (v) => onSeek?.call(Duration(milliseconds: (v * duration.inMilliseconds).round())),
+                      onChanged: ready && duration.inMilliseconds > 0
+                          ? (v) => onSeek?.call(Duration(milliseconds: (v * duration.inMilliseconds).round()))
+                          : null,
                     ),
                   ),
                 ),
@@ -1562,7 +1570,7 @@ class _BottomBar extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (!live && ready) ...[
+                    if (!live) ...[
                       SizedBox(width: gap),
                       Text(
                         '${format(position)} / ${format(duration)}',

@@ -18,14 +18,17 @@ Les mêmes sur toutes les plateformes, par-dessus l'image :
 - **en haut à gauche**, le bouton retour, le même et à la même place que sur les autres pages
   (`VxBackButton`) ; **en haut à droite**, « EN DIRECT » pendant qu'une chaîne joue ;
 - **au milieu**, reculer de 10 s, lecture / pause (un cercle de chargement à sa place tant qu'il
-  n'y a pas d'image), avancer de 10 s ; lecture / pause seulement pour une chaîne. Touches :
-  J / L et les touches retour rapide / avance rapide d'une télécommande ;
+  n'y a pas d'image), avancer de 10 s ; lecture / pause seulement pour une chaîne. Toujours
+  blancs, jamais grisés (invisibles sur une image sombre) ; tant qu'aucune source n'est choisie,
+  lecture ouvre les sources. Touches : J / L et les touches retour rapide / avance rapide d'une
+  télécommande ;
 - **en bas à gauche**, ce qui joue : le titre, l'année (film) ou « Saison 1 · Épisode 2 · nom »
   (série), puis « Via » le fournisseur de la source, un éclair et le nom du lien ; dessous, la
-  barre de progression ;
+  barre de progression, **toujours là pour un titre** (à 0, immobile, avant la vidéo) ;
 - **en bas**, les icônes à gauche (sous-titres, son, sources, épisodes, épisode suivant, plein
   écran, ouvrir en externe ; pour une chaîne : son, « Revenir au direct », plein écran), et le
-  temps « 00:02 / 2:52:35 » à droite. **Cinq icônes au plus** : au-delà, une flèche `>` après la
+  temps « 00:02 / 2:52:35 » à droite (« 00:00 / 00:00 » avant la vidéo). Le curseur de volume
+  n'existe qu'avec une souris (web, ordinateur), pas sur Android ni iOS. **Cinq icônes au plus** : au-delà, une flèche `>` après la
   cinquième déroule les autres, et la même flèche, tournée `<`, les replie (`_ActionsRow`).
 
 `better_native_video_player` n'a **pas** d'implémentation web. Il n'est importé que par

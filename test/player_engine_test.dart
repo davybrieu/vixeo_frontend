@@ -122,7 +122,7 @@ Future<FakeEngine> openLive(WidgetTester tester, FakeEngine engine) async {
 }
 
 /// A title's player with one provider (« Hôte ») and one link, chosen: the video plays.
-Future<FakeEngine> openTitle(WidgetTester tester, PlayerScreen screen) async {
+Future<FakeEngine> openTitle(WidgetTester tester, PlayerScreen screen, {bool choose = true}) async {
   // A screen in landscape, like the player always is.
   tester.view.physicalSize = const Size(1280, 720);
   tester.view.devicePixelRatio = 1;
@@ -153,10 +153,12 @@ Future<FakeEngine> openTitle(WidgetTester tester, PlayerScreen screen) async {
     ),
   );
   await settle(tester);
-  await tester.tap(find.text('Hôte'));
-  await settle(tester);
-  await tester.tap(find.text('Film VF 1080P'));
-  await settle(tester);
+  if (choose) {
+    await tester.tap(find.text('Hôte'));
+    await settle(tester);
+    await tester.tap(find.text('Film VF 1080P'));
+    await settle(tester);
+  }
   return engine;
 }
 
@@ -530,6 +532,31 @@ void main() {
       await tester.pump();
       expect(find.bySemanticsLabel('Ouvrir en externe'), findsNothing);
       expect(find.bySemanticsLabel('Plus d’options'), findsOneWidget);
+
+      await closePlayer(tester);
+    });
+
+    testWidgets('before a source is chosen: seek bar and time are there, a white play opens the sources', (
+      tester,
+    ) async {
+      final engine = await openTitle(tester, const PlayerScreen(type: MediaType.movie, id: 550), choose: false);
+      // The sources panel, closed: the controls alone.
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await settle(tester);
+      expect(tester.getTopLeft(find.text('Sources')).dx, greaterThanOrEqualTo(1280));
+
+      // The seek bar (still) and the time, at 0; no volume slider on a phone or a tablet.
+      expect(find.byType(Slider), findsOneWidget);
+      expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNull);
+      expect(find.text('00:00 / 00:00'), findsOneWidget);
+      // Play is white, like the 10 s buttons, never greyed.
+      expect(tester.widget<Icon>(find.byIcon(Icons.play_arrow_rounded)).color, Colors.white);
+      expect(tester.widget<Icon>(find.byIcon(Icons.replay_10_rounded)).color, Colors.white);
+
+      await tester.tap(find.bySemanticsLabel('Lecture'));
+      await settle(tester);
+      expect(tester.getTopLeft(find.text('Sources')).dx, lessThan(1280));
+      expect(engine.opened, isNull);
 
       await closePlayer(tester);
     });
