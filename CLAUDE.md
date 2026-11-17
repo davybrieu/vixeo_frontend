@@ -174,6 +174,13 @@ lib/
   Sous-titres : WebVTT lu par `webvtt.dart`, dessiné par Flutter (même rendu partout). **DRM web :
   étudié, pas implémenté** (un flux protégé est refusé avec une phrase) ; aucune clé dans Flutter.
   Tests : `test/player_engine_test.dart` (faux moteur) ; les navigateurs se testent à la main.
+- **Commandes du lecteur** (demande du développeur, d'après un autre lecteur ; `docs/lecteur.md`) :
+  retour **en haut à gauche** (`VxBackButton`, comme les autres pages), « EN DIRECT » en haut à
+  droite (chaîne qui joue) ; au milieu −10 s, lecture / pause (cercle de chargement à sa place),
+  +10 s (J / L) ; en bas à gauche le titre, l'année ou l'épisode et « Via » la source, la barre de
+  progression, puis les icônes (blanches, sans fond) et le temps à droite. **Cinq icônes au
+  plus** : au-delà, une flèche `>` déroule les autres, et `<` les replie (`_ActionsRow`). Tests :
+  `test/player_engine_test.dart`.
 - **« Qui regarde ? »** (`profiles_screen.dart`, `/profils` ; demande du développeur, d'après
   une vidéo d'un autre media center) : fond sombre éclairé de vert en haut, « Qui regarde ? »
   (**sans logo**), avatars **ronds** avec le nom dessous (cadenas si le profil a un code ; plus

@@ -8,11 +8,13 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../auth/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
+import '../../core/widgets/page_header.dart';
 import '../catalog/models.dart';
 import '../catalog/catalog_repository.dart';
 import '../tv/models.dart';
@@ -101,11 +103,14 @@ final providerSourcesProvider = FutureProvider.family<List<StreamSource>, Provid
 
 /// The player, for a title (sources, subtitles, episodes) and for a live channel ([PlayerScreen.live]).
 ///
-/// Controls over the picture: back, title and « EN DIRECT » (live) at the top; play / pause, sound
-/// (and volume with a mouse), « Revenir au direct » (live), the title's actions and full screen
-/// (not on TV) at the bottom. They hide after a few seconds of playback and come back on a tap, a
-/// mouse move or any key (the first key press on a remote only shows them, on play / pause).
-/// Shortcuts: K (lecture), M (son), F (plein écran), and the media keys of a remote.
+/// Controls over the picture (demande du développeur, d'après un autre lecteur): the back button
+/// at the top left, as on every page, and « EN DIRECT » at the top right (live); 10 s back,
+/// play / pause and 10 s forward in the middle; at the bottom, what plays (title, year or episode,
+/// « Via » its source), the seek bar, then the actions on the left (five at most, the others
+/// behind an arrow that unfolds them) and the time on the right. They hide after a few seconds of
+/// playback and come back on a tap, a mouse move or any key (the first key press on a remote only
+/// shows them, on play / pause). Shortcuts: K (lecture), M (son), F (plein écran), J / L (10 s),
+/// and the media keys of a remote.
 ///
 /// This screen and its controls are the same on every platform. What plays the video is a
 /// [PlayerEngine] (`engine/`): the native player on Android / iOS, the browser's on the web.
@@ -529,6 +534,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _showControls();
   }
 
+  /// Ten seconds back or forward: the buttons around play / pause, J / L, the media keys.
+  static const _seekStep = Duration(seconds: 10);
+
+  Future<void> _seekBy(Duration offset) async {
+    final engine = _engine;
+    if (engine == null || !_ready || widget.live) return;
+    final value = engine.value;
+    var target = value.position + offset;
+    if (target < Duration.zero) target = Duration.zero;
+    if (value.duration > Duration.zero && target > value.duration) target = value.duration;
+    await engine.seekTo(target);
+    _showControls();
+  }
+
   /// Starts the stream again: after a pause, playback is behind the live edge.
   void _backToLive() {
     _showControls();
@@ -637,6 +656,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
     if (key == LogicalKeyboardKey.keyM) {
       _toggleMute();
+      return KeyEventResult.handled;
+    }
+    if (!widget.live && (key == LogicalKeyboardKey.keyJ || key == LogicalKeyboardKey.mediaRewind)) {
+      _seekBy(-_seekStep);
+      return KeyEventResult.handled;
+    }
+    if (!widget.live && (key == LogicalKeyboardKey.keyL || key == LogicalKeyboardKey.mediaFastForward)) {
+      _seekBy(_seekStep);
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.keyF && !DeviceInfo.isTv) {
@@ -832,32 +859,75 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final visible = _controlsVisible || !_canHide;
     final error = _error;
 
-    // The middle of the screen: a spinner while there is no picture yet (or, live, while it does
-    // not move), a play sign while paused.
-    Widget? status;
-    if (error == null) {
-      if (!ready || _buffering || (widget.live && _playing && !_liveProgressing)) {
-        status = IgnorePointer(
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(color: VxColors.accent),
-                if (_resolving && !widget.live) ...[
-                  const SizedBox(height: 16),
-                  Text('Extraction du flux...', style: VxText.body(15, color: VxColors.textSoft)),
-                ],
-              ],
-            ),
-          ),
-        );
-      } else if (!_playing) {
-        // Paused, or the browser refused to start playback on its own: a tap starts it.
-        status = const IgnorePointer(
-          child: Center(child: Icon(Icons.play_circle_outline, size: 72, color: Colors.white70)),
-        );
-      }
-    }
+    // Nothing to load yet: a title waits for a source to be chosen.
+    final waiting = engine == null && !_resolving && !widget.live;
+    // No picture yet, or (live) a picture that does not move: the play button turns into a
+    // spinner; with the controls hidden (buffering), a spinner alone in the middle.
+    final loading = !waiting && (!ready || _buffering || (widget.live && _playing && !_liveProgressing));
+    final Widget? status = error == null && loading && !visible
+        ? const IgnorePointer(child: Center(child: CircularProgressIndicator(color: VxColors.accent)))
+        : null;
+
+    // What plays, at the bottom left: the title, then its year (a movie) or its episode, then the
+    // source it comes from.
+    final details = widget.live ? null : ref.watch(titleProvider((widget.type, widget.id))).value;
+    final episodeTitle = widget.live || widget.type != MediaType.tv || _season == null || _episode == null
+        ? null
+        : ref
+              .watch(seasonProvider((widget.id, _season!)))
+              .value
+              ?.episodes
+              .where((e) => e.number == _episode)
+              .firstOrNull
+              ?.name;
+    final String? subtitle = widget.live
+        ? null
+        : widget.type == MediaType.tv && _season != null && _episode != null
+        ? [
+            'Saison $_season · Épisode $_episode',
+            if (episodeTitle != null && episodeTitle.isNotEmpty) episodeTitle,
+          ].join(' · ')
+        : details?.year?.toString();
+    final source = _currentSource;
+    final providerName = source == null
+        ? null
+        : providers.where((p) => p.id == source.provider).firstOrNull?.name ?? source.provider;
+
+    // The actions of the bottom bar, the most used first: five on screen, the others behind the
+    // arrow. A mouse also gets a volume slider (phones and TVs have volume keys).
+    final layout = Layout.of(context);
+    final fullscreen = isFullscreen();
+    final actions = <Widget>[
+      if (!widget.live)
+        _BarAction(
+          icon: Icons.closed_caption_outlined,
+          label: 'Sous-titres',
+          active: _selectedSubtitle != null,
+          onPressed: _showSubtitles,
+        ),
+      _VolumeAction(
+        silent: _muted || _volume == 0,
+        volume: _muted ? 0 : _volume,
+        slider: !layout.isPhone && !DeviceInfo.isTv,
+        onMute: _toggleMute,
+        onVolume: _setVolume,
+      ),
+      if (!widget.live) _BarAction(icon: Icons.cloud_outlined, label: 'Sources', onPressed: _openSources),
+      if (widget.live && ready)
+        _BarAction(icon: Icons.restart_alt_rounded, label: 'Revenir au direct', onPressed: _backToLive),
+      if (!widget.live && widget.type == MediaType.tv) ...[
+        _BarAction(icon: Icons.video_library_outlined, label: 'Épisodes', onPressed: _openEpisodes),
+        _BarAction(icon: Icons.skip_next_rounded, label: 'Épisode suivant', onPressed: _playNextEpisode),
+      ],
+      if (!DeviceInfo.isTv)
+        _BarAction(
+          icon: fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+          label: fullscreen ? 'Quitter le plein écran' : 'Plein écran',
+          onPressed: _toggleFullscreen,
+        ),
+      if (!widget.live)
+        _BarAction(icon: Icons.open_in_new_rounded, label: 'Ouvrir en externe', onPressed: _openExternal),
+    ];
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -876,10 +946,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               GestureDetector(behavior: HitTestBehavior.opaque, onTap: _onSurfaceTap),
               if (status != null) status,
               if (engine != null && _captions.isNotEmpty)
-                Positioned(
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 200),
                   left: 24,
                   right: 24,
-                  bottom: 100,
+                  // Above the bottom bar while it shows.
+                  bottom: visible ? layout.size(230, tv: 400) : layout.size(40, tv: 64),
                   child: ValueListenableBuilder<PlayerEngineValue>(
                     valueListenable: engine,
                     builder: (context, value, _) {
@@ -938,6 +1010,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               if (error == null)
                 _Fade(
                   visible: visible,
+                  // A little above the middle: the title of the bottom bar stays clear of it.
+                  alignment: const Alignment(0, -0.15),
+                  child: _CenterControls(
+                    playFocus: _playFocus,
+                    live: widget.live,
+                    ready: ready,
+                    playing: _playing,
+                    loading: loading,
+                    onPlayPause: _togglePlay,
+                    onRewind: () => _seekBy(-_seekStep),
+                    onForward: () => _seekBy(_seekStep),
+                  ),
+                ),
+              if (error == null && _resolving && !widget.live)
+                Align(
+                  alignment: const Alignment(0, 0.3),
+                  child: IgnorePointer(
+                    child: Text('Extraction du flux...', style: VxText.body(15, color: VxColors.textSoft)),
+                  ),
+                ),
+              if (error == null)
+                _Fade(
+                  visible: visible,
                   alignment: Alignment.bottomCenter,
                   child: AnimatedBuilder(
                     // The time and the seek bar follow the video.
@@ -945,28 +1040,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     builder: (context, _) {
                       final value = _engine?.value;
                       return _BottomBar(
-                        playFocus: _playFocus,
-                        ready: _ready,
-                        playing: _playing,
+                        title: widget.live ? widget.liveTitle : details?.title,
+                        subtitle: subtitle,
+                        providerName: providerName,
+                        sourceName: source?.name,
                         live: widget.live,
-                        muted: _muted,
-                        volume: _volume,
-                        fullscreen: isFullscreen(),
+                        ready: _ready,
                         position: value?.position ?? Duration.zero,
                         duration: value?.duration ?? Duration.zero,
                         format: _format,
-                        currentSource: _currentSource,
-                        onPlayPause: _togglePlay,
-                        onMute: _toggleMute,
-                        onVolume: _setVolume,
-                        onFullscreen: _toggleFullscreen,
+                        actions: actions,
+                        onInteract: _showControls,
                         onSeek: widget.live ? null : (Duration position) => _engine?.seekTo(position),
-                        onBackToLive: widget.live && _ready ? _backToLive : null,
-                        onSources: widget.live ? null : _openSources,
-                        onSubtitles: widget.live ? null : _showSubtitles,
-                        onEpisodes: widget.live || widget.type != MediaType.tv ? null : _openEpisodes,
-                        onNextEpisode: widget.live || widget.type != MediaType.tv ? null : _playNextEpisode,
-                        onExternal: widget.live ? null : _openExternal,
                       );
                     },
                   ),
@@ -1023,7 +1108,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 visible: visible,
                 alignment: Alignment.topCenter,
                 child: _TopBar(
-                  title: widget.live ? (widget.liveTitle ?? 'En direct') : 'Lecture',
                   live: widget.live && ready && _playing && _liveProgressing,
                   onBack: _goBack,
                 ),
@@ -1079,10 +1163,10 @@ class _Fade extends StatelessWidget {
   }
 }
 
+/// Top of the controls: the back button at the top left, as on every page; « EN DIRECT » at the
+/// top right while a live stream plays.
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.title, required this.live, required this.onBack});
-
-  final String title;
+  const _TopBar({required this.live, required this.onBack});
 
   /// Live, and the image moves: « EN DIRECT ».
   final bool live;
@@ -1091,7 +1175,6 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final s = layout.isLarge ? layout.tv(1) * 1.5 : 1.0;
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -1103,15 +1186,13 @@ class _TopBar extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(layout.gutter, 12 * s, layout.gutter, 32 * s),
+          // The same place as the back button of the other pages (VxPageHeader).
+          padding: EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.m), layout.gutter, layout.size(32, tv: 48)),
           child: Row(
             children: [
-              VxIconAction(icon: Icons.arrow_back_rounded, label: 'Retour', onPressed: onBack),
-              SizedBox(width: 16 * s),
-              Expanded(
-                child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: VxText.title(20 * s)),
-              ),
-              if (live) ...[SizedBox(width: 12 * s), _LiveBadge(scale: s)],
+              VxBackButton(onPressed: onBack),
+              const Spacer(),
+              if (live) _LiveBadge(scale: layout.isLarge ? layout.tv(1) * 1.5 : 1.0),
             ],
           ),
         ),
@@ -1150,72 +1231,251 @@ class _LiveBadge extends StatelessWidget {
   }
 }
 
-/// Play / pause, sound, then the other actions (round buttons, labelled for screen readers);
-/// for a title, its source, the seek bar and the time above / beside them.
-class _BottomBar extends StatelessWidget {
-  const _BottomBar({
+/// The middle of the controls: 10 s back, play / pause (a spinner while there is no picture) and
+/// 10 s forward; play / pause only for a live stream.
+class _CenterControls extends StatelessWidget {
+  const _CenterControls({
     required this.playFocus,
+    required this.live,
     required this.ready,
     required this.playing,
-    required this.live,
-    required this.muted,
-    required this.volume,
-    required this.fullscreen,
-    required this.position,
-    required this.duration,
-    required this.format,
+    required this.loading,
     required this.onPlayPause,
-    required this.onMute,
-    required this.onVolume,
-    required this.onFullscreen,
-    this.currentSource,
-    this.onSeek,
-    this.onBackToLive,
-    this.onSources,
-    this.onSubtitles,
-    this.onEpisodes,
-    this.onNextEpisode,
-    this.onExternal,
+    required this.onRewind,
+    required this.onForward,
   });
 
   final FocusNode playFocus;
+  final bool live;
   final bool ready;
   final bool playing;
-  final bool live;
-  final bool muted;
-  final double volume;
-  final bool fullscreen;
-  final Duration position;
-  final Duration duration;
-  final String Function(Duration) format;
+  final bool loading;
   final VoidCallback onPlayPause;
-  final VoidCallback onMute;
-  final ValueChanged<double> onVolume;
-  final VoidCallback onFullscreen;
-  final StreamSource? currentSource;
-  final ValueChanged<Duration>? onSeek;
-  final VoidCallback? onBackToLive;
-  final VoidCallback? onSources;
-  final VoidCallback? onSubtitles;
-  final VoidCallback? onEpisodes;
-  final VoidCallback? onNextEpisode;
-  final VoidCallback? onExternal;
+  final VoidCallback onRewind;
+  final VoidCallback onForward;
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final gap = layout.isLarge ? layout.tv(20) : 12.0;
-    // Phones and TVs have volume keys; a mouse needs a slider.
-    final volumeSlider = !layout.isPhone && !DeviceInfo.isTv;
-    final silent = muted || volume == 0;
-    final source = currentSource;
-    final sliderTheme = SliderTheme.of(context).copyWith(
-      activeTrackColor: VxColors.accent,
-      inactiveTrackColor: VxColors.line,
-      thumbColor: VxColors.accent,
-      overlayColor: VxColors.accent.withValues(alpha: 0.2),
-      trackHeight: 3,
+    final seekSize = layout.size(52, tv: 96);
+    final spacing = SizedBox(width: layout.size(48, tv: 120));
+    return FocusTraversalGroup(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!live) ...[
+            _BarAction(
+              icon: Icons.replay_10_rounded,
+              label: 'Reculer de 10 secondes',
+              size: seekSize,
+              onPressed: ready ? onRewind : null,
+            ),
+            spacing,
+          ],
+          _PlayButton(
+            focusNode: playFocus,
+            playing: playing,
+            loading: loading,
+            onPressed: ready ? onPlayPause : null,
+          ),
+          if (!live) ...[
+            spacing,
+            _BarAction(
+              icon: Icons.forward_10_rounded,
+              label: 'Avancer de 10 secondes',
+              size: seekSize,
+              onPressed: ready ? onForward : null,
+            ),
+          ],
+        ],
+      ),
     );
+  }
+}
+
+/// Play / pause: a large white sign, the screen's focus on arrival (remote).
+class _PlayButton extends StatelessWidget {
+  const _PlayButton({required this.focusNode, required this.playing, required this.loading, required this.onPressed});
+
+  final FocusNode focusNode;
+  final bool playing;
+
+  /// No picture yet: a spinner in its place.
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final size = layout.size(76, tv: 140);
+    return VxFocusable(
+      focusNode: focusNode,
+      autofocus: true,
+      // Always focusable: the remote's focus waits there while the picture loads.
+      onPressed: onPressed ?? () {},
+      borderRadius: size,
+      semanticLabel: playing ? 'Pause' : 'Lecture',
+      child: SizedBox.square(
+        dimension: size,
+        child: Center(
+          child: loading
+              ? SizedBox.square(
+                  dimension: size * 0.5,
+                  child: const CircularProgressIndicator(color: VxColors.accent, strokeWidth: 3),
+                )
+              : Icon(
+                  playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  size: size,
+                  color: onPressed == null ? Colors.white38 : Colors.white,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// An action of the controls: a white icon without a background, a round focus ring, a label for
+/// screen readers (the tests look for it). Green while it is on (subtitles chosen).
+class _BarAction extends StatelessWidget {
+  const _BarAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.active = false,
+    this.size,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool active;
+
+  /// Width and height of the button (the icon is a bit smaller); the bottom bar's by default.
+  final double? size;
+
+  @override
+  Widget build(BuildContext context) {
+    final box = size ?? Layout.of(context).size(48, tv: 80);
+    return VxFocusable(
+      onPressed: onPressed,
+      borderRadius: box,
+      semanticLabel: label,
+      child: SizedBox.square(
+        dimension: box,
+        child: Icon(
+          icon,
+          size: box * 0.62,
+          color: onPressed == null ? Colors.white38 : (active ? VxColors.accent : Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+/// The sound: on / off, and a volume slider with a mouse.
+class _VolumeAction extends StatelessWidget {
+  const _VolumeAction({
+    required this.silent,
+    required this.volume,
+    required this.slider,
+    required this.onMute,
+    required this.onVolume,
+  });
+
+  final bool silent;
+  final double volume;
+  final bool slider;
+  final VoidCallback onMute;
+  final ValueChanged<double> onVolume;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _BarAction(
+          icon: silent ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+          label: silent ? 'Activer le son' : 'Couper le son',
+          onPressed: onMute,
+        ),
+        if (slider)
+          SizedBox(
+            // A Slider takes all the height it is given: without one, the bar would fill the
+            // screen (and its gradient darken the whole image).
+            width: 120,
+            height: 48,
+            child: SliderTheme(
+              data: _sliderTheme(context),
+              child: Slider(
+                value: volume,
+                semanticFormatterCallback: (v) => 'Volume ${(v * 100).round()} %',
+                onChanged: onVolume,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Green progress on a light track, a small thumb: the seek bar and the volume.
+SliderThemeData _sliderTheme(BuildContext context) => SliderTheme.of(context).copyWith(
+  activeTrackColor: VxColors.accent,
+  inactiveTrackColor: Colors.white.withValues(alpha: 0.28),
+  thumbColor: VxColors.accent,
+  overlayColor: VxColors.accent.withValues(alpha: 0.2),
+  trackHeight: 4,
+  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+  overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+);
+
+/// Bottom of the controls: what plays (title, year or episode, « Via » its source), the seek
+/// bar, then the actions on the left and the time on the right.
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({
+    required this.title,
+    required this.subtitle,
+    required this.providerName,
+    required this.sourceName,
+    required this.live,
+    required this.ready,
+    required this.position,
+    required this.duration,
+    required this.format,
+    required this.actions,
+    required this.onInteract,
+    this.onSeek,
+  });
+
+  final String? title;
+
+  /// The year of a movie, the season and episode of a show.
+  final String? subtitle;
+
+  /// The source playing: its provider (« Via … ») and its name (quality, size…).
+  final String? providerName;
+  final String? sourceName;
+  final bool live;
+  final bool ready;
+  final Duration position;
+  final Duration duration;
+  final String Function(Duration) format;
+  final List<Widget> actions;
+
+  /// An action was pressed (the arrow): the controls stay a little longer.
+  final VoidCallback onInteract;
+  final ValueChanged<Duration>? onSeek;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final gap = layout.size(12, tv: 20);
+    final small = layout.size(15, tv: 26);
+    final title = this.title;
+    final subtitle = this.subtitle;
+    final providerName = this.providerName;
+    final sourceName = this.sourceName;
 
     return Container(
       decoration: const BoxDecoration(
@@ -1231,113 +1491,84 @@ class _BottomBar extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(layout.gutter, gap * 3, layout.gutter, gap * 1.5),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (source != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    '${source.provider} - ${source.name}',
-                    style: VxText.body(13, color: VxColors.textMuted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+              if (title != null && title.isNotEmpty)
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: VxText.title(layout.size(28, tv: 52)),
                 ),
+              if (subtitle != null && subtitle.isNotEmpty)
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: VxText.body(small, color: VxColors.textSecondary, weight: FontWeight.w600),
+                ),
+              if (providerName != null)
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Via $providerName',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: VxText.body(small, color: VxColors.textSecondary, weight: FontWeight.w600),
+                      ),
+                    ),
+                    if (sourceName != null && sourceName.isNotEmpty) ...[
+                      SizedBox(width: gap / 2),
+                      Icon(Icons.bolt_rounded, size: small * 1.3, color: VxColors.accent),
+                      SizedBox(width: gap / 3),
+                      Flexible(
+                        child: Text(
+                          sourceName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: VxText.body(small, color: VxColors.textSecondary, weight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              SizedBox(height: gap / 2),
               if (!live && ready)
-                SliderTheme(
-                  data: sliderTheme,
-                  child: Slider(
-                    value: duration.inMilliseconds > 0
-                        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0).toDouble()
-                        : 0.0,
-                    onChanged: (v) => onSeek?.call(Duration(milliseconds: (v * duration.inMilliseconds).round())),
+                SizedBox(
+                  height: layout.size(32, tv: 48),
+                  child: SliderTheme(
+                    data: _sliderTheme(context),
+                    child: Slider(
+                      value: duration.inMilliseconds > 0
+                          ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0).toDouble()
+                          : 0.0,
+                      onChanged: (v) => onSeek?.call(Duration(milliseconds: (v * duration.inMilliseconds).round())),
+                    ),
                   ),
                 ),
               FocusTraversalGroup(
                 child: Row(
                   children: [
-                    _PlayButton(focusNode: playFocus, playing: playing, onPressed: ready ? onPlayPause : null),
-                    SizedBox(width: gap),
-                    if (!live && ready) ...[
-                      Text.rich(
-                        TextSpan(
-                          text: format(position),
-                          style: VxText.body(13, color: VxColors.textSoft),
-                          children: [
-                            TextSpan(
-                              text: ' / ${format(duration)}',
-                              style: VxText.body(13, color: VxColors.textMuted),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: gap),
-                    ],
-                    VxIconAction(
-                      icon: silent ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                      label: silent ? 'Activer le son' : 'Couper le son',
-                      onPressed: onMute,
-                    ),
-                    if (volumeSlider)
-                      SizedBox(
-                        // A Slider takes all the height it is given: without one, the bar would fill
-                        // the screen (and its gradient darken the whole image).
-                        width: 120,
-                        height: 48,
-                        child: SliderTheme(
-                          data: sliderTheme,
-                          child: Slider(
-                            value: muted ? 0 : volume,
-                            semanticFormatterCallback: (v) => 'Volume ${(v * 100).round()} %',
-                            onChanged: onVolume,
-                          ),
-                        ),
-                      ),
-                    SizedBox(width: gap),
-                    // The other actions, at the end; on a narrow screen they go on several lines.
                     Expanded(
-                      child: Wrap(
-                        alignment: WrapAlignment.end,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: gap,
-                        runSpacing: gap,
-                        children: [
-                          if (onBackToLive != null)
-                            VxIconAction(
-                              icon: Icons.restart_alt_rounded,
-                              label: 'Revenir au direct',
-                              onPressed: onBackToLive,
-                            ),
-                          if (onSources != null)
-                            VxIconAction(icon: Icons.list_rounded, label: 'Sources', onPressed: onSources),
-                          if (onSubtitles != null)
-                            VxIconAction(icon: Icons.subtitles_outlined, label: 'Sous-titres', onPressed: onSubtitles),
-                          if (onEpisodes != null)
-                            VxIconAction(
-                              icon: Icons.video_library_outlined,
-                              label: 'Épisodes',
-                              onPressed: onEpisodes,
-                            ),
-                          if (onNextEpisode != null)
-                            VxIconAction(
-                              icon: Icons.skip_next_rounded,
-                              label: 'Épisode suivant',
-                              onPressed: onNextEpisode,
-                            ),
-                          if (onExternal != null)
-                            VxIconAction(
-                              icon: Icons.open_in_new_rounded,
-                              label: 'Ouvrir en externe',
-                              onPressed: onExternal,
-                            ),
-                          if (!DeviceInfo.isTv)
-                            VxIconAction(
-                              icon: fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-                              label: fullscreen ? 'Quitter le plein écran' : 'Plein écran',
-                              onPressed: onFullscreen,
-                            ),
-                        ],
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        // A narrow window: the actions scroll sideways, never under the time.
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          // Room for the focus ring above and below.
+                          padding: EdgeInsets.symmetric(vertical: gap / 2),
+                          child: _ActionsRow(actions: actions, gap: gap, onToggle: onInteract),
+                        ),
                       ),
                     ),
+                    if (!live && ready) ...[
+                      SizedBox(width: gap),
+                      Text(
+                        '${format(position)} / ${format(duration)}',
+                        style: VxText.body(layout.size(17, tv: 30), color: VxColors.text, weight: FontWeight.w600),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1349,35 +1580,47 @@ class _BottomBar extends StatelessWidget {
   }
 }
 
-/// Play / pause: the screen's focus on arrival (remote), green like the main action.
-class _PlayButton extends StatelessWidget {
-  const _PlayButton({required this.focusNode, required this.playing, required this.onPressed});
+/// The actions of the bottom bar: [visibleCount] at most; with more, an arrow after them unfolds
+/// the others, and pressed again (pointing back) folds them (demande du développeur).
+class _ActionsRow extends StatefulWidget {
+  const _ActionsRow({required this.actions, required this.gap, required this.onToggle});
 
-  final FocusNode focusNode;
-  final bool playing;
-  final VoidCallback? onPressed;
+  static const visibleCount = 5;
+
+  final List<Widget> actions;
+  final double gap;
+  final VoidCallback onToggle;
+
+  @override
+  State<_ActionsRow> createState() => _ActionsRowState();
+}
+
+class _ActionsRowState extends State<_ActionsRow> {
+  bool _unfolded = false;
 
   @override
   Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final size = layout.isLarge ? layout.tv(88) : 60.0;
-    final icon = playing ? Icons.pause_rounded : Icons.play_arrow_rounded;
-    return VxFocusable(
-      focusNode: focusNode,
-      autofocus: true,
-      onPressed: onPressed ?? () {},
-      onAccent: true,
-      borderRadius: size,
-      semanticLabel: playing ? 'Pause' : 'Lecture',
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: onPressed == null ? VxColors.text.withValues(alpha: 0.12) : VxColors.accent,
-          shape: BoxShape.circle,
+    final more = widget.actions.length > _ActionsRow.visibleCount;
+    final shown = more && !_unfolded ? widget.actions.take(_ActionsRow.visibleCount) : widget.actions;
+    final children = <Widget>[
+      ...shown,
+      if (more)
+        _BarAction(
+          // The same button folded or not: the remote's focus stays on it.
+          key: const ValueKey('player-more-actions'),
+          icon: _unfolded ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+          label: _unfolded ? 'Moins d’options' : 'Plus d’options',
+          onPressed: () {
+            setState(() => _unfolded = !_unfolded);
+            widget.onToggle();
+          },
         ),
-        child: Icon(icon, size: size * 0.55, color: onPressed == null ? VxColors.textMuted : VxColors.onAccent),
-      ),
+    ];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final (i, child) in children.indexed) ...[if (i > 0) SizedBox(width: widget.gap), child],
+      ],
     );
   }
 }
