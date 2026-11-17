@@ -145,28 +145,49 @@ Automatiques (`flutter test`, exécutés par la CI) :
 - `test/web_hls_test.dart` : hls.js fourni mais pas chargé par `index.html`, le web n'importe
   jamais le plugin natif.
 
-Ces tests tournent sur la machine de test, **pas dans un navigateur** : ils ne prouvent rien sur
-Safari, Chrome, Firefox ou Edge. La matrice ci-dessous reste à faire à la main avant de publier.
+Ces tests tournent sur la machine de test, **pas dans un navigateur**.
+
+### Essais réels dans Chrome (17/11/2026)
+
+Le build web de cette branche a été piloté dans Chrome 153 (Chrome for Testing, sans écran), avec
+une fausse API locale et des flux fabriqués par ffmpeg (MP4 H.264 / AAC, HLS H.264, HLS H.265),
+servis avec ou sans en-têtes CORS. Constaté :
+
+- MP4 : lecture, pause / reprise (K), muet (M, « Activer le son »), recherche à 50 % par la barre,
+  curseur de volume, sous-titres WebVTT au bon moment, plein écran (F) aller-retour, commandes
+  masquées après 4 s et rappelées par la souris ; `hls.min.js` jamais demandé ;
+- HLS : ce Chrome annonce le HLS natif (`canPlayType` = « maybe ») → moteur HTML5, `hls.min.js`
+  jamais demandé ; lecture, pause, recherche à 75 %, muet ;
+- HLS avec un en-tête à envoyer, et HLS avec `canPlayType` forcé à vide (ce que répondent Firefox
+  et les Chrome plus anciens) → hls.js chargé à la demande ; lecture, pause, recherche, muet ;
+- erreurs : playlist 404 et serveur éteint → « Problème de connexion » ; HLS H.265 → repli HTML5
+  puis hls.js, puis « format non pris en charge » ; HLS sans CORS par hls.js → « n’autorise pas
+  la lecture dans un navigateur » ; le même flux sans CORS par `<video>` natif se lit (normal).
+
+Limites de ces essais : un MP4 en 404 donne « format non pris en charge » (le navigateur ne dit
+pas autre chose à la page) ; l'autoplay sans geste et un direct réel n'ont pas été essayés ;
+**Safari, Firefox et Edge n'ont pas été essayés du tout**, ni aucun appareil Android / iOS.
+La matrice ci-dessous reste donc à faire à la main avant de publier.
 
 ### Matrice manuelle (à cocher)
 
 Flux d'essai : un MP4 H.264 et un flux HLS servis par l'API (une chaîne en direct, un film),
 ou le flux HLS public de démonstration `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`.
 
-| Essai | Safari | Chrome | Firefox | Edge |
+| Essai | Safari | Chrome (153, sans écran) | Firefox | Edge |
 |---|---|---|---|---|
-| MP4 H.264 | ☐ | ☐ | ☐ | ☐ |
-| HLS (moteur attendu) | ☐ HTML5, `hls.min.js` absent de l'onglet Réseau | ☐ hls.js | ☐ hls.js | ☐ hls.js |
-| Lecture / pause (bouton, appui sur l'image, touche K) | ☐ | ☐ | ☐ | ☐ |
-| Recherche dans la vidéo (barre) | ☐ | ☐ | ☐ | ☐ |
-| Volume, muet (curseur, touche M) | ☐ | ☐ | ☐ | ☐ |
-| Sous-titres | ☐ | ☐ | ☐ | ☐ |
-| Plein écran (bouton, touche F, Échap) | ☐ | ☐ | ☐ | ☐ |
-| Erreur : URL inexistante | ☐ | ☐ | ☐ | ☐ |
-| Erreur : flux H.265 | ☐ | ☐ | ☐ | ☐ |
-| CORS : HLS sans `Access-Control-Allow-Origin` | – | ☐ | ☐ | ☐ |
+| MP4 H.264 | ☐ | ☑ | ☐ | ☐ |
+| HLS (moteur attendu) | ☐ HTML5, `hls.min.js` absent de l'onglet Réseau | ☑ HTML5 natif, et hls.js (forcé) | ☐ hls.js | ☐ hls.js |
+| Lecture / pause (bouton, appui sur l'image, touche K) | ☐ | ☑ (K) | ☐ | ☐ |
+| Recherche dans la vidéo (barre) | ☐ | ☑ | ☐ | ☐ |
+| Volume, muet (curseur, touche M) | ☐ | ☑ | ☐ | ☐ |
+| Sous-titres | ☐ | ☑ | ☐ | ☐ |
+| Plein écran (bouton, touche F, Échap) | ☐ | ☑ (F) | ☐ | ☐ |
+| Erreur : URL inexistante | ☐ | ☑ | ☐ | ☐ |
+| Erreur : flux H.265 | ☐ | ☑ | ☐ | ☐ |
+| CORS : HLS sans `Access-Control-Allow-Origin` | – | ☑ (hls.js) | ☐ | ☐ |
 | Autoplay : page rechargée directement sur le lecteur | ☐ | ☐ | ☐ | ☐ |
-| Commandes : masquage après 4 s, retour au survol, « Revenir au direct » | ☐ | ☐ | ☐ | ☐ |
+| Commandes : masquage après 4 s, retour au survol, « Revenir au direct » | ☐ | ☑ (sauf direct) | ☐ | ☐ |
 
 Le moteur utilisé s'affiche dans la console en cas d'échec (`Player engine "hls.js" failed: …`).
 À faire aussi sur un téléphone Android, une Android TV et un iPhone (moteur natif).
