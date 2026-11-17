@@ -79,12 +79,7 @@ Limites connues :
   requête `no-cors`), faite seulement pour hls.js. `<video>` seul n'a pas besoin de CORS ;
 - `video_player` ne transmet que le message de l'erreur après l'ouverture (pas son code) : le tri
   se fait alors sur le texte, différent selon les navigateurs ;
-- l'image figée d'un direct reste surveillée par l'écran (`stallTimeout`, 15 s). Sur Android /
-  iOS, la position du plugin ne convient pas (bornée à la fenêtre du direct, absente sans
-  fenêtre) : le moteur natif donne le temps réellement passé en lecture (arrêté pendant la mise
-  en mémoire tampon) ;
-- pour un direct, le diagnostic `cors` n'est pas affiché : le flux vient de notre API, et une
-  réponse illisible y est une page d'erreur du serveur frontal (chaîne en panne, délai dépassé) ;
+- l'image figée d'un direct reste surveillée par l'écran (`stallTimeout`, 15 s) ;
 - un flux MPEG-TS brut (`format: ts`) n'est lu par aucun navigateur (ni par hls.js).
 
 ### Lecture automatique (autoplay)

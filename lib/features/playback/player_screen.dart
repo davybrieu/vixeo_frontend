@@ -448,12 +448,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     debugPrint('Player engine "${failed.name}" failed: ${cause ?? 'no picture'}');
     // Not during its own notification (ChangeNotifier forbids it): right after.
     Future.microtask(failed.dispose);
-    // A live stream always comes from our own API (a proxy that allows the web app). An answer
-    // the page may not read is then an error page of the server in front of it (a channel that
-    // is down, a timeout), not a refusal of browsers: the usual sentence, not the CORS one.
-    final shown = widget.live && cause?.kind == PlayerErrorKind.cors ? null : cause;
     setState(() {
-      _error = playerErrorMessage(shown, fallback: widget.live ? _liveError : _sourceError, web: kIsWeb);
+      _error = playerErrorMessage(cause, fallback: widget.live ? _liveError : _sourceError, web: kIsWeb);
       _resolving = false;
       _initialized = false;
       _playing = false;
