@@ -6,8 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
-import '../../core/widgets/page_header.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/page_header.dart';
+import '../addons/addons.dart';
 import '../auth/session.dart';
 import '../library/library.dart';
 import '../profiles/row_preferences.dart';
@@ -24,6 +25,8 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(homeProvider);
+    // Rows of the plug-ins' catalogs, after the home's own rows; they come later and never fail.
+    final addonSections = ref.watch(addonSectionsProvider).value ?? const <Section>[];
     final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
     final resume = guest ? const <ProfileItem>[] : (ref.watch(libraryProvider).value?.continueWatching ?? const <ProfileItem>[]);
     final layout = Layout.of(context);
@@ -48,7 +51,7 @@ class HomeScreen extends ConsumerWidget {
         }
         final shown = Home(
           featured: data.featured,
-          sections: rowPreferences.visible(data.sections, (section) => section.key),
+          sections: rowPreferences.visible([...data.sections, ...addonSections], (section) => section.key),
         );
         return layout.isPhone
             ? RefreshIndicator(

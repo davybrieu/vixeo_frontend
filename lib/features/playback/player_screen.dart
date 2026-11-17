@@ -24,17 +24,37 @@ import 'playback.dart';
 import 'webvtt.dart';
 
 class StreamSource {
-  const StreamSource({required this.provider, required this.name, required this.url});
+  const StreamSource({
+    required this.provider,
+    required this.name,
+    required this.url,
+    this.stream,
+    this.streamType,
+    this.headers = const {},
+  });
 
   factory StreamSource.fromJson(Map<String, dynamic> json) => StreamSource(
     provider: json['provider'] as String? ?? '',
     name: json['name'] as String? ?? '',
     url: json['url'] as String? ?? '',
+    stream: json['stream'] as String?,
+    streamType: json['stream_type'] as String?,
+    headers: (json['headers'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? const {},
   );
 
   final String provider;
   final String name;
+
+  /// The link the server knows the source by (a player page, or the stream itself).
   final String url;
+
+  /// Already playable: a plug-in's stream (`vixeo_backend/docs/plugins.md`). Null: the link has to
+  /// be resolved by the API first (`POST /catalog/resolve`).
+  final String? stream;
+  final String? streamType;
+
+  /// HTTP headers to send with [stream].
+  final Map<String, String> headers;
 }
 
 /// A provider the sources panel offers, as declared by the API.
@@ -365,7 +385,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     final ResolvedStream resolved;
     try {
-      resolved = await ref.read(playbackRepositoryProvider).resolve(source.url);
+      // A plug-in's stream is already playable: nothing to resolve.
+      final direct = source.stream;
+      resolved = direct != null && direct.isNotEmpty
+          ? ResolvedStream(stream: direct, streamType: source.streamType, headers: source.headers)
+          : await ref.read(playbackRepositoryProvider).resolve(source.url);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
