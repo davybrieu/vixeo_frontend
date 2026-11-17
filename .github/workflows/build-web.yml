@@ -65,20 +65,6 @@ jobs:
             --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}" \
             --dart-define=SUPPORT_EMAIL="${{ env.SUPPORT_EMAIL }}"
 
-      # TEMPORARY (removed before merge): a build that talks to a local fake API, pushed to a
-      # scratch branch so the player can be exercised in a real browser.
-      - name: TEMP browser-test build
-        if: github.event_name == 'pull_request'
-        run: |
-          flutter build web --release -o "$RUNNER_TEMP/web-test" \
-            --dart-define=API_URL=https://localhost:9443 \
-            --dart-define=PUBLISHER_NAME=Vixeo --dart-define=SUPPORT_EMAIL=support@vixeo.app
-          cd "$RUNNER_TEMP/web-test"
-          git init -q
-          git add -A
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "temp: browser-test build"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" HEAD:refs/heads/claude/tmp-web-build
-
       - name: Upload web dist
         uses: actions/upload-artifact@v5
         with:
