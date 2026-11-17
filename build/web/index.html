@@ -36,10 +36,10 @@
   </style>
 </head>
 <body>
-  <!-- HLS on the web: hls.js (web/hls.min.js, Apache-2.0, served from our own origin) is NOT
-       loaded here. The player adds it only when a stream needs it (Chrome, Firefox, Edge):
-       a browser that plays HLS on its own (Safari) never downloads it.
-       See lib/features/playback/engine/web/hls_js_interop.dart. -->
+  <!-- HLS on the web: Safari plays HLS natively, Chrome/Firefox/Edge do not. This bundled copy of
+       hls.js (Apache-2.0, licence in assets/licenses) feeds the player's <video> element.
+       Served from our own origin: the app never loads code from a third-party server. -->
+  <script src="hls.min.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
