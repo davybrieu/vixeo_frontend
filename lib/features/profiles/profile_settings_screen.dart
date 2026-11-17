@@ -151,7 +151,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       scale: s,
                       icon: Icons.extension_outlined,
                       title: 'Plug-ins',
-                      subtitle: 'Catalogues et sources au format Stremio.',
+                      subtitle: 'Sources au format Stremio.',
                       onPressed: () => context.push(AddonsScreen.location),
                     ),
                     _SettingsTile(

@@ -1,8 +1,9 @@
-/// Plug-ins in the Stremio add-on format (API: `vixeo_backend/docs/plugins.md`).
+/// Plug-ins in the Stremio add-on format (API: `vixeo_backend/docs/plugins.md`), for **sources
+/// only**: each one that serves streams of movies or series is a provider of the sources panel.
+/// The catalog never comes from a plug-in: it stays TMDb's, as the API gives it.
 ///
 /// The app only talks to the Vixeo API: it lists, installs, orders and removes the account's
-/// plug-ins, and shows what the API makes of them (rows of the home, providers of the sources
-/// panel). It never calls a plug-in itself.
+/// plug-ins. It never calls a plug-in itself.
 library;
 
 import 'package:flutter/foundation.dart';
@@ -10,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../auth/session.dart';
-import '../catalog/models.dart';
 
 /// A plug-in of the account, as `GET /addons` gives it.
 @immutable
@@ -24,12 +24,10 @@ class AddonInfo {
     this.host,
     this.resources = const [],
     this.types = const [],
-    this.catalogs = 0,
+    this.streams,
     this.enabled = true,
-    this.builtIn = false,
     this.shared = false,
     this.adult = false,
-    this.manifestUrl,
   });
 
   factory AddonInfo.fromJson(Map<String, dynamic> json) => AddonInfo(
@@ -41,15 +39,13 @@ class AddonInfo {
     host: json['host'] as String?,
     resources: [for (final r in json['resources'] as List? ?? const []) r.toString()],
     types: [for (final t in json['types'] as List? ?? const []) t.toString()],
-    catalogs: json['catalogs'] as int? ?? 0,
+    streams: json['streams'] as bool?,
     enabled: json['enabled'] as bool? ?? true,
-    builtIn: json['built_in'] as bool? ?? false,
     shared: json['shared'] as bool? ?? false,
     adult: json['adult'] as bool? ?? false,
-    manifestUrl: json['manifest_url'] as String?,
   );
 
-  /// "vixeo" for the Vixeo catalog, otherwise the plug-in's number.
+  /// The plug-in's number.
   final String id;
   final String name;
   final String? description;
@@ -59,31 +55,26 @@ class AddonInfo {
   /// Host of its address ("addon.example.com"); the address itself never comes back.
   final String? host;
 
-  /// "catalog", "meta", "stream", "subtitles".
+  /// "catalog", "meta", "stream", "subtitles" (Vixeo only uses "stream").
   final List<String> resources;
 
   /// "movie", "tv".
   final List<String> types;
 
-  /// Catalogs shown as rows of the home.
-  final int catalogs;
+  /// `streams` of the API: whether it gives sources of movies or TV shows. Null from an older API.
+  final bool? streams;
   final bool enabled;
-
-  /// The Vixeo catalog: cannot be turned off nor removed.
-  final bool builtIn;
 
   /// Installed on the server for every account: the account cannot change it.
   final bool shared;
   final bool adult;
 
-  /// The Stremio address of the Vixeo catalog (to add it to another app); null for the others.
-  final String? manifestUrl;
-
   /// The account's own plug-in: it can turn it off, move it and remove it.
-  bool get editable => !builtIn && !shared;
+  bool get editable => !shared;
 
-  bool get hasStreams => resources.contains('stream');
-  bool get hasCatalogs => catalogs > 0;
+  /// Whether it gives sources. A plug-in installed when plug-ins could also add catalogs may not:
+  /// it does nothing any more, and can be removed.
+  bool get hasStreams => streams ?? resources.contains('stream');
 }
 
 class AddonsRepository {
@@ -93,7 +84,12 @@ class AddonsRepository {
 
   Future<List<AddonInfo>> list() async {
     final data = (await _api.get('/addons'))['data'];
-    return data is List ? data.whereType<Map<String, dynamic>>().map(AddonInfo.fromJson).toList() : const [];
+    if (data is! List) return const [];
+    // An older API also listed the Vixeo catalog (`built_in`), which is no plug-in any more.
+    return [
+      for (final json in data.whereType<Map<String, dynamic>>())
+        if (json['built_in'] != true) AddonInfo.fromJson(json),
+    ];
   }
 
   /// Installs a plug-in from the address of its manifest. Throws an ApiException whose
@@ -107,12 +103,6 @@ class AddonsRepository {
   Future<void> reorder(List<String> ids) => _api.put('/addons/order', body: {'ids': ids});
 
   Future<void> remove(String id) => _api.delete('/addons/$id');
-
-  /// Rows of the home from the plug-ins' catalogs, shown after the home's own rows.
-  Future<List<Section>> sections() async {
-    final data = (await _api.get('/catalog/addons/sections'))['sections'];
-    return data is List ? data.whereType<Map<String, dynamic>>().map(Section.fromJson).toList() : const [];
-  }
 }
 
 final addonsRepositoryProvider = Provider<AddonsRepository>((ref) => AddonsRepository(ref.read(apiClientProvider)));
@@ -121,16 +111,4 @@ final addonsRepositoryProvider = Provider<AddonsRepository>((ref) => AddonsRepos
 final addonsProvider = FutureProvider.autoDispose<List<AddonInfo>>((ref) {
   ref.watch(sessionProvider.select((s) => s.user?.id));
   return ref.read(addonsRepositoryProvider).list();
-});
-
-/// Rows of the home from the plug-ins. Never an error: a plug-in that fails, or an API that
-/// does not know plug-ins yet, simply adds no row (the home stays as it is).
-final addonSectionsProvider = FutureProvider.autoDispose<List<Section>>((ref) async {
-  // Another account or profile: other plug-ins, another age limit.
-  ref.watch(sessionProvider.select((s) => (s.user?.id, s.profile?.id)));
-  try {
-    return await ref.read(addonsRepositoryProvider).sections();
-  } catch (_) {
-    return const [];
-  }
 });

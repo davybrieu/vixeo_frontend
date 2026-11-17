@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,27 +14,28 @@ import 'package:vixeo/features/playback/playback.dart';
 import 'package:vixeo/features/playback/player_screen.dart';
 
 import 'player_engine_test.dart' show FakeEngine, SignedOut, settle, closePlayer;
+import 'tv_repository_test.dart' show RoutingAdapter;
 
-const vixeo = AddonInfo(
-  id: 'vixeo',
-  name: 'Vixeo',
-  description: 'Le catalogue de Vixeo.',
+/// Installed on the server for every account: no buttons.
+const everyone = AddonInfo(
+  id: '7',
+  name: 'Pour tous',
   version: '1.0.0',
-  resources: ['catalog', 'meta'],
+  host: 'shared.test',
+  resources: ['stream'],
   types: ['movie', 'tv'],
-  catalogs: 14,
-  builtIn: true,
-  manifestUrl: 'https://api.vixeo.test/api/v1/addons/vixeo/manifest.json',
+  streams: true,
+  shared: true,
 );
 
-AddonInfo own(String id, String name, {bool enabled = true}) => AddonInfo(
+AddonInfo own(String id, String name, {bool enabled = true, bool streams = true}) => AddonInfo(
   id: id,
   name: name,
   version: '2.0.0',
   host: '$id.test',
-  resources: const ['catalog', 'stream'],
+  resources: streams ? const ['stream'] : const ['catalog'],
   types: const ['movie'],
-  catalogs: 1,
+  streams: streams,
   enabled: enabled,
 );
 
@@ -105,21 +107,56 @@ void main() {
         'host': 'addon.test',
         'resources': ['catalog', 'stream'],
         'types': ['movie', 'tv'],
-        'catalogs': 3,
+        'streams': true,
         'enabled': false,
-        'built_in': false,
         'shared': false,
         'adult': false,
-        'manifest_url': null,
       });
       expect(addon.id, '12');
       expect(addon.host, 'addon.test');
       expect(addon.enabled, isFalse);
       expect(addon.editable, isTrue);
       expect(addon.hasStreams, isTrue);
-      expect(addon.hasCatalogs, isTrue);
-      expect(AddonInfo.fromJson({'id': 'vixeo', 'name': 'Vixeo', 'version': '1', 'built_in': true}).editable, isFalse);
       expect(AddonInfo.fromJson({'id': '3', 'name': 'Tous', 'version': '1', 'shared': true}).editable, isFalse);
+      // A plug-in installed when plug-ins could add catalogs: it gives no source.
+      expect(
+        AddonInfo.fromJson({'id': '4', 'name': 'Catalogue', 'version': '1', 'streams': false}).hasStreams,
+        isFalse,
+      );
+      // An older API, without `streams`: read from the resources.
+      expect(
+        AddonInfo.fromJson({
+          'id': '5',
+          'name': 'Ancien',
+          'version': '1',
+          'resources': ['stream'],
+        }).hasStreams,
+        isTrue,
+      );
+    });
+
+    test('leaves out the Vixeo catalog an older API still listed', () async {
+      final adapter = RoutingAdapter([
+        (
+          '/addons',
+          {
+            'data': [
+              {'id': 'vixeo', 'name': 'Vixeo', 'version': '1.0.0', 'built_in': true},
+              {'id': '12', 'name': 'Films libres', 'version': '2.1.0', 'built_in': false, 'streams': true},
+            ],
+          },
+          200,
+        ),
+      ]);
+      final repository = AddonsRepository(
+        ApiClient(
+          token: () => 't',
+          profileId: () => null,
+          dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
+        ),
+      );
+
+      expect([for (final a in await repository.list()) a.id], ['12']);
     });
 
     test('reads a source already playable (a plug-in stream) with its headers', () {
@@ -143,27 +180,40 @@ void main() {
   });
 
   group('« Plug-ins »', () {
-    testWidgets('the Vixeo catalog first, by default, without buttons; the account’s own ones with theirs', (
+    testWidgets('sources only: those of every account without buttons, the account’s own ones with theirs', (
       tester,
     ) async {
-      await openAddons(tester, FakeAddons([vixeo, own('1', 'Premier'), own('2', 'Second', enabled: false)]));
+      await openAddons(
+        tester,
+        FakeAddons([
+          everyone,
+          own('1', 'Premier'),
+          own('2', 'Second', enabled: false),
+          own('3', 'Catalogue', streams: false),
+        ]),
+      );
 
       expect(find.text('Plug-ins'), findsOneWidget);
-      expect(find.textContaining('Par défaut'), findsOneWidget);
-      expect(find.textContaining('14 catalogues'), findsOneWidget);
-      expect(find.bySemanticsLabel('Copier l’adresse Stremio du catalogue Vixeo'), findsOneWidget);
-      expect(find.bySemanticsLabel('Retirer : Vixeo'), findsNothing);
-      expect(find.bySemanticsLabel('Désactiver : Vixeo'), findsNothing);
+      expect(find.textContaining('Le catalogue ne change pas.'), findsOneWidget);
+      expect(find.textContaining('catalogue Vixeo'), findsNothing);
+      expect(find.textContaining('Copier'), findsNothing);
 
-      expect(find.textContaining('1 catalogue · Sources · 1.test'), findsOneWidget);
-      expect(find.textContaining('Désactivé'), findsOneWidget);
+      expect(find.text('Pour tous les comptes · shared.test'), findsOneWidget);
+      expect(find.bySemanticsLabel('Retirer : Pour tous'), findsNothing);
+      expect(find.bySemanticsLabel('Désactiver : Pour tous'), findsNothing);
+
+      expect(find.text('1.test'), findsOneWidget);
+      expect(find.text('Désactivé · 2.test'), findsOneWidget);
+      // Installed when plug-ins could add catalogs: it gives no source, it can be removed.
+      expect(find.text('Aucune source · 3.test'), findsOneWidget);
       expect(find.bySemanticsLabel('Désactiver : Premier'), findsOneWidget);
       expect(find.bySemanticsLabel('Activer : Second'), findsOneWidget);
       expect(find.bySemanticsLabel('Retirer : Premier'), findsOneWidget);
+      expect(find.bySemanticsLabel('Retirer : Catalogue'), findsOneWidget);
     });
 
     testWidgets('installs a plug-in from its address, and says why one is refused', (tester) async {
-      final fake = await openAddons(tester, FakeAddons([vixeo])..refuse = const ApiException(
+      final fake = await openAddons(tester, FakeAddons([everyone])..refuse = const ApiException(
         'Les données sont invalides.',
         status: 422,
         fieldErrors: {
@@ -191,7 +241,7 @@ void main() {
     });
 
     testWidgets('turns off, moves and removes the account’s own plug-ins', (tester) async {
-      final fake = await openAddons(tester, FakeAddons([vixeo, own('1', 'Premier'), own('2', 'Second')]));
+      final fake = await openAddons(tester, FakeAddons([everyone, own('1', 'Premier'), own('2', 'Second')]));
 
       await tester.tap(find.bySemanticsLabel('Désactiver : Premier'));
       await tester.pumpAndSettle();
@@ -217,21 +267,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(fake.removed, ['2']);
       expect(find.bySemanticsLabel('Retirer : Second'), findsNothing);
-    });
-  });
-
-  group('rows of the home', () {
-    test('a failure of the plug-ins adds no row, it never breaks the home', () async {
-      final container = ProviderContainer(
-        overrides: [
-          sessionProvider.overrideWith(SignedOut.new),
-          addonsRepositoryProvider.overrideWithValue(_FailingSections()),
-        ],
-      );
-      addTearDown(container.dispose);
-      final sub = container.listen(addonSectionsProvider, (_, _) {});
-      addTearDown(sub.close);
-      expect(await container.read(addonSectionsProvider.future), isEmpty);
     });
   });
 
@@ -282,13 +317,6 @@ void main() {
       await closePlayer(tester);
     });
   });
-}
-
-class _FailingSections extends AddonsRepository {
-  _FailingSections() : super(ApiClient(token: () => null, profileId: () => null));
-
-  @override
-  Future<List<Section>> sections() async => throw const ApiException('Une erreur est survenue (404).', status: 404);
 }
 
 /// Records the links it is asked to resolve: a plug-in stream must not be one.
