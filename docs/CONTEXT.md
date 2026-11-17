@@ -115,6 +115,13 @@ Toutes les intégrations externes sont gérées exclusivement par le backend Lar
 
 Le frontend Flutter ne communique jamais directement avec ces services, sauf décision technique explicitement justifiée.
 
+3.5 Plug-ins — décidé (17/11/2026)
+
+- Comme dans Stremio et Nuvio, un compte peut installer, en option, des plug-ins au format des
+  add-ons Stremio (catalogues et flux de films et de séries) avec l'adresse de leur manifeste.
+- Le catalogue Vixeo est le plug-in par défaut (intégré, ni désactivable ni supprimable).
+- C'est l'API qui appelle les plug-ins, jamais l'appli (`vixeo_backend/docs/plugins.md`).
+
 ---
 
 4. Stack et organisation (décidé)

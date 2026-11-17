@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
+import '../addons/addons_screen.dart';
 import '../auth/session.dart';
 import '../notifications/notifications_screen.dart';
 import 'advanced_settings_screen.dart';
@@ -145,6 +146,13 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       title: 'Catégories des chaînes TV',
                       subtitle: 'Trier, afficher ou masquer les catégories.',
                       onPressed: () => context.push(RowsSettingsScreen.channelsLocation),
+                    ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.extension_outlined,
+                      title: 'Plug-ins',
+                      subtitle: 'Catalogues et sources au format Stremio.',
+                      onPressed: () => context.push(AddonsScreen.location),
                     ),
                     _SettingsTile(
                       scale: s,

@@ -91,6 +91,7 @@ lib/
                  boutons, onglet « Avis »)
     notifications/  notifications push (FCM) : page « Notifications », inscription auprès de
                  l'API (`PushRegistration`), affichage et appui (`NotificationsGate`)
+    addons/      plug-ins au format Stremio : page « Plug-ins », rangées de l'accueil des plug-ins
 ```
 
 ## Conventions
@@ -346,6 +347,24 @@ lib/
   `drawable/ic_notification.xml` (gardée par `raw/keep.xml`), couleur `values/colors.xml`,
   désucrage Java activé (`build.gradle.kts`). Sur le web : une phrase. Les tests passent par
   `FakePush` et `FakeNotifications` (`test/notifications_test.dart`).
+- **Plug-ins** (`features/addons`, « Paramètres » → « Plug-ins », `/profil/plugins`,
+  `AddonsScreen` ; API : `vixeo_backend/docs/plugins.md` ; demande du développeur : « comme
+  Nuvio / Stremio », films et séries) : add-ons au **format Stremio**, **appelés par l'API
+  seulement** (l'appli ne parle jamais à un plug-in). Page : « Ajouter un plug-in » (adresse du
+  manifeste, `https://…/manifest.json` ou `stremio://…` ; refus expliqué sous le champ par
+  `errors.url` de l'API ; le bouton « Installer » a le focus à l'arrivée, pas le champ : sur TV il
+  ouvrirait le clavier), puis « Plug-ins installés » : le **catalogue Vixeo** d'abord (« Par
+  défaut », sans bouton sauf « Copier l'adresse Stremio »), ceux de tous les comptes (« Pour tous
+  les comptes », sans bouton), puis ceux du compte (monter, descendre, activer / désactiver,
+  retirer avec confirmation ; `AddonInfo.editable`). L'adresse d'un plug-in n'est jamais renvoyée
+  par l'API (seulement `host`). Après chaque changement : invalider `addonsProvider`,
+  `addonSectionsProvider` et `sourceProvidersProvider`. **Rangées** : `addonSectionsProvider`
+  (`/catalog/addons/sections`, jamais en erreur : rien en cas d'échec) ajoutées **après** les
+  rangées de l'accueil (`HomeScreen`), triables et masquables comme elles (`RowsSettingsScreen`) ;
+  « Voir tout » par leur `list` (`addon:{n}:{catalogue}`). **Sources** : chaque plug-in qui sert
+  des flux est un fournisseur du panneau des sources (`addon:{n}`) ; ses flux arrivent **déjà
+  lisibles** (`StreamSource.stream`, `headers`) et le lecteur les lit sans `resolve`. Test :
+  `test/addons_test.dart`.
 - **Avancé** (« Paramètres » → « Avancé », `/profil/avance`, `AdvancedSettingsScreen` ; demande du
   développeur, sans rapports de plantage) : « Mémoriser le dernier profil » (sur l'appareil,
   activé par défaut ; désactivé : « Qui regarde ? » à chaque lancement ; un profil à code demande
@@ -549,7 +568,8 @@ lib/
   Avancé (dernier profil, cache),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
-  mises à jour (Android / iOS), TV en direct (catégories, chaînes, lecture du flux), lecteur à
+  mises à jour (Android / iOS), plug-ins au format Stremio (page « Plug-ins », rangées de l'accueil,
+  sources du lecteur), TV en direct (catégories, chaînes, lecture du flux), lecteur à
   moteurs par plateforme (natif sur Android / iOS, HTML5 ou hls.js sur le web : `docs/lecteur.md`), mises en page téléphone et TV / grand écran, navigation à la
   télécommande.
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
