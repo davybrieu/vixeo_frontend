@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
+import '../../core/features.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/page_header.dart';
@@ -79,8 +80,9 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
               filters: _filters,
               withText: false,
               onChanged: _setFilters,
-              // Saved titles and channels (a member's list: titles only): no people, no channel category.
-              kinds: member == null
+              // Saved titles and channels (a member's list, or while live TV is hidden: titles only):
+              // no people, no channel category.
+              kinds: member == null && ref.watch(liveTvProvider)
                   ? const [SearchKind.all, SearchKind.movie, SearchKind.tv, SearchKind.channels]
                   : const [SearchKind.all, SearchKind.movie, SearchKind.tv],
               channelCategories: false,

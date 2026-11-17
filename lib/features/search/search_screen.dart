@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
+import '../../core/features.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/page_header.dart';
@@ -130,6 +131,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
+    final liveTv = ref.watch(liveTvProvider);
 
     final header = VxPageHeader(
       title: 'Recherche',
@@ -145,7 +147,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         },
         onClear: _clear,
       ),
-      filters: SearchFilterBar(filters: _filters, withText: _withText, onChanged: _setFilters),
+      filters: SearchFilterBar(
+        filters: _filters,
+        withText: _withText,
+        onChanged: _setFilters,
+        // No « Chaînes TV » while live TV is hidden (core/features.dart).
+        kinds: [for (final kind in SearchKind.values) if (liveTv || !kind.isChannels) kind],
+      ),
     );
     final results = _Results(
       query: _query,
@@ -416,8 +424,10 @@ class _SearchRows extends ConsumerWidget {
     final gap = SizedBox(height: layout.sectionGap);
 
     final others = !filters.hasTitleFilters;
+    // Live TV is hidden for now (core/features.dart): no channels searched nor shown.
+    final liveTv = ref.watch(liveTvProvider);
     // No title, no person and (when they are searched too) no channel: nothing matches.
-    final channels = others ? ref.watch(channelSearchProvider((query, null))) : null;
+    final channels = others && liveTv ? ref.watch(channelSearchProvider((query, null))) : null;
     final noChannel = channels == null || channels.hasError || (channels.value?.isEmpty ?? false);
     final accounts = ref.watch(socialSearchProvider(query));
     final noAccounts = accounts.hasError || (accounts.value?.isEmpty ?? false);
@@ -437,8 +447,7 @@ class _SearchRows extends ConsumerWidget {
           ],
           if (others) ...[
             if (value.movies.isNotEmpty || value.shows.isNotEmpty) gap,
-            _ChannelsSection(query: query),
-            gap,
+            if (liveTv) ...[_ChannelsSection(query: query), gap],
             _PeopleSection(people: AsyncData(value.people), query: query),
             gap,
             _AccountsSection(accounts: accounts),
