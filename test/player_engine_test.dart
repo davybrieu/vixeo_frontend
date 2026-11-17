@@ -328,8 +328,11 @@ void main() {
       expect(find.text('Réessayer'), findsOneWidget);
       await closePlayer(tester);
 
+      // A channel comes from our own API: an unreadable answer is the server's error page, not
+      // a refusal of browsers.
       await openLive(tester, FakeEngine(openError: const PlayerError(PlayerErrorKind.cors)));
-      expect(find.text('Ce flux n’autorise pas la lecture dans un navigateur.'), findsOneWidget);
+      expect(find.text('Ce flux n’autorise pas la lecture dans un navigateur.'), findsNothing);
+      expect(find.text('Impossible de lire cette chaîne.'), findsOneWidget);
       await closePlayer(tester);
 
       await openLive(tester, FakeEngine(openError: const PlayerError(PlayerErrorKind.unknown)));

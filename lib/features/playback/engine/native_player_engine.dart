@@ -42,6 +42,9 @@ class NativePlayerEngine extends PlayerEngine {
 
   final NativeVideoPlayerController _controller;
 
+  /// Runs while the native player says it plays (not while it buffers). See [position].
+  final Stopwatch _playClock = Stopwatch();
+
   @override
   String get name => 'native';
 
@@ -79,6 +82,7 @@ class NativePlayerEngine extends PlayerEngine {
     if (event.state == PlayerActivityState.error) {
       if (value.hasError) return;
       final detail = '${event.data?['message'] ?? event.data ?? ''}';
+      _playClock.stop();
       value = value.copyWith(error: PlayerError(classifyPlayerError(detail), detail), playing: false, buffering: false);
       return;
     }
@@ -100,6 +104,11 @@ class NativePlayerEngine extends PlayerEngine {
       PlayerActivityState.buffering || PlayerActivityState.loading => value.playing,
       _ => false,
     };
+    if (activity == PlayerActivityState.playing) {
+      _playClock.start();
+    } else {
+      _playClock.stop();
+    }
     value = value.copyWith(
       initialized: initialized,
       playing: playing,
@@ -129,8 +138,13 @@ class NativePlayerEngine extends PlayerEngine {
     if (!isDisposed) await _controller.setVolume(volume.clamp(0.0, 1.0).toDouble());
   }
 
+  /// What the screen watches to know that a live picture moves. The plugin's own position cannot
+  /// tell: on Android it is clamped to the live window (it stops at its end) and is not sent at
+  /// all for a stream without a window. The native players, unlike a browser, report honestly
+  /// whether they play or wait for data, so this is the time spent really playing: it moves
+  /// while the picture does, and stands still while the player buffers.
   @override
-  Future<Duration?> get position async => isDisposed ? null : _controller.currentPosition;
+  Future<Duration?> get position async => isDisposed ? null : _playClock.elapsed;
 
   @override
   Widget buildView(BuildContext context) =>
