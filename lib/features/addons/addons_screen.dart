@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_exception.dart';
@@ -13,9 +12,10 @@ import '../playback/player_screen.dart' show sourceProvidersProvider;
 import 'addons.dart';
 
 /// « Plug-ins » (« Paramètres » → « Plug-ins »): the account's plug-ins in the Stremio add-on
-/// format (API: `vixeo_backend/docs/plugins.md`). The Vixeo catalog comes first, built in; the
-/// plug-ins of every account follow; then the account's own, which it can turn off, move and
-/// remove. A new plug-in is installed from the address of its manifest.
+/// format (API: `vixeo_backend/docs/plugins.md`), for **sources only**: they add providers to the
+/// sources panel of the player, never rows or titles (the catalog stays TMDb's). The plug-ins of
+/// every account come first; then the account's own, which it can turn off, move and remove. A
+/// new plug-in is installed from the address of its manifest.
 ///
 /// For a Vue developer: a page component whose data comes from a store ([addonsProvider], like a
 /// Pinia getter that calls the API), and whose buttons call the repository then refresh it.
@@ -44,11 +44,10 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
 
   AddonsRepository get _repository => ref.read(addonsRepositoryProvider);
 
-  /// What the plug-ins change elsewhere: the rows of the home, the providers of the player.
+  /// What the plug-ins change elsewhere: the providers of the player's sources panel.
   void _refresh() {
     ref
       ..invalidate(addonsProvider)
-      ..invalidate(addonSectionsProvider)
       ..invalidate(sourceProvidersProvider);
   }
 
@@ -96,7 +95,7 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Retirer le plug-in'),
         content: Text(
-          '« ${addon.name} » ne proposera plus de rangées ni de sources. '
+          '« ${addon.name} » ne proposera plus de sources. '
           'Vous pourrez le réinstaller avec son adresse.',
           style: VxText.body(15, color: VxColors.textSoft),
         ),
@@ -131,8 +130,8 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
       fallback: '/profil',
       children: [
         const InfoIntro(
-          'Ajoutez des catalogues et des sources au format des add-ons Stremio. '
-          'Le catalogue Vixeo est installé par défaut.',
+          'Ajoutez des sources au format des add-ons Stremio : elles apparaissent dans le choix '
+          'des sources du lecteur. Le catalogue ne change pas.',
         ),
         InfoSection(
           title: 'Ajouter un plug-in',
@@ -225,13 +224,11 @@ class _AddonCard extends StatelessWidget {
   final VoidCallback? onToggle;
   final VoidCallback? onRemove;
 
-  /// What the plug-in serves and where it comes from, on one line.
+  /// Where the plug-in comes from and its state, on one line.
   String get _facts => [
-    if (addon.builtIn) 'Par défaut',
     if (addon.shared) 'Pour tous les comptes',
     if (!addon.enabled) 'Désactivé',
-    if (addon.hasCatalogs) addon.catalogs == 1 ? '1 catalogue' : '${addon.catalogs} catalogues',
-    if (addon.hasStreams) 'Sources',
+    if (!addon.hasStreams) 'Aucune source',
     if (addon.host != null) addon.host!,
   ].join(' · ');
 
@@ -244,16 +241,6 @@ class _AddonCard extends StatelessWidget {
     final name = addon.name;
 
     final actions = <Widget>[
-      if (addon.builtIn && addon.manifestUrl != null)
-        VxIconAction(
-          dense: true,
-          icon: Icons.copy_rounded,
-          label: 'Copier l’adresse Stremio du catalogue Vixeo',
-          onPressed: () async {
-            await Clipboard.setData(ClipboardData(text: addon.manifestUrl!));
-            if (context.mounted) showVxSnack(context, 'Adresse copiée', icon: Icons.copy_rounded);
-          },
-        ),
       if (addon.editable) ...[
         Opacity(
           opacity: onUp == null ? 0.3 : 1,
@@ -304,12 +291,8 @@ class _AddonCard extends StatelessWidget {
                   child: SizedBox.square(
                     dimension: logo,
                     child: addon.logoUrl == null
-                        ? _LogoFallback(builtIn: addon.builtIn)
-                        : NetImage(
-                            url: addon.logoUrl,
-                            fit: BoxFit.contain,
-                            fallback: _LogoFallback(builtIn: addon.builtIn),
-                          ),
+                        ? const _LogoFallback()
+                        : NetImage(url: addon.logoUrl, fit: BoxFit.contain, fallback: const _LogoFallback()),
                   ),
                 ),
                 SizedBox(width: layout.size(12, tv: 20)),
@@ -370,16 +353,11 @@ class _AddonCard extends StatelessWidget {
 }
 
 class _LogoFallback extends StatelessWidget {
-  const _LogoFallback({required this.builtIn});
-
-  final bool builtIn;
+  const _LogoFallback();
 
   @override
-  Widget build(BuildContext context) => ColoredBox(
+  Widget build(BuildContext context) => const ColoredBox(
     color: VxColors.surfaceHigh,
-    child: Icon(
-      builtIn ? Icons.movie_filter_rounded : Icons.extension_rounded,
-      color: builtIn ? VxColors.accent : VxColors.textSecondary,
-    ),
+    child: Icon(Icons.extension_rounded, color: VxColors.textSecondary),
   );
 }

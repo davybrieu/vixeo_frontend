@@ -7,7 +7,6 @@ import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../account/info_page.dart';
-import '../addons/addons.dart';
 import '../catalog/catalog_repository.dart';
 import '../tv/channel_row.dart';
 import 'row_preferences.dart';
@@ -29,12 +28,8 @@ class RowsSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final home = page == RowsPage.home;
     // The rows as the page would show them without any preference.
-    // The home's rows, then those of the plug-ins' catalogs (they never fail: none when absent).
-    final addonSections = home ? (ref.watch(addonSectionsProvider).value ?? const []) : const [];
     final AsyncValue<List<_RowEntry>> rows = home
-        ? ref
-              .watch(homeProvider)
-              .whenData((h) => [for (final s in [...h.sections, ...addonSections]) (key: s.key, title: s.title)])
+        ? ref.watch(homeProvider).whenData((h) => [for (final s in h.sections) (key: s.key, title: s.title)])
         : ref
               .watch(tvChannelRowsProvider)
               .whenData((sections) => [for (final s in sections) (key: channelRowKey(s), title: s.title)]);

@@ -118,8 +118,10 @@ Le frontend Flutter ne communique jamais directement avec ces services, sauf dé
 3.5 Plug-ins — décidé (17/11/2026)
 
 - Comme dans Stremio et Nuvio, un compte peut installer, en option, des plug-ins au format des
-  add-ons Stremio (catalogues et flux de films et de séries) avec l'adresse de leur manifeste.
-- Le catalogue Vixeo est le plug-in par défaut (intégré, ni désactivable ni supprimable).
+  add-ons Stremio avec l'adresse de leur manifeste, **uniquement pour les sources** (flux de films
+  et de séries du lecteur).
+- **Le catalogue ne passe pas par les plug-ins** : il reste celui de TMDb, avec la clé de Vixeo,
+  et ne change pas (ni rangées, ni listes, ni plug-in « catalogue Vixeo »).
 - C'est l'API qui appelle les plug-ins, jamais l'appli (`vixeo_backend/docs/plugins.md`).
 
 ---
