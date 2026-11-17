@@ -13,7 +13,6 @@
 /// [PlayerEngineValue] the screen watches, plus a few commands (play, pause, seek, volume).
 library;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 /// What kind of stream a URL is. The API says so; without it, the URL is read.
