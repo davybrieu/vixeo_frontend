@@ -356,10 +356,13 @@ lib/
   manifeste, `https://…/manifest.json` ou `stremio://…` ; refus expliqué sous le champ par
   `errors.url` de l'API ; le bouton « Installer » a le focus à l'arrivée, pas le champ : sur TV il
   ouvrirait le clavier), puis « Plug-ins installés » : le **catalogue Vixeo** d'abord (« Par
-  défaut », sans bouton sauf « Copier l'adresse Stremio »), ceux de tous les comptes (« Pour tous
-  les comptes », sans bouton), puis ceux du compte (monter, descendre, activer / désactiver,
-  retirer avec confirmation ; `AddonInfo.editable`). L'adresse d'un plug-in n'est jamais renvoyée
-  par l'API (seulement `host`). Après chaque changement : invalider `addonsProvider`,
+  défaut », « Copier l'adresse Stremio »), ceux de tous les comptes (« Pour tous les comptes »),
+  puis ceux du compte. **Tous se désactivent pour le compte** (demande du développeur ; le
+  catalogue Vixeo aussi : l'API renvoie alors un accueil vide, il reste « Continuer à regarder » et
+  les rangées des autres plug-ins ; « Rien à afficher » seulement si tout est vide, avec un renvoi
+  vers « Plug-ins ») ; seuls ceux du compte se déplacent et se retirent (confirmation ;
+  `AddonInfo.editable`). L'adresse d'un plug-in n'est jamais renvoyée par l'API (seulement
+  `host`). Après chaque changement : invalider `addonsProvider`, `homeProvider`,
   `addonSectionsProvider` et `sourceProvidersProvider`. **Rangées** : `addonSectionsProvider`
   (`/catalog/addons/sections`, jamais en erreur : rien en cas d'échec) ajoutées **après** les
   rangées de l'accueil (`HomeScreen`), triables et masquables comme elles (`RowsSettingsScreen`) ;

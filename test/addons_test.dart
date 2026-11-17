@@ -7,11 +7,15 @@ import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/addons/addons.dart';
 import 'package:vixeo/features/addons/addons_screen.dart';
 import 'package:vixeo/features/auth/session.dart';
+import 'package:vixeo/features/catalog/catalog_repository.dart';
+import 'package:vixeo/features/catalog/home_screen.dart';
 import 'package:vixeo/features/catalog/models.dart';
+import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/playback/engine/engine_factory.dart';
 import 'package:vixeo/features/playback/playback.dart';
 import 'package:vixeo/features/playback/player_screen.dart';
 
+import 'home_tv_test.dart' show EmptyLibrary, movie;
 import 'player_engine_test.dart' show FakeEngine, SignedOut, settle, closePlayer;
 
 const vixeo = AddonInfo(
@@ -63,7 +67,24 @@ class FakeAddons extends AddonsRepository {
   @override
   Future<void> setEnabled(String id, {required bool enabled}) async {
     toggled.add((id, enabled));
-    addons = [for (final a in addons) a.id == id ? own(a.id, a.name, enabled: enabled) : a];
+    addons = [
+      for (final a in addons)
+        a.id == id
+            ? AddonInfo(
+                id: a.id,
+                name: a.name,
+                version: a.version,
+                host: a.host,
+                resources: a.resources,
+                types: a.types,
+                catalogs: a.catalogs,
+                enabled: enabled,
+                builtIn: a.builtIn,
+                shared: a.shared,
+                manifestUrl: a.manifestUrl,
+              )
+            : a,
+    ];
   }
 
   @override
@@ -143,23 +164,44 @@ void main() {
   });
 
   group('« Plug-ins »', () {
-    testWidgets('the Vixeo catalog first, by default, without buttons; the account’s own ones with theirs', (
+    testWidgets('Vixeo first; every plug-in can be turned off, only the own ones moved or removed', (
       tester,
     ) async {
-      await openAddons(tester, FakeAddons([vixeo, own('1', 'Premier'), own('2', 'Second', enabled: false)]));
+      const shared = AddonInfo(id: '9', name: 'Pour tous', version: '1.0', shared: true, resources: ['stream']);
+      await openAddons(tester, FakeAddons([vixeo, shared, own('1', 'Premier'), own('2', 'Second', enabled: false)]));
 
       expect(find.text('Plug-ins'), findsOneWidget);
       expect(find.textContaining('Par défaut'), findsOneWidget);
       expect(find.textContaining('14 catalogues'), findsOneWidget);
       expect(find.bySemanticsLabel('Copier l’adresse Stremio du catalogue Vixeo'), findsOneWidget);
+      expect(find.bySemanticsLabel('Désactiver : Vixeo'), findsOneWidget);
       expect(find.bySemanticsLabel('Retirer : Vixeo'), findsNothing);
-      expect(find.bySemanticsLabel('Désactiver : Vixeo'), findsNothing);
+      expect(find.bySemanticsLabel('Monter : Vixeo'), findsNothing);
+
+      expect(find.textContaining('Pour tous les comptes'), findsOneWidget);
+      expect(find.bySemanticsLabel('Désactiver : Pour tous'), findsOneWidget);
+      expect(find.bySemanticsLabel('Retirer : Pour tous'), findsNothing);
 
       expect(find.textContaining('1 catalogue · Sources · 1.test'), findsOneWidget);
       expect(find.textContaining('Désactivé'), findsOneWidget);
       expect(find.bySemanticsLabel('Désactiver : Premier'), findsOneWidget);
       expect(find.bySemanticsLabel('Activer : Second'), findsOneWidget);
       expect(find.bySemanticsLabel('Retirer : Premier'), findsOneWidget);
+    });
+
+    testWidgets('turns the Vixeo catalog off and back on', (tester) async {
+      final fake = await openAddons(tester, FakeAddons([vixeo]));
+
+      await tester.tap(find.bySemanticsLabel('Désactiver : Vixeo'));
+      await tester.pumpAndSettle();
+      expect(fake.toggled, [('vixeo', false)]);
+      expect(find.text('Plug-in désactivé'), findsOneWidget);
+      expect(find.textContaining('Par défaut · Désactivé'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Activer : Vixeo'));
+      await tester.pumpAndSettle();
+      expect(fake.toggled.last, ('vixeo', true));
+      expect(find.bySemanticsLabel('Désactiver : Vixeo'), findsOneWidget);
     });
 
     testWidgets('installs a plug-in from its address, and says why one is refused', (tester) async {
@@ -221,6 +263,50 @@ void main() {
   });
 
   group('rows of the home', () {
+    Future<void> pumpPhoneHome(WidgetTester tester, {required List<Section> addonSections}) async {
+      tester.view.physicalSize = const Size(400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sessionProvider.overrideWith(SignedOut.new),
+            // The Vixeo catalog turned off: the API gives an empty home.
+            homeProvider.overrideWith((ref) async => const Home(featured: [], sections: [])),
+            addonSectionsProvider.overrideWith((ref) async => addonSections),
+            libraryProvider.overrideWith(EmptyLibrary.new),
+            titlesByIdProvider.overrideWith((ref, key) async => const {}),
+          ],
+          child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: HomeScreen())),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('without the Vixeo catalog, the rows of the other plug-ins are the home', (tester) async {
+      await pumpPhoneHome(
+        tester,
+        addonSections: [
+          Section(
+            key: 'movie_addon:12:top',
+            title: 'Les meilleurs · Films libres',
+            type: MediaType.movie,
+            list: 'addon:12:top',
+            items: [movie(550, 'Fight Club')],
+          ),
+        ],
+      );
+
+      expect(find.text('Les meilleurs · Films libres'), findsOneWidget);
+      expect(find.text('Rien à afficher pour l’instant'), findsNothing);
+    });
+
+    testWidgets('nothing at all: « Rien à afficher »', (tester) async {
+      await pumpPhoneHome(tester, addonSections: const []);
+
+      expect(find.text('Rien à afficher pour l’instant'), findsOneWidget);
+    });
+
     test('a failure of the plug-ins adds no row, it never breaks the home', () async {
       final container = ProviderContainer(
         overrides: [

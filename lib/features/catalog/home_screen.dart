@@ -42,11 +42,16 @@ class HomeScreen extends ConsumerWidget {
       value: home,
       onRetry: () => ref.invalidate(homeProvider),
       data: (data) {
-        if (data.sections.isEmpty && data.featured.isEmpty) {
-          return const EmptyState(
+        // The Vixeo catalog can be turned off (« Plug-ins »): its rows are gone, but « Continuer à
+        // regarder » and the other plug-ins' rows may remain.
+        if (data.sections.isEmpty && data.featured.isEmpty && addonSections.isEmpty && resume.isEmpty) {
+          return EmptyState(
             icon: Icons.movie_filter_outlined,
             title: 'Rien à afficher pour l’instant',
-            message: 'Le catalogue est vide pour ce profil.',
+            message: guest
+                ? 'Le catalogue est vide pour ce profil.'
+                : 'Le catalogue est vide pour ce profil, ou ses plug-ins sont désactivés '
+                      '(Paramètres → Plug-ins).',
           );
         }
         final shown = Home(

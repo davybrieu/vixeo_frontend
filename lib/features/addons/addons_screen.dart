@@ -9,13 +9,15 @@ import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../account/info_page.dart';
+import '../catalog/catalog_repository.dart' show homeProvider;
 import '../playback/player_screen.dart' show sourceProvidersProvider;
 import 'addons.dart';
 
 /// « Plug-ins » (« Paramètres » → « Plug-ins »): the account's plug-ins in the Stremio add-on
 /// format (API: `vixeo_backend/docs/plugins.md`). The Vixeo catalog comes first, built in; the
-/// plug-ins of every account follow; then the account's own, which it can turn off, move and
-/// remove. A new plug-in is installed from the address of its manifest.
+/// plug-ins of every account follow; then the account's own. Every one can be turned off for the
+/// account (the Vixeo catalog off: the home has none of its rows); only its own ones can be moved
+/// and removed. A new plug-in is installed from the address of its manifest.
 ///
 /// For a Vue developer: a page component whose data comes from a store ([addonsProvider], like a
 /// Pinia getter that calls the API), and whose buttons call the repository then refresh it.
@@ -44,10 +46,12 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
 
   AddonsRepository get _repository => ref.read(addonsRepositoryProvider);
 
-  /// What the plug-ins change elsewhere: the rows of the home, the providers of the player.
+  /// What the plug-ins change elsewhere: the rows of the home (the Vixeo catalog's ones too),
+  /// the providers of the player.
   void _refresh() {
     ref
       ..invalidate(addonsProvider)
+      ..invalidate(homeProvider)
       ..invalidate(addonSectionsProvider)
       ..invalidate(sourceProvidersProvider);
   }
@@ -186,13 +190,12 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
                         onDown: !addon.editable || own.indexOf(addon) == own.length - 1
                             ? null
                             : () => _move(own, own.indexOf(addon), own.indexOf(addon) + 1),
-                        onToggle: !addon.editable
-                            ? null
-                            : () => _run(
-                                addon,
-                                () => _repository.setEnabled(addon.id, enabled: !addon.enabled),
-                                done: addon.enabled ? 'Plug-in désactivé' : 'Plug-in activé',
-                              ),
+                        // Every plug-in can be turned off for the account, the Vixeo catalog included.
+                        onToggle: () => _run(
+                          addon,
+                          () => _repository.setEnabled(addon.id, enabled: !addon.enabled),
+                          done: addon.enabled ? 'Plug-in désactivé' : 'Plug-in activé',
+                        ),
                         onRemove: addon.editable ? () => _remove(addon) : null,
                       ),
                     ],
@@ -222,7 +225,7 @@ class _AddonCard extends StatelessWidget {
   final bool busy;
   final VoidCallback? onUp;
   final VoidCallback? onDown;
-  final VoidCallback? onToggle;
+  final VoidCallback onToggle;
   final VoidCallback? onRemove;
 
   /// What the plug-in serves and where it comes from, on one line.
@@ -273,20 +276,21 @@ class _AddonCard extends StatelessWidget {
             onPressed: busy ? null : onDown,
           ),
         ),
-        VxIconAction(
-          dense: true,
-          icon: addon.enabled ? Icons.toggle_on_rounded : Icons.toggle_off_outlined,
-          label: addon.enabled ? 'Désactiver : $name' : 'Activer : $name',
-          active: addon.enabled,
-          onPressed: busy ? null : onToggle,
-        ),
+      ],
+      VxIconAction(
+        dense: true,
+        icon: addon.enabled ? Icons.toggle_on_rounded : Icons.toggle_off_outlined,
+        label: addon.enabled ? 'Désactiver : $name' : 'Activer : $name',
+        active: addon.enabled,
+        onPressed: busy ? null : onToggle,
+      ),
+      if (addon.editable)
         VxIconAction(
           dense: true,
           icon: Icons.delete_outline_rounded,
           label: 'Retirer : $name',
           onPressed: busy ? null : onRemove,
         ),
-      ],
     ];
 
     return VxCard(

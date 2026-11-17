@@ -69,17 +69,18 @@ class AddonInfo {
   final int catalogs;
   final bool enabled;
 
-  /// The Vixeo catalog: cannot be turned off nor removed.
+  /// The Vixeo catalog: cannot be removed (it can be turned off).
   final bool builtIn;
 
-  /// Installed on the server for every account: the account cannot change it.
+  /// Installed on the server for every account: the account can only turn it off.
   final bool shared;
   final bool adult;
 
   /// The Stremio address of the Vixeo catalog (to add it to another app); null for the others.
   final String? manifestUrl;
 
-  /// The account's own plug-in: it can turn it off, move it and remove it.
+  /// The account's own plug-in: it can move it and remove it. Every plug-in, this one or not, can
+  /// be turned off for the account.
   bool get editable => !builtIn && !shared;
 
   bool get hasStreams => resources.contains('stream');
@@ -101,6 +102,7 @@ class AddonsRepository {
   Future<AddonInfo> install(String url) async =>
       AddonInfo.fromJson((await _api.post('/addons', body: {'url': url}))['data'] as Map<String, dynamic>);
 
+  /// On or off for the account: its own plug-ins, those of every account, the Vixeo catalog ("vixeo").
   Future<void> setEnabled(String id, {required bool enabled}) => _api.patch('/addons/$id', body: {'enabled': enabled});
 
   /// The account's own plug-ins, first first.
