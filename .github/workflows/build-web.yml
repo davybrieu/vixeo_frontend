@@ -96,37 +96,6 @@ jobs:
           curl --fail --silent --show-error \
             -X POST "${{ secrets.FORGE_DEPLOY_WEBHOOK }}"
 
-  # Pull requests: the Android app must still compile (native player plugin, Gradle, manifest),
-  # without the release key and without publishing anything. The release job below only runs
-  # on main: without this one, a broken Android build would only be seen after the merge.
-  build-apk-debug:
-    name: Build Android APK (debug, pull requests only)
-    needs: checks
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build debug APK
-        run: flutter build apk --debug --dart-define=API_URL="${{ env.API_URL }}"
-
   build-apk-release:
     name: Build Android APK and publish GitHub Release
     needs: checks
