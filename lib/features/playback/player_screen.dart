@@ -1553,10 +1553,11 @@ class _BottomBar extends StatelessWidget {
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        // A narrow window: the actions scroll sideways rather than overflow.
+                        // A narrow window: the actions scroll sideways, never under the time.
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
-                          clipBehavior: Clip.none,
+                          // Room for the focus ring above and below.
+                          padding: EdgeInsets.symmetric(vertical: gap / 2),
                           child: _ActionsRow(actions: actions, gap: gap, onToggle: onInteract),
                         ),
                       ),

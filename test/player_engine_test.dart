@@ -123,6 +123,10 @@ Future<FakeEngine> openLive(WidgetTester tester, FakeEngine engine) async {
 
 /// A title's player with one provider (« Hôte ») and one link, chosen: the video plays.
 Future<FakeEngine> openTitle(WidgetTester tester, PlayerScreen screen) async {
+  // A screen in landscape, like the player always is.
+  tester.view.physicalSize = const Size(1280, 720);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
   final engine = FakeEngine();
   const link = StreamSource(provider: 'p', name: 'Film VF 1080P', url: 'https://host.test/embed/1');
   await tester.pumpWidget(
