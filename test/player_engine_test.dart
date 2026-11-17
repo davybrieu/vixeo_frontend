@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/api/api_client.dart';
@@ -305,6 +306,29 @@ void main() {
       expect(engine.volumes.last, 0);
 
       await closePlayer(tester);
+    });
+
+    testWidgets('the player is always horizontal: landscape from its opening to its closing', (tester) async {
+      final orientations = <List<Object?>>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'SystemChrome.setPreferredOrientations') orientations.add(call.arguments as List<Object?>);
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+
+      await openLive(tester, FakeEngine());
+      expect(orientations.last, ['DeviceOrientation.landscapeLeft', 'DeviceOrientation.landscapeRight']);
+
+      // Leaving full screen keeps the player horizontal.
+      await tester.tap(find.bySemanticsLabel('Plein écran'));
+      await settle(tester);
+      await tester.tap(find.bySemanticsLabel('Quitter le plein écran'));
+      await settle(tester);
+      expect(orientations.last, ['DeviceOrientation.landscapeLeft', 'DeviceOrientation.landscapeRight']);
+
+      // Closed: the rest of the app turns with the device again.
+      await closePlayer(tester);
+      expect(orientations.last, isEmpty);
     });
 
     testWidgets('a start the browser only allows muted: « Activer le son », and one press turns it on', (tester) async {
