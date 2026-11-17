@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/device/layout.dart';
+import '../../core/features.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/app_loading.dart';
 import '../../core/widgets/focusable.dart';
@@ -74,8 +75,11 @@ class AppShell extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final profile = session.profile;
     final guest = session.isGuest;
-    final phoneTabs = guest ? _guestPhoneTabs : _phoneTabs;
-    final railItems = guest ? _guestRailItems : _railItems;
+    // « Chaînes TV » only while live TV is shown (hidden for now: core/features.dart).
+    final liveTv = ref.watch(liveTvProvider);
+    bool shown(_Destination d) => liveTv || d.path != '/chaines-tv';
+    final phoneTabs = [for (final d in guest ? _guestPhoneTabs : _phoneTabs) if (shown(d)) d];
+    final railItems = [for (final d in guest ? _guestRailItems : _railItems) if (shown(d)) d];
 
     // First load of the home page after the start: the start-up loading stays alone on screen,
     // without the navigation, until the home page can be drawn. Only once: coming back to the

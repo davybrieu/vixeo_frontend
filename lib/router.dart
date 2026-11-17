@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/features.dart';
 import 'core/theme.dart';
 import 'core/widgets/app_loading.dart';
 import 'core/widgets/common.dart';
@@ -54,6 +55,8 @@ final routerProvider = Provider<GoRouter>((ref) {
   // MaterialPageRoute only animates its exit under another MaterialPageRoute).
   Page<void> tab(GoRouterState state, Widget child) => MaterialPage<void>(key: state.pageKey, child: child);
   Widget guarded(String location, Widget child) => BackNavigationGuard(location: location, child: child);
+  // Live TV is hidden for now (core/features.dart): its pages lead to the home page.
+  String? liveTvOnly(BuildContext context, GoRouterState state) => ref.read(liveTvProvider) ? null : '/accueil';
 
   return GoRouter(
     initialLocation: '/accueil',
@@ -153,10 +156,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           // The "Films" and "Séries" pages were removed: their former addresses lead to the home page.
           GoRoute(path: '/films', redirect: (_, _) => '/accueil'),
           GoRoute(path: '/series', redirect: (_, _) => '/accueil'),
-          GoRoute(path: '/chaines-tv', pageBuilder: (_, state) => tab(state, const TvChannelsScreen())),
+          GoRoute(
+            path: '/chaines-tv',
+            redirect: liveTvOnly,
+            pageBuilder: (_, state) => tab(state, const TvChannelsScreen()),
+          ),
           // Every channel of a category: the round arrow of a row of the « Chaînes TV » page.
           GoRoute(
             path: '/chaines-tv/categorie/:id',
+            redirect: liveTvOnly,
             builder: (_, state) => TvCategoryScreen(
               categoryId: state.pathParameters['id'] ?? '',
               title: state.uri.queryParameters['titre'],
@@ -203,6 +211,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: RowsSettingsScreen.channelsLocation,
+            redirect: liveTvOnly,
             builder: (_, _) => const RowsSettingsScreen(page: RowsPage.channels),
           ),
           GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
@@ -228,6 +237,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           // A live channel's page (like a title page): its programme guide and « Regarder ».
           GoRoute(
             path: '/chaine/:id',
+            redirect: liveTvOnly,
             builder: (_, state) => ChannelScreen(
               id: state.pathParameters['id'] ?? '',
               initial: state.extra is TvChannel ? state.extra as TvChannel : null,

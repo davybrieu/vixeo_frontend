@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vixeo/core/features.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/core/widgets/common.dart';
 import 'package:vixeo/core/widgets/focusable.dart';
@@ -53,10 +54,14 @@ class FakeSession extends SessionController {
 
 const movie = MediaItem(id: 550, type: MediaType.movie, title: 'Nord Sauvage');
 
-Widget app(Widget child, {Profile profile = const Profile(id: 1, name: 'Davy')}) => ProviderScope(
+Widget app(Widget child, {Profile profile = const Profile(id: 1, name: 'Davy'), bool liveTv = false}) => ProviderScope(
   // A new scope per profile (overrides are read once per scope).
-  key: ValueKey(profile.id),
-  overrides: [libraryProvider.overrideWith(FakeLibrary.new), sessionProvider.overrideWith(() => FakeSession(profile))],
+  key: ValueKey((profile.id, liveTv)),
+  overrides: [
+    libraryProvider.overrideWith(FakeLibrary.new),
+    sessionProvider.overrideWith(() => FakeSession(profile)),
+    liveTvProvider.overrideWithValue(liveTv),
+  ],
   child: MaterialApp(
     theme: buildVixeoTheme(),
     home: Scaffold(body: Center(child: child)),
@@ -186,7 +191,7 @@ void main() {
 
     // A phone held sideways: everything is visible, with smaller icons than the usual 52.
     tester.view.physicalSize = const Size(700, 340);
-    await tester.pumpWidget(app(const AppShell(location: '/recherche', child: SizedBox())));
+    await tester.pumpWidget(app(const AppShell(location: '/recherche', child: SizedBox()), liveTv: true));
     await tester.pump();
     expect(tester.takeException(), isNull);
     for (final label in labels) {
@@ -204,6 +209,19 @@ void main() {
     expect(tester.state<ScrollableState>(rail).position.maxScrollExtent, greaterThan(0));
     await tester.scrollUntilVisible(find.byTooltip('Chaînes TV'), 60, scrollable: rail);
     expect(tester.getRect(find.byTooltip('Chaînes TV')).bottom, lessThanOrEqualTo(220));
+  });
+
+  testWidgets('live TV hidden (for now): no « Chaînes TV » in the rail', (tester) async {
+    addTearDown(tester.view.reset);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1280, 800);
+    await tester.pumpWidget(app(const AppShell(location: '/recherche', child: SizedBox())));
+    await tester.pump();
+
+    expect(find.byTooltip('Chaînes TV'), findsNothing);
+    for (final label in ['Accueil', 'Recherche', 'Profil', 'Paramètres']) {
+      expect(find.byTooltip(label), findsOneWidget, reason: label);
+    }
   });
 
   test('reads the poster format of a profile', () {

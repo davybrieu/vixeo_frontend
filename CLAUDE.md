@@ -66,6 +66,7 @@ lib/
   main.dart, app.dart, router.dart   entrée, thème, raccourcis télécommande, routes
   core/
     config.dart                      API_URL (--dart-define), contrôle de la configuration en Release
+    features.dart                    fonctions masquées pour l'instant (TV en direct : liveTvProvider)
     legal.dart                       éditeur et adresse de support (--dart-define)
     theme.dart                       couleurs (VxColors), polices Sora / Inter (VxText)
     device/layout.dart               téléphone / tablette / grand écran, détection TV, échelle TV
@@ -110,6 +111,13 @@ lib/
   + code court), qui interroge `/auth/device/token` toutes les `interval` secondes et demande un
   nouveau code sur un 410. Le téléphone valide sur `/tv` (« Mon profil » → « Connecter une TV »).
   Le `device_code` reste en mémoire, jamais dans une URL.
+- **TV en direct masquée pour l'instant** (demande du développeur, 17/11/2026) : `liveTvProvider`
+  (`core/features.dart`, faux par défaut ; `--dart-define=LIVE_TV=true` la réaffiche) retire
+  l'onglet et l'entrée du rail « Chaînes TV », le type et la section « Chaînes TV » de la
+  recherche (aucune chaîne demandée), « Chaînes TV » de « Ma liste » et la tuile « Catégories des
+  chaînes TV » des paramètres ; `/chaines-tv…`, `/chaine/:id` et `/profil/rangees/chaines-tv`
+  mènent à l'accueil (`liveTvOnly`, `router.dart`). Le code et l'API de la TV restent ; les tests
+  des chaînes la réaffichent avec `liveTvProvider.overrideWithValue(true)`.
 - **TV en direct** (`features/tv`, API : `vixeo_backend/docs/tv-direct.md`) : **pas de page « TV »
   ni d'onglet** (supprimés, demande du développeur ; `/tv-live` redirige vers `/recherche`). Les
   chaînes sont sur l'accueil (**quatre rangées** « Chaînes TV généralistes », « … sport »,

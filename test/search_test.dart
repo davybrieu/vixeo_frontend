@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/app.dart';
+import 'package:vixeo/core/features.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/models.dart';
@@ -67,7 +68,13 @@ class FakeCatalog {
   }
 }
 
-Future<FakeCatalog> pumpSearch(WidgetTester tester, {Size size = const Size(390, 844), int totalPages = 1}) async {
+/// The search page; [liveTv]: with the live channels (hidden for now: core/features.dart).
+Future<FakeCatalog> pumpSearch(
+  WidgetTester tester, {
+  Size size = const Size(390, 844),
+  int totalPages = 1,
+  bool liveTv = false,
+}) async {
   final fake = FakeCatalog()..totalPages = totalPages;
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -75,6 +82,7 @@ Future<FakeCatalog> pumpSearch(WidgetTester tester, {Size size = const Size(390,
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        liveTvProvider.overrideWithValue(liveTv),
         allGenresProvider.overrideWith((ref) async => genres),
         titlesProvider.overrideWith((ref, q) async => fake.titles(q)),
         searchProvider.overrideWith((ref, key) async => fake.search(key)),
@@ -177,7 +185,7 @@ void main() {
   });
 
   testWidgets('nothing searched: no results, no "Aucun résultat", nothing asked', (tester) async {
-    final fake = await pumpSearch(tester);
+    final fake = await pumpSearch(tester, liveTv: true);
 
     expect(find.text('Tendance tout'), findsNothing);
     expect(find.byType(PosterCard), findsNothing);
@@ -287,7 +295,7 @@ void main() {
   });
 
   testWidgets('« Chaînes TV »: a grid, the text and the category filter it, same chips as the filters', (tester) async {
-    final fake = await pumpSearch(tester);
+    final fake = await pumpSearch(tester, liveTv: true);
     await tapChip(tester, 'Chaînes TV');
     await typeQuery(tester, 'tf');
     expect(find.text('TF1'), findsOneWidget);
@@ -307,8 +315,20 @@ void main() {
     expect(find.text('TF1'), findsOneWidget);
   });
 
+  testWidgets('live TV hidden (for now): no « Chaînes TV » chip nor section, no channel asked', (tester) async {
+    final fake = await pumpSearch(tester);
+    expect(find.ancestor(of: find.text('Chaînes TV'), matching: find.byType(FilterChipButton)), findsNothing);
+    expect(find.ancestor(of: find.text('Personnes'), matching: find.byType(FilterChipButton)), findsOneWidget);
+
+    await typeQuery(tester, 'tf');
+    expect(find.text('Alma Meyer'), findsOneWidget);
+    expect(find.text('TF1'), findsNothing);
+    expect(find.text('Chaînes TV'), findsNothing);
+    expect(fake.channelQueries, isEmpty);
+  });
+
   testWidgets('with a text, "Tout" lists the matching channels', (tester) async {
-    await pumpSearch(tester);
+    await pumpSearch(tester, liveTv: true);
     await typeQuery(tester, 'tf');
     expect(find.text('TF1'), findsOneWidget);
     expect(find.text('L’Équipe'), findsNothing);

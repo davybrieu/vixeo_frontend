@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
+import '../../core/features.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
@@ -140,13 +141,15 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       subtitle: 'Trier, afficher ou masquer les rangées.',
                       onPressed: () => context.push(RowsSettingsScreen.homeLocation),
                     ),
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.live_tv_outlined,
-                      title: 'Catégories des chaînes TV',
-                      subtitle: 'Trier, afficher ou masquer les catégories.',
-                      onPressed: () => context.push(RowsSettingsScreen.channelsLocation),
-                    ),
+                    // Live TV is hidden for now (core/features.dart).
+                    if (ref.watch(liveTvProvider))
+                      _SettingsTile(
+                        scale: s,
+                        icon: Icons.live_tv_outlined,
+                        title: 'Catégories des chaînes TV',
+                        subtitle: 'Trier, afficher ou masquer les catégories.',
+                        onPressed: () => context.push(RowsSettingsScreen.channelsLocation),
+                      ),
                     _SettingsTile(
                       scale: s,
                       icon: Icons.extension_outlined,
