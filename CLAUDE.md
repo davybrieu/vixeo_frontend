@@ -137,7 +137,9 @@ lib/
   boutons ronds `VxIconAction` / `VxFocusable` avec un libellé pour les lecteurs d'écran (les tests les cherchent par
   ce libellé : pas d'`IconButton` à infobulle). Contrôles en surimpression (retour, nom de la chaîne, « EN DIRECT » ; lecture / pause, son et
   volume (souris), « Revenir au direct », plein écran sauf
-  sur TV : `fullscreen/`), masqués après 4 s de lecture, rappelés par un appui, la souris ou une
+  sur TV : `fullscreen/`) ; le lecteur est **toujours horizontal** (`lockLandscape` à
+  l'ouverture, `unlockOrientation` à la fermeture ; sur le web, seulement en plein écran sur
+  Android, limite des navigateurs), masqués après 4 s de lecture, rappelés par un appui, la souris ou une
   touche (la première touche de la télécommande ne fait que les montrer) ; raccourcis K, M, F et
   touches média. **Un seul flux par chaîne** (`url`), pas de choix de source ni de passage
   à une autre source (demande du développeur). Un flux qui refuse de démarrer, ou dont l'image ne

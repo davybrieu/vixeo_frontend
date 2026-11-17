@@ -182,6 +182,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    // Always horizontal, full screen or not (demande du développeur).
+    unawaited(lockLandscape());
     _season = widget.season;
     _episode = widget.episode;
     if (widget.live) {
@@ -255,6 +257,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _engine?.dispose();
     _playFocus.dispose();
     exitFullscreen();
+    unlockOrientation();
     super.dispose();
   }
 

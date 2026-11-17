@@ -98,10 +98,17 @@ L'API sert du WebVTT (`/catalog/subtitles/{id}`). `webvtt.dart` le lit et `Playe
 le texte lui-même par-dessus l'image, à la position donnée par le moteur : même rendu partout,
 sans `<track>` ni vue native de sous-titres.
 
-### Plein écran
+### Orientation et plein écran
 
-`features/tv/fullscreen/` (inchangé) : API Fullscreen du navigateur sur l'élément racine, mode
-immersif sur Android / iOS. Sur iPhone, Safari n'offre le plein écran qu'à la balise `<video>`
+Le lecteur est **toujours horizontal** (demande du développeur) : `PlayerScreen` appelle
+`lockLandscape()` à l'ouverture et `unlockOrientation()` à la fermeture
+(`features/tv/fullscreen/`). Android / iOS : paysage seulement tant que le lecteur est ouvert,
+plein écran ou non ; le reste de l'appli tourne avec l'appareil. Web : un navigateur ne laisse
+verrouiller l'orientation qu'en plein écran (Chrome, Edge, Firefox sur Android) : le verrou est
+demandé à l'ouverture puis au passage en plein écran ; ni Safari sur iPhone ni un ordinateur ne le
+permettent, la page tourne alors avec le téléphone.
+
+Plein écran : API Fullscreen du navigateur sur l'élément racine, mode immersif sur Android / iOS. Sur iPhone, Safari n'offre le plein écran qu'à la balise `<video>`
 avec ses propres commandes : le bouton reste donc sans effet dans Safari iPhone (iPad : oui).
 
 ## DRM Web : étude (rien n'est implémenté)

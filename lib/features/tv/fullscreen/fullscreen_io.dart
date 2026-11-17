@@ -1,19 +1,41 @@
 import 'package:flutter/services.dart';
 
 bool _fullscreen = false;
+bool _landscapeLocked = false;
 
 /// Whether the player is shown full screen.
 bool isFullscreen() => _fullscreen;
 
+/// The player is always horizontal (demande du développeur): from its opening to its closing,
+/// whatever the full screen. Android TV is landscape anyway.
+Future<void> lockLandscape() async {
+  _landscapeLocked = true;
+  await _applyOrientation();
+}
+
+/// Gives the orientation back to the system (and to the rest of the app) when the player closes.
+Future<void> unlockOrientation() async {
+  _landscapeLocked = false;
+  await _applyOrientation();
+}
+
 Future<void> enterFullscreen() async {
   _fullscreen = true;
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+  await _applyOrientation();
 }
 
 Future<void> exitFullscreen() async {
   if (!_fullscreen) return;
   _fullscreen = false;
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  await SystemChrome.setPreferredOrientations(const []);
+  await _applyOrientation();
 }
+
+/// Landscape while the player is open or full screen; otherwise every orientation (the app's
+/// default: none is set anywhere else).
+Future<void> _applyOrientation() => SystemChrome.setPreferredOrientations(
+  _landscapeLocked || _fullscreen
+      ? const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
+      : const <DeviceOrientation>[],
+);
