@@ -34,7 +34,11 @@ class NativePlayerEngine extends PlayerEngine {
       ) {
     _controller.addActivityListener(_onActivity);
     _controller.addControlListener(_onControl);
+    // The picture's size, sent by the native view (its shape frames the video).
+    _videoSize = _controller.videoSizeStream.listen((_) => _sync());
   }
+
+  late final StreamSubscription<Object> _videoSize;
 
   /// The plugin shares a native player between controllers with the same id: one id per engine.
   static int _nextId = 1;
@@ -106,6 +110,7 @@ class NativePlayerEngine extends PlayerEngine {
       buffering: buffering,
       position: _controller.currentPosition,
       duration: _controller.duration,
+      aspectRatio: _controller.videoSize?.aspectRatio,
     );
   }
 
@@ -138,6 +143,7 @@ class NativePlayerEngine extends PlayerEngine {
 
   @override
   void dispose() {
+    unawaited(_videoSize.cancel());
     _controller.removeActivityListener(_onActivity);
     _controller.removeControlListener(_onControl);
     unawaited(_controller.dispose().catchError((Object _) {}));

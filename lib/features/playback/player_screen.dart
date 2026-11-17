@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
@@ -425,12 +425,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     await engine.play();
   }
 
-  Future<void> _openExternal() async {
-    if (_currentSource == null || widget.live) return;
-    final ok = await launchUrl(Uri.parse(_currentSource!.url), mode: LaunchMode.externalApplication);
-    if (!ok && mounted) showVxSnack(context, "Impossible d'ouvrir le lien.");
-  }
-
   /// Follows the engine: play / pause, buffering, and an error at any time (not only at the
   /// start).
   void _onEngineValue(PlayerEngine engine) {
@@ -531,6 +525,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     } else {
       await engine.play();
     }
+    _showControls();
+  }
+
+  /// How the picture fills the screen (« Cadrage »): Ajuster, Remplir, Zoom, in turn.
+  VideoFit _fit = VideoFit.contain;
+
+  void _nextFit() {
+    setState(() => _fit = VideoFit.values[(_fit.index + 1) % VideoFit.values.length]);
+    showVxSnack(context, 'Cadrage : ${_fit.label}', icon: _fit.icon);
     _showControls();
   }
 
@@ -894,7 +897,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         : providers.where((p) => p.id == source.provider).firstOrNull?.name ?? source.provider;
 
     // The actions of the bottom bar, the most used first: five on screen, the others behind the
-    // arrow. A mouse also gets a volume slider (phones and TVs have volume keys).
+    // arrow.
     final layout = Layout.of(context);
     final fullscreen = isFullscreen();
     final actions = <Widget>[
@@ -908,13 +911,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _VolumeAction(
         silent: _muted || _volume == 0,
         volume: _muted ? 0 : _volume,
-        slider: !layout.isPhone && !DeviceInfo.isTv,
+        // A mouse (web or desktop): phones and tablets in landscape have volume keys, and a green
+        // slider there looked like the seek bar.
+        slider: !DeviceInfo.isTv &&
+            defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS,
         onMute: _toggleMute,
         onVolume: _setVolume,
       ),
       if (!widget.live) _BarAction(icon: Icons.cloud_outlined, label: 'Sources', onPressed: _openSources),
       if (widget.live && ready)
         _BarAction(icon: Icons.restart_alt_rounded, label: 'Revenir au direct', onPressed: _backToLive),
+      _BarAction(icon: _fit.icon, label: 'Cadrage : ${_fit.label}', onPressed: _nextFit),
       if (!widget.live && widget.type == MediaType.tv) ...[
         _BarAction(icon: Icons.video_library_outlined, label: 'Épisodes', onPressed: _openEpisodes),
         _BarAction(icon: Icons.skip_next_rounded, label: 'Épisode suivant', onPressed: _playNextEpisode),
@@ -925,8 +933,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           label: fullscreen ? 'Quitter le plein écran' : 'Plein écran',
           onPressed: _toggleFullscreen,
         ),
-      if (!widget.live)
-        _BarAction(icon: Icons.open_in_new_rounded, label: 'Ouvrir en externe', onPressed: _openExternal),
     ];
 
     return Scaffold(
@@ -942,7 +948,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               // The picture, drawn by the engine (a native view, a <video>…). It never gets the
               // pointer: taps and the mouse belong to the Flutter layers above, on every platform.
               if (engine != null)
-                IgnorePointer(child: KeyedSubtree(key: ObjectKey(engine), child: engine.buildView(context))),
+                IgnorePointer(
+                  child: ValueListenableBuilder<PlayerEngineValue>(
+                    valueListenable: engine,
+                    // The view is built once; only its frame follows the picture's shape.
+                    child: KeyedSubtree(key: ObjectKey(engine), child: engine.buildView(context)),
+                    builder: (context, value, view) =>
+                        _FramedVideo(fit: _fit, aspectRatio: value.aspectRatio, child: view!),
+                  ),
+                ),
               GestureDetector(behavior: HitTestBehavior.opaque, onTap: _onSurfaceTap),
               if (status != null) status,
               if (engine != null && _captions.isNotEmpty)
@@ -1015,10 +1029,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   child: _CenterControls(
                     playFocus: _playFocus,
                     live: widget.live,
-                    ready: ready,
                     playing: _playing,
                     loading: loading,
-                    onPlayPause: _togglePlay,
+                    // No source chosen yet: play opens the sources.
+                    onPlayPause: waiting ? _openSources : _togglePlay,
                     onRewind: () => _seekBy(-_seekStep),
                     onForward: () => _seekBy(_seekStep),
                   ),
@@ -1093,8 +1107,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                     });
                                   },
                                 ),
-                                const SizedBox(height: 12),
-                                VxButton(label: 'Ouvrir en externe', icon: Icons.open_in_new, onPressed: _openExternal),
                               ],
                             ],
                           ),
@@ -1232,12 +1244,12 @@ class _LiveBadge extends StatelessWidget {
 }
 
 /// The middle of the controls: 10 s back, play / pause (a spinner while there is no picture) and
-/// 10 s forward; play / pause only for a live stream.
+/// 10 s forward; play / pause only for a live stream. Before a source is chosen, play opens the
+/// sources.
 class _CenterControls extends StatelessWidget {
   const _CenterControls({
     required this.playFocus,
     required this.live,
-    required this.ready,
     required this.playing,
     required this.loading,
     required this.onPlayPause,
@@ -1247,7 +1259,6 @@ class _CenterControls extends StatelessWidget {
 
   final FocusNode playFocus;
   final bool live;
-  final bool ready;
   final bool playing;
   final bool loading;
   final VoidCallback onPlayPause;
@@ -1257,18 +1268,20 @@ class _CenterControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final seekSize = layout.size(52, tv: 96);
-    final spacing = SizedBox(width: layout.size(48, tv: 120));
+    final seekSize = layout.size(44, tv: 80);
+    final spacing = SizedBox(width: layout.size(40, tv: 100));
     return FocusTraversalGroup(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Always white and pressable (they do nothing until the video is there): greyed, they
+          // could not be seen over a dark picture.
           if (!live) ...[
             _BarAction(
               icon: Icons.replay_10_rounded,
               label: 'Reculer de 10 secondes',
               size: seekSize,
-              onPressed: ready ? onRewind : null,
+              onPressed: onRewind,
             ),
             spacing,
           ],
@@ -1276,7 +1289,7 @@ class _CenterControls extends StatelessWidget {
             focusNode: playFocus,
             playing: playing,
             loading: loading,
-            onPressed: ready ? onPlayPause : null,
+            onPressed: loading ? null : onPlayPause,
           ),
           if (!live) ...[
             spacing,
@@ -1284,7 +1297,7 @@ class _CenterControls extends StatelessWidget {
               icon: Icons.forward_10_rounded,
               label: 'Avancer de 10 secondes',
               size: seekSize,
-              onPressed: ready ? onForward : null,
+              onPressed: onForward,
             ),
           ],
         ],
@@ -1307,7 +1320,7 @@ class _PlayButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final size = layout.size(76, tv: 140);
+    final size = layout.size(60, tv: 112);
     return VxFocusable(
       focusNode: focusNode,
       autofocus: true,
@@ -1323,11 +1336,7 @@ class _PlayButton extends StatelessWidget {
                   dimension: size * 0.5,
                   child: const CircularProgressIndicator(color: VxColors.accent, strokeWidth: 3),
                 )
-              : Icon(
-                  playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  size: size,
-                  color: onPressed == null ? Colors.white38 : Colors.white,
-                ),
+              : Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded, size: size, color: Colors.white),
         ),
       ),
     );
@@ -1356,7 +1365,7 @@ class _BarAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final box = size ?? Layout.of(context).size(48, tv: 80);
+    final box = size ?? Layout.of(context).size(40, tv: 64);
     return VxFocusable(
       onPressed: onPressed,
       borderRadius: box,
@@ -1365,7 +1374,7 @@ class _BarAction extends StatelessWidget {
         dimension: box,
         child: Icon(
           icon,
-          size: box * 0.62,
+          size: box * 0.6,
           color: onPressed == null ? Colors.white38 : (active ? VxColors.accent : Colors.white),
         ),
       ),
@@ -1424,6 +1433,10 @@ SliderThemeData _sliderTheme(BuildContext context) => SliderTheme.of(context).co
   activeTrackColor: VxColors.accent,
   inactiveTrackColor: Colors.white.withValues(alpha: 0.28),
   thumbColor: VxColors.accent,
+  // Before the video is there the seek bar cannot move, but it shows as usual.
+  disabledActiveTrackColor: VxColors.accent,
+  disabledInactiveTrackColor: Colors.white.withValues(alpha: 0.28),
+  disabledThumbColor: VxColors.accent,
   overlayColor: VxColors.accent.withValues(alpha: 0.2),
   trackHeight: 4,
   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
@@ -1431,7 +1444,8 @@ SliderThemeData _sliderTheme(BuildContext context) => SliderTheme.of(context).co
 );
 
 /// Bottom of the controls: what plays (title, year or episode, « Via » its source), the seek
-/// bar, then the actions on the left and the time on the right.
+/// bar, then the actions on the left (scrolling sideways when they do not fit) and the time on
+/// the right.
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.title,
@@ -1463,7 +1477,7 @@ class _BottomBar extends StatelessWidget {
   final String Function(Duration) format;
   final List<Widget> actions;
 
-  /// An action was pressed (the arrow): the controls stay a little longer.
+  /// The icons were scrolled: the controls stay a little longer.
   final VoidCallback onInteract;
   final ValueChanged<Duration>? onSeek;
 
@@ -1534,7 +1548,8 @@ class _BottomBar extends StatelessWidget {
                   ],
                 ),
               SizedBox(height: gap / 2),
-              if (!live && ready)
+              // A title always has its seek bar and its time, at 0 until the video is there.
+              if (!live)
                 SizedBox(
                   height: layout.size(32, tv: 48),
                   child: SliderTheme(
@@ -1543,7 +1558,9 @@ class _BottomBar extends StatelessWidget {
                       value: duration.inMilliseconds > 0
                           ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0).toDouble()
                           : 0.0,
-                      onChanged: (v) => onSeek?.call(Duration(milliseconds: (v * duration.inMilliseconds).round())),
+                      onChanged: ready && duration.inMilliseconds > 0
+                          ? (v) => onSeek?.call(Duration(milliseconds: (v * duration.inMilliseconds).round()))
+                          : null,
                     ),
                   ),
                 ),
@@ -1553,16 +1570,42 @@ class _BottomBar extends StatelessWidget {
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        // A narrow window: the actions scroll sideways, never under the time.
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          // Room for the focus ring above and below.
-                          padding: EdgeInsets.symmetric(vertical: gap / 2),
-                          child: _ActionsRow(actions: actions, gap: gap, onToggle: onInteract),
+                        // Too many icons for the width: they scroll sideways (finger, mouse, or the
+                        // remote's focus), never under the time. Scrolling keeps the controls up.
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (_) {
+                            onInteract();
+                            return false;
+                          },
+                          child: ScrollConfiguration(
+                            // A mouse drags the row too (web, computer).
+                            behavior: ScrollConfiguration.of(context).copyWith(
+                              dragDevices: {
+                                PointerDeviceKind.touch,
+                                PointerDeviceKind.mouse,
+                                PointerDeviceKind.trackpad,
+                                PointerDeviceKind.stylus,
+                              },
+                            ),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              // Room for the focus ring above and below.
+                              padding: EdgeInsets.symmetric(vertical: gap / 2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (final (i, action) in actions.indexed) ...[
+                                    if (i > 0) SizedBox(width: layout.size(8, tv: 16)),
+                                    action,
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    if (!live && ready) ...[
+                    if (!live) ...[
                       SizedBox(width: gap),
                       Text(
                         '${format(position)} / ${format(duration)}',
@@ -1580,47 +1623,57 @@ class _BottomBar extends StatelessWidget {
   }
 }
 
-/// The actions of the bottom bar: [visibleCount] at most; with more, an arrow after them unfolds
-/// the others, and pressed again (pointing back) folds them (demande du développeur).
-class _ActionsRow extends StatefulWidget {
-  const _ActionsRow({required this.actions, required this.gap, required this.onToggle});
+/// How the picture fills the screen (« Cadrage »).
+enum VideoFit {
+  /// All of the picture, black bars where its shape differs from the screen's.
+  contain('Ajuster', Icons.fit_screen_rounded),
 
-  static const visibleCount = 5;
+  /// Stretched to the whole screen.
+  fill('Remplir', Icons.aspect_ratio_rounded),
 
-  final List<Widget> actions;
-  final double gap;
-  final VoidCallback onToggle;
+  /// The whole screen filled, the picture's edges cut.
+  cover('Zoom', Icons.zoom_out_map_rounded);
 
-  @override
-  State<_ActionsRow> createState() => _ActionsRowState();
+  const VideoFit(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
 }
 
-class _ActionsRowState extends State<_ActionsRow> {
-  bool _unfolded = false;
+/// The picture in its frame. The view is laid out with the picture's own shape (the largest that
+/// fits), then scaled to the screen: not at all (Ajuster), stretched (Remplir) or enlarged and cut
+/// (Zoom). The tree is the same whatever the frame, so a native view is never built again. Until
+/// the engine knows the shape, the view takes the whole screen, as before.
+class _FramedVideo extends StatelessWidget {
+  const _FramedVideo({required this.fit, required this.aspectRatio, required this.child});
+
+  final VideoFit fit;
+  final double? aspectRatio;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final more = widget.actions.length > _ActionsRow.visibleCount;
-    final shown = more && !_unfolded ? widget.actions.take(_ActionsRow.visibleCount) : widget.actions;
-    final children = <Widget>[
-      ...shown,
-      if (more)
-        _BarAction(
-          // The same button folded or not: the remote's focus stays on it.
-          key: const ValueKey('player-more-actions'),
-          icon: _unfolded ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
-          label: _unfolded ? 'Moins d’options' : 'Plus d’options',
-          onPressed: () {
-            setState(() => _unfolded = !_unfolded);
-            widget.onToggle();
-          },
-        ),
-    ];
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final (i, child) in children.indexed) ...[if (i > 0) SizedBox(width: widget.gap), child],
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screen = constraints.biggest;
+        final ratio = aspectRatio;
+        var size = screen;
+        if (ratio != null && ratio > 0 && screen.width > 0 && screen.height > 0) {
+          size = screen.width / screen.height > ratio
+              ? Size(screen.height * ratio, screen.height)
+              : Size(screen.width, screen.width / ratio);
+        }
+        return ClipRect(
+          child: FittedBox(
+            fit: switch (fit) {
+              VideoFit.contain => BoxFit.contain,
+              VideoFit.fill => BoxFit.fill,
+              VideoFit.cover => BoxFit.cover,
+            },
+            child: SizedBox.fromSize(size: size, child: child),
+          ),
+        );
+      },
     );
   }
 }

@@ -116,6 +116,7 @@ class PlayerEngineValue {
     this.duration = Duration.zero,
     this.autoplayMuted = false,
     this.error,
+    this.aspectRatio,
   });
 
   /// The stream is open: there is a picture (or there is about to be one).
@@ -132,6 +133,10 @@ class PlayerEngineValue {
   final bool autoplayMuted;
   final PlayerError? error;
 
+  /// Width / height of the picture, once the engine knows it: the player frames the video with it
+  /// (« Ajuster », « Remplir », « Zoom »).
+  final double? aspectRatio;
+
   bool get hasError => error != null;
 
   PlayerEngineValue copyWith({
@@ -142,6 +147,7 @@ class PlayerEngineValue {
     Duration? duration,
     bool? autoplayMuted,
     PlayerError? error,
+    double? aspectRatio,
   }) => PlayerEngineValue(
     initialized: initialized ?? this.initialized,
     playing: playing ?? this.playing,
@@ -150,6 +156,7 @@ class PlayerEngineValue {
     duration: duration ?? this.duration,
     autoplayMuted: autoplayMuted ?? this.autoplayMuted,
     error: error ?? this.error,
+    aspectRatio: aspectRatio ?? this.aspectRatio,
   );
 
   @override
@@ -161,10 +168,12 @@ class PlayerEngineValue {
       other.position == position &&
       other.duration == duration &&
       other.autoplayMuted == autoplayMuted &&
-      other.error == error;
+      other.error == error &&
+      other.aspectRatio == aspectRatio;
 
   @override
-  int get hashCode => Object.hash(initialized, playing, buffering, position, duration, autoplayMuted, error);
+  int get hashCode =>
+      Object.hash(initialized, playing, buffering, position, duration, autoplayMuted, error, aspectRatio);
 }
 
 /// One video being played. Created for one stream, disposed with it.

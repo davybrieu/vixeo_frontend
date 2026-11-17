@@ -79,6 +79,8 @@ class HlsJsEngine extends PlayerEngine {
     _listen('loadedmetadata', (_) => _onReady());
     _listen('canplay', (_) => _onReady());
     _listen('durationchange', (_) => _update());
+    // The picture's size (its shape frames the video), known with the metadata, may change.
+    _listen('resize', (_) => _update());
     _listen('timeupdate', (_) => _update());
     _listen('playing', (_) => _update(playing: true, buffering: false));
     _listen('pause', (_) => _update(playing: false));
@@ -119,6 +121,7 @@ class HlsJsEngine extends PlayerEngine {
       buffering: buffering,
       position: _position,
       duration: _duration,
+      aspectRatio: _video.videoWidth > 0 && _video.videoHeight > 0 ? _video.videoWidth / _video.videoHeight : null,
     );
   }
 
