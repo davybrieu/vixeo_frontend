@@ -73,6 +73,7 @@ class VideoPlayerEngine extends PlayerEngine {
       buffering: v.isBuffering,
       position: v.position,
       duration: v.duration,
+      aspectRatio: v.size.width > 0 && v.size.height > 0 ? v.size.width / v.size.height : null,
     );
   }
 

@@ -25,11 +25,20 @@ Les mêmes sur toutes les plateformes, par-dessus l'image :
 - **en bas à gauche**, ce qui joue : le titre, l'année (film) ou « Saison 1 · Épisode 2 · nom »
   (série), puis « Via » le fournisseur de la source, un éclair et le nom du lien ; dessous, la
   barre de progression, **toujours là pour un titre** (à 0, immobile, avant la vidéo) ;
-- **en bas**, les icônes à gauche (sous-titres, son, sources, épisodes, épisode suivant, plein
-  écran, ouvrir en externe ; pour une chaîne : son, « Revenir au direct », plein écran), et le
-  temps « 00:02 / 2:52:35 » à droite (« 00:00 / 00:00 » avant la vidéo). Le curseur de volume
-  n'existe qu'avec une souris (web, ordinateur), pas sur Android ni iOS. **Cinq icônes au plus** : au-delà, une flèche `>` après la
-  cinquième déroule les autres, et la même flèche, tournée `<`, les replie (`_ActionsRow`).
+- **en bas**, les icônes à gauche (blanches, sans fond, petites : 40 sur téléphone) : sous-titres,
+  son, sources, **cadrage**, épisodes, épisode suivant, plein écran ; pour une chaîne : son,
+  « Revenir au direct », cadrage, plein écran. **Pas de lecteur externe** (demande du
+  développeur). Trop d'icônes pour la largeur : la rangée **défile de gauche à droite** (doigt,
+  souris, ou focus de la télécommande), jamais sous le temps ; pas de flèche. Le temps
+  « 00:02 / 2:52:35 » est à droite (« 00:00 / 00:00 » avant la vidéo). Le curseur de volume
+  n'existe qu'avec une souris (web, ordinateur), pas sur Android ni iOS.
+- **Cadrage** (un appui passe au suivant, une alerte dit lequel) : **Ajuster** (toute l'image,
+  bandes noires), **Remplir** (étirée à tout l'écran), **Zoom** (l'écran rempli, les bords
+  coupés). Chaque moteur donne la forme de l'image (`PlayerEngineValue.aspectRatio` : taille de
+  la vue native, `video_player`, `videoWidth` / `videoHeight` de hls.js) ; `_FramedVideo` pose la
+  vue à cette forme puis l'agrandit (`FittedBox` `contain` / `fill` / `cover`) : le même arbre
+  quel que soit le cadrage, la vue native n'est jamais reconstruite. Tant que la forme n'est pas
+  connue, la vue prend tout l'écran.
 
 `better_native_video_player` n'a **pas** d'implémentation web. Il n'est importé que par
 `native_player_engine.dart`, lui-même importé seulement par `engine_factory_io.dart` : la

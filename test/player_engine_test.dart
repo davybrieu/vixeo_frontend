@@ -49,7 +49,11 @@ class FakeEngine extends PlayerEngine {
     await _view.future;
     viewBuiltBeforeOpen = true;
     if (openError != null) throw openError!;
-    value = value.copyWith(initialized: true, duration: source.live ? Duration.zero : const Duration(minutes: 10));
+    value = value.copyWith(
+      initialized: true,
+      duration: source.live ? Duration.zero : const Duration(minutes: 10),
+      aspectRatio: source.live ? null : 2,
+    );
   }
 
   @override
@@ -501,37 +505,73 @@ void main() {
       // Never before the start.
       expect(engine.seeks.last, Duration.zero);
 
-      // Five actions: all on screen, no arrow.
-      for (final label in ['Sous-titres', 'Couper le son', 'Sources', 'Plein écran', 'Ouvrir en externe']) {
+      // The actions, without an external player.
+      for (final label in ['Sous-titres', 'Couper le son', 'Sources', 'Cadrage : Ajuster', 'Plein écran']) {
         expect(find.bySemanticsLabel(label), findsOneWidget, reason: label);
       }
-      expect(find.bySemanticsLabel('Plus d’options'), findsNothing);
+      expect(find.bySemanticsLabel('Ouvrir en externe'), findsNothing);
 
       await closePlayer(tester);
     });
 
-    testWidgets('more than five actions: an arrow unfolds the others, pressed again it folds them', (tester) async {
+    testWidgets('every icon is there, no arrow: too many for the width, they scroll sideways', (tester) async {
       await openTitle(tester, const PlayerScreen(type: MediaType.tv, id: 1399, season: 1, episode: 2));
       expect(find.text('L’Odyssée'), findsOneWidget);
       expect(find.text('Saison 1 · Épisode 2 · Le Nord'), findsOneWidget);
 
-      // The first five, then the arrow.
-      for (final label in ['Sous-titres', 'Couper le son', 'Sources', 'Épisodes', 'Épisode suivant']) {
+      for (final label in [
+        'Sous-titres',
+        'Couper le son',
+        'Sources',
+        'Cadrage : Ajuster',
+        'Épisodes',
+        'Épisode suivant',
+        'Plein écran',
+      ]) {
         expect(find.bySemanticsLabel(label), findsOneWidget, reason: label);
       }
-      expect(find.bySemanticsLabel('Plein écran'), findsNothing);
-      expect(find.bySemanticsLabel('Ouvrir en externe'), findsNothing);
-
-      await tester.tap(find.bySemanticsLabel('Plus d’options'));
-      await tester.pump();
-      expect(find.bySemanticsLabel('Plein écran'), findsOneWidget);
-      expect(find.bySemanticsLabel('Ouvrir en externe'), findsOneWidget);
       expect(find.bySemanticsLabel('Plus d’options'), findsNothing);
 
-      await tester.tap(find.bySemanticsLabel('Moins d’options'));
+      // A narrow window: the row scrolls under the finger.
+      tester.view.physicalSize = const Size(560, 400);
       await tester.pump();
-      expect(find.bySemanticsLabel('Ouvrir en externe'), findsNothing);
-      expect(find.bySemanticsLabel('Plus d’options'), findsOneWidget);
+      final row = find.ancestor(of: find.bySemanticsLabel('Sous-titres'), matching: find.byType(Scrollable)).first;
+      final position = tester.state<ScrollableState>(row).position;
+      expect(position.maxScrollExtent, greaterThan(0));
+      await tester.drag(find.bySemanticsLabel('Sources'), const Offset(-200, 0));
+      await tester.pump();
+      expect(position.pixels, greaterThan(0));
+
+      await closePlayer(tester);
+    });
+
+    testWidgets('« Cadrage »: Ajuster, Remplir and Zoom in turn, the view keeps the picture’s shape', (
+      tester,
+    ) async {
+      await openTitle(tester, const PlayerScreen(type: MediaType.movie, id: 550));
+      final video = find.byKey(const Key('fake-video'));
+      BoxFit fit() => tester.widget<FittedBox>(find.ancestor(of: video, matching: find.byType(FittedBox)).first).fit;
+
+      // A picture twice as wide as high on a 1280×720 screen: laid out 1280×640, black bars.
+      expect(tester.getSize(video), const Size(1280, 640));
+      expect(fit(), BoxFit.contain);
+
+      await tester.tap(find.bySemanticsLabel('Cadrage : Ajuster'));
+      await tester.pump();
+      expect(fit(), BoxFit.fill);
+      expect(find.bySemanticsLabel('Cadrage : Remplir'), findsOneWidget);
+      expect(tester.getRect(video).height, closeTo(720, 0.5));
+
+      await tester.tap(find.bySemanticsLabel('Cadrage : Remplir'));
+      await tester.pump();
+      expect(fit(), BoxFit.cover);
+      // Enlarged to the screen's height, the sides cut.
+      expect(tester.getRect(video).width, greaterThan(1280));
+
+      await tester.tap(find.bySemanticsLabel('Cadrage : Zoom'));
+      await tester.pump();
+      expect(fit(), BoxFit.contain);
+      expect(tester.getSize(video), const Size(1280, 640));
 
       await closePlayer(tester);
     });
