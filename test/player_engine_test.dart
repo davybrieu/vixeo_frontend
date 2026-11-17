@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/auth/session.dart';
+import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/playback/engine/engine_factory.dart';
 import 'package:vixeo/features/playback/engine/player_engine.dart';
@@ -116,6 +117,41 @@ Future<FakeEngine> openLive(WidgetTester tester, FakeEngine engine) async {
       ),
     ),
   );
+  await settle(tester);
+  return engine;
+}
+
+/// A title's player with one provider (« Hôte ») and one link, chosen: the video plays.
+Future<FakeEngine> openTitle(WidgetTester tester, PlayerScreen screen) async {
+  final engine = FakeEngine();
+  const link = StreamSource(provider: 'p', name: 'Film VF 1080P', url: 'https://host.test/embed/1');
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        sessionProvider.overrideWith(SignedOut.new),
+        playbackRepositoryProvider.overrideWithValue(FakePlayback()),
+        playerEngineFactoryProvider.overrideWithValue((source) => engine),
+        sourceProvidersProvider.overrideWith((ref, item) async => const [SourceProvider(id: 'p', name: 'Hôte')]),
+        providerSourcesProvider.overrideWith((ref, key) async => const [link]),
+        titleProvider.overrideWith(
+          (ref, key) async => TitleDetails(id: key.$2, type: key.$1, title: 'L’Odyssée', year: 2026),
+        ),
+        seasonProvider.overrideWith(
+          (ref, key) async => Season(
+            showId: key.$1,
+            number: key.$2,
+            name: 'Saison ${key.$2}',
+            episodes: [Episode(id: 1, seasonNumber: key.$2, number: 2, name: 'Le Nord')],
+          ),
+        ),
+      ],
+      child: MaterialApp(theme: buildVixeoTheme(), home: screen),
+    ),
+  );
+  await settle(tester);
+  await tester.tap(find.text('Hôte'));
+  await settle(tester);
+  await tester.tap(find.text('Film VF 1080P'));
   await settle(tester);
   return engine;
 }
@@ -428,6 +464,68 @@ void main() {
       await engine.seekTo(const Duration(seconds: 30));
       await tester.pump();
       expect(find.text('Bonjour tout le monde'), findsNothing);
+
+      await closePlayer(tester);
+    });
+
+    testWidgets('a movie: back at the top left, title, year and « Via » its source, 10 s back and forward', (
+      tester,
+    ) async {
+      final engine = await openTitle(tester, const PlayerScreen(type: MediaType.movie, id: 550));
+
+      // The back button where the other pages have it: top left.
+      final back = tester.getCenter(find.bySemanticsLabel('Retour'));
+      expect(back.dx, lessThan(100));
+      expect(back.dy, lessThan(100));
+
+      expect(find.text('L’Odyssée'), findsOneWidget);
+      expect(find.text('2026'), findsOneWidget);
+      expect(find.text('Via Hôte'), findsOneWidget);
+      expect(find.text('00:00 / 10:00'), findsOneWidget);
+      expect(find.bySemanticsLabel('Pause'), findsOneWidget);
+      expect(find.text('EN DIRECT'), findsNothing);
+
+      await tester.tap(find.bySemanticsLabel('Avancer de 10 secondes'));
+      await tester.pump();
+      expect(engine.seeks.last, const Duration(seconds: 10));
+      expect(find.text('00:10 / 10:00'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Reculer de 10 secondes'));
+      await tester.tap(find.bySemanticsLabel('Reculer de 10 secondes'));
+      await tester.pump();
+      // Never before the start.
+      expect(engine.seeks.last, Duration.zero);
+
+      // Five actions: all on screen, no arrow.
+      for (final label in ['Sous-titres', 'Couper le son', 'Sources', 'Plein écran', 'Ouvrir en externe']) {
+        expect(find.bySemanticsLabel(label), findsOneWidget, reason: label);
+      }
+      expect(find.bySemanticsLabel('Plus d’options'), findsNothing);
+
+      await closePlayer(tester);
+    });
+
+    testWidgets('more than five actions: an arrow unfolds the others, pressed again it folds them', (tester) async {
+      await openTitle(tester, const PlayerScreen(type: MediaType.tv, id: 1399, season: 1, episode: 2));
+      expect(find.text('L’Odyssée'), findsOneWidget);
+      expect(find.text('Saison 1 · Épisode 2 · Le Nord'), findsOneWidget);
+
+      // The first five, then the arrow.
+      for (final label in ['Sous-titres', 'Couper le son', 'Sources', 'Épisodes', 'Épisode suivant']) {
+        expect(find.bySemanticsLabel(label), findsOneWidget, reason: label);
+      }
+      expect(find.bySemanticsLabel('Plein écran'), findsNothing);
+      expect(find.bySemanticsLabel('Ouvrir en externe'), findsNothing);
+
+      await tester.tap(find.bySemanticsLabel('Plus d’options'));
+      await tester.pump();
+      expect(find.bySemanticsLabel('Plein écran'), findsOneWidget);
+      expect(find.bySemanticsLabel('Ouvrir en externe'), findsOneWidget);
+      expect(find.bySemanticsLabel('Plus d’options'), findsNothing);
+
+      await tester.tap(find.bySemanticsLabel('Moins d’options'));
+      await tester.pump();
+      expect(find.bySemanticsLabel('Ouvrir en externe'), findsNothing);
+      expect(find.bySemanticsLabel('Plus d’options'), findsOneWidget);
 
       await closePlayer(tester);
     });

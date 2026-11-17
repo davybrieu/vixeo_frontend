@@ -71,7 +71,10 @@ double pageBottomPadding(BuildContext context) =>
 
 /// Round back button at the top of a page opened over another one: back, or to the home page.
 class VxBackButton extends StatelessWidget {
-  const VxBackButton({super.key});
+  const VxBackButton({super.key, this.onPressed});
+
+  /// What the button does instead of the usual back (the player has its own).
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +83,7 @@ class VxBackButton extends StatelessWidget {
     return VxFocusable(
       borderRadius: size / 2,
       semanticLabel: 'Retour',
-      onPressed: () {
+      onPressed: onPressed ?? () {
         final router = GoRouter.maybeOf(context);
         if (router == null) {
           Navigator.of(context).maybePop();
