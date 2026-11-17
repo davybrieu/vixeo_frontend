@@ -81,8 +81,9 @@ lib/
     library/     synchro par profil (Ma liste, vus, « Continuer à regarder »), page Ma liste
     search/      recherche : « Explorer » sans texte, filtres (type, genre, années, note) et tri,
                  recherches récentes synchronisées (search_history.dart)
-    playback/    pour le futur lecteur : moments à passer (TheIntroDB) et sous-titres (OpenSubtitles),
-                 via l'API
+    playback/    lecteur (PlayerScreen, commun à toutes les plateformes), moteurs de lecture
+                 (engine/ : natif Android / iOS, HTML5 et hls.js sur le web), sous-titres WebVTT,
+                 moments à passer (TheIntroDB) et sous-titres (OpenSubtitles) via l'API
     tv/          TV en direct : chaînes et catégories de l'API (rangée, grille de la recherche),
                  lecteur d'un flux (HLS) ; pas de page à part
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
@@ -140,17 +141,28 @@ lib/
   touche (la première touche de la télécommande ne fait que les montrer) ; raccourcis K, M, F et
   touches média. **Un seul flux par chaîne** (`url`), pas de choix de source ni de passage
   à une autre source (demande du développeur). Un flux qui refuse de démarrer, ou dont l'image ne
-  bouge pas pendant 15 s (`stallTimeout`), affiche « Impossible de lire cette chaîne. » et
-  « Réessayer » (une seule fois par échec). Sur le web,
-  un flux que le navigateur ne sait pas décoder (H.265…) fait échouer hls.js, mais
-  `video_player_web_hls` ne sait pas lire cette erreur et l'écran restait noir. Le lecteur lit
-  donc la position réelle (`controller.position`, pas `value.position`, figée pour un direct) ;
+  bouge pas pendant 15 s (`stallTimeout`), affiche « Impossible de lire cette chaîne. » (ou la
+  phrase de la cause quand le moteur la connaît) et « Réessayer » (une seule fois par échec). Un
+  flux peut « jouer » avec un écran noir sans que le moteur le signale : le lecteur lit donc la
+  position réelle (`engine.position`, pas `value.position`, figée pour un direct) ;
   tant que l'image ne bouge pas, les contrôles et un indicateur restent affichés. Test : `test/live_player_test.dart`. L'API renvoie une URL sur **notre
   propre origine** (un proxy signé, jamais l'adresse du fournisseur) ; `TvStream.headers` reste
-  vide et est tout de même transmis au lecteur. Sur le web, les navigateurs autres que Safari ne
-  lisent pas le HLS : `web/hls.min.js` (hls.js, Apache-2.0, servi depuis notre origine, licence
-  dans « Licences ») est chargé par `web/index.html` et le plugin `video_player_web_hls` s'en sert
-  pour les flux HLS. Android / iOS / Safari lisent le HLS nativement. Test : `test/web_hls_test.dart`.
+  vide et est tout de même transmis au lecteur. Test : `test/web_hls_test.dart`.
+- **Lecteur : un écran, plusieurs moteurs** (demande du développeur ; détails et matrice de tests :
+  [`docs/lecteur.md`](docs/lecteur.md)) : `PlayerScreen` et ses commandes sont les mêmes partout
+  et ne parlent qu'à un `PlayerEngine` (`features/playback/engine/`, obtenu par
+  `playerEngineFactoryProvider`). Android / iOS : `NativePlayerEngine`
+  (`better_native_video_player`, importé **uniquement** par `engine_factory_io.dart` : il n'a pas
+  d'implémentation web). Web : `WebPlayerEngine` choisit `VideoPlayerEngine` (`video_player` /
+  `video_player_web`, `<video>` HTML5) quand le navigateur lit le flux seul (MP4 ; HLS sur
+  Safari), sinon `HlsJsEngine` (`web/hls.min.js`, hls.js, Apache-2.0, servi depuis notre origine,
+  licence dans « Licences ») ; **`index.html` ne charge pas hls.js** : il est ajouté au premier
+  flux qui en a besoin. Ne jamais importer un plugin vidéo dans `PlayerScreen` : passer par le
+  moteur. Erreurs : `PlayerError(kind)` (réseau, CORS, format, DRM) → une phrase par cause
+  (`playerErrorMessage`). Autoplay refusé : démarrage muet (« Activer le son ») ou pause.
+  Sous-titres : WebVTT lu par `webvtt.dart`, dessiné par Flutter (même rendu partout). **DRM web :
+  étudié, pas implémenté** (un flux protégé est refusé avec une phrase) ; aucune clé dans Flutter.
+  Tests : `test/player_engine_test.dart` (faux moteur) ; les navigateurs se testent à la main.
 - **« Qui regarde ? »** (`profiles_screen.dart`, `/profils` ; demande du développeur, d'après
   une vidéo d'un autre media center) : fond sombre éclairé de vert en haut, « Qui regarde ? »
   (**sans logo**), avatars **ronds** avec le nom dessous (cadenas si le profil a un code ; plus
@@ -537,8 +549,8 @@ lib/
   Avancé (dernier profil, cache),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
-  mises à jour (Android / iOS), TV en direct (catégories, chaînes, lecture du flux ; HLS sur le
-  web via hls.js), mises en page téléphone et TV / grand écran, navigation à la
+  mises à jour (Android / iOS), TV en direct (catégories, chaînes, lecture du flux), lecteur à
+  moteurs par plateforme (natif sur Android / iOS, HTML5 ou hls.js sur le web : `docs/lecteur.md`), mises en page téléphone et TV / grand écran, navigation à la
   télécommande.
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
 - Vérifié de bout en bout (web) contre l'API Laravel locale avec un faux TMDb.
