@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:video_player/video_player.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/device/layout.dart';
@@ -17,7 +17,11 @@ import '../catalog/models.dart';
 import '../catalog/catalog_repository.dart';
 import '../tv/models.dart';
 import '../tv/fullscreen/fullscreen.dart';
+import 'engine/engine_factory.dart';
+import 'engine/player_engine.dart';
+import 'engine/player_errors.dart';
 import 'playback.dart';
+import 'webvtt.dart';
 
 class StreamSource {
   const StreamSource({required this.provider, required this.name, required this.url});
@@ -82,6 +86,9 @@ final providerSourcesProvider = FutureProvider.family<List<StreamSource>, Provid
 /// (not on TV) at the bottom. They hide after a few seconds of playback and come back on a tap, a
 /// mouse move or any key (the first key press on a remote only shows them, on play / pause).
 /// Shortcuts: K (lecture), M (son), F (plein écran), and the media keys of a remote.
+///
+/// This screen and its controls are the same on every platform. What plays the video is a
+/// [PlayerEngine] (`engine/`): the native player on Android / iOS, the browser's on the web.
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key, required this.type, required this.id, this.season, this.episode})
     : live = false, liveTitle = null, loadLiveStream = null, returnLocation = null, guestOverride = null;
@@ -117,9 +124,9 @@ class PlayerScreen extends ConsumerStatefulWidget {
 
   /// How long a live stream may "play" without its image moving before the error is shown.
   ///
-  /// On the web, a stream the browser cannot decode (H.265…) makes hls.js fail, but
-  /// video_player_web_hls cannot read that error: the controller says it plays while the screen
-  /// stays black. The position not moving is the only sign of it (and of a stalled proxy).
+  /// Engines report most failures themselves (network, format…), but not all: a stream may
+  /// "play" while the screen stays black (a codec the device gives up on, a stalled proxy).
+  /// The position not moving is the only sign of it.
   static const stallTimeout = Duration(seconds: 15);
 
   @override
@@ -132,7 +139,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   static const _watchdogTick = Duration(milliseconds: 500);
   static final _backKeys = {LogicalKeyboardKey.escape, LogicalKeyboardKey.goBack, LogicalKeyboardKey.browserBack};
 
-  VideoPlayerController? _controller;
+  PlayerEngine? _engine;
   StreamSource? _currentSource;
   bool _controlsVisible = true;
   bool _sourcesPanelOpen = true;
@@ -141,15 +148,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _resolving = false;
   bool _muted = false;
   double _volume = 1;
-  List<_CaptionCue> _captions = const [];
+  List<CaptionCue> _captions = const [];
   String? _selectedSubtitle;
   int? _season;
   int? _episode;
 
-  /// What the controller says (`value.isPlaying`, `value.isBuffering`), kept by [_onControllerValue]:
+  /// What the engine says (`value.playing`, `value.buffering`…), kept by [_onEngineValue]:
   /// a pause or a start comes from a button, a key, or the browser refusing to start on its own.
+  bool _initialized = false;
   bool _playing = false;
   bool _buffering = false;
+
+  /// The browser only allowed a muted start: the sound button was switched to « Activer le son ».
+  bool _autoplayMuted = false;
 
   /// Live: the image moves (the position changed since the stream started). Until then, a spinner
   /// stays on screen with the controls (nothing to watch yet).
@@ -241,7 +252,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void dispose() {
     _hideTimer?.cancel();
     _liveWatchdog?.cancel();
-    _controller?.dispose();
+    _engine?.dispose();
     _playFocus.dispose();
     exitFullscreen();
     super.dispose();
@@ -250,26 +261,48 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   // ---------------------------------------------------------------------------------------------
   // Playback
 
-  /// Forgets the current controller (disposed) and the timers that watch it.
-  Future<void> _stopPlayback() {
+  /// Forgets the current engine (disposed) and the timers that watch it.
+  Future<void> _stopPlayback() async {
     _hideTimer?.cancel();
     _liveWatchdog?.cancel();
     _lastLivePosition = null;
     _liveStalledFor = Duration.zero;
     _liveProgressing = false;
+    _initialized = false;
     _playing = false;
     _buffering = false;
-    final previous = _controller;
-    _controller = null;
-    return previous?.dispose() ?? Future<void>.value();
+    _autoplayMuted = false;
+    final previous = _engine;
+    _engine = null;
+    previous?.dispose();
   }
 
-  /// Makes [controller] the current one (disposing any other) and follows its state.
-  void _attach(VideoPlayerController controller) {
-    final previous = _controller;
-    _controller = controller;
-    if (previous != null && previous != controller) unawaited(previous.dispose());
-    controller.addListener(() => _onControllerValue(controller));
+  /// Makes [engine] the current one (disposing any other) and follows its state.
+  void _attach(PlayerEngine engine) {
+    final previous = _engine;
+    _engine = engine;
+    if (previous != null && previous != engine) previous.dispose();
+    engine.addListener(() => _onEngineValue(engine));
+  }
+
+  /// Opens [source] with this platform's engine, paused. Null when it cannot be played (the
+  /// error is then on screen) or when another stream was asked for meanwhile.
+  Future<PlayerEngine?> _open(PlayerSource source) async {
+    final engine = ref.read(playerEngineFactoryProvider)(source);
+    _attach(engine);
+    // The engine's view goes on screen now: a native player only exists once its view does.
+    setState(() {});
+    try {
+      await engine.open(source);
+    } on PlayerError catch (error) {
+      _fail(engine, error);
+      return null;
+    } catch (_) {
+      _fail(engine);
+      return null;
+    }
+    if (!mounted || engine != _engine) return null;
+    return engine;
   }
 
   /// Live: asks the API for the channel's stream (`/tv/channels/{id}/stream`), then plays it.
@@ -299,23 +332,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _resolving = false;
 
     // The API hands the playable URL (on our own origin) and the headers to send.
-    final controller = VideoPlayerController.networkUrl(Uri.parse(stream.url), httpHeaders: stream.headers);
-    _attach(controller);
-    try {
-      await controller.initialize();
-    } catch (_) {
-      _fail(controller);
-      return;
-    }
-    if (!mounted || controller != _controller) return;
-    await controller.setVolume(_muted ? 0 : _volume);
-    // A live stream may need a user gesture to start on the web: a blocked play() leaves the
-    // controller paused, and a tap (or the play button) starts it.
-    await controller.play();
-    if (!mounted || controller != _controller) return;
+    final engine = await _open(
+      PlayerSource(
+        url: stream.url,
+        headers: stream.headers,
+        format: streamFormatFromApi(stream.format),
+        live: true,
+      ),
+    );
+    if (engine == null) return;
+    await engine.setVolume(_muted ? 0 : _volume);
+    // A live stream may need a user gesture to start on the web: a refused play() starts muted
+    // or leaves the engine paused, and a tap (or the play button) starts it.
+    await engine.play();
+    if (!mounted || engine != _engine) return;
     setState(() {});
     _liveWatchdog?.cancel();
-    _liveWatchdog = Timer.periodic(_watchdogTick, (_) => _checkLiveProgress(controller));
+    _liveWatchdog = Timer.periodic(_watchdogTick, (_) => _checkLiveProgress(engine));
   }
 
   Future<void> _playSource(StreamSource source) async {
@@ -347,18 +380,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
 
     if (!mounted) return;
-    final ctrl = VideoPlayerController.networkUrl(Uri.parse(resolved.stream), httpHeaders: resolved.headers);
-    _attach(ctrl);
-    try {
-      await ctrl.initialize();
-    } catch (_) {
-      _fail(ctrl);
-      return;
-    }
-    if (!mounted || ctrl != _controller) return;
+    final engine = await _open(
+      PlayerSource(
+        url: resolved.stream,
+        headers: resolved.headers,
+        format: streamFormatFromApi(resolved.streamType),
+      ),
+    );
+    if (engine == null) return;
     setState(() => _resolving = false);
-    await ctrl.setVolume(_muted ? 0 : _volume);
-    await ctrl.play();
+    await engine.setVolume(_muted ? 0 : _volume);
+    await engine.play();
   }
 
   Future<void> _openExternal() async {
@@ -367,21 +399,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!ok && mounted) showVxSnack(context, "Impossible d'ouvrir le lien.");
   }
 
-  /// Follows the controller: play / pause, buffering, and an error at any time (not only at the
+  /// Follows the engine: play / pause, buffering, and an error at any time (not only at the
   /// start).
-  void _onControllerValue(VideoPlayerController controller) {
-    if (controller != _controller || !mounted) return;
-    final value = controller.value;
+  void _onEngineValue(PlayerEngine engine) {
+    if (engine != _engine || !mounted) return;
+    final value = engine.value;
     if (value.hasError) {
-      _fail(controller);
+      _fail(engine, value.error);
       return;
     }
-    if (value.isPlaying == _playing && value.isBuffering == _buffering) return;
-    final started = value.isPlaying && !_playing;
-    final stopped = !value.isPlaying && _playing;
+    // The browser refused to start with sound and started muted: the sound button says so, and
+    // pressing it (a gesture the browser sees) turns the sound on.
+    final mutedByBrowser = value.autoplayMuted && !_autoplayMuted;
+    if (value.autoplayMuted != _autoplayMuted) {
+      setState(() {
+        _autoplayMuted = value.autoplayMuted;
+        if (mutedByBrowser) _muted = true;
+      });
+    }
+    if (value.playing == _playing && value.buffering == _buffering && value.initialized == _initialized) return;
+    final started = value.playing && !_playing;
+    final stopped = !value.playing && _playing;
     setState(() {
-      _playing = value.isPlaying;
-      _buffering = value.isBuffering;
+      _initialized = value.initialized;
+      _playing = value.playing;
+      _buffering = value.buffering;
       // Paused (or refused to start): the controls stay until playback resumes.
       if (stopped) _controlsVisible = true;
     });
@@ -392,21 +434,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
-  /// Shows the error when [failed], the current controller, cannot play: it refuses to start,
-  /// breaks down, or (live) its image does not move.
+  /// Shows the error when [failed], the current engine, cannot play: it refuses to start,
+  /// breaks down, or (live) its image does not move. The sentence depends on the [cause] when
+  /// the engine knows it (network, a server that refuses browsers, an unsupported format).
   ///
-  /// A failure is reported twice (the controller's error and the end of `initialize`): only the
-  /// first counts, since the controller is no longer the current one after it.
-  void _fail(VideoPlayerController failed) {
-    if (failed != _controller || !mounted) return;
+  /// A failure is reported twice (the engine's state and the end of `open`): only the first
+  /// counts, since the engine is no longer the current one after it.
+  void _fail(PlayerEngine failed, [PlayerError? cause]) {
+    if (failed != _engine || !mounted) return;
     _liveWatchdog?.cancel();
     _hideTimer?.cancel();
-    _controller = null;
+    _engine = null;
+    debugPrint('Player engine "${failed.name}" failed: ${cause ?? 'no picture'}');
     // Not during its own notification (ChangeNotifier forbids it): right after.
     Future.microtask(failed.dispose);
     setState(() {
-      _error = widget.live ? _liveError : _sourceError;
+      _error = playerErrorMessage(cause, fallback: widget.live ? _liveError : _sourceError, web: kIsWeb);
       _resolving = false;
+      _initialized = false;
       _playing = false;
       _buffering = false;
       _controlsVisible = true;
@@ -417,12 +462,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// [PlayerScreen.stallTimeout] shows the error; a pause (or a start refused by the browser) is
   /// not a stall.
   ///
-  /// The position is asked to the player (`controller.position`): `value.position` is clamped to
-  /// the duration, and a live stream on the web has none (it never moves there).
-  Future<void> _checkLiveProgress(VideoPlayerController controller) async {
-    if (controller != _controller || !mounted) return;
-    final position = await controller.position;
-    if (controller != _controller || !mounted) return;
+  /// The position is asked to the player (`engine.position`): `value.position` may be clamped to
+  /// the duration, and a live stream has none (it never moves there).
+  Future<void> _checkLiveProgress(PlayerEngine engine) async {
+    if (engine != _engine || !mounted) return;
+    final position = await engine.position;
+    if (engine != _engine || !mounted) return;
 
     // The first position seen is only a reference: a live stream can start anywhere.
     final moved = position != null && _lastLivePosition != null && position != _lastLivePosition;
@@ -433,26 +478,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         setState(() => _liveProgressing = true);
         _scheduleHide();
       }
-    } else if (controller.value.isPlaying) {
+    } else if (engine.value.playing) {
       _liveStalledFor += _watchdogTick;
-      if (_liveStalledFor >= PlayerScreen.stallTimeout) _fail(controller);
+      if (_liveStalledFor >= PlayerScreen.stallTimeout) _fail(engine);
     } else {
       _liveStalledFor = Duration.zero;
     }
   }
 
   bool get _ready {
-    final controller = _controller;
-    return controller != null && controller.value.isInitialized && !controller.value.hasError;
+    final engine = _engine;
+    return engine != null && engine.value.initialized && !engine.value.hasError;
   }
 
   Future<void> _togglePlay() async {
-    final controller = _controller;
-    if (controller == null || !_ready) return;
-    if (controller.value.isPlaying) {
-      await controller.pause();
+    final engine = _engine;
+    if (engine == null || !_ready) return;
+    if (engine.value.playing) {
+      await engine.pause();
     } else {
-      await controller.play();
+      await engine.play();
     }
     _showControls();
   }
@@ -470,7 +515,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _muted = !_muted;
       if (!_muted && _volume == 0) _volume = 1;
     });
-    await _controller?.setVolume(_muted ? 0 : _volume);
+    await _engine?.setVolume(_muted ? 0 : _volume);
     _showControls();
   }
 
@@ -479,7 +524,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _volume = volume;
       _muted = volume == 0;
     });
-    await _controller?.setVolume(volume);
+    await _engine?.setVolume(volume);
     _showControls();
   }
 
@@ -533,8 +578,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   void _onSurfaceTap() {
     // Paused, or the browser refused to start playback on its own: the tap starts it.
-    final controller = _controller;
-    if (controller != null && _ready && !controller.value.isPlaying) {
+    final engine = _engine;
+    if (engine != null && _ready && !engine.value.playing) {
       _togglePlay();
       return;
     }
@@ -629,46 +674,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       final vtt = await ref.read(playbackRepositoryProvider).subtitleFile(choice.fileId);
       if (!mounted) return;
       setState(() {
-        _captions = _parseWebVtt(vtt);
+        _captions = parseWebVtt(vtt);
         _selectedSubtitle = choice.language;
       });
     } catch (_) {
       if (mounted) showVxSnack(context, 'Impossible de charger les sous-titres.');
     }
-  }
-
-  List<_CaptionCue> _parseWebVtt(String input) {
-    final blocks = input.replaceAll('\r', '').split('\n\n');
-    final cues = <_CaptionCue>[];
-    final time = RegExp(r'(?:(\d{2}):)?(\d{2}):(\d{2})[,.](\d{3})');
-    Duration? parseTime(String value) {
-      final match = time.firstMatch(value);
-      if (match == null) return null;
-      final h = int.tryParse(match.group(1) ?? '0') ?? 0;
-      final m = int.tryParse(match.group(2) ?? '0') ?? 0;
-      final s = int.tryParse(match.group(3) ?? '0') ?? 0;
-      final ms = int.tryParse(match.group(4) ?? '0') ?? 0;
-      return Duration(hours: h, minutes: m, seconds: s, milliseconds: ms);
-    }
-    for (final block in blocks) {
-      final lines = block.split('\n');
-      final index = lines.indexWhere((line) => line.contains('-->'));
-      if (index < 0) continue;
-      final parts = lines[index].split('-->');
-      if (parts.length != 2) continue;
-      final start = parseTime(parts[0]);
-      final end = parseTime(parts[1]);
-      final text = lines.skip(index + 1).join('\n').trim();
-      if (start != null && end != null && text.isNotEmpty) cues.add(_CaptionCue(start, end, text));
-    }
-    return cues;
-  }
-
-  String? _captionAt(Duration position) {
-    for (final cue in _captions) {
-      if (position >= cue.start && position < cue.end) return cue.text;
-    }
-    return null;
   }
 
   Future<void> _openEpisodes() async {
@@ -789,7 +800,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
     }
 
-    final controller = _controller;
+    final engine = _engine;
     final ready = _ready;
     final visible = _controlsVisible || !_canHide;
     final error = _error;
@@ -831,25 +842,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _onSurfaceTap,
-                child: Center(
-                  child: ready
-                      ? AspectRatio(aspectRatio: controller!.value.aspectRatio, child: VideoPlayer(controller))
-                      : null,
-                ),
-              ),
+              // The picture, drawn by the engine (a native view, a <video>…). It never gets the
+              // pointer: taps and the mouse belong to the Flutter layers above, on every platform.
+              if (engine != null)
+                IgnorePointer(child: KeyedSubtree(key: ObjectKey(engine), child: engine.buildView(context))),
+              GestureDetector(behavior: HitTestBehavior.opaque, onTap: _onSurfaceTap),
               if (status != null) status,
-              if (controller != null && _captions.isNotEmpty)
+              if (engine != null && _captions.isNotEmpty)
                 Positioned(
                   left: 24,
                   right: 24,
                   bottom: 100,
-                  child: ValueListenableBuilder<VideoPlayerValue>(
-                    valueListenable: controller,
+                  child: ValueListenableBuilder<PlayerEngineValue>(
+                    valueListenable: engine,
                     builder: (context, value, _) {
-                      final caption = _captionAt(value.position);
+                      final caption = captionAt(_captions, value.position);
                       if (caption == null) return const SizedBox.shrink();
                       return IgnorePointer(
                         child: Center(
@@ -907,9 +914,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   alignment: Alignment.bottomCenter,
                   child: AnimatedBuilder(
                     // The time and the seek bar follow the video.
-                    animation: Listenable.merge(controller == null ? const <Listenable>[] : <Listenable>[controller]),
+                    animation: Listenable.merge(engine == null ? const <Listenable>[] : <Listenable>[engine]),
                     builder: (context, _) {
-                      final value = _controller?.value;
+                      final value = _engine?.value;
                       return _BottomBar(
                         playFocus: _playFocus,
                         ready: _ready,
@@ -926,7 +933,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         onMute: _toggleMute,
                         onVolume: _setVolume,
                         onFullscreen: _toggleFullscreen,
-                        onSeek: widget.live ? null : (Duration position) => _controller?.seekTo(position),
+                        onSeek: widget.live ? null : (Duration position) => _engine?.seekTo(position),
                         onBackToLive: widget.live && _ready ? _backToLive : null,
                         onSources: widget.live ? null : _openSources,
                         onSubtitles: widget.live ? null : _showSubtitles,
@@ -1562,11 +1569,4 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       ),
     );
   }
-}
-
-class _CaptionCue {
-  const _CaptionCue(this.start, this.end, this.text);
-  final Duration start;
-  final Duration end;
-  final String text;
 }
