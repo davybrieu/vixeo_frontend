@@ -374,19 +374,16 @@ void main() {
       return completer.future;
     }
 
-    test('lists the enabled scrapers that handle the title, from every repository', () async {
+    test('lists the scrapers that handle the title, from every repository', () async {
       final repo = testRepo();
-      final off = repo.copyWith(
-        scrapers: [repo.scrapers[0].copyWith(enabled: false), ...repo.scrapers.skip(1)],
-      );
 
-      final state = await read(containerWith(repos: [off]), sourceProvidersProvider(item));
+      final state = await read(containerWith(repos: [repo]), sourceProvidersProvider(item));
 
-      // The movie scraper is off and the series one does not handle a movie.
-      expect(state.requireValue.map((p) => p.name), ['Tout']);
-      expect(state.requireValue.single.id, off.scrapers[2].providerId);
+      // The series scraper does not handle a movie.
+      expect(state.requireValue.map((p) => p.name), ['Films libres', 'Tout']);
+      expect(state.requireValue.first.id, repo.scrapers[0].providerId);
 
-      final series = await read(containerWith(repos: [off]), sourceProvidersProvider(tvItem));
+      final series = await read(containerWith(repos: [repo]), sourceProvidersProvider(tvItem));
       expect(series.requireValue.map((p) => p.name), ['Séries libres', 'Tout']);
     });
 
@@ -394,16 +391,6 @@ void main() {
       final container = containerWith();
 
       expect((await read(container, sourceProvidersProvider(item))).requireValue, isEmpty);
-      expect((await read(container, hasDisabledPluginsProvider)).requireValue, isFalse);
-    });
-
-    test('has no provider, and says so, when a plug-in is turned off and nothing else gives sources', () async {
-      final repo = testRepo();
-      final allOff = repo.copyWith(scrapers: [for (final s in repo.scrapers) s.copyWith(enabled: false)]);
-      final container = containerWith(repos: [allOff]);
-
-      expect((await read(container, sourceProvidersProvider(item))).requireValue, isEmpty);
-      expect((await read(container, hasDisabledPluginsProvider)).requireValue, isTrue);
     });
 
     test('never asks the API for providers: the plug-ins are on the device', () async {

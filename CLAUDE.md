@@ -394,10 +394,10 @@ lib/
   jamais le réseau local, 40 requêtes, 30 s…) puis exécute elle-même (en direct sur Android / iOS ;
   par le serveur sur le web, `POST /scrapers/fetch`, à cause de CORS ; le jeton Vixeo n'est jamais
   envoyé à un tiers). Sur le web, un flux passe par `POST /scrapers/stream` (`proxyScraperStream`).
-  **Sources** : `sourceProvidersProvider` liste les scrapers activés qui gèrent le type du titre
+  **Sources** : `sourceProvidersProvider` liste les scrapers qui gèrent le type du titre
   (un fournisseur chacun, `scraper:{dépôt}:{id}`) ; `providerSourcesProvider` les exécute ; leurs
   flux sont **déjà lisibles** et le lecteur ne les `resolve` pas. Sans dépôt, le panneau écrit
-  « Aucun plug-in n'est installé. » ; tous désactivés : « Aucun plug-in n'est activé. ». Après un
+  « Aucun plug-in n'est installé. ». Le contrôle se fait au niveau du dépôt (pas de toggle par scraper). Après un
   changement : `ref.invalidate(sourceProvidersProvider)`. Implémentation de référence du serveur et
   de la garde : `tools/scraper-runner` (Node + vrai QuickJS, `npm test`). **Pas encore vérifié** :
   la partie Dart n'a pas pu être compilée là où elle a été écrite (pas de SDK) ; l'API de

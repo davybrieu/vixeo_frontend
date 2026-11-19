@@ -122,24 +122,6 @@ void main() {
       expect(container.read(scraperReposProvider).value, hasLength(1));
     });
 
-    test('turn a scraper off and on, and choose where it runs', () async {
-      final repo = testRepo();
-      final store = MemoryLocalStore();
-      final container = keptContainer(repos: [repo], store: store);
-      await reposOf(container);
-      final repos = container.read(scraperReposProvider.notifier);
-      final films = repo.scrapers.first;
-
-      await repos.setEnabled(films.key, enabled: false);
-      await repos.setMode(films.key, ScraperMode.server);
-
-      final saved = ScraperRepo.decodeList(store.values[ScraperRepos.keyFor(7)]).single.scrapers;
-      expect(saved.first.enabled, isFalse);
-      expect(saved.first.mode, ScraperMode.server);
-      expect(saved[1].enabled, isTrue);
-      expect(saved[1].mode, ScraperMode.device);
-    });
-
     test('move a scraper inside its repository, and ignore a move that makes no sense', () async {
       final repo = testRepo();
       final container = keptContainer(repos: [repo]);
@@ -172,14 +154,10 @@ void main() {
       final container = keptContainer(repos: [repo], http: FakeScraperHttp(changed));
       await reposOf(container);
       final repos = container.read(scraperReposProvider.notifier);
-      await repos.setEnabled(repo.scrapers.first.key, enabled: false);
-
       await repos.refresh(repo.id);
 
       final scrapers = container.read(scraperReposProvider).value!.single.scrapers;
       expect(scrapers.map((s) => s.id), ['films', 'series', 'tout', 'neuf']);
-      expect(scrapers.first.enabled, isFalse);
-      expect(scrapers.last.enabled, isTrue);
     });
 
     test('remove a repository', () async {
@@ -439,7 +417,7 @@ void main() {
   });
 
   group('player', () {
-    Future<void> openPanel(WidgetTester tester, {required bool disabledPlugins}) async {
+    Future<void> openPanel(WidgetTester tester) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -447,7 +425,6 @@ void main() {
             playbackRepositoryProvider.overrideWithValue(_NoResolve()),
             playerEngineFactoryProvider.overrideWithValue((source) => FakeEngine()),
             sourceProvidersProvider.overrideWith((ref, item) async => const <SourceProvider>[]),
-            hasDisabledPluginsProvider.overrideWith((ref) async => disabledPlugins),
           ],
           child: MaterialApp(
             theme: buildVixeoTheme(),
@@ -459,18 +436,9 @@ void main() {
     }
 
     testWidgets('says that no plug-in is installed when there is none', (tester) async {
-      await openPanel(tester, disabledPlugins: false);
+      await openPanel(tester);
 
       expect(find.text("Aucun plug-in n'est installé."), findsOneWidget);
-
-      await closePlayer(tester);
-    });
-
-    testWidgets('says that no plug-in is enabled when they are all turned off', (tester) async {
-      await openPanel(tester, disabledPlugins: true);
-
-      expect(find.text("Aucun plug-in n'est activé."), findsOneWidget);
-      expect(find.text("Aucun plug-in n'est installé."), findsNothing);
 
       await closePlayer(tester);
     });

@@ -72,7 +72,6 @@ void main() {
       expect(manifest.scrapers[0].version, '1.2.0');
       // No `supportedTypes`: both.
       expect(manifest.scrapers[2].types, {'movie', 'tv'});
-      expect(manifest.scrapers[2].enabled, isTrue);
     });
 
     test('accepts `providers`, a bare list, and a repository without a name', () {
@@ -84,7 +83,7 @@ void main() {
     test('leaves out entries that cannot be used, and duplicates', () {
       final manifest = RepositoryManifest.parse({
         'scrapers': [
-          {'id': 'ok', 'filename': 'ok.js', 'enabled': false, 'supportedTypes': ['movie', 'anime']},
+          {'id': 'ok', 'filename': 'ok.js', 'supportedTypes': ['movie', 'anime']},
           {'id': 'ok', 'filename': 'again.js'},
           {'id': 'sans fichier'},
           {'id': 'mauvais id !', 'filename': 'x.js'},
@@ -96,7 +95,6 @@ void main() {
 
       expect(manifest.scrapers.map((s) => s.id), ['ok']);
       expect(manifest.scrapers.single.filename, 'ok.js');
-      expect(manifest.scrapers.single.enabled, isFalse);
       expect(manifest.scrapers.single.types, {'movie'});
     });
 
@@ -152,40 +150,33 @@ void main() {
       expect(repo.scrapers[2].supports(MediaType.movie) && repo.scrapers[2].supports(MediaType.tv), isTrue);
     });
 
-    test('are kept as JSON with the person’s choices, and unreadable data is an empty list', () {
+    test('are kept as JSON, and unreadable data is an empty list', () {
       final repo = testRepo();
-      final changed = repo.copyWith(
-        scrapers: [
-          repo.scrapers[0].copyWith(enabled: false, mode: ScraperMode.server),
-          ...repo.scrapers.skip(1),
-        ],
-      );
 
-      final back = ScraperRepo.decodeList(ScraperRepo.encodeList([changed]));
+      final back = ScraperRepo.decodeList(ScraperRepo.encodeList([repo]));
 
       expect(back.single.url, repoUrl);
       expect(back.single.id, repo.id);
       expect(back.single.scrapers.map((s) => s.id), ['films', 'series', 'tout']);
-      expect(back.single.scrapers[0].enabled, isFalse);
-      expect(back.single.scrapers[0].mode, ScraperMode.server);
-      expect(back.single.scrapers[1].mode, ScraperMode.device);
+      expect(back.single.mode, ScraperMode.device);
       expect(back.single.scrapers[0].types, {'movie'});
       for (final bad in [null, '', 'pas du json', '{"a":1}', '[1,"x",{"url":null}]']) {
         expect(ScraperRepo.decodeList(bad), isEmpty, reason: '$bad');
       }
     });
 
-    test('keep the person’s choices and order when the manifest is read again', () {
+    test('keep the order of existing scrapers when the manifest is read again', () {
       final repo = testRepo();
-      final chosen = repo.copyWith(
+      final reordered = repo.copyWith(
         scrapers: [
           repo.scrapers[2], // moved first
-          repo.scrapers[0].copyWith(enabled: false, mode: ScraperMode.server),
+          repo.scrapers[0],
           repo.scrapers[1],
         ],
       );
       final manifest = RepositoryManifest.parse({
         'name': 'Nouveau nom',
+        'execution': 'server',
         'scrapers': [
           {'id': 'films', 'name': 'Films libres 2', 'filename': 'providers/films.js', 'version': '2.0.0'},
           {'id': 'tout', 'name': 'Tout', 'filename': 'https://cdn.test/tout.js'},
@@ -194,15 +185,13 @@ void main() {
         ],
       }, fallbackName: 'x');
 
-      final updated = chosen.updatedWith(manifest);
+      final updated = reordered.updatedWith(manifest);
 
       expect(updated.name, 'Nouveau nom');
+      expect(updated.mode, ScraperMode.server);
       expect(updated.scrapers.map((s) => s.id), ['tout', 'films', 'neuf']);
       expect(updated.scrapers[1].name, 'Films libres 2');
       expect(updated.scrapers[1].version, '2.0.0');
-      expect(updated.scrapers[1].enabled, isFalse);
-      expect(updated.scrapers[1].mode, ScraperMode.server);
-      expect(updated.scrapers[2].enabled, isTrue);
     });
   });
 
