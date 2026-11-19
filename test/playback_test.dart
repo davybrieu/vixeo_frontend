@@ -351,6 +351,8 @@ void main() {
 
     ProviderContainer containerWith(RoutingAdapter adapter) {
       final container = ProviderContainer(
+        // Like the app (`main.dart`): a failed request is an error, not retried in the background.
+        retry: (_, _) => null,
         overrides: [
           apiClientProvider.overrideWithValue(routingClient(adapter)),
           // The plug-ins are the account's: `addonsProvider` follows the signed-in user.
