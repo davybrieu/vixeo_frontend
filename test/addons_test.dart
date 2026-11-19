@@ -1,12 +1,18 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/api/api_exception.dart';
+import 'package:vixeo/core/local_store.dart';
 import 'package:vixeo/core/theme.dart';
-import 'package:vixeo/features/addons/addons.dart';
 import 'package:vixeo/features/addons/addons_screen.dart';
+import 'package:vixeo/features/addons/scraper_guard.dart';
+import 'package:vixeo/features/addons/scraper_host.dart';
+import 'package:vixeo/features/addons/scraper_models.dart';
+import 'package:vixeo/features/addons/scrapers.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/playback/engine/engine_factory.dart';
@@ -14,259 +20,412 @@ import 'package:vixeo/features/playback/playback.dart';
 import 'package:vixeo/features/playback/player_screen.dart';
 
 import 'player_engine_test.dart' show FakeEngine, SignedOut, settle, closePlayer;
+import 'scraper_fakes.dart';
 import 'tv_repository_test.dart' show RoutingAdapter;
 
-/// Installed on the server for every account: no buttons.
-const everyone = AddonInfo(
-  id: '7',
-  name: 'Pour tous',
-  version: '1.0.0',
-  host: 'shared.test',
-  resources: ['stream'],
-  types: ['movie', 'tv'],
-  streams: true,
-  shared: true,
+const movie = (type: MediaType.movie, id: 550, season: null, episode: null);
+const episode = (type: MediaType.tv, id: 1399, season: 2, episode: 3);
+
+final _files = {
+  repoUrl: jsonEncode(manifestJson()),
+  'https://repo.test/providers/films.js': 'module.exports = { films: 1 };',
+  'https://repo.test/providers/series.js': 'module.exports = { series: 1 };',
+};
+
+ApiClient apiWith(RoutingAdapter adapter) => ApiClient(
+  token: () => 't',
+  profileId: () => 2,
+  dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
 );
 
-AddonInfo own(String id, String name, {bool enabled = true, bool streams = true}) => AddonInfo(
-  id: id,
-  name: name,
-  version: '2.0.0',
-  host: '$id.test',
-  resources: streams ? const ['stream'] : const ['catalog'],
-  types: const ['movie'],
-  streams: streams,
-  enabled: enabled,
-);
-
-/// The account's plug-ins without the API: what each button asked for is kept.
-class FakeAddons extends AddonsRepository {
-  FakeAddons(this.addons) : super(ApiClient(token: () => null, profileId: () => null));
-
-  List<AddonInfo> addons;
-  final installed = <String>[];
-  final toggled = <(String, bool)>[];
-  final orders = <List<String>>[];
-  final removed = <String>[];
-  ApiException? refuse;
-
-  @override
-  Future<List<AddonInfo>> list() async => addons;
-
-  @override
-  Future<AddonInfo> install(String url) async {
-    if (refuse != null) throw refuse!;
-    installed.add(url);
-    final addon = own('new', 'Nouveau');
-    addons = [...addons, addon];
-    return addon;
-  }
-
-  @override
-  Future<void> setEnabled(String id, {required bool enabled}) async {
-    toggled.add((id, enabled));
-    addons = [for (final a in addons) a.id == id ? own(a.id, a.name, enabled: enabled) : a];
-  }
-
-  @override
-  Future<void> reorder(List<String> ids) async => orders.add(ids);
-
-  @override
-  Future<void> remove(String id) async {
-    removed.add(id);
-    addons = [for (final a in addons) if (a.id != id) a];
-  }
+/// Keeps the repositories loaded (Riverpod 3 disposes what nothing listens to).
+Future<List<ScraperRepo>> reposOf(ProviderContainer container) async {
+  final sub = container.listen(scraperReposProvider, (_, _) {});
+  addTearDown(sub.close);
+  return container.read(scraperReposProvider.future);
 }
 
-Future<FakeAddons> openAddons(WidgetTester tester, FakeAddons fake) async {
-  tester.view.physicalSize = const Size(1000, 2400);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        sessionProvider.overrideWith(SignedOut.new),
-        addonsRepositoryProvider.overrideWithValue(fake),
-      ],
-      child: MaterialApp(theme: buildVixeoTheme(), home: const AddonsScreen()),
-    ),
-  );
-  await tester.pumpAndSettle();
-  return fake;
+ProviderContainer keptContainer({
+  List<ScraperRepo>? repos,
+  FakeScraperHttp? http,
+  FakeScraperRuntime? runtime,
+  MemoryLocalStore? store,
+  ApiClient? api,
+}) {
+  final container = scraperContainer(repos: repos, http: http, runtime: runtime, store: store, api: api);
+  addTearDown(container.dispose);
+  return container;
 }
 
 void main() {
-  group('models', () {
-    test('reads a plug-in of the account', () {
-      final addon = AddonInfo.fromJson({
-        'id': '12',
-        'name': 'Films libres',
-        'description': null,
-        'version': '2.1.0',
-        'logo_url': 'https://addon.test/logo.png',
-        'host': 'addon.test',
-        'resources': ['catalog', 'stream'],
-        'types': ['movie', 'tv'],
-        'streams': true,
-        'enabled': false,
-        'shared': false,
-        'adult': false,
-      });
-      expect(addon.id, '12');
-      expect(addon.host, 'addon.test');
-      expect(addon.enabled, isFalse);
-      expect(addon.editable, isTrue);
-      expect(addon.hasStreams, isTrue);
-      expect(AddonInfo.fromJson({'id': '3', 'name': 'Tous', 'version': '1', 'shared': true}).editable, isFalse);
-      // A plug-in installed when plug-ins could add catalogs: it gives no source.
-      expect(
-        AddonInfo.fromJson({'id': '4', 'name': 'Catalogue', 'version': '1', 'streams': false}).hasStreams,
-        isFalse,
+  group('installed repositories', () {
+    test('start empty', () async {
+      expect(await reposOf(keptContainer()), isEmpty);
+    });
+
+    test('install a repository from its address, and keep it on the device for the account', () async {
+      final store = MemoryLocalStore();
+      final container = keptContainer(store: store, http: FakeScraperHttp(_files));
+      await reposOf(container);
+
+      // A folder address: manifest.json is added.
+      final repo = await container.read(scraperReposProvider.notifier).add('  https://repo.test ');
+
+      expect(repo.url, repoUrl);
+      expect(repo.name, 'Dépôt test');
+      expect(container.read(scraperReposProvider).value!.single.scrapers, hasLength(3));
+      expect(ScraperRepo.decodeList(store.values[ScraperRepos.keyFor(7)]).single.url, repoUrl);
+
+      // Another start of the app: the repository is still there.
+      final again = keptContainer(store: store);
+      expect((await reposOf(again)).single.scrapers.map((s) => s.id), ['films', 'series', 'tout']);
+    });
+
+    test('refuse an address, a repository or a manifest that cannot be used, and say why', () async {
+      final container = keptContainer(
+        http: FakeScraperHttp({
+          ..._files,
+          'https://empty.test/manifest.json': '{"scrapers":[]}',
+          'https://text.test/manifest.json': '<html>',
+        }),
       );
-      // An older API, without `streams`: read from the resources.
-      expect(
-        AddonInfo.fromJson({
-          'id': '5',
-          'name': 'Ancien',
-          'version': '1',
-          'resources': ['stream'],
-        }).hasStreams,
-        isTrue,
+      await reposOf(container);
+      final repos = container.read(scraperReposProvider.notifier);
+
+      Future<String> failure(String input) async {
+        try {
+          await repos.add(input);
+        } on ScraperException catch (e) {
+          return e.message;
+        }
+        return 'pas d’erreur';
+      }
+
+      expect(await failure('http://repo.test/manifest.json'), 'Seules les adresses https:// sont acceptées.');
+      expect(await failure('https://127.0.0.1/manifest.json'), startsWith('Adresse refusée'));
+      expect(await failure('https://absent.test/manifest.json'), 'Téléchargement impossible (erreur 404).');
+      expect(await failure('https://text.test/manifest.json'), "Ce n'est pas le manifeste d'un dépôt de plug-ins.");
+      expect(await failure('https://empty.test/manifest.json'), 'Ce dépôt ne contient aucun plug-in utilisable.');
+      expect(container.read(scraperReposProvider).value, isEmpty);
+
+      await repos.add(repoUrl);
+      expect(await failure(repoUrl), 'Ce dépôt est déjà installé.');
+      expect(container.read(scraperReposProvider).value, hasLength(1));
+    });
+
+    test('turn a scraper off and on, and choose where it runs', () async {
+      final repo = testRepo();
+      final store = MemoryLocalStore();
+      final container = keptContainer(repos: [repo], store: store);
+      await reposOf(container);
+      final repos = container.read(scraperReposProvider.notifier);
+      final films = repo.scrapers.first;
+
+      await repos.setEnabled(films.key, enabled: false);
+      await repos.setMode(films.key, ScraperMode.server);
+
+      final saved = ScraperRepo.decodeList(store.values[ScraperRepos.keyFor(7)]).single.scrapers;
+      expect(saved.first.enabled, isFalse);
+      expect(saved.first.mode, ScraperMode.server);
+      expect(saved[1].enabled, isTrue);
+      expect(saved[1].mode, ScraperMode.device);
+    });
+
+    test('move a scraper inside its repository, and ignore a move that makes no sense', () async {
+      final repo = testRepo();
+      final container = keptContainer(repos: [repo]);
+      await reposOf(container);
+      final repos = container.read(scraperReposProvider.notifier);
+      List<String> order() => [for (final s in container.read(scraperReposProvider).value!.single.scrapers) s.id];
+
+      await repos.move(repo.id, 2, 0);
+      expect(order(), ['tout', 'films', 'series']);
+      await repos.move(repo.id, 0, 1);
+      expect(order(), ['films', 'tout', 'series']);
+      await repos.move(repo.id, 0, 3);
+      await repos.move(repo.id, -1, 0);
+      await repos.move('autre', 0, 1);
+      expect(order(), ['films', 'tout', 'series']);
+    });
+
+    test('read the manifest again without losing the person’s choices', () async {
+      final repo = testRepo();
+      final changed = {
+        ..._files,
+        repoUrl: jsonEncode({
+          'name': 'Dépôt test',
+          'scrapers': [
+            ...(manifestJson()['scrapers']! as List),
+            {'id': 'neuf', 'name': 'Neuf', 'filename': 'providers/neuf.js'},
+          ],
+        }),
+      };
+      final container = keptContainer(repos: [repo], http: FakeScraperHttp(changed));
+      await reposOf(container);
+      final repos = container.read(scraperReposProvider.notifier);
+      await repos.setEnabled(repo.scrapers.first.key, enabled: false);
+
+      await repos.refresh(repo.id);
+
+      final scrapers = container.read(scraperReposProvider).value!.single.scrapers;
+      expect(scrapers.map((s) => s.id), ['films', 'series', 'tout', 'neuf']);
+      expect(scrapers.first.enabled, isFalse);
+      expect(scrapers.last.enabled, isTrue);
+    });
+
+    test('remove a repository', () async {
+      final repo = testRepo();
+      final store = MemoryLocalStore();
+      final container = keptContainer(repos: [repo], store: store);
+      await reposOf(container);
+
+      await container.read(scraperReposProvider.notifier).remove(repo.id);
+
+      expect(container.read(scraperReposProvider).value, isEmpty);
+      expect(store.values.containsKey(ScraperRepos.keyFor(7)), isFalse);
+    });
+  });
+
+  group('asking a scraper for streams', () {
+    test('on the device: downloads its code once, runs it with the title, returns its streams', () async {
+      final repo = testRepo();
+      final http = FakeScraperHttp(_files);
+      final runtime = FakeScraperRuntime()
+        ..answer = (code, params) => [ScraperStream(url: 'https://cdn.test/${params.tmdbId}.m3u8')];
+      final container = keptContainer(repos: [repo], http: http, runtime: runtime);
+      final service = container.read(scraperServiceProvider);
+
+      final streams = await service.streams(repo, repo.scrapers[0], movie);
+      await service.streams(repo, repo.scrapers[0], movie);
+
+      expect(streams.single.url, 'https://cdn.test/550.m3u8');
+      expect(runtime.calls.first.code, 'module.exports = { films: 1 };');
+      expect(runtime.calls.first.params.tmdbId, '550');
+      expect(runtime.calls.first.params.mediaType, 'movie');
+      expect(runtime.calls.first.params.season, isNull);
+      expect(http.requests.where((r) => r.url.endsWith('films.js')), hasLength(1));
+    });
+
+    test('gives the season and the episode of a series, and none for a movie', () async {
+      final repo = testRepo();
+      final runtime = FakeScraperRuntime();
+      final container = keptContainer(repos: [repo], http: FakeScraperHttp(_files), runtime: runtime);
+      final service = container.read(scraperServiceProvider);
+
+      await service.streams(repo, repo.scrapers[1], episode);
+
+      final params = runtime.calls.single.params;
+      expect((params.tmdbId, params.mediaType, params.season, params.episode), ('1399', 'tv', 2, 3));
+    });
+
+    test('says so when the code cannot be downloaded, or the scraper fails', () async {
+      final repo = testRepo();
+      final runtime = FakeScraperRuntime();
+      final container = keptContainer(repos: [repo], http: FakeScraperHttp({}), runtime: runtime);
+      final service = container.read(scraperServiceProvider);
+
+      await expectLater(
+        service.streams(repo, repo.scrapers[0], movie),
+        throwsA(isA<ScraperException>().having((e) => e.message, 'message', 'Téléchargement impossible (erreur 404).')),
+      );
+
+      runtime.error = const ScraperException('boom');
+      final working = keptContainer(repos: [repo], http: FakeScraperHttp(_files), runtime: runtime);
+      await expectLater(
+        working.read(scraperServiceProvider).streams(repo, repo.scrapers[0], movie),
+        throwsA(isA<ScraperException>().having((e) => e.message, 'message', 'boom')),
       );
     });
 
-    test('leaves out the Vixeo catalog an older API still listed', () async {
+    test('on the server: asks the API, and never runs or downloads anything itself', () async {
+      final repo = testRepo();
+      final server = repo.scrapers[0].copyWith(mode: ScraperMode.server);
       final adapter = RoutingAdapter([
         (
-          '/addons',
+          '/scrapers/run',
           {
             'data': [
-              {'id': 'vixeo', 'name': 'Vixeo', 'version': '1.0.0', 'built_in': true},
-              {'id': '12', 'name': 'Films libres', 'version': '2.1.0', 'built_in': false, 'streams': true},
+              {'url': 'https://cdn.test/s.mp4', 'name': 'Serveur', 'quality': '720p'},
+              {'url': 'pas un lien'},
             ],
           },
           200,
         ),
       ]);
-      final repository = AddonsRepository(
-        ApiClient(
-          token: () => 't',
-          profileId: () => null,
-          dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
-        ),
-      );
+      final http = FakeScraperHttp(_files);
+      final runtime = FakeScraperRuntime();
+      final container = keptContainer(repos: [repo], http: http, runtime: runtime, api: apiWith(adapter));
 
-      expect([for (final a in await repository.list()) a.id], ['12']);
+      final streams = await container.read(scraperServiceProvider).streams(repo, server, movie);
+
+      expect(streams.single.label('x'), 'Serveur · 720p');
+      final request = adapter.requests.single;
+      expect(request.method, 'POST');
+      expect(request.data, {
+        'repository_url': repoUrl,
+        'scraper_id': 'films',
+        'tmdb_id': 550,
+        'media_type': 'movie',
+        'season': null,
+        'episode': null,
+      });
+      expect(http.requests, isEmpty);
+      expect(runtime.calls, isEmpty);
     });
 
-    test('reads a source already playable (a plug-in stream) with its headers', () {
-      final source = StreamSource.fromJson({
-        'provider': 'addon:12',
-        'name': 'Films libres 1080p',
-        'url': 'https://cdn.test/a.m3u8',
-        'stream': 'https://cdn.test/a.m3u8',
-        'stream_type': 'm3u8',
-        'extractor': null,
-        'headers': {'Referer': 'https://cdn.test/'},
-      });
-      expect(source.stream, 'https://cdn.test/a.m3u8');
-      expect(source.streamType, 'm3u8');
-      expect(source.headers, {'Referer': 'https://cdn.test/'});
+    test('on the server: an API error becomes a sentence for the person', () async {
+      final repo = testRepo();
+      final server = repo.scrapers[0].copyWith(mode: ScraperMode.server);
+      final adapter = RoutingAdapter([
+        ('/scrapers/run', {'message': 'Le serveur ne peut pas lancer ce plug-in.'}, 503),
+      ]);
+      final container = keptContainer(repos: [repo], api: apiWith(adapter));
 
-      final link = StreamSource.fromJson({'provider': 'p', 'name': 'VF', 'url': 'https://host.test/e', 'stream': null});
-      expect(link.stream, isNull);
-      expect(link.headers, isEmpty);
+      await expectLater(
+        container.read(scraperServiceProvider).streams(repo, server, movie),
+        throwsA(isA<ScraperException>().having((e) => e.message, 'message', 'Le serveur ne peut pas lancer ce plug-in.')),
+      );
+    });
+
+    test('runs at most three scrapers at once', () async {
+      final repo = testRepo();
+      final runtime = _SlowRuntime();
+      final container = keptContainer(repos: [repo], http: FakeScraperHttp(_files), runtime: runtime);
+      final service = container.read(scraperServiceProvider);
+
+      final all = [for (var i = 0; i < 6; i++) service.streams(repo, repo.scrapers[0], movie)];
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(runtime.running, ScraperService.maxParallel);
+
+      await Future.wait(all);
+      expect(runtime.started, 6);
+      expect(runtime.peak, ScraperService.maxParallel);
     });
   });
 
   group('« Plug-ins »', () {
-    testWidgets('sources only: those of every account without buttons, the account’s own ones with theirs', (
-      tester,
-    ) async {
-      await openAddons(
-        tester,
-        FakeAddons([
-          everyone,
-          own('1', 'Premier'),
-          own('2', 'Second', enabled: false),
-          own('3', 'Catalogue', streams: false),
-        ]),
+    Future<ProviderContainer> open(WidgetTester tester, ProviderContainer container) async {
+      tester.view.physicalSize = const Size(1000, 2800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(theme: buildVixeoTheme(), home: const AddonsScreen()),
+        ),
       );
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    List<String> order(ProviderContainer c) => [for (final s in c.read(scraperReposProvider).value!.single.scrapers) s.id];
+
+    testWidgets('says that Vixeo provides no repository, and that none is installed', (tester) async {
+      await open(tester, keptContainer());
 
       expect(find.text('Plug-ins'), findsOneWidget);
-      expect(find.textContaining('Le catalogue ne change pas.'), findsOneWidget);
-      expect(find.textContaining('catalogue Vixeo'), findsNothing);
-      expect(find.textContaining('Copier'), findsNothing);
-
-      expect(find.text('Pour tous les comptes · shared.test'), findsOneWidget);
-      expect(find.bySemanticsLabel('Retirer : Pour tous'), findsNothing);
-      expect(find.bySemanticsLabel('Désactiver : Pour tous'), findsNothing);
-
-      expect(find.text('1.test'), findsOneWidget);
-      expect(find.text('Désactivé · 2.test'), findsOneWidget);
-      // Installed when plug-ins could add catalogs: it gives no source, it can be removed.
-      expect(find.text('Aucune source · 3.test'), findsOneWidget);
-      expect(find.bySemanticsLabel('Désactiver : Premier'), findsOneWidget);
-      expect(find.bySemanticsLabel('Activer : Second'), findsOneWidget);
-      expect(find.bySemanticsLabel('Retirer : Premier'), findsOneWidget);
-      expect(find.bySemanticsLabel('Retirer : Catalogue'), findsOneWidget);
+      expect(find.textContaining('Vixeo n’en fournit aucun'), findsOneWidget);
+      expect(find.text('Aucun dépôt installé.'), findsOneWidget);
     });
 
-    testWidgets('installs a plug-in from its address, and says why one is refused', (tester) async {
-      final fake = await openAddons(tester, FakeAddons([everyone])..refuse = const ApiException(
-        'Les données sont invalides.',
-        status: 422,
-        fieldErrors: {
-          'url': ['Cette adresse de plug-in n’est pas autorisée.'],
-        },
-      ));
+    testWidgets('installs a repository from its address, and says why one is refused', (tester) async {
+      final container = await open(tester, keptContainer(http: FakeScraperHttp(_files)));
 
       await tester.tap(find.text('Installer'));
       await tester.pumpAndSettle();
-      expect(find.text('Collez l’adresse du plug-in.'), findsOneWidget);
+      expect(find.text("Collez l'adresse du dépôt."), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'https://private.test/manifest.json');
+      await tester.enterText(find.byType(TextField), 'http://repo.test/manifest.json');
       await tester.tap(find.text('Installer'));
       await tester.pumpAndSettle();
-      expect(find.text('Cette adresse de plug-in n’est pas autorisée.'), findsOneWidget);
+      expect(find.text('Seules les adresses https:// sont acceptées.'), findsOneWidget);
 
-      fake.refuse = null;
-      await tester.enterText(find.byType(TextField), '  https://addon.test/manifest.json ');
+      await tester.enterText(find.byType(TextField), '  https://repo.test/manifest.json ');
       await tester.tap(find.text('Installer'));
       await tester.pumpAndSettle();
-      expect(fake.installed, ['https://addon.test/manifest.json']);
-      expect(find.text('Plug-in installé : Nouveau'), findsOneWidget);
-      expect(find.bySemanticsLabel('Retirer : Nouveau'), findsOneWidget);
+      expect(find.text('Dépôt installé : Dépôt test'), findsOneWidget);
+      expect(find.text('repo.test · 3 plug-ins'), findsOneWidget);
+      expect(find.bySemanticsLabel('Retirer le dépôt : Dépôt test'), findsOneWidget);
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
+      expect(container.read(scraperReposProvider).value, hasLength(1));
     });
 
-    testWidgets('turns off, moves and removes the account’s own plug-ins', (tester) async {
-      final fake = await openAddons(tester, FakeAddons([everyone, own('1', 'Premier'), own('2', 'Second')]));
+    testWidgets('shows what each scraper serves and where it runs', (tester) async {
+      await open(tester, keptContainer(repos: [testRepo()]));
 
-      await tester.tap(find.bySemanticsLabel('Désactiver : Premier'));
+      expect(find.text('Films · Sur l’appareil'), findsOneWidget);
+      expect(find.text('Séries · Sur l’appareil'), findsOneWidget);
+      expect(find.text('Films et séries · Sur l’appareil'), findsOneWidget);
+      expect(find.textContaining('v1.2.0'), findsOneWidget);
+      expect(find.text('Des films.'), findsOneWidget);
+    });
+
+    testWidgets('turns a scraper off, moves it and changes where it runs', (tester) async {
+      final container = await open(tester, keptContainer(repos: [testRepo()]));
+
+      await tester.tap(find.bySemanticsLabel('Désactiver : Films libres'));
       await tester.pumpAndSettle();
-      expect(fake.toggled, [('1', false)]);
       expect(find.text('Plug-in désactivé'), findsOneWidget);
+      expect(find.text('Désactivé · Films · Sur l’appareil'), findsOneWidget);
+      expect(find.bySemanticsLabel('Activer : Films libres'), findsOneWidget);
 
-      await tester.tap(find.bySemanticsLabel('Monter : Second'));
+      await tester.tap(find.bySemanticsLabel('Exécuter sur le serveur : Séries libres'));
       await tester.pumpAndSettle();
-      expect(fake.orders, [
-        ['2', '1'],
-      ]);
+      expect(find.text('S’exécutera sur le serveur'), findsOneWidget);
+      expect(find.text('Séries · Sur le serveur'), findsOneWidget);
+      expect(find.bySemanticsLabel('Exécuter sur l’appareil : Séries libres'), findsOneWidget);
 
-      await tester.tap(find.bySemanticsLabel('Retirer : Second'));
+      await tester.tap(find.bySemanticsLabel('Monter : Séries libres'));
       await tester.pumpAndSettle();
-      expect(find.text('Retirer le plug-in'), findsOneWidget);
+      expect(order(container), ['series', 'films', 'tout']);
+
+      await tester.tap(find.bySemanticsLabel('Descendre : Séries libres'));
+      await tester.pumpAndSettle();
+      expect(order(container), ['films', 'series', 'tout']);
+    });
+
+    testWidgets('reads the repository again, and removes it after a confirmation', (tester) async {
+      final more = {
+        ..._files,
+        repoUrl: jsonEncode({
+          'name': 'Dépôt test',
+          'scrapers': [
+            ...(manifestJson()['scrapers']! as List),
+            {'id': 'neuf', 'name': 'Neuf', 'filename': 'providers/neuf.js'},
+          ],
+        }),
+      };
+      final container = await open(tester, keptContainer(repos: [testRepo()], http: FakeScraperHttp(more)));
+
+      await tester.tap(find.bySemanticsLabel('Mettre à jour le dépôt : Dépôt test'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dépôt mis à jour'), findsOneWidget);
+      expect(find.text('repo.test · 4 plug-ins'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Retirer le dépôt : Dépôt test'));
+      await tester.pumpAndSettle();
+      expect(find.text('Retirer le dépôt'), findsOneWidget);
       await tester.tap(find.widgetWithText(TextButton, 'Annuler'));
       await tester.pumpAndSettle();
-      expect(fake.removed, isEmpty);
+      expect(container.read(scraperReposProvider).value, hasLength(1));
 
-      await tester.tap(find.bySemanticsLabel('Retirer : Second'));
+      await tester.tap(find.bySemanticsLabel('Retirer le dépôt : Dépôt test'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Retirer'));
       await tester.pumpAndSettle();
-      expect(fake.removed, ['2']);
-      expect(find.bySemanticsLabel('Retirer : Second'), findsNothing);
+      expect(find.text('Dépôt retiré'), findsOneWidget);
+      expect(find.text('Aucun dépôt installé.'), findsOneWidget);
+      expect(container.read(scraperReposProvider).value, isEmpty);
+    });
+
+    testWidgets('says why a repository could not be read again', (tester) async {
+      await open(tester, keptContainer(repos: [testRepo()], http: FakeScraperHttp({})));
+
+      await tester.tap(find.bySemanticsLabel('Mettre à jour le dépôt : Dépôt test'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Téléchargement impossible (erreur 404).'), findsOneWidget);
+      expect(find.text('repo.test · 3 plug-ins'), findsOneWidget);
     });
   });
 
@@ -307,30 +466,33 @@ void main() {
       await closePlayer(tester);
     });
 
-    testWidgets('plays a plug-in stream as it is, with its headers, without asking the API to resolve it', (
+    testWidgets('plays a scraper’s stream as it is, with its headers, without asking the API to resolve it', (
       tester,
     ) async {
       final engine = FakeEngine();
       final playback = _NoResolve();
-      const source = StreamSource(
-        provider: 'addon:12',
-        name: 'Films libres 1080p',
-        url: 'https://cdn.test/fc.m3u8',
-        stream: 'https://cdn.test/fc.m3u8',
-        streamType: 'm3u8',
-        headers: {'Referer': 'https://cdn.test/'},
+      final repo = testRepo();
+      final runtime = FakeScraperRuntime()
+        ..answer = (code, params) => const [
+          ScraperStream(
+            url: 'https://cdn.test/fc.m3u8',
+            name: 'Serveur 1',
+            quality: '1080p',
+            headers: {'Referer': 'https://cdn.test/'},
+          ),
+        ];
+      final container = keptContainer(
+        repos: [repo],
+        http: FakeScraperHttp(_files),
+        runtime: runtime,
+        extraOverrides: [
+          playbackRepositoryProvider.overrideWithValue(playback),
+          playerEngineFactoryProvider.overrideWithValue((source) => engine),
+        ],
       );
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            sessionProvider.overrideWith(SignedOut.new),
-            playbackRepositoryProvider.overrideWithValue(playback),
-            playerEngineFactoryProvider.overrideWithValue((source) => engine),
-            sourceProvidersProvider.overrideWith(
-              (ref, item) async => const [SourceProvider(id: 'addon:12', name: 'Films libres')],
-            ),
-            providerSourcesProvider.overrideWith((ref, key) async => const [source]),
-          ],
+        UncontrolledProviderScope(
+          container: container,
           child: MaterialApp(
             theme: buildVixeoTheme(),
             home: const PlayerScreen(type: MediaType.movie, id: 550),
@@ -339,12 +501,15 @@ void main() {
       );
       await settle(tester);
 
+      // The series scraper does not handle a movie: only the two others are offered.
+      expect(find.text('Séries libres'), findsNothing);
       await tester.tap(find.text('Films libres'));
       await settle(tester);
-      await tester.tap(find.text('Films libres 1080p'));
+      await tester.tap(find.text('Serveur 1 · 1080p'));
       await settle(tester);
 
       expect(playback.resolved, isEmpty);
+      expect(runtime.calls.single.params.tmdbId, '550');
       expect(engine.opened?.url, 'https://cdn.test/fc.m3u8');
       expect(engine.opened?.isHls, isTrue);
       expect(engine.opened?.headers, {'Referer': 'https://cdn.test/'});
@@ -355,7 +520,30 @@ void main() {
   });
 }
 
-/// Records the links it is asked to resolve: a plug-in stream must not be one.
+/// A runtime that takes a moment, and counts how many runs overlap.
+class _SlowRuntime extends FakeScraperRuntime {
+  int running = 0;
+  int started = 0;
+  int peak = 0;
+
+  @override
+  Future<List<ScraperStream>> run({
+    required String code,
+    required ScraperParams params,
+    required ScraperFetch fetch,
+    ScraperLog? onLog,
+    ScraperLimits limits = ScraperLimits.standard,
+  }) async {
+    started++;
+    running++;
+    if (running > peak) peak = running;
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    running--;
+    return const [];
+  }
+}
+
+/// Records the links it is asked to resolve: a scraper's stream must not be one.
 class _NoResolve extends PlaybackRepository {
   _NoResolve() : super(ApiClient(token: () => null, profileId: () => null));
 

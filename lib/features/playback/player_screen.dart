@@ -10,7 +10,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
-import '../addons/addons.dart';
+import '../addons/scraper_models.dart';
+import '../addons/scrapers.dart';
 import '../auth/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
@@ -34,6 +35,7 @@ class StreamSource {
     this.stream,
     this.streamType,
     this.headers = const {},
+    this.proxy = false,
   });
 
   factory StreamSource.fromJson(Map<String, dynamic> json) => StreamSource(
@@ -45,19 +47,36 @@ class StreamSource {
     headers: (json['headers'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? const {},
   );
 
+  /// A link a plug-in's scraper found (`docs/scrapers.md`). It is already playable, so nothing is
+  /// resolved; in a browser it first goes through the server's stream proxy ([proxy]).
+  factory StreamSource.fromScraper(ScraperStream stream, {required String provider, required String scraperName}) =>
+      StreamSource(
+        provider: provider,
+        name: stream.label(scraperName),
+        url: stream.url,
+        stream: stream.url,
+        streamType: stream.streamType,
+        headers: stream.headers,
+        proxy: kIsWeb,
+      );
+
   final String provider;
   final String name;
 
   /// The link the server knows the source by (a player page, or the stream itself).
   final String url;
 
-  /// Already playable: a plug-in's stream (`vixeo_backend/docs/plugins.md`). Null: the link has to
-  /// be resolved by the API first (`POST /catalog/resolve`).
+  /// Already playable: a plug-in's stream. Null: the link has to be resolved by the API first
+  /// (`POST /catalog/resolve`).
   final String? stream;
   final String? streamType;
 
   /// HTTP headers to send with [stream].
   final Map<String, String> headers;
+
+  /// A browser cannot send most headers nor read most sites (CORS): [stream] must first be given
+  /// an address on our own origin (`POST /scrapers/stream`). Android and iOS play it as it is.
+  final bool proxy;
 }
 
 /// A provider the sources panel offers, as declared by the API.
@@ -71,28 +90,26 @@ class SourceProvider {
   final String name;
 }
 
-/// Providers are the account's plug-ins (`GET /addons`, `features/addons`) and nothing else: each
-/// enabled plug-in that serves streams is one provider, `addon:{id}`. No list is hard-coded in the
-/// app, and the sources of the API's own providers are no longer offered.
-///
-/// The app never calls a plug-in: the links of a provider are still asked of the Vixeo API
-/// ([providerSourcesProvider]), which calls the plug-in.
+/// Providers are the scrapers of the installed plug-ins (`features/addons`, `docs/scrapers.md`) and
+/// nothing else: each enabled scraper that handles the title's type is one provider,
+/// `scraper:{repository}:{id}`. No list is hard-coded in the app: Vixeo provides no repository.
 ///
 /// Why nothing is thrown when there is no plug-in: an empty list is a normal answer, the panel tells
 /// the person that no plug-in is installed (or enabled).
 final sourceProvidersProvider = FutureProvider.family<List<SourceProvider>, PlaybackItem>((ref, item) async {
-  final addons = await ref.watch(addonsProvider.future);
+  final repos = await ref.watch(scraperReposProvider.future);
   return [
-    for (final addon in addons)
-      if (addon.enabled && addon.hasStreams) SourceProvider(id: 'addon:${addon.id}', name: addon.name),
+    for (final repo in repos)
+      for (final scraper in repo.scrapers)
+        if (scraper.enabled && scraper.supports(item.type)) SourceProvider(id: scraper.providerId, name: scraper.name),
   ];
 });
 
-/// Whether the account has plug-ins that serve streams but all of them are turned off. Lets the
-/// sources panel say « aucun plug-in activé » instead of « aucun plug-in installé ».
+/// Whether the account has plug-ins installed but all of them are turned off. Lets the sources
+/// panel say « aucun plug-in activé » instead of « aucun plug-in installé ».
 final hasDisabledPluginsProvider = FutureProvider<bool>((ref) async {
-  final addons = await ref.watch(addonsProvider.future);
-  return addons.any((a) => a.hasStreams && !a.enabled);
+  final repos = await ref.watch(scraperReposProvider.future);
+  return repos.any((repo) => repo.scrapers.any((scraper) => !scraper.enabled));
 });
 
 /// What the sources panel says when the account has no plug-in that gives sources.
@@ -105,18 +122,18 @@ typedef ProviderSourcesKey = ({PlaybackItem item, String provider});
 /// The links one provider returns for one title.
 ///
 /// Each provider is queried on its own so the panel can show it loading, failed, or with
-/// its links — instead of blocking on a single request that fans out to every provider.
+/// its links — instead of blocking on a single request that fans out to every provider. A scraper
+/// runs on the device or on the server, as chosen for it (`ScraperService`); a scraper that was
+/// removed since gives nothing.
 final providerSourcesProvider = FutureProvider.family<List<StreamSource>, ProviderSourcesKey>((ref, key) async {
-  final api = ref.read(apiClientProvider);
-  final item = key.item;
-  final path = item.type == MediaType.movie
-      ? '/catalog/movie/${item.id}/sources'
-      : '/catalog/tv/${item.id}/season/${item.season}/episode/${item.episode}/sources';
-  // A provider search can open a real browser on the server. The API allows up to 45
-  // seconds for the scraper, so don't let the global 20-second API timeout cancel it.
-  final json = await api.get(path, query: {'provider': key.provider}, receiveTimeout: const Duration(seconds: 65));
-  final data = json['data'];
-  return data is List ? data.whereType<Map<String, dynamic>>().map(StreamSource.fromJson).toList() : const [];
+  final repos = await ref.read(scraperReposProvider.future);
+  final match = findScraper(repos, key.provider);
+  if (match == null) return const [];
+  final streams = await ref.read(scraperServiceProvider).streams(match.repo, match.scraper, key.item);
+  return [
+    for (final stream in streams)
+      StreamSource.fromScraper(stream, provider: key.provider, scraperName: match.scraper.name),
+  ];
 });
 
 /// The player, for a title (sources, subtitles, episodes) and for a live channel ([PlayerScreen.live]).
@@ -408,11 +425,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     final ResolvedStream resolved;
     try {
-      // A plug-in's stream is already playable: nothing to resolve.
+      // A plug-in's stream is already playable: nothing to resolve. In a browser it first gets an
+      // address on our own origin, which adds the headers the site asks for.
       final direct = source.stream;
-      resolved = direct != null && direct.isNotEmpty
-          ? ResolvedStream(stream: direct, streamType: source.streamType, headers: source.headers)
-          : await ref.read(playbackRepositoryProvider).resolve(source.url);
+      if (direct == null || direct.isEmpty) {
+        resolved = await ref.read(playbackRepositoryProvider).resolve(source.url);
+      } else if (source.proxy) {
+        resolved = await ref.read(playbackRepositoryProvider).proxyScraperStream(direct, source.headers);
+      } else {
+        resolved = ResolvedStream(stream: direct, streamType: source.streamType, headers: source.headers);
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {

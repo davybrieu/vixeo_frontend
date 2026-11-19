@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/api/api_exception.dart';
 import 'package:vixeo/core/theme.dart';
-import 'package:vixeo/features/addons/addons.dart';
+import 'package:vixeo/features/addons/scraper_models.dart';
 import 'package:vixeo/features/auth/auth_repository.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
@@ -19,7 +19,7 @@ import 'package:vixeo/features/playback/player_screen.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
 import 'package:vixeo/features/search/search_history.dart';
 
-import 'player_engine_test.dart' show SignedOut;
+import 'scraper_fakes.dart';
 
 const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
 
@@ -348,16 +348,14 @@ void main() {
 
   group('stream providers', () {
     const item = (type: MediaType.movie, id: 550, season: null, episode: null);
+    const tvItem = (type: MediaType.tv, id: 1399, season: 1, episode: 2);
 
-    ProviderContainer containerWith(RoutingAdapter adapter) {
-      final container = ProviderContainer(
-        // Like the app (`main.dart`): a failed request is an error, not retried in the background.
-        retry: (_, _) => null,
-        overrides: [
-          apiClientProvider.overrideWithValue(routingClient(adapter)),
-          // The plug-ins are the account's: `addonsProvider` follows the signed-in user.
-          sessionProvider.overrideWith(SignedOut.new),
-        ],
+    ProviderContainer containerWith({List<ScraperRepo>? repos, FakeScraperRuntime? runtime, RoutingAdapter? adapter}) {
+      final container = scraperContainer(
+        repos: repos,
+        runtime: runtime,
+        http: FakeScraperHttp({'https://repo.test/providers/films.js': 'module.exports = {};'}),
+        api: adapter == null ? null : routingClient(adapter),
       );
       addTearDown(container.dispose);
       return container;
@@ -376,130 +374,115 @@ void main() {
       return completer.future;
     }
 
-    Future<List<StreamSource>> linksOf(ProviderContainer c, FutureProvider<List<StreamSource>> p) async =>
-        (await read(c, p)).requireValue;
+    test('lists the enabled scrapers that handle the title, from every repository', () async {
+      final repo = testRepo();
+      final off = repo.copyWith(
+        scrapers: [repo.scrapers[0].copyWith(enabled: false), ...repo.scrapers.skip(1)],
+      );
 
-    Object addonsBody(List<Map<String, Object?>> addons) => {'data': addons};
+      final state = await read(containerWith(repos: [off]), sourceProvidersProvider(item));
 
-    test('lists the account plug-ins that give sources, enabled ones only', () async {
-      final adapter = RoutingAdapter([
-        (
-          '/addons',
-          addonsBody([
-            {'id': '3', 'name': 'Serveur', 'version': '1.0.0', 'streams': true, 'shared': true},
-            {'id': '12', 'name': 'Films libres', 'version': '1.0.0', 'streams': true},
-            {'id': '13', 'name': 'Éteint', 'version': '1.0.0', 'streams': true, 'enabled': false},
-            {'id': '14', 'name': 'Sans sources', 'version': '1.0.0', 'streams': false},
-          ]),
-          200,
-        ),
-      ]);
+      // The movie scraper is off and the series one does not handle a movie.
+      expect(state.requireValue.map((p) => p.name), ['Tout']);
+      expect(state.requireValue.single.id, off.scrapers[2].providerId);
 
-      final state = await read(containerWith(adapter), sourceProvidersProvider(item));
-
-      expect(state.requireValue.map((p) => p.id), ['addon:3', 'addon:12']);
-      expect(state.requireValue.map((p) => p.name), ['Serveur', 'Films libres']);
-      // Only the plug-ins are asked: the API's own provider list is not used any more.
-      expect(adapter.requests.single.path, '/addons');
+      final series = await read(containerWith(repos: [off]), sourceProvidersProvider(tvItem));
+      expect(series.requireValue.map((p) => p.name), ['Séries libres', 'Tout']);
     });
 
     test('has no provider when no plug-in is installed', () async {
-      final adapter = RoutingAdapter([('/addons', addonsBody([]), 200)]);
-      final container = containerWith(adapter);
+      final container = containerWith();
 
       expect((await read(container, sourceProvidersProvider(item))).requireValue, isEmpty);
       expect((await read(container, hasDisabledPluginsProvider)).requireValue, isFalse);
     });
 
-    test('has no provider, and says so, when every plug-in is turned off', () async {
-      final adapter = RoutingAdapter([
-        (
-          '/addons',
-          addonsBody([
-            {'id': '13', 'name': 'Éteint', 'version': '1.0.0', 'streams': true, 'enabled': false},
-          ]),
-          200,
-        ),
-      ]);
-      final container = containerWith(adapter);
+    test('has no provider, and says so, when a plug-in is turned off and nothing else gives sources', () async {
+      final repo = testRepo();
+      final allOff = repo.copyWith(scrapers: [for (final s in repo.scrapers) s.copyWith(enabled: false)]);
+      final container = containerWith(repos: [allOff]);
 
       expect((await read(container, sourceProvidersProvider(item))).requireValue, isEmpty);
       expect((await read(container, hasDisabledPluginsProvider)).requireValue, isTrue);
     });
 
-    test('surfaces an error when the plug-in list fails (no hardcoded fallback)', () async {
-      final adapter = RoutingAdapter([
-        ('/addons', {'message': 'Boom'}, 500),
-      ]);
+    test('never asks the API for providers: the plug-ins are on the device', () async {
+      final adapter = RoutingAdapter([]);
+      final container = containerWith(repos: [testRepo()], adapter: adapter);
 
-      final state = await read(containerWith(adapter), sourceProvidersProvider(item));
-      expect(state.hasError, isTrue);
-      expect(state.error, isA<ApiException>());
+      await read(container, sourceProvidersProvider(item));
+
+      expect(adapter.requests, isEmpty);
     });
 
-    test('asks the API for a single provider, and maps its links', () async {
-      final adapter = RoutingAdapter([
-        (
-          '/catalog/movie/550/sources',
-          {
-            'data': [
-              {'provider': 'coflix', 'name': 'Coflix (VF)', 'url': 'https://voe.sx/e/w'},
-            ],
-          },
-          200,
-        ),
-      ]);
+    test('runs the chosen scraper, and maps its streams to playable sources', () async {
+      final repo = testRepo();
+      final runtime = FakeScraperRuntime()
+        ..answer = (code, params) => const [
+          ScraperStream(url: 'https://cdn.test/a.m3u8', name: 'Serveur 1', quality: '1080p'),
+          ScraperStream(url: 'https://cdn.test/b.mp4', headers: {'Referer': 'https://x.test/'}),
+        ];
+      final container = containerWith(repos: [repo], runtime: runtime);
 
-      final links = await linksOf(containerWith(adapter), providerSourcesProvider((item: item, provider: 'coflix')));
+      final state = await read(
+        container,
+        providerSourcesProvider((item: item, provider: repo.scrapers[0].providerId)),
+      );
 
-      expect(links.single.name, 'Coflix (VF)');
-      final request = adapter.requests.single;
-      expect(request.path, '/catalog/movie/550/sources');
-      expect(request.queryParameters['provider'], 'coflix');
+      final links = state.requireValue;
+      expect(links.map((l) => l.name), ['Serveur 1 · 1080p', 'Films libres']);
+      expect(links.first.provider, repo.scrapers[0].providerId);
+      expect(links.first.stream, 'https://cdn.test/a.m3u8');
+      expect(links.first.streamType, 'm3u8');
+      expect(links.last.headers, {'Referer': 'https://x.test/'});
+      expect(runtime.calls.single.params.tmdbId, '550');
     });
 
-    test('requests the Onyx TMDB French aggregator with the selected TMDB movie id', () async {
-      final adapter = RoutingAdapter([
-        (
-          '/catalog/movie/550/sources',
-          {
-            'data': [
-              {'provider': 'tmdb-fr', 'name': 'TMDB Français (VF)', 'url': 'https://media.example.test/movie/550'},
-            ],
-          },
-          200,
-        ),
-      ]);
-
-      final links = await linksOf(containerWith(adapter), providerSourcesProvider((item: item, provider: 'tmdb-fr')));
-
-      expect(links.single.provider, 'tmdb-fr');
-      expect(links.single.name, 'TMDB Français (VF)');
-      final request = adapter.requests.single;
-      expect(request.path, '/catalog/movie/550/sources');
-      expect(request.queryParameters['provider'], 'tmdb-fr');
-    });
-
-    test('an empty provider resolves to an empty list, not an error', () async {
-      final adapter = RoutingAdapter([
-        ('/catalog/movie/550/sources', {'data': <Object>[]}, 200),
-      ]);
-
-      final state = await read(containerWith(adapter), providerSourcesProvider((item: item, provider: 'frembed')));
+    test('a scraper that was removed gives nothing, not an error', () async {
+      final state = await read(
+        containerWith(repos: [testRepo()]),
+        providerSourcesProvider((item: item, provider: 'scraper:disparu:films')),
+      );
 
       expect(state.hasError, isFalse);
       expect(state.requireValue, isEmpty);
     });
 
-    test('a provider the API cannot reach surfaces as an error', () async {
-      final adapter = RoutingAdapter([
-        ('/catalog/movie/550/sources', {'message': 'Ce fournisseur est momentanément indisponible.'}, 503),
-      ]);
+    test('a scraper that fails surfaces as an error', () async {
+      final runtime = FakeScraperRuntime()..error = const ScraperException('Le plug-in a échoué.');
+      final repo = testRepo();
 
-      final state = await read(containerWith(adapter), providerSourcesProvider((item: item, provider: 'coflix')));
+      final state = await read(
+        containerWith(repos: [repo], runtime: runtime),
+        providerSourcesProvider((item: item, provider: repo.scrapers[0].providerId)),
+      );
 
       expect(state.hasError, isTrue);
-      expect(state.error, isA<ApiException>());
+      expect(state.error, isA<ScraperException>());
+    });
+
+    test('asks the API to relay a stream for a browser, which cannot read most hosts', () async {
+      final adapter = RoutingAdapter([
+        (
+          '/scrapers/stream',
+          {
+            'data': {'stream': 'https://api.test/relay/abc.m3u8', 'stream_type': 'm3u8', 'headers': <String, String>{}},
+          },
+          200,
+        ),
+      ]);
+      final repository = PlaybackRepository(routingClient(adapter));
+
+      final stream = await repository.proxyScraperStream('https://cdn.test/a.m3u8', const {'Referer': 'https://x.test/'});
+
+      expect(stream.stream, 'https://api.test/relay/abc.m3u8');
+      expect(stream.streamType, 'm3u8');
+      final request = adapter.requests.single;
+      expect(request.method, 'POST');
+      expect(request.data, {
+        'url': 'https://cdn.test/a.m3u8',
+        'headers': {'Referer': 'https://x.test/'},
+      });
     });
   });
 }

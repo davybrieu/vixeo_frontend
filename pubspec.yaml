@@ -53,6 +53,10 @@ dependencies:
   #   is only imported behind a conditional import, never compiled into the web build.
   video_player: ^2.9.2
   better_native_video_player: ^1.9.1
+  # Plug-ins (lib/features/addons, docs/scrapers.md): the JavaScript engine that runs a scraper on
+  # Android (QuickJS) and iOS (JavaScriptCore), in its own isolate. Imported only behind the
+  # conditional import of scraper_platform.dart: the web build never compiles it (an iframe is used).
+  flutter_js: ^0.8.0
   qr_flutter: ^4.1.0
   package_info_plus: ^10.2.2
   crypto: ^3.0.8
@@ -96,6 +100,8 @@ flutter:
     - assets/licenses/hls-js-Apache-2.0.txt
     # Official TMDb logo ("Primary short", themoviedb.org/about/logos-attribution), as a PNG.
     - assets/images/tmdb_short.png
+    # The sandbox every plug-in scraper runs on top of (same file on every platform).
+    - assets/scrapers/sandbox.js
   fonts:
     - family: Sora
       fonts:

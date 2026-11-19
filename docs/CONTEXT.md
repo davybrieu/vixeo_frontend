@@ -115,14 +115,23 @@ Toutes les intégrations externes sont gérées exclusivement par le backend Lar
 
 Le frontend Flutter ne communique jamais directement avec ces services, sauf décision technique explicitement justifiée.
 
-3.5 Plug-ins — décidé (17/11/2026)
+3.5 Plug-ins — décidé (17/11/2026), **révisé le 19/11/2026**
 
-- Comme dans Stremio et Nuvio, un compte peut installer, en option, des plug-ins au format des
-  add-ons Stremio avec l'adresse de leur manifeste, **uniquement pour les sources** (flux de films
-  et de séries du lecteur).
+- Comme Nuvio, un compte peut installer, en option, des **dépôts de scrapers JavaScript** (adresse
+  d'un `manifest.json` en https), **uniquement pour les sources** (flux de films et de séries du
+  lecteur). Contrat : `docs/scrapers.md`. Cela **remplace** les add-ons au format Stremio.
+- **Vixeo ne fournit, n'héberge et n'installe aucun dépôt** ; la personne est responsable de ceux
+  qu'elle ajoute (même posture que pour les add-ons Stremio).
 - **Le catalogue ne passe pas par les plug-ins** : il reste celui de TMDb, avec la clé de Vixeo,
   et ne change pas (ni rangées, ni listes, ni plug-in « catalogue Vixeo »).
-- C'est l'API qui appelle les plug-ins, jamais l'appli (`vixeo_backend/docs/plugins.md`).
+- Le JavaScript s'exécute **au choix pour chaque plug-in** : sur l'appareil (Android / iOS : moteur
+  JS embarqué ; web : iframe en bac à sable) ou sur le serveur de Vixeo. Le code est téléchargé à la
+  demande, jamais écrit sur l'appareil, et n'a aucun accès direct au réseau : ses requêtes passent par
+  une garde (https seulement, jamais le réseau local, limites de temps, de taille et de nombre).
+- Écart assumé avec le §5.1 : pour ces plug-ins seulement, l'appli parle à des adresses de tiers
+  (manifestes, code, et sur Android / iOS les requêtes des scrapers). L'API reste l'unique
+  interlocutrice pour le catalogue, le compte et la lecture hors plug-ins.
+- À surveiller : règle 2.5.2 de l'App Store (code téléchargé et exécuté) pour iOS.
 
 ---
 

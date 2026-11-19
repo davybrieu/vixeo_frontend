@@ -147,6 +147,14 @@ class PlaybackRepository {
     return ResolvedStream.fromJson(json['data'] as Map<String, dynamic>);
   }
 
+  /// A plug-in's stream a **browser** can play: an address on our own origin (a signed proxy) that
+  /// sends the headers the site wants (`docs/scrapers.md` §6). Android and iOS do not need it: the
+  /// native player sends the headers itself.
+  Future<ResolvedStream> proxyScraperStream(String url, Map<String, String> headers) async {
+    final json = await _api.post('/scrapers/stream', body: {'url': url, 'headers': headers});
+    return ResolvedStream.fromJson(json['data'] as Map<String, dynamic>);
+  }
+
   /// Subtitles in [languages] (preferred first); without them, the profile's language.
   Future<List<SubtitleOption>> subtitles(PlaybackItem item, {List<String>? languages}) async {
     final json = await _api.get(

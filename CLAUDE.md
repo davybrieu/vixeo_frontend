@@ -92,7 +92,7 @@ lib/
                  boutons, onglet « Avis »)
     notifications/  notifications push (FCM) : page « Notifications », inscription auprès de
                  l'API (`PushRegistration`), affichage et appui (`NotificationsGate`)
-    addons/      plug-ins de sources au format Stremio : page « Plug-ins »
+    addons/      plug-ins : dépôts de scrapers JavaScript (façon Nuvio), page « Plug-ins » (`docs/scrapers.md`)
 ```
 
 ## Conventions
@@ -236,7 +236,7 @@ lib/
   `FileProvider` sur `cache/updates`, permission `REQUEST_INSTALL_PACKAGES`), qui demande une
   confirmation ; la progression est partagée (`updateDownloadProvider`). Sans APK, ou sur iOS, le
   bouton ouvre la page d'installation du site. L'appli ne
-  charge jamais de code qu'elle exécuterait elle-même. Publication : `docs/android-release.md`. Le web ne vérifie pas. Pour essayer dans un navigateur :
+  charge jamais de code **de mise à jour** qu'elle exécuterait elle-même (les scrapers des plug-ins, eux, tournent dans un bac à sable : voir « Plug-ins »). Publication : `docs/android-release.md`. Le web ne vérifie pas. Pour essayer dans un navigateur :
   version « profile » avec `--dart-define=UPDATE_PLATFORM=android`.
 - **Version et signature** : `version: x.y.z+build` dans `pubspec.yaml` (`x.y.z` : version
   affichée). Les APK de la CI prennent comme build le numéro du run (`--build-number`), toujours
@@ -370,28 +370,40 @@ lib/
   désucrage Java activé (`build.gradle.kts`). Sur le web : une phrase. Les tests passent par
   `FakePush` et `FakeNotifications` (`test/notifications_test.dart`).
 - **Plug-ins** (`features/addons`, « Paramètres » → « Plug-ins », `/profil/plugins`,
-  `AddonsScreen` ; API : `vixeo_backend/docs/plugins.md` ; demande du développeur : « comme
-  Nuvio / Stremio », films et séries) : add-ons au **format Stremio**, **uniquement pour les
-  sources** et **appelés par l'API seulement** (l'appli ne parle jamais à un plug-in). **Le
-  catalogue n'en dépend pas** (demande du développeur : il reste celui de TMDb, inchangeable) :
-  pas de catalogue Vixeo en plug-in, pas de rangées ni de « Voir tout » venus d'un plug-in ; ne pas
-  les réintroduire. Page : « Ajouter un plug-in » (adresse du manifeste, `https://…/manifest.json`
-  ou `stremio://…` ; refus expliqué sous le champ par `errors.url` de l'API, par exemple un
-  plug-in sans sources ; le bouton « Installer » a le focus à l'arrivée, pas le champ : sur TV il
-  ouvrirait le clavier), puis « Plug-ins installés » : ceux de tous les comptes (« Pour tous les
-  comptes », sans bouton), puis ceux du compte (monter, descendre, activer / désactiver, retirer
-  avec confirmation ; `AddonInfo.editable`). Un plug-in installé quand ils pouvaient ajouter des
-  catalogues et qui n'a pas de sources affiche « Aucune source » (`hasStreams`, champ `streams`
-  de l'API) : on peut le retirer. L'adresse d'un plug-in n'est jamais renvoyée par l'API
-  (seulement `host`). Après chaque changement : invalider `addonsProvider` et
-  `sourceProvidersProvider`. **Sources** : le panneau des sources n'offre **que** les plug-ins
-  (demande du développeur, 19/11/2026) : `sourceProvidersProvider` lit `GET /addons` et garde les
-  plug-ins activés qui servent des flux, chacun étant un fournisseur (`addon:{n}`) ; l'appli ne
-  demande plus `/catalog/sources/providers` (les fournisseurs propres du serveur ne sont plus
-  proposés). Sans plug-in, le panneau écrit « Aucun plug-in n'est installé. » ; si tous sont
-  désactivés, « Aucun plug-in n'est activé. » (`hasDisabledPluginsProvider`). Les liens d'un
-  fournisseur sont toujours demandés à l'API (`providerSourcesProvider`), jamais au plug-in ; ses flux arrivent **déjà lisibles** (`StreamSource.stream`,
-  `headers`) et le lecteur les lit sans `resolve`. Test : `test/addons_test.dart`.
+  `AddonsScreen` ; contrat complet : [`docs/scrapers.md`](docs/scrapers.md) ; demande du développeur,
+  19/11/2026 : « comme Nuvio », **Android, iOS et web**, **exécuter du code JS** pour les sources).
+  **Remplace les add-ons Stremio** (`AddonInfo`, `GET /addons`, `addonsProvider` : supprimés ; ne pas
+  les réintroduire). Un plug-in est un **dépôt** (`manifest.json`, adresse https) qui liste des
+  **scrapers** : des fichiers JavaScript CommonJS qui exportent
+  `getStreams(tmdbId, mediaType, season, episode)` et renvoient des liens (`url`, `name`, `title`,
+  `quality`, `size`, `headers`). **Uniquement pour les sources** ; **le catalogue n'en dépend pas**
+  (il reste celui de TMDb : pas de rangées ni de « Voir tout » venus d'un plug-in). **Vixeo ne
+  fournit aucun dépôt** et n'en installe aucun ; la page dit que la personne est responsable.
+  Fichiers : `scraper_models.dart` (valeurs : manifeste, `ScraperRepo`, `ScraperInfo`,
+  `ScraperStream`), `scrapers.dart` (`ScraperRepos` : dépôts et choix gardés **sur l'appareil**,
+  par compte, `LocalStore` `vixeo.scrapers.<id>` ; `ScraperLoader` : télécharge manifestes et code,
+  code gardé en mémoire seulement ; `ScraperService.streams` : 3 scrapers en parallèle au plus),
+  `scraper_guard.dart` (règles et limites), `scraper_host.dart` (la conversation avec le bac à
+  sable, la même partout), `scraper_http*.dart`, `scraper_runtime*.dart` et `scraper_js_engine_io.dart`
+  (moteurs par plateforme, imports conditionnels comme `engine_factory.dart`).
+  **Où le JS s'exécute, au choix pour chaque plug-in** (`ScraperMode`) : **sur l'appareil**
+  (Android / iOS : QuickJS / JavaScriptCore via `flutter_js`, dans un isolate qu'on peut tuer ; web :
+  `<iframe sandbox="allow-scripts">` sans origine) ou **sur le serveur** (`POST /scrapers/run`).
+  Le bac à sable (`assets/scrapers/sandbox.js`, identique partout) n'a ni réseau, ni DOM, ni
+  `require` : son `fetch` devient un message que l'appli vérifie (`ScraperGuard` : https seulement,
+  jamais le réseau local, 40 requêtes, 30 s…) puis exécute elle-même (en direct sur Android / iOS ;
+  par le serveur sur le web, `POST /scrapers/fetch`, à cause de CORS ; le jeton Vixeo n'est jamais
+  envoyé à un tiers). Sur le web, un flux passe par `POST /scrapers/stream` (`proxyScraperStream`).
+  **Sources** : `sourceProvidersProvider` liste les scrapers activés qui gèrent le type du titre
+  (un fournisseur chacun, `scraper:{dépôt}:{id}`) ; `providerSourcesProvider` les exécute ; leurs
+  flux sont **déjà lisibles** et le lecteur ne les `resolve` pas. Sans dépôt, le panneau écrit
+  « Aucun plug-in n'est installé. » ; tous désactivés : « Aucun plug-in n'est activé. ». Après un
+  changement : `ref.invalidate(sourceProvidersProvider)`. Implémentation de référence du serveur et
+  de la garde : `tools/scraper-runner` (Node + vrai QuickJS, `npm test`). **Pas encore vérifié** :
+  la partie Dart n'a pas pu être compilée là où elle a été écrite (pas de SDK) ; l'API de
+  `flutter_js` (version et appels) et l'iframe web restent à essayer ; les routes `/scrapers/*` sont à
+  écrire dans `vixeo_backend`. Tests : `test/scraper_models_test.dart`, `scraper_runner_test.dart`,
+  `addons_test.dart`, doublures dans `test/scraper_fakes.dart`.
 - **Avancé** (« Paramètres » → « Avancé », `/profil/avance`, `AdvancedSettingsScreen` ; demande du
   développeur, sans rapports de plantage) : « Mémoriser le dernier profil » (sur l'appareil,
   activé par défaut ; désactivé : « Qui regarde ? » à chaque lancement ; un profil à code demande
@@ -595,8 +607,8 @@ lib/
   Avancé (dernier profil, cache),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
-  mises à jour (Android / iOS), plug-ins de sources au format Stremio (page « Plug-ins », sources du
-  lecteur ; le catalogue reste celui de TMDb), TV en direct (catégories, chaînes, lecture du flux), lecteur à
+  mises à jour (Android / iOS), plug-ins de sources = dépôts de scrapers JavaScript façon Nuvio (page « Plug-ins », sources du
+  lecteur ; le catalogue reste celui de TMDb ; Dart non vérifié, voir « Plug-ins »), TV en direct (catégories, chaînes, lecture du flux), lecteur à
   moteurs par plateforme (natif sur Android / iOS, HTML5 ou hls.js sur le web : `docs/lecteur.md`), mises en page téléphone et TV / grand écran, navigation à la
   télécommande.
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.

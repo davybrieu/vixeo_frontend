@@ -69,11 +69,16 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> post(String path, {Object? body, Map<String, String>? headers}) => _send(
+  Future<Map<String, dynamic>> post(
+    String path, {
+    Object? body,
+    Map<String, String>? headers,
+    Duration? receiveTimeout,
+  }) => _send(
     () => _dio.post<dynamic>(
       path,
       data: body,
-      options: Options(headers: headers),
+      options: Options(headers: headers, receiveTimeout: receiveTimeout),
     ),
   );
 
