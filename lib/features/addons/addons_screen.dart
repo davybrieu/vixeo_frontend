@@ -14,8 +14,9 @@ import 'scrapers.dart';
 /// « Plug-ins » (« Paramètres » → « Plug-ins »), façon Nuvio (`docs/scrapers.md`): the person adds
 /// the address of a **repository** (a `manifest.json` somebody hosts) and gets its **scrapers**,
 /// JavaScript that finds the streams of a title. They appear in the sources panel of the player,
-/// never as rows or titles (the catalog stays TMDb's). Each scraper can be turned off, moved, and
-/// run on the device or on the server.
+/// never as rows or titles (the catalog stays TMDb's). Execution mode is declared in the manifest
+/// (`execution`: `device` or `server`) and is not configurable in the app. The whole repository is
+/// the unit of enable/disable.
 ///
 /// Vixeo provides no repository: the page says so, and nothing is installed by default.
 ///
@@ -35,7 +36,7 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
   String? _urlError;
   bool _installing = false;
 
-  /// What was just pressed (a scraper's key or a repository's id): its buttons wait for the answer.
+  /// What was just pressed (a repository's id): its buttons wait for the answer.
   String? _busy;
 
   @override
@@ -122,7 +123,8 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
       children: [
         const InfoIntro(
           'Ajoutez l’adresse d’un dépôt : chaque plug-in qu’il contient apporte des sources au choix des '
-          'sources du lecteur. Vixeo n’en fournit aucun, vous êtes responsable des dépôts que vous ajoutez.',
+          'sources du lecteur. Le mode d’exécution (appareil ou serveur) est déclaré dans le manifeste du dépôt. '
+          'Vixeo n’en fournit aucun, vous êtes responsable des dépôts que vous ajoutez.',
         ),
         InfoSection(
           title: 'Ajouter un dépôt',
@@ -175,21 +177,6 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
                         onRefresh: () => _run(repo.id, () => _repos.refresh(repo.id), done: 'Dépôt mis à jour'),
                         onRemove: () => _removeRepo(repo),
                         onMove: (from, to) => _run(repo.scrapers[from].key, () => _repos.move(repo.id, from, to)),
-                        onToggle: (scraper) => _run(
-                          scraper.key,
-                          () => _repos.setEnabled(scraper.key, enabled: !scraper.enabled),
-                          done: scraper.enabled ? 'Plug-in désactivé' : 'Plug-in activé',
-                        ),
-                        onMode: (scraper) => _run(
-                          scraper.key,
-                          () => _repos.setMode(
-                            scraper.key,
-                            scraper.mode == ScraperMode.device ? ScraperMode.server : ScraperMode.device,
-                          ),
-                          done: scraper.mode == ScraperMode.device
-                              ? 'S’exécutera sur le serveur'
-                              : 'S’exécutera sur l’appareil',
-                        ),
                       ),
                     ],
                   ],
@@ -203,7 +190,7 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
   }
 }
 
-/// One repository: its header, then its scrapers.
+/// One repository: its header (with execution mode), then its scrapers (informational).
 class _RepoView extends StatelessWidget {
   const _RepoView({
     required this.repo,
@@ -211,8 +198,6 @@ class _RepoView extends StatelessWidget {
     required this.onRefresh,
     required this.onRemove,
     required this.onMove,
-    required this.onToggle,
-    required this.onMode,
   });
 
   final ScraperRepo repo;
@@ -220,15 +205,14 @@ class _RepoView extends StatelessWidget {
   final VoidCallback onRefresh;
   final VoidCallback onRemove;
   final void Function(int from, int to) onMove;
-  final void Function(ScraperInfo scraper) onToggle;
-  final void Function(ScraperInfo scraper) onMode;
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final s = uiScale(context);
     final count = repo.scrapers.length;
-    final facts = [repo.host, '$count plug-in${count > 1 ? 's' : ''}'].join(' · ');
+    final modeLabel = repo.mode == ScraperMode.server ? 'Serveur' : 'Appareil';
+    final facts = [repo.host, '$count plug-in${count > 1 ? 's' : ''}', modeLabel].join(' · ');
     final repoBusy = busy == repo.id;
 
     return Column(
@@ -278,8 +262,6 @@ class _RepoView extends StatelessWidget {
             busy: busy == scraper.key || repoBusy,
             onUp: i == 0 ? null : () => onMove(i, i - 1),
             onDown: i == count - 1 ? null : () => onMove(i, i + 1),
-            onToggle: () => onToggle(scraper),
-            onMode: () => onMode(scraper),
           ),
         ],
       ],
@@ -287,33 +269,26 @@ class _RepoView extends StatelessWidget {
   }
 }
 
-/// One scraper: logo, name and version, what it serves and where it runs, and its buttons.
+/// One scraper: logo, name and version, what it serves. No individual enable/mode controls.
 class _ScraperCard extends StatelessWidget {
   const _ScraperCard({
     required this.scraper,
     required this.busy,
     required this.onUp,
     required this.onDown,
-    required this.onToggle,
-    required this.onMode,
   });
 
   final ScraperInfo scraper;
   final bool busy;
   final VoidCallback? onUp;
   final VoidCallback? onDown;
-  final VoidCallback onToggle;
-  final VoidCallback onMode;
 
-  /// What the scraper serves, where it runs and its state, on one line.
-  String get _facts => [
-    if (!scraper.enabled) 'Désactivé',
-    if (scraper.types.length == 2)
-      'Films et séries'
-    else
-      scraper.types.contains('tv') ? 'Séries' : 'Films',
-    scraper.mode == ScraperMode.server ? 'Sur le serveur' : 'Sur l’appareil',
-  ].join(' · ');
+  /// What the scraper serves.
+  String get _facts => scraper.types.length == 2
+      ? 'Films et séries'
+      : scraper.types.contains('tv')
+          ? 'Séries'
+          : 'Films';
 
   @override
   Widget build(BuildContext context) {
@@ -322,7 +297,6 @@ class _ScraperCard extends StatelessWidget {
     final logo = layout.size(44, tv: 72);
     final gap = SizedBox(width: layout.size(6, tv: 14));
     final name = scraper.name;
-    final onServer = scraper.mode == ScraperMode.server;
 
     final actions = <Widget>[
       Opacity(
@@ -343,90 +317,74 @@ class _ScraperCard extends StatelessWidget {
           onPressed: busy ? null : onDown,
         ),
       ),
-      VxIconAction(
-        dense: true,
-        icon: onServer ? Icons.cloud_outlined : Icons.smartphone_rounded,
-        label: onServer ? 'Exécuter sur l’appareil : $name' : 'Exécuter sur le serveur : $name',
-        onPressed: busy ? null : onMode,
-      ),
-      VxIconAction(
-        dense: true,
-        icon: scraper.enabled ? Icons.toggle_on_rounded : Icons.toggle_off_outlined,
-        label: scraper.enabled ? 'Désactiver : $name' : 'Activer : $name',
-        active: scraper.enabled,
-        onPressed: busy ? null : onToggle,
-      ),
     ];
 
     return VxCard(
       padding: EdgeInsets.symmetric(horizontal: layout.size(14, tv: 24), vertical: layout.size(12, tv: 18)),
-      child: Opacity(
-        opacity: scraper.enabled ? 1 : 0.6,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(logo * 0.22),
-                  child: SizedBox.square(
-                    dimension: logo,
-                    child: scraper.logo == null
-                        ? const _LogoFallback()
-                        : NetImage(url: scraper.logo, fit: BoxFit.contain, fallback: const _LogoFallback()),
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(logo * 0.22),
+                child: SizedBox.square(
+                  dimension: logo,
+                  child: scraper.logo == null
+                      ? const _LogoFallback()
+                      : NetImage(url: scraper.logo, fit: BoxFit.contain, fallback: const _LogoFallback()),
                 ),
-                SizedBox(width: layout.size(12, tv: 20)),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(text: name),
-                            if (scraper.version.isNotEmpty)
-                              TextSpan(
-                                text: '  v${scraper.version}',
-                                style: VxText.body(12 * s, color: VxColors.textSecondary),
-                              ),
-                          ],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: VxText.body(15 * s, weight: FontWeight.w600),
+              ),
+              SizedBox(width: layout.size(12, tv: 20)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: name),
+                          if (scraper.version.isNotEmpty)
+                            TextSpan(
+                              text: '  v${scraper.version}',
+                              style: VxText.body(12 * s, color: VxColors.textSecondary),
+                            ),
+                        ],
                       ),
-                      if (scraper.description != null) ...[
-                        SizedBox(height: layout.size(2, tv: 4)),
-                        Text(
-                          scraper.description!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: VxText.body(13 * s, color: VxColors.textSoft),
-                        ),
-                      ],
-                      SizedBox(height: layout.size(4, tv: 6)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: VxText.body(15 * s, weight: FontWeight.w600),
+                    ),
+                    if (scraper.description != null) ...[
+                      SizedBox(height: layout.size(2, tv: 4)),
                       Text(
-                        _facts,
+                        scraper.description!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: VxText.body(12 * s, color: VxColors.textSecondary),
+                        style: VxText.body(13 * s, color: VxColors.textSoft),
                       ),
                     ],
-                  ),
+                    SizedBox(height: layout.size(4, tv: 6)),
+                    Text(
+                      _facts,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: VxText.body(12 * s, color: VxColors.textSecondary),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            SizedBox(height: layout.size(8, tv: 12)),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                for (final (i, action) in actions.indexed) ...[if (i > 0) gap, action],
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          SizedBox(height: layout.size(8, tv: 12)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              for (final (i, action) in actions.indexed) ...[if (i > 0) gap, action],
+            ],
+          ),
+        ],
       ),
     );
   }
