@@ -331,36 +331,26 @@ void main() {
       await tester.tap(find.text('Installer'));
       await tester.pumpAndSettle();
       expect(find.text('Dépôt installé : Dépôt test'), findsOneWidget);
-      expect(find.text('repo.test · 3 plug-ins'), findsOneWidget);
+      expect(find.text('repo.test · 3 plug-ins · Appareil'), findsOneWidget);
       expect(find.bySemanticsLabel('Retirer le dépôt : Dépôt test'), findsOneWidget);
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
       expect(container.read(scraperReposProvider).value, hasLength(1));
     });
 
-    testWidgets('shows what each scraper serves and where it runs', (tester) async {
+    testWidgets('shows what each scraper serves', (tester) async {
       await open(tester, keptContainer(repos: [testRepo()]));
 
-      expect(find.text('Films · Sur l’appareil'), findsOneWidget);
-      expect(find.text('Séries · Sur l’appareil'), findsOneWidget);
-      expect(find.text('Films et séries · Sur l’appareil'), findsOneWidget);
+      expect(find.text('Films'), findsWidgets);
+      expect(find.text('Séries'), findsWidgets);
+      expect(find.text('Films et séries'), findsOneWidget);
       expect(find.textContaining('v1.2.0'), findsOneWidget);
       expect(find.text('Des films.'), findsOneWidget);
+      // Mode is shown at repository level only.
+      expect(find.textContaining('Appareil'), findsOneWidget);
     });
 
-    testWidgets('turns a scraper off, moves it and changes where it runs', (tester) async {
+    testWidgets('moves a scraper inside its repository', (tester) async {
       final container = await open(tester, keptContainer(repos: [testRepo()]));
-
-      await tester.tap(find.bySemanticsLabel('Désactiver : Films libres'));
-      await tester.pumpAndSettle();
-      expect(find.text('Plug-in désactivé'), findsOneWidget);
-      expect(find.text('Désactivé · Films · Sur l’appareil'), findsOneWidget);
-      expect(find.bySemanticsLabel('Activer : Films libres'), findsOneWidget);
-
-      await tester.tap(find.bySemanticsLabel('Exécuter sur le serveur : Séries libres'));
-      await tester.pumpAndSettle();
-      expect(find.text('S’exécutera sur le serveur'), findsOneWidget);
-      expect(find.text('Séries · Sur le serveur'), findsOneWidget);
-      expect(find.bySemanticsLabel('Exécuter sur l’appareil : Séries libres'), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('Monter : Séries libres'));
       await tester.pumpAndSettle();
@@ -387,7 +377,7 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Mettre à jour le dépôt : Dépôt test'));
       await tester.pumpAndSettle();
       expect(find.text('Dépôt mis à jour'), findsOneWidget);
-      expect(find.text('repo.test · 4 plug-ins'), findsOneWidget);
+      expect(find.text('repo.test · 4 plug-ins · Appareil'), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('Retirer le dépôt : Dépôt test'));
       await tester.pumpAndSettle();
@@ -412,7 +402,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Téléchargement impossible (erreur 404).'), findsOneWidget);
-      expect(find.text('repo.test · 3 plug-ins'), findsOneWidget);
+      expect(find.text('repo.test · 3 plug-ins · Appareil'), findsOneWidget);
     });
   });
 
