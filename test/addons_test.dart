@@ -271,6 +271,42 @@ void main() {
   });
 
   group('player', () {
+    Future<void> openPanel(WidgetTester tester, {required bool disabledPlugins}) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sessionProvider.overrideWith(SignedOut.new),
+            playbackRepositoryProvider.overrideWithValue(_NoResolve()),
+            playerEngineFactoryProvider.overrideWithValue((source) => FakeEngine()),
+            sourceProvidersProvider.overrideWith((ref, item) async => const <SourceProvider>[]),
+            hasDisabledPluginsProvider.overrideWith((ref) async => disabledPlugins),
+          ],
+          child: MaterialApp(
+            theme: buildVixeoTheme(),
+            home: const PlayerScreen(type: MediaType.movie, id: 550),
+          ),
+        ),
+      );
+      await settle(tester);
+    }
+
+    testWidgets('says that no plug-in is installed when there is none', (tester) async {
+      await openPanel(tester, disabledPlugins: false);
+
+      expect(find.text("Aucun plug-in n'est installé."), findsOneWidget);
+
+      await closePlayer(tester);
+    });
+
+    testWidgets('says that no plug-in is enabled when they are all turned off', (tester) async {
+      await openPanel(tester, disabledPlugins: true);
+
+      expect(find.text("Aucun plug-in n'est activé."), findsOneWidget);
+      expect(find.text("Aucun plug-in n'est installé."), findsNothing);
+
+      await closePlayer(tester);
+    });
+
     testWidgets('plays a plug-in stream as it is, with its headers, without asking the API to resolve it', (
       tester,
     ) async {

@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/api/api_exception.dart';
 import 'package:vixeo/core/theme.dart';
+import 'package:vixeo/features/addons/addons.dart';
 import 'package:vixeo/features/auth/auth_repository.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
@@ -17,6 +18,8 @@ import 'package:vixeo/features/playback/playback.dart';
 import 'package:vixeo/features/playback/player_screen.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
 import 'package:vixeo/features/search/search_history.dart';
+
+import 'player_engine_test.dart' show SignedOut;
 
 const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
 
@@ -347,7 +350,13 @@ void main() {
     const item = (type: MediaType.movie, id: 550, season: null, episode: null);
 
     ProviderContainer containerWith(RoutingAdapter adapter) {
-      final container = ProviderContainer(overrides: [apiClientProvider.overrideWithValue(routingClient(adapter))]);
+      final container = ProviderContainer(
+        overrides: [
+          apiClientProvider.overrideWithValue(routingClient(adapter)),
+          // The plug-ins are the account's: `addonsProvider` follows the signed-in user.
+          sessionProvider.overrideWith(SignedOut.new),
+        ],
+      );
       addTearDown(container.dispose);
       return container;
     }
@@ -368,43 +377,59 @@ void main() {
     Future<List<StreamSource>> linksOf(ProviderContainer c, FutureProvider<List<StreamSource>> p) async =>
         (await read(c, p)).requireValue;
 
-    test('lists the providers the API declares', () async {
+    Object addonsBody(List<Map<String, Object?>> addons) => {'data': addons};
+
+    test('lists the account plug-ins that give sources, enabled ones only', () async {
       final adapter = RoutingAdapter([
         (
-          '/catalog/sources/providers',
-          {
-            'data': [
-              {'id': 'tmdb-fr', 'name': 'TMDB Français (Onyx)'},
-              {'id': 'coflix', 'name': 'Coflix'},
-              {'id': 'aplouf', 'name': 'Aplouf'},
-              {'id': 'frenchstream', 'name': 'FrenchStream'},
-              {'id': 'frembed', 'name': 'Frembed'},
-              {'id': '1jour1film', 'name': '1Jour1Film'},
-            ],
-          },
+          '/addons',
+          addonsBody([
+            {'id': '3', 'name': 'Serveur', 'version': '1.0.0', 'streams': true, 'shared': true},
+            {'id': '12', 'name': 'Films libres', 'version': '1.0.0', 'streams': true},
+            {'id': '13', 'name': 'Éteint', 'version': '1.0.0', 'streams': true, 'enabled': false},
+            {'id': '14', 'name': 'Sans sources', 'version': '1.0.0', 'streams': false},
+          ]),
           200,
         ),
       ]);
 
       final state = await read(containerWith(adapter), sourceProvidersProvider(item));
 
-      expect(state.requireValue.map((p) => p.id), [
-        'tmdb-fr',
-        'coflix',
-        'aplouf',
-        'frenchstream',
-        'frembed',
-        '1jour1film',
-      ]);
-      expect(adapter.requests.single.path, '/catalog/sources/providers');
+      expect(state.requireValue.map((p) => p.id), ['addon:3', 'addon:12']);
+      expect(state.requireValue.map((p) => p.name), ['Serveur', 'Films libres']);
+      // Only the plug-ins are asked: the API's own provider list is not used any more.
+      expect(adapter.requests.single.path, '/addons');
     });
 
-    test('surfaces an error when the API provider list fails (no hardcoded fallback)', () async {
+    test('has no provider when no plug-in is installed', () async {
+      final adapter = RoutingAdapter([('/addons', addonsBody([]), 200)]);
+      final container = containerWith(adapter);
+
+      expect((await read(container, sourceProvidersProvider(item))).requireValue, isEmpty);
+      expect((await read(container, hasDisabledPluginsProvider)).requireValue, isFalse);
+    });
+
+    test('has no provider, and says so, when every plug-in is turned off', () async {
       final adapter = RoutingAdapter([
-        ('/catalog/sources/providers', {'message': 'Boom'}, 500),
+        (
+          '/addons',
+          addonsBody([
+            {'id': '13', 'name': 'Éteint', 'version': '1.0.0', 'streams': true, 'enabled': false},
+          ]),
+          200,
+        ),
+      ]);
+      final container = containerWith(adapter);
+
+      expect((await read(container, sourceProvidersProvider(item))).requireValue, isEmpty);
+      expect((await read(container, hasDisabledPluginsProvider)).requireValue, isTrue);
+    });
+
+    test('surfaces an error when the plug-in list fails (no hardcoded fallback)', () async {
+      final adapter = RoutingAdapter([
+        ('/addons', {'message': 'Boom'}, 500),
       ]);
 
-      // Providers come only from the API — no local fallback list.
       final state = await read(containerWith(adapter), sourceProvidersProvider(item));
       expect(state.hasError, isTrue);
       expect(state.error, isA<ApiException>());

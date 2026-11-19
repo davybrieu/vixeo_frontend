@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
+import '../addons/addons.dart';
 import '../auth/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
@@ -70,16 +71,33 @@ class SourceProvider {
   final String name;
 }
 
-/// Providers come only from the API (`/catalog/sources/providers`).
-/// No catalogue list is hard-coded in the app.
-
-/// The providers to display, in order. Fetched once per title.
+/// Providers are the account's plug-ins (`GET /addons`, `features/addons`) and nothing else: each
+/// enabled plug-in that serves streams is one provider, `addon:{id}`. No list is hard-coded in the
+/// app, and the sources of the API's own providers are no longer offered.
+///
+/// The app never calls a plug-in: the links of a provider are still asked of the Vixeo API
+/// ([providerSourcesProvider]), which calls the plug-in.
+///
+/// Why nothing is thrown when there is no plug-in: an empty list is a normal answer, the panel tells
+/// the person that no plug-in is installed (or enabled).
 final sourceProvidersProvider = FutureProvider.family<List<SourceProvider>, PlaybackItem>((ref, item) async {
-  final api = ref.read(apiClientProvider);
-  final json = await api.get('/catalog/sources/providers');
-  final data = json['data'];
-  return data is List ? data.whereType<Map<String, dynamic>>().map(SourceProvider.fromJson).toList() : const [];
+  final addons = await ref.watch(addonsProvider.future);
+  return [
+    for (final addon in addons)
+      if (addon.enabled && addon.hasStreams) SourceProvider(id: 'addon:${addon.id}', name: addon.name),
+  ];
 });
+
+/// Whether the account has plug-ins that serve streams but all of them are turned off. Lets the
+/// sources panel say « aucun plug-in activé » instead of « aucun plug-in installé ».
+final hasDisabledPluginsProvider = FutureProvider<bool>((ref) async {
+  final addons = await ref.watch(addonsProvider.future);
+  return addons.any((a) => a.hasStreams && !a.enabled);
+});
+
+/// What the sources panel says when the account has no plug-in that gives sources.
+const noPluginsInstalledMessage = "Aucun plug-in n'est installé.";
+const noPluginsEnabledMessage = "Aucun plug-in n'est activé.";
 
 /// A title and the provider whose links are wanted.
 typedef ProviderSourcesKey = ({PlaybackItem item, String provider});
@@ -850,6 +868,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         ? const AsyncData<List<SourceProvider>>(<SourceProvider>[])
         : ref.watch(sourceProvidersProvider(_item));
     final providers = providersAsync.value ?? const <SourceProvider>[];
+    // Only asked when there is nothing to list, to tell « installé » from « activé ».
+    final noProvidersMessage = providersAsync.hasValue && providers.isEmpty &&
+            (ref.watch(hasDisabledPluginsProvider).value ?? false)
+        ? noPluginsEnabledMessage
+        : noPluginsInstalledMessage;
     final sourcesByProvider = <String, AsyncValue<List<StreamSource>>>{};
     if (canLoadSources) {
       for (final provider in providers) {
@@ -1144,6 +1167,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     },
                     providersLoading: !canLoadSources || providersAsync.isLoading,
                     providersError: providersAsync.hasError ? 'Impossible de charger les sources.' : null,
+                    noProvidersMessage: noProvidersMessage,
                   ),
                 ),
             ],
@@ -1688,6 +1712,7 @@ class _SourcesPanel extends StatefulWidget {
     required this.onClose,
     this.providersLoading = false,
     this.providersError,
+    this.noProvidersMessage = noPluginsInstalledMessage,
   });
 
   final List<SourceProvider> providers;
@@ -1698,6 +1723,9 @@ class _SourcesPanel extends StatefulWidget {
   final VoidCallback onClose;
   final bool providersLoading;
   final String? providersError;
+
+  /// Said when there is no provider: no plug-in installed, or all of them turned off.
+  final String noProvidersMessage;
 
   @override
   State<_SourcesPanel> createState() => _SourcesPanelState();
@@ -1738,7 +1766,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Aucun fournisseur disponible.', textAlign: TextAlign.center, style: VxText.body(14, color: VxColors.textSoft)),
+          child: Text(widget.noProvidersMessage, textAlign: TextAlign.center, style: VxText.body(14, color: VxColors.textSoft)),
         ),
       );
     }

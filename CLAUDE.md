@@ -384,8 +384,13 @@ lib/
   catalogues et qui n'a pas de sources affiche « Aucune source » (`hasStreams`, champ `streams`
   de l'API) : on peut le retirer. L'adresse d'un plug-in n'est jamais renvoyée par l'API
   (seulement `host`). Après chaque changement : invalider `addonsProvider` et
-  `sourceProvidersProvider`. **Sources** : chaque plug-in qui sert des flux est un fournisseur du
-  panneau des sources (`addon:{n}`) ; ses flux arrivent **déjà lisibles** (`StreamSource.stream`,
+  `sourceProvidersProvider`. **Sources** : le panneau des sources n'offre **que** les plug-ins
+  (demande du développeur, 19/11/2026) : `sourceProvidersProvider` lit `GET /addons` et garde les
+  plug-ins activés qui servent des flux, chacun étant un fournisseur (`addon:{n}`) ; l'appli ne
+  demande plus `/catalog/sources/providers` (les fournisseurs propres du serveur ne sont plus
+  proposés). Sans plug-in, le panneau écrit « Aucun plug-in n'est installé. » ; si tous sont
+  désactivés, « Aucun plug-in n'est activé. » (`hasDisabledPluginsProvider`). Les liens d'un
+  fournisseur sont toujours demandés à l'API (`providerSourcesProvider`), jamais au plug-in ; ses flux arrivent **déjà lisibles** (`StreamSource.stream`,
   `headers`) et le lecteur les lit sans `resolve`. Test : `test/addons_test.dart`.
 - **Avancé** (« Paramètres » → « Avancé », `/profil/avance`, `AdvancedSettingsScreen` ; demande du
   développeur, sans rapports de plantage) : « Mémoriser le dernier profil » (sur l'appareil,
