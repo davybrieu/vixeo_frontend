@@ -99,7 +99,12 @@ class PushApi extends ApiClient {
   }
 
   @override
-  Future<Map<String, dynamic>> post(String path, {Object? body, Map<String, String>? headers}) async {
+  Future<Map<String, dynamic>> post(
+    String path, {
+    Object? body,
+    Map<String, String>? headers,
+    Duration? receiveTimeout,
+  }) async {
     expect(path, '/push/device/test');
     tests++;
     return testAnswer ?? {'message': 'Notification de test envoyée.'};

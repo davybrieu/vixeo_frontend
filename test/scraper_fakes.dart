@@ -4,6 +4,7 @@
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/local_store.dart';
 import 'package:vixeo/features/addons/scraper_guard.dart';

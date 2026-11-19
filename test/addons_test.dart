@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/api/api_exception.dart';
@@ -51,8 +52,16 @@ ProviderContainer keptContainer({
   FakeScraperRuntime? runtime,
   MemoryLocalStore? store,
   ApiClient? api,
+  List<Override> extraOverrides = const [],
 }) {
-  final container = scraperContainer(repos: repos, http: http, runtime: runtime, store: store, api: api);
+  final container = scraperContainer(
+    repos: repos,
+    http: http,
+    runtime: runtime,
+    store: store,
+    api: api,
+    extraOverrides: extraOverrides,
+  );
   addTearDown(container.dispose);
   return container;
 }

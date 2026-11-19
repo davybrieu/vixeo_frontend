@@ -41,7 +41,7 @@ class WebScraperRuntime implements ScraperRuntime {
       ..setAttribute('sandbox', 'allow-scripts')
       ..setAttribute('aria-hidden', 'true')
       ..style.display = 'none'
-      ..srcdoc = sandboxPage(prelude, nonce);
+      ..srcdoc = sandboxPage(prelude, nonce).toJS;
 
     void post(Map<String, Object?> message) {
       iframe.contentWindow?.postMessage({'nonce': nonce, ...message}.jsify()!, '*'.toJS);

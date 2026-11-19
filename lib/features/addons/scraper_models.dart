@@ -248,7 +248,7 @@ class ScraperRepo {
       version: _text(json['version']),
       scrapers: [
         for (final item in json['scrapers'] is List ? json['scrapers'] as List : const [])
-          if (ScraperInfo.tryFromJson(id, item) case final scraper?) scraper,
+          ?ScraperInfo.tryFromJson(id, item),
       ],
     );
   }
@@ -261,7 +261,7 @@ class ScraperRepo {
       if (json is! List) return const [];
       return [
         for (final item in json)
-          if (tryFromJson(item) case final repo?) repo,
+          ?tryFromJson(item),
       ];
     } on FormatException {
       return const [];
