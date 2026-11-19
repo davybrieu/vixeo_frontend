@@ -165,33 +165,35 @@ void main() {
       }
     });
 
-    test('keep the order of existing scrapers when the manifest is read again', () {
-      final repo = testRepo();
-      final reordered = repo.copyWith(
-        scrapers: [
-          repo.scrapers[2], // moved first
-          repo.scrapers[0],
-          repo.scrapers[1],
-        ],
-      );
+    test('take the manifest’s scrapers when it is read again, and stay on or off', () {
+      final repo = testRepo().copyWith(enabled: false);
       final manifest = RepositoryManifest.parse({
         'name': 'Nouveau nom',
         'execution': 'server',
         'scrapers': [
-          {'id': 'films', 'name': 'Films libres 2', 'filename': 'providers/films.js', 'version': '2.0.0'},
           {'id': 'tout', 'name': 'Tout', 'filename': 'https://cdn.test/tout.js'},
+          {'id': 'films', 'name': 'Films libres 2', 'filename': 'providers/films.js', 'version': '2.0.0'},
           {'id': 'neuf', 'name': 'Neuf', 'filename': 'providers/neuf.js'},
           // `series` is gone from the repository.
         ],
       }, fallbackName: 'x');
 
-      final updated = reordered.updatedWith(manifest);
+      final updated = repo.updatedWith(manifest);
 
+      expect(updated.id, repo.id);
       expect(updated.name, 'Nouveau nom');
       expect(updated.mode, ScraperMode.server);
+      expect(updated.enabled, isFalse);
       expect(updated.scrapers.map((s) => s.id), ['tout', 'films', 'neuf']);
       expect(updated.scrapers[1].name, 'Films libres 2');
       expect(updated.scrapers[1].version, '2.0.0');
+    });
+
+    test('are on by default, also when older data has no flag', () {
+      expect(testRepo().enabled, isTrue);
+      expect(ScraperRepo.decodeList('[{"url":"$repoUrl","scrapers":[]}]').single.enabled, isTrue);
+      final off = ScraperRepo.decodeList(ScraperRepo.encodeList([testRepo().copyWith(enabled: false)]));
+      expect(off.single.enabled, isFalse);
     });
   });
 

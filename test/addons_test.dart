@@ -122,25 +122,43 @@ void main() {
       expect(container.read(scraperReposProvider).value, hasLength(1));
     });
 
-    test('move a scraper inside its repository, and ignore a move that makes no sense', () async {
-      final repo = testRepo();
-      final container = keptContainer(repos: [repo]);
+    test('move a repository, keep the order on the device, and ignore a move that makes no sense', () async {
+      final store = MemoryLocalStore();
+      final other = otherRepo();
+      final container = keptContainer(repos: [testRepo(), other], store: store);
       await reposOf(container);
       final repos = container.read(scraperReposProvider.notifier);
-      List<String> order() => [for (final s in container.read(scraperReposProvider).value!.single.scrapers) s.id];
+      List<String> order() => [for (final r in container.read(scraperReposProvider).value!) r.name];
 
-      await repos.move(repo.id, 2, 0);
-      expect(order(), ['tout', 'films', 'series']);
-      await repos.move(repo.id, 0, 1);
-      expect(order(), ['films', 'tout', 'series']);
-      await repos.move(repo.id, 0, 3);
-      await repos.move(repo.id, -1, 0);
-      await repos.move('autre', 0, 1);
-      expect(order(), ['films', 'tout', 'series']);
+      await repos.move(other.id, 0);
+      expect(order(), ['Autre dépôt', 'Dépôt test']);
+      await repos.move(other.id, 2);
+      await repos.move(other.id, -1);
+      await repos.move('inconnu', 1);
+      expect(order(), ['Autre dépôt', 'Dépôt test']);
+
+      // Another start of the app: the order is still there.
+      expect((await reposOf(keptContainer(store: store))).map((r) => r.name), ['Autre dépôt', 'Dépôt test']);
+    });
+
+    test('turn a repository off and on again, and keep the choice on the device', () async {
+      final repo = testRepo();
+      final store = MemoryLocalStore();
+      final container = keptContainer(repos: [repo], store: store);
+      await reposOf(container);
+      final repos = container.read(scraperReposProvider.notifier);
+      expect(container.read(scraperReposProvider).value!.single.enabled, isTrue);
+
+      await repos.setEnabled(repo.id, false);
+      expect(container.read(scraperReposProvider).value!.single.enabled, isFalse);
+      expect((await reposOf(keptContainer(store: store))).single.enabled, isFalse);
+
+      await repos.setEnabled(repo.id, true);
+      expect((await reposOf(keptContainer(store: store))).single.enabled, isTrue);
     });
 
     test('read the manifest again without losing the person’s choices', () async {
-      final repo = testRepo();
+      final repo = testRepo().copyWith(enabled: false);
       final changed = {
         ..._files,
         repoUrl: jsonEncode({
@@ -156,8 +174,9 @@ void main() {
       final repos = container.read(scraperReposProvider.notifier);
       await repos.refresh(repo.id);
 
-      final scrapers = container.read(scraperReposProvider).value!.single.scrapers;
-      expect(scrapers.map((s) => s.id), ['films', 'series', 'tout', 'neuf']);
+      final updated = container.read(scraperReposProvider).value!.single;
+      expect(updated.scrapers.map((s) => s.id), ['films', 'series', 'tout', 'neuf']);
+      expect(updated.enabled, isFalse);
     });
 
     test('remove a repository', () async {
@@ -305,7 +324,7 @@ void main() {
       return container;
     }
 
-    List<String> order(ProviderContainer c) => [for (final s in c.read(scraperReposProvider).value!.single.scrapers) s.id];
+    List<String> names(ProviderContainer c) => [for (final r in c.read(scraperReposProvider).value!) r.name];
 
     testWidgets('says that Vixeo provides no repository, and that none is installed', (tester) async {
       await open(tester, keptContainer());
@@ -331,34 +350,52 @@ void main() {
       await tester.tap(find.text('Installer'));
       await tester.pumpAndSettle();
       expect(find.text('Dépôt installé : Dépôt test'), findsOneWidget);
-      expect(find.text('repo.test · 3 plug-ins · Appareil'), findsOneWidget);
+      expect(find.text('repo.test · v1.0.0 · Appareil'), findsOneWidget);
+      expect(find.bySemanticsLabel('Dépôt test, activé'), findsOneWidget);
       expect(find.bySemanticsLabel('Retirer le dépôt : Dépôt test'), findsOneWidget);
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
       expect(container.read(scraperReposProvider).value, hasLength(1));
     });
 
-    testWidgets('shows what each scraper serves', (tester) async {
-      await open(tester, keptContainer(repos: [testRepo()]));
+    testWidgets('lists the repositories only, never their scrapers', (tester) async {
+      await open(tester, keptContainer(repos: [testRepo(), otherRepo()]));
 
-      expect(find.text('Films'), findsWidgets);
-      expect(find.text('Séries'), findsWidgets);
-      expect(find.text('Films et séries'), findsOneWidget);
-      expect(find.textContaining('v1.2.0'), findsOneWidget);
-      expect(find.text('Des films.'), findsOneWidget);
-      // Mode is shown at repository level only.
-      expect(find.textContaining('Appareil'), findsOneWidget);
+      expect(find.text('Dépôt test'), findsOneWidget);
+      expect(find.text('repo.test · v1.0.0 · Appareil'), findsOneWidget);
+      expect(find.text('Autre dépôt'), findsOneWidget);
+      expect(find.text('autre.test · Appareil'), findsOneWidget);
+      for (final scraper in ['Films libres', 'Séries libres', 'Tout', 'Autre source', 'Des films.']) {
+        expect(find.textContaining(scraper), findsNothing, reason: scraper);
+      }
+      expect(find.textContaining('v1.2.0'), findsNothing);
     });
 
-    testWidgets('moves a scraper inside its repository', (tester) async {
+    testWidgets('turns a repository off, then on again', (tester) async {
       final container = await open(tester, keptContainer(repos: [testRepo()]));
+      bool enabled() => container.read(scraperReposProvider).value!.single.enabled;
 
-      await tester.tap(find.bySemanticsLabel('Monter : Séries libres'));
+      await tester.tap(find.bySemanticsLabel('Dépôt test, activé'));
       await tester.pumpAndSettle();
-      expect(order(container), ['series', 'films', 'tout']);
+      expect(enabled(), isFalse);
+      expect(find.bySemanticsLabel('Dépôt test, désactivé'), findsOneWidget);
+      // Still installed.
+      expect(find.text('Dépôt test'), findsOneWidget);
 
-      await tester.tap(find.bySemanticsLabel('Descendre : Séries libres'));
+      await tester.tap(find.bySemanticsLabel('Dépôt test, désactivé'));
       await tester.pumpAndSettle();
-      expect(order(container), ['films', 'series', 'tout']);
+      expect(enabled(), isTrue);
+    });
+
+    testWidgets('moves a repository up and down', (tester) async {
+      final container = await open(tester, keptContainer(repos: [testRepo(), otherRepo()]));
+
+      await tester.tap(find.bySemanticsLabel('Monter : Autre dépôt'));
+      await tester.pumpAndSettle();
+      expect(names(container), ['Autre dépôt', 'Dépôt test']);
+
+      await tester.tap(find.bySemanticsLabel('Descendre : Autre dépôt'));
+      await tester.pumpAndSettle();
+      expect(names(container), ['Dépôt test', 'Autre dépôt']);
     });
 
     testWidgets('reads the repository again, and removes it after a confirmation', (tester) async {
@@ -377,7 +414,7 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Mettre à jour le dépôt : Dépôt test'));
       await tester.pumpAndSettle();
       expect(find.text('Dépôt mis à jour'), findsOneWidget);
-      expect(find.text('repo.test · 4 plug-ins · Appareil'), findsOneWidget);
+      expect(container.read(scraperReposProvider).value!.single.scrapers, hasLength(4));
 
       await tester.tap(find.bySemanticsLabel('Retirer le dépôt : Dépôt test'));
       await tester.pumpAndSettle();
@@ -402,7 +439,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Téléchargement impossible (erreur 404).'), findsOneWidget);
-      expect(find.text('repo.test · 3 plug-ins · Appareil'), findsOneWidget);
+      expect(find.text('repo.test · v1.0.0 · Appareil'), findsOneWidget);
     });
   });
 
@@ -429,6 +466,35 @@ void main() {
       await openPanel(tester);
 
       expect(find.text("Aucun plug-in n'est installé."), findsOneWidget);
+
+      await closePlayer(tester);
+    });
+
+    testWidgets('says that the plug-ins are turned off when every repository is, and runs none', (tester) async {
+      final runtime = FakeScraperRuntime();
+      final container = keptContainer(
+        repos: [testRepo().copyWith(enabled: false)],
+        http: FakeScraperHttp(_files),
+        runtime: runtime,
+        extraOverrides: [
+          playbackRepositoryProvider.overrideWithValue(_NoResolve()),
+          playerEngineFactoryProvider.overrideWithValue((source) => FakeEngine()),
+        ],
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: buildVixeoTheme(),
+            home: const PlayerScreen(type: MediaType.movie, id: 550),
+          ),
+        ),
+      );
+      await settle(tester);
+
+      expect(find.text(pluginsDisabledMessage), findsOneWidget);
+      expect(find.text('Films libres'), findsNothing);
+      expect(runtime.calls, isEmpty);
 
       await closePlayer(tester);
     });

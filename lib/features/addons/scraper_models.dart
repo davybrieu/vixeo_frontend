@@ -192,7 +192,9 @@ class ScraperInfo {
   };
 }
 
-/// An installed repository and its scrapers, in the order the person chose.
+/// An installed repository (an add-on). It is the unit the person manages: turned on or off and
+/// moved as a whole in « Plug-ins », where its scrapers are not listed. Its scrapers keep the
+/// manifest's order.
 @immutable
 class ScraperRepo {
   const ScraperRepo({
@@ -203,6 +205,7 @@ class ScraperRepo {
     this.version,
     required this.scrapers,
     this.mode = ScraperMode.device,
+    this.enabled = true,
   });
 
   /// Reads a repository from its manifest (first install).
@@ -235,6 +238,8 @@ class ScraperRepo {
           ?ScraperInfo.tryFromJson(id, item),
       ],
       mode: ScraperMode.parse(json['mode']),
+      // Older data has no flag: the repository was in use.
+      enabled: json['enabled'] != false,
     );
   }
 
@@ -284,6 +289,9 @@ class ScraperRepo {
   final List<ScraperInfo> scrapers;
   final ScraperMode mode;
 
+  /// Off: still installed, but its scrapers give no sources (« Plug-ins »).
+  final bool enabled;
+
   String get host => hostOf(url);
 
   /// The address of one scraper's file.
@@ -295,6 +303,7 @@ class ScraperRepo {
     String? description,
     String? version,
     ScraperMode? mode,
+    bool? enabled,
   }) => ScraperRepo(
     id: id,
     url: url,
@@ -303,28 +312,22 @@ class ScraperRepo {
     version: version ?? this.version,
     scrapers: scrapers ?? this.scrapers,
     mode: mode ?? this.mode,
+    enabled: enabled ?? this.enabled,
   );
 
-  /// This repository after its manifest was read again: the scrapers that are still listed keep
-  /// their place; new ones come last; the ones no longer listed are dropped. Mode comes from the
-  /// new manifest.
-  ScraperRepo updatedWith(RepositoryManifest manifest) {
-    final entries = {for (final entry in manifest.scrapers) entry.id: entry};
-    final kept = [
-      for (final old in scrapers)
-        if (entries.remove(old.id) case final entry?)
-          ScraperInfo.fromEntry(id, entry),
-    ];
-    return ScraperRepo(
-      id: id,
-      url: url,
-      name: manifest.name,
-      description: manifest.description,
-      version: manifest.version,
-      scrapers: [...kept, for (final entry in entries.values) ScraperInfo.fromEntry(id, entry)],
-      mode: manifest.execution,
-    );
-  }
+  /// This repository after its manifest was read again: its scrapers are the manifest's, in the
+  /// manifest's order (the add-on decides, the person does not see them), and so is the mode. Only
+  /// what the person chose stays: on or off.
+  ScraperRepo updatedWith(RepositoryManifest manifest) => ScraperRepo(
+    id: id,
+    url: url,
+    name: manifest.name,
+    description: manifest.description,
+    version: manifest.version,
+    scrapers: [for (final entry in manifest.scrapers) ScraperInfo.fromEntry(id, entry)],
+    mode: manifest.execution,
+    enabled: enabled,
+  );
 
   Map<String, Object?> toJson() => {
     'url': url,
@@ -332,6 +335,7 @@ class ScraperRepo {
     if (description != null) 'description': description,
     if (version != null) 'version': version,
     'mode': mode.storageName,
+    'enabled': enabled,
     'scrapers': [for (final s in scrapers) s.toJson()],
   };
 }

@@ -45,6 +45,17 @@ Map<String, Object?> manifestJson() => {
 ScraperRepo testRepo() =>
     ScraperRepo.fromManifest(repoUrl, RepositoryManifest.parse(manifestJson(), fallbackName: 'repo.test'));
 
+/// A second repository, with one scraper for movies and series, and no version.
+ScraperRepo otherRepo() => ScraperRepo.fromManifest(
+  'https://autre.test/manifest.json',
+  RepositoryManifest.parse({
+    'name': 'Autre dépôt',
+    'scrapers': [
+      {'id': 'autre', 'name': 'Autre source', 'filename': 'autre.js'},
+    ],
+  }, fallbackName: 'autre.test'),
+);
+
 /// A signed-in account (the plug-ins are kept per account).
 class SignedIn extends SessionController {
   @override

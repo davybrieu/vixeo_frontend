@@ -2,7 +2,8 @@
 ///
 /// This file is the app's logic for them, in four parts:
 /// - [ScraperRepos]: the installed repositories, kept **on the device**
-///   (`LocalStore`), per account. Execution mode comes from the manifest.
+///   (`LocalStore`), per account, in the person's order, each on or off. Execution mode comes
+///   from the manifest.
 /// - [ScraperLoader]: downloads manifests and scrapers' code (never run here).
 /// - [ScraperService]: asks one scraper for the streams of a title, on the device or on the server
 ///   according to the repository's declared mode.
@@ -73,7 +74,7 @@ class ScraperRepos extends AsyncNotifier<List<ScraperRepo>> {
     ref.read(scraperLoaderProvider).forgetCode();
   }
 
-  /// Reads the manifest again: new scrapers appear, the order of the others stays.
+  /// Reads the manifest again: the scrapers become the manifest's; on or off stays.
   Future<void> refresh(String repositoryId) async {
     final repo = (await future).where((r) => r.id == repositoryId).firstOrNull;
     if (repo == null) return;
@@ -83,24 +84,20 @@ class ScraperRepos extends AsyncNotifier<List<ScraperRepo>> {
     await _update((repos) => [for (final r in repos) r.id == repositoryId ? r.updatedWith(manifest) : r]);
   }
 
-  /// Moves a scraper inside its repository (the first is asked first, and listed first).
-  Future<void> move(String repositoryId, int from, int to) => _update((repos) {
-    return [
-      for (final repo in repos)
-        if (repo.id == repositoryId && _inRange(from, repo.scrapers) && _inRange(to, repo.scrapers))
-          _moved(repo, from, to)
-        else
-          repo,
-    ];
+  /// Turns a repository on or off: off, it stays installed but gives no sources.
+  Future<void> setEnabled(String repositoryId, bool enabled) => _update(
+    (repos) => [for (final r in repos) r.id == repositoryId ? r.copyWith(enabled: enabled) : r],
+  );
+
+  /// Moves a repository to [to] in the list: the sources panel lists the scrapers of the first
+  /// repository first. A move outside the list, or of an unknown repository, changes nothing.
+  Future<void> move(String repositoryId, int to) => _update((repos) {
+    final from = repos.indexWhere((r) => r.id == repositoryId);
+    if (from < 0 || to < 0 || to >= repos.length || from == to) return repos;
+    final next = [...repos];
+    next.insert(to, next.removeAt(from));
+    return next;
   });
-
-  static bool _inRange(int index, List<Object?> list) => index >= 0 && index < list.length;
-
-  static ScraperRepo _moved(ScraperRepo repo, int from, int to) {
-    final scrapers = [...repo.scrapers];
-    scrapers.insert(to, scrapers.removeAt(from));
-    return repo.copyWith(scrapers: scrapers);
-  }
 
   /// Applies [change] to the current list, shows it at once, then keeps it on the device.
   Future<void> _update(List<ScraperRepo> Function(List<ScraperRepo> repos) change) async {

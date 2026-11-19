@@ -154,7 +154,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       scale: s,
                       icon: Icons.extension_outlined,
                       title: 'Plug-ins',
-                      subtitle: 'Sources au format Stremio.',
+                      subtitle: 'Activer, désactiver et trier les dépôts de sources.',
                       onPressed: () => context.push(AddonsScreen.location),
                     ),
                     _SettingsTile(

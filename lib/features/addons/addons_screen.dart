@@ -6,17 +6,19 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focusable.dart';
 import '../account/info_page.dart';
 import '../playback/player_screen.dart' show sourceProvidersProvider;
 import 'scraper_models.dart';
 import 'scrapers.dart';
 
 /// « Plug-ins » (« Paramètres » → « Plug-ins »), façon Nuvio (`docs/scrapers.md`): the person adds
-/// the address of a **repository** (a `manifest.json` somebody hosts) and gets its **scrapers**,
-/// JavaScript that finds the streams of a title. They appear in the sources panel of the player,
-/// never as rows or titles (the catalog stays TMDb's). Execution mode is declared in the manifest
-/// (`execution`: `device` or `server`) and is not configurable in the app. The whole repository is
-/// the unit of enable/disable.
+/// the address of a **repository** (an add-on: a `manifest.json` somebody hosts). Its scrapers give
+/// sources to the player's sources panel, never rows or titles (the catalog stays TMDb's).
+///
+/// The page lists the **add-ons only, never their scrapers** (demande du développeur): each one
+/// can be turned on or off, moved up or down (the sources panel follows this order), read again or
+/// removed. Its execution mode is declared in the manifest and only shown.
 ///
 /// Vixeo provides no repository: the page says so, and nothing is installed by default.
 ///
@@ -36,7 +38,7 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
   String? _urlError;
   bool _installing = false;
 
-  /// What was just pressed (a repository's id): its buttons wait for the answer.
+  /// The repository being read again or removed: those two buttons wait for the answer.
   String? _busy;
 
   @override
@@ -73,7 +75,7 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
     }
   }
 
-  /// Runs [action] for what [busy] names, then refreshes; an error is shown as an alert.
+  /// Runs [action] for the repository [busy] names, then refreshes; an error is shown as an alert.
   Future<void> _run(String busy, Future<void> Function() action, {String? done}) async {
     setState(() => _busy = busy);
     try {
@@ -88,13 +90,20 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
     }
   }
 
+  /// A change kept at once (on / off, order). Its buttons never wait: with a remote, the focus
+  /// stays on the button pressed (a button that waits can't hold the focus).
+  Future<void> _change(Future<void> Function() action) async {
+    await action();
+    if (mounted) _refreshSources();
+  }
+
   Future<void> _removeRepo(ScraperRepo repo) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Retirer le dépôt'),
         content: Text(
-          '« ${repo.name} » et ses plug-ins ne proposeront plus de sources. '
+          '« ${repo.name} » ne proposera plus de sources. '
           'Vous pourrez le réinstaller avec son adresse.',
           style: VxText.body(15, color: VxColors.textSoft),
         ),
@@ -122,8 +131,8 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
       fallback: '/profil',
       children: [
         const InfoIntro(
-          'Ajoutez l’adresse d’un dépôt : chaque plug-in qu’il contient apporte des sources au choix des '
-          'sources du lecteur. Le mode d’exécution (appareil ou serveur) est déclaré dans le manifeste du dépôt. '
+          'Ajoutez l’adresse d’un dépôt : il apporte des sources au lecteur. Désactivez un dépôt pour ne '
+          'plus voir ses sources sans le retirer ; le choix des sources suit l’ordre des dépôts. '
           'Vixeo n’en fournit aucun, vous êtes responsable des dépôts que vous ajoutez.',
         ),
         InfoSection(
@@ -165,18 +174,22 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
                 if (all.isEmpty) {
                   return Text('Aucun dépôt installé.', style: VxText.body(15, color: VxColors.textSoft));
                 }
-                final gap = SizedBox(height: layout.sectionGap);
+                final gap = SizedBox(height: layout.listGap);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (final (i, repo) in all.indexed) ...[
                       if (i > 0) gap,
-                      _RepoView(
+                      _AddonCard(
+                        // The card moves with its repository: the focus stays on the button pressed.
+                        key: ValueKey(repo.id),
                         repo: repo,
-                        busy: _busy,
+                        busy: _busy == repo.id,
+                        onToggle: (on) => _change(() => _repos.setEnabled(repo.id, on)),
+                        onUp: i == 0 ? null : () => _change(() => _repos.move(repo.id, i - 1)),
+                        onDown: i == all.length - 1 ? null : () => _change(() => _repos.move(repo.id, i + 1)),
                         onRefresh: () => _run(repo.id, () => _repos.refresh(repo.id), done: 'Dépôt mis à jour'),
                         onRemove: () => _removeRepo(repo),
-                        onMove: (from, to) => _run(repo.scrapers[from].key, () => _repos.move(repo.id, from, to)),
                       ),
                     ],
                   ],
@@ -190,212 +203,136 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
   }
 }
 
-/// One repository: its header (with execution mode), then its scrapers (informational).
-class _RepoView extends StatelessWidget {
-  const _RepoView({
+/// One add-on: its name, address, version and execution mode, a switch to turn it on or off, then
+/// « monter », « descendre » (buttons, not drag and drop: they work with a TV remote), « mettre à
+/// jour » and « retirer ». Its scrapers are not listed.
+class _AddonCard extends StatelessWidget {
+  const _AddonCard({
+    super.key,
     required this.repo,
     required this.busy,
+    required this.onToggle,
+    required this.onUp,
+    required this.onDown,
     required this.onRefresh,
     required this.onRemove,
-    required this.onMove,
   });
 
   final ScraperRepo repo;
-  final String? busy;
-  final VoidCallback onRefresh;
-  final VoidCallback onRemove;
-  final void Function(int from, int to) onMove;
 
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final s = uiScale(context);
-    final count = repo.scrapers.length;
-    final modeLabel = repo.mode == ScraperMode.server ? 'Serveur' : 'Appareil';
-    final facts = [repo.host, '$count plug-in${count > 1 ? 's' : ''}', modeLabel].join(' · ');
-    final repoBusy = busy == repo.id;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    repo.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: VxText.body(16 * s, weight: FontWeight.w700),
-                  ),
-                  Text(
-                    facts,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: VxText.body(12 * s, color: VxColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-            VxIconAction(
-              dense: true,
-              icon: Icons.sync_rounded,
-              label: 'Mettre à jour le dépôt : ${repo.name}',
-              onPressed: repoBusy ? null : onRefresh,
-            ),
-            SizedBox(width: layout.size(6, tv: 14)),
-            VxIconAction(
-              dense: true,
-              icon: Icons.delete_outline_rounded,
-              label: 'Retirer le dépôt : ${repo.name}',
-              onPressed: repoBusy ? null : onRemove,
-            ),
-          ],
-        ),
-        SizedBox(height: layout.listGap),
-        for (final (i, scraper) in repo.scrapers.indexed) ...[
-          if (i > 0) SizedBox(height: layout.listGap),
-          _ScraperCard(
-            scraper: scraper,
-            busy: busy == scraper.key || repoBusy,
-            onUp: i == 0 ? null : () => onMove(i, i - 1),
-            onDown: i == count - 1 ? null : () => onMove(i, i + 1),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// One scraper: logo, name and version, what it serves. No individual enable/mode controls.
-class _ScraperCard extends StatelessWidget {
-  const _ScraperCard({
-    required this.scraper,
-    required this.busy,
-    required this.onUp,
-    required this.onDown,
-  });
-
-  final ScraperInfo scraper;
+  /// Read again or removed right now.
   final bool busy;
+  final ValueChanged<bool> onToggle;
+
+  /// Null: already first / last.
   final VoidCallback? onUp;
   final VoidCallback? onDown;
-
-  /// What the scraper serves.
-  String get _facts => scraper.types.length == 2
-      ? 'Films et séries'
-      : scraper.types.contains('tv')
-          ? 'Séries'
-          : 'Films';
+  final VoidCallback onRefresh;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final s = uiScale(context);
-    final logo = layout.size(44, tv: 72);
+    final name = repo.name;
+    final on = repo.enabled;
+    final facts = [repo.host, if (repo.version != null) 'v${repo.version}', repo.mode.label].join(' · ');
     final gap = SizedBox(width: layout.size(6, tv: 14));
-    final name = scraper.name;
 
-    final actions = <Widget>[
-      Opacity(
-        opacity: onUp == null ? 0.3 : 1,
-        child: VxIconAction(
-          dense: true,
-          icon: Icons.arrow_upward_rounded,
-          label: 'Monter : $name',
-          onPressed: busy ? null : onUp,
-        ),
-      ),
-      Opacity(
-        opacity: onDown == null ? 0.3 : 1,
-        child: VxIconAction(
-          dense: true,
-          icon: Icons.arrow_downward_rounded,
-          label: 'Descendre : $name',
-          onPressed: busy ? null : onDown,
-        ),
-      ),
-    ];
+    Widget step(IconData icon, String label, VoidCallback? onPressed) => Opacity(
+      opacity: onPressed == null ? 0.3 : 1,
+      child: VxIconAction(dense: true, icon: icon, label: label, onPressed: onPressed),
+    );
 
     return VxCard(
       padding: EdgeInsets.symmetric(horizontal: layout.size(14, tv: 24), vertical: layout.size(12, tv: 18)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(logo * 0.22),
-                child: SizedBox.square(
-                  dimension: logo,
-                  child: scraper.logo == null
-                      ? const _LogoFallback()
-                      : NetImage(url: scraper.logo, fit: BoxFit.contain, fallback: const _LogoFallback()),
-                ),
-              ),
-              SizedBox(width: layout.size(12, tv: 20)),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          // The whole top of the card is the switch (remote: OK turns it on or off).
+          Semantics(
+            toggled: on,
+            child: VxFocusable(
+              borderRadius: 12 * s,
+              focusScale: 1.02,
+              semanticLabel: '$name, ${on ? 'activé' : 'désactivé'}',
+              onPressed: () => onToggle(!on),
+              child: ExcludeSemantics(
+                child: Row(
                   children: [
-                    Text.rich(
-                      TextSpan(
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          TextSpan(text: name),
-                          if (scraper.version.isNotEmpty)
-                            TextSpan(
-                              text: '  v${scraper.version}',
-                              style: VxText.body(12 * s, color: VxColors.textSecondary),
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: VxText.body(
+                              16 * s,
+                              weight: FontWeight.w700,
+                              color: on ? VxColors.text : VxColors.textSecondary,
                             ),
+                          ),
+                          SizedBox(height: layout.size(2, tv: 4)),
+                          Text(
+                            facts,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: VxText.body(12 * s, color: VxColors.textSecondary),
+                          ),
+                          if (repo.description != null) ...[
+                            SizedBox(height: layout.size(4, tv: 6)),
+                            Text(
+                              repo.description!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: VxText.body(13 * s, color: on ? VxColors.textSoft : VxColors.textSecondary),
+                            ),
+                          ],
                         ],
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: VxText.body(15 * s, weight: FontWeight.w600),
                     ),
-                    if (scraper.description != null) ...[
-                      SizedBox(height: layout.size(2, tv: 4)),
-                      Text(
-                        scraper.description!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: VxText.body(13 * s, color: VxColors.textSoft),
+                    SizedBox(width: 12 * s),
+                    // The focusable above handles taps and the remote: the switch only shows the state.
+                    IgnorePointer(
+                      child: ExcludeFocus(
+                        child: Transform.scale(
+                          scale: s,
+                          child: Switch(value: on, onChanged: (_) {}, activeThumbColor: VxColors.accent),
+                        ),
                       ),
-                    ],
-                    SizedBox(height: layout.size(4, tv: 6)),
-                    Text(
-                      _facts,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: VxText.body(12 * s, color: VxColors.textSecondary),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
           SizedBox(height: layout.size(8, tv: 12)),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              for (final (i, action) in actions.indexed) ...[if (i > 0) gap, action],
+              step(Icons.arrow_upward_rounded, 'Monter : $name', onUp),
+              gap,
+              step(Icons.arrow_downward_rounded, 'Descendre : $name', onDown),
+              gap,
+              VxIconAction(
+                dense: true,
+                icon: Icons.sync_rounded,
+                label: 'Mettre à jour le dépôt : $name',
+                onPressed: busy ? null : onRefresh,
+              ),
+              gap,
+              VxIconAction(
+                dense: true,
+                icon: Icons.delete_outline_rounded,
+                label: 'Retirer le dépôt : $name',
+                onPressed: busy ? null : onRemove,
+              ),
             ],
           ),
         ],
       ),
     );
   }
-}
-
-class _LogoFallback extends StatelessWidget {
-  const _LogoFallback();
-
-  @override
-  Widget build(BuildContext context) => const ColoredBox(
-    color: VxColors.surfaceHigh,
-    child: Icon(Icons.extension_rounded, color: VxColors.textSecondary),
-  );
 }

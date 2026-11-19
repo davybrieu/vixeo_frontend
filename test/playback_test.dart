@@ -387,6 +387,30 @@ void main() {
       expect(series.requireValue.map((p) => p.name), ['Séries libres', 'Tout']);
     });
 
+    test('follows the order of the repositories, and leaves out a repository turned off', () async {
+      final both = await read(containerWith(repos: [otherRepo(), testRepo()]), sourceProvidersProvider(item));
+      expect(both.requireValue.map((p) => p.name), ['Autre source', 'Films libres', 'Tout']);
+
+      final off = await read(
+        containerWith(repos: [otherRepo(), testRepo().copyWith(enabled: false)]),
+        sourceProvidersProvider(item),
+      );
+      expect(off.requireValue.map((p) => p.name), ['Autre source']);
+    });
+
+    test('a scraper of a repository turned off gives nothing, and does not run', () async {
+      final repo = testRepo().copyWith(enabled: false);
+      final runtime = FakeScraperRuntime();
+
+      final state = await read(
+        containerWith(repos: [repo], runtime: runtime),
+        providerSourcesProvider((item: item, provider: repo.scrapers[0].providerId)),
+      );
+
+      expect(state.requireValue, isEmpty);
+      expect(runtime.calls, isEmpty);
+    });
+
     test('has no provider when no plug-in is installed', () async {
       final container = containerWith();
 

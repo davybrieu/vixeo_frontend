@@ -93,14 +93,15 @@ class SourceProvider {
 /// Providers are the scrapers of the installed plug-ins (`features/addons`, `docs/scrapers.md`) and
 /// nothing else: each scraper that handles the title's type is one provider,
 /// `scraper:{repository}:{id}`. No list is hard-coded in the app: Vixeo provides no repository.
-/// Individual enable/disable is not available (addon-level only).
+/// Only the repositories turned on count, in the order chosen in « Plug-ins » (a repository is
+/// turned on or off as a whole, never one scraper).
 ///
 /// Why nothing is thrown when there is no plug-in: an empty list is a normal answer, the panel tells
 /// the person that no plug-in is installed.
 final sourceProvidersProvider = FutureProvider.family<List<SourceProvider>, PlaybackItem>((ref, item) async {
   final repos = await ref.watch(scraperReposProvider.future);
   return [
-    for (final repo in repos)
+    for (final repo in repos.where((r) => r.enabled))
       for (final scraper in repo.scrapers)
         if (scraper.supports(item.type)) SourceProvider(id: scraper.providerId, name: scraper.name),
   ];
@@ -108,6 +109,9 @@ final sourceProvidersProvider = FutureProvider.family<List<SourceProvider>, Play
 
 /// What the sources panel says when the account has no plug-in that gives sources.
 const noPluginsInstalledMessage = "Aucun plug-in n'est installé.";
+
+/// What it says when plug-ins are installed but all turned off in « Plug-ins ».
+const pluginsDisabledMessage = 'Les plug-ins installés sont désactivés.';
 
 /// A title and the provider whose links are wanted.
 typedef ProviderSourcesKey = ({PlaybackItem item, String provider});
@@ -121,7 +125,7 @@ typedef ProviderSourcesKey = ({PlaybackItem item, String provider});
 final providerSourcesProvider = FutureProvider.family<List<StreamSource>, ProviderSourcesKey>((ref, key) async {
   final repos = await ref.read(scraperReposProvider.future);
   final match = findScraper(repos, key.provider);
-  if (match == null) return const [];
+  if (match == null || !match.repo.enabled) return const [];
   final streams = await ref.read(scraperServiceProvider).streams(match.repo, match.scraper, key.item);
   return [
     for (final stream in streams)
@@ -883,7 +887,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         ? const AsyncData<List<SourceProvider>>(<SourceProvider>[])
         : ref.watch(sourceProvidersProvider(_item));
     final providers = providersAsync.value ?? const <SourceProvider>[];
-    final noProvidersMessage = noPluginsInstalledMessage;
+    final repos = canLoadSources
+        ? (ref.watch(scraperReposProvider).value ?? const <ScraperRepo>[])
+        : const <ScraperRepo>[];
+    final noProvidersMessage = repos.isNotEmpty && !repos.any((r) => r.enabled)
+        ? pluginsDisabledMessage
+        : noPluginsInstalledMessage;
     final sourcesByProvider = <String, AsyncValue<List<StreamSource>>>{};
     if (canLoadSources) {
       for (final provider in providers) {

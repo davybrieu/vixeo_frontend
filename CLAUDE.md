@@ -386,7 +386,15 @@ lib/
   `scraper_guard.dart` (règles et limites), `scraper_host.dart` (la conversation avec le bac à
   sable, la même partout), `scraper_http*.dart`, `scraper_runtime*.dart` et `scraper_js_engine_io.dart`
   (moteurs par plateforme, imports conditionnels comme `engine_factory.dart`).
-  **Où le JS s'exécute, au choix pour chaque plug-in** (`ScraperMode`) : **sur l'appareil**
+  **La page « Plug-ins » ne montre que les dépôts (les add-ons), jamais leurs scrapers** (demande du
+  développeur, 19/11/2026) : une carte par dépôt (nom, adresse, version, mode, description), un
+  interrupteur sur le haut de la carte (`ScraperRepo.enabled`, gardé sur l'appareil ; désactivé, le
+  dépôt reste installé mais ne donne plus de sources), « monter » / « descendre » (des boutons,
+  comme « Rangées de l'accueil » ; l'ordre des dépôts est celui du panneau des sources), « mettre à
+  jour » et « retirer ». Pas d'ordre ni d'interrupteur par scraper : un dépôt garde l'ordre de son
+  manifeste (relu tel quel par « mettre à jour », seul « activé » est gardé).
+  **Où le JS s'exécute : déclaré par le dépôt** (`execution` du manifeste, `ScraperMode`, affiché
+  sans réglage) : **sur l'appareil**
   (Android / iOS : QuickJS / JavaScriptCore via `flutter_js`, dans un isolate qu'on peut tuer ; web :
   `<iframe sandbox="allow-scripts">` sans origine) ou **sur le serveur** (`POST /scrapers/run`).
   Le bac à sable (`assets/scrapers/sandbox.js`, identique partout) n'a ni réseau, ni DOM, ni
@@ -394,10 +402,11 @@ lib/
   jamais le réseau local, 40 requêtes, 30 s…) puis exécute elle-même (en direct sur Android / iOS ;
   par le serveur sur le web, `POST /scrapers/fetch`, à cause de CORS ; le jeton Vixeo n'est jamais
   envoyé à un tiers). Sur le web, un flux passe par `POST /scrapers/stream` (`proxyScraperStream`).
-  **Sources** : `sourceProvidersProvider` liste les scrapers qui gèrent le type du titre
-  (un fournisseur chacun, `scraper:{dépôt}:{id}`) ; `providerSourcesProvider` les exécute ; leurs
-  flux sont **déjà lisibles** et le lecteur ne les `resolve` pas. Sans dépôt, le panneau écrit
-  « Aucun plug-in n'est installé. ». Le contrôle se fait au niveau du dépôt (pas de toggle par scraper). Après un
+  **Sources** : `sourceProvidersProvider` liste les scrapers des dépôts **activés** qui gèrent le
+  type du titre, dans l'ordre des dépôts (un fournisseur chacun, `scraper:{dépôt}:{id}`) ;
+  `providerSourcesProvider` les exécute (rien pour un dépôt désactivé) ; leurs flux sont **déjà
+  lisibles** et le lecteur ne les `resolve` pas. Sans dépôt, le panneau écrit « Aucun plug-in n'est
+  installé. » ; dépôts tous désactivés : « Les plug-ins installés sont désactivés. ». Après un
   changement : `ref.invalidate(sourceProvidersProvider)`. Implémentation de référence du serveur et
   de la garde : `tools/scraper-runner` (Node + vrai QuickJS, `npm test`). **Pas encore vérifié** :
   la partie Dart n'a pas pu être compilée là où elle a été écrite (pas de SDK) ; l'API de

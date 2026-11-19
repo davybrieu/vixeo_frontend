@@ -3,7 +3,7 @@
 > Décision du développeur, **19/11/2026** : les plug-ins de sources ne sont plus des add-ons Stremio
 > appelés par l'API ; ce sont des **scrapers JavaScript** installés depuis des **dépôts**
 > (`manifest.json`), comme dans Nuvio. Ils s'exécutent **sur l'appareil** (Android, iOS, web) ou
-> **sur le serveur**, au choix pour chaque scraper. Cela renverse « l'appli ne parle jamais aux
+> **sur le serveur**, selon ce que déclare le dépôt. Cela renverse « l'appli ne parle jamais aux
 > plug-ins » (`CONTEXT.md` §3.5 et §5.1) : ces passages sont mis à jour.
 > Le catalogue reste celui de TMDb ; un scraper ne fournit que des **sources** (films et séries).
 
@@ -34,6 +34,7 @@ Compatible avec les dépôts de Nuvio. Seuls `id`, `name` et `filename` sont obl
   "name": "Mon dépôt",
   "version": "1.0.0",
   "description": "Facultatif",
+  "execution": "device",
   "scrapers": [
     {
       "id": "monscraper",
@@ -42,7 +43,6 @@ Compatible avec les dépôts de Nuvio. Seuls `id`, `name` et `filename` sont obl
       "version": "1.2.0",
       "filename": "providers/monscraper.js",
       "supportedTypes": ["movie", "tv"],
-      "enabled": true,
       "logo": "https://…/logo.png"
     }
   ]
@@ -51,8 +51,9 @@ Compatible avec les dépôts de Nuvio. Seuls `id`, `name` et `filename` sont obl
 
 - La liste peut s'appeler `scrapers` ou `providers` (les deux sont lus).
 - `filename` est relatif à l'adresse du manifeste (ou une adresse `https://` complète).
-- `supportedTypes` : `movie` et/ou `tv` (par défaut les deux). `enabled: false` = proposé mais
-  désactivé à l'installation. Les champs inconnus sont ignorés.
+- `supportedTypes` : `movie` et/ou `tv` (par défaut les deux). Les champs inconnus sont ignorés
+  (dont `enabled` d'un scraper : on active ou désactive le dépôt entier, voir §7).
+- `execution` : `device` (défaut) ou `server`, pour tout le dépôt (§4).
 - `id` : lettres, chiffres, `-`, `_`, `.` (1 à 64 caractères) ; unique dans le dépôt.
 - Adresse du dépôt : `https://…/manifest.json` seulement (pas `http://`).
 
@@ -92,7 +93,8 @@ les réponses binaires ne sont pas prises en charge.
 
 ## 4. Où s'exécute un scraper
 
-Réglage **par scraper** (« Où l'exécuter ») :
+Déclaré **par le dépôt** (`execution` du manifeste), pour tous ses scrapers ; l'appli l'affiche
+sans le proposer comme réglage :
 
 | Mode | Android / iOS | Web |
 |------|---------------|-----|
@@ -156,8 +158,14 @@ réglages restent **sur l'appareil** (§7).
 ## 7. Stockage sur l'appareil
 
 `LocalStore` (stockage protégé), clé `vixeo.scrapers.<id du compte>` : une liste JSON de dépôts
-`{ url, name, scrapers: [ { id, name, filename, version, types, enabled, mode, logo } ] }`
-dans l'ordre choisi par la personne. Le code des scrapers n'est **pas** stocké : il est
+`{ url, name, description, version, mode, enabled, scrapers: [ { id, name, filename, version, supportedTypes, logo } ] }`
+dans l'ordre choisi par la personne.
+
+La page « Plug-ins » ne montre que les **dépôts** (les add-ons), jamais leurs scrapers : chacun
+s'**active / se désactive** en entier (`enabled` ; désactivé, il reste installé mais ses scrapers
+ne donnent plus de sources) et se **déplace** (monter / descendre) : le panneau des sources du
+lecteur suit l'ordre des dépôts. Les scrapers d'un dépôt gardent l'ordre de son manifeste ;
+« Mettre à jour » relit le manifeste et ne garde que `enabled`. Le code des scrapers n'est **pas** stocké : il est
 téléchargé à la première utilisation puis gardé en mémoire jusqu'à la fermeture de l'appli.
 Pas de synchronisation entre appareils (il faudrait un champ de compte côté API).
 
