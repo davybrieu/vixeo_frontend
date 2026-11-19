@@ -225,8 +225,8 @@ void main() {
     });
 
     test('on the server: asks the API, and never runs or downloads anything itself', () async {
-      final repo = testRepo();
-      final server = repo.scrapers[0].copyWith(mode: ScraperMode.server);
+      final repo = testRepo().copyWith(mode: ScraperMode.server);
+      final server = repo.scrapers[0];
       final adapter = RoutingAdapter([
         (
           '/scrapers/run',
@@ -261,8 +261,8 @@ void main() {
     });
 
     test('on the server: an API error becomes a sentence for the person', () async {
-      final repo = testRepo();
-      final server = repo.scrapers[0].copyWith(mode: ScraperMode.server);
+      final repo = testRepo().copyWith(mode: ScraperMode.server);
+      final server = repo.scrapers[0];
       final adapter = RoutingAdapter([
         ('/scrapers/run', {'message': 'Le serveur ne peut pas lancer ce plug-in.'}, 503),
       ]);
