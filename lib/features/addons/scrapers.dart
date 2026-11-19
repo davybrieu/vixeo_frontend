@@ -1,11 +1,11 @@
 /// Plug-ins: repositories of JavaScript scrapers, façon Nuvio (`docs/scrapers.md`).
 ///
 /// This file is the app's logic for them, in four parts:
-/// - [ScraperRepos]: the installed repositories and the person's choices, kept **on the device**
-///   (`LocalStore`), per account. For a Vue developer: the Pinia store; its actions are the
-///   methods.
+/// - [ScraperRepos]: the installed repositories, kept **on the device**
+///   (`LocalStore`), per account. Execution mode comes from the manifest.
 /// - [ScraperLoader]: downloads manifests and scrapers' code (never run here).
-/// - [ScraperService]: asks one scraper for the streams of a title, on the device or on the server.
+/// - [ScraperService]: asks one scraper for the streams of a title, on the device or on the server
+///   according to the repository's declared mode.
 /// - the providers that wire them to the player's sources panel (`player_screen.dart`).
 ///
 /// The catalog is not concerned: plug-ins only give **sources** (demande du développeur).
@@ -73,7 +73,7 @@ class ScraperRepos extends AsyncNotifier<List<ScraperRepo>> {
     ref.read(scraperLoaderProvider).forgetCode();
   }
 
-  /// Reads the manifest again: new scrapers appear, the person's choices on the others stay.
+  /// Reads the manifest again: new scrapers appear, the order of the others stays.
   Future<void> refresh(String repositoryId) async {
     final repo = (await future).where((r) => r.id == repositoryId).firstOrNull;
     if (repo == null) return;
@@ -82,11 +82,6 @@ class ScraperRepos extends AsyncNotifier<List<ScraperRepo>> {
     loader.forgetCode();
     await _update((repos) => [for (final r in repos) r.id == repositoryId ? r.updatedWith(manifest) : r]);
   }
-
-  Future<void> setEnabled(String key, {required bool enabled}) =>
-      _change(key, (scraper) => scraper.copyWith(enabled: enabled));
-
-  Future<void> setMode(String key, ScraperMode mode) => _change(key, (scraper) => scraper.copyWith(mode: mode));
 
   /// Moves a scraper inside its repository (the first is asked first, and listed first).
   Future<void> move(String repositoryId, int from, int to) => _update((repos) {
@@ -106,11 +101,6 @@ class ScraperRepos extends AsyncNotifier<List<ScraperRepo>> {
     scrapers.insert(to, scrapers.removeAt(from));
     return repo.copyWith(scrapers: scrapers);
   }
-
-  Future<void> _change(String key, ScraperInfo Function(ScraperInfo scraper) change) => _update((repos) => [
-    for (final repo in repos)
-      repo.copyWith(scrapers: [for (final s in repo.scrapers) s.key == key ? change(s) : s]),
-  ]);
 
   /// Applies [change] to the current list, shows it at once, then keeps it on the device.
   Future<void> _update(List<ScraperRepo> Function(List<ScraperRepo> repos) change) async {
@@ -193,7 +183,7 @@ class ScraperService {
       season: isMovie ? null : item.season,
       episode: isMovie ? null : item.episode,
     );
-    if (scraper.mode == ScraperMode.server) return _onServer(repo, scraper, params, item.id);
+    if (repo.mode == ScraperMode.server) return _onServer(repo, scraper, params, item.id);
 
     await _acquire();
     try {
