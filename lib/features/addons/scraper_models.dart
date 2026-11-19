@@ -1,8 +1,8 @@
 /// The data of the plug-in system: repositories of JavaScript scrapers (`docs/scrapers.md`).
 ///
 /// A **repository** is a `manifest.json` somebody hosts; it lists **scrapers**, JavaScript files
-/// that turn a TMDb id into stream links. Nothing here runs code or touches the network: these are
-/// plain values, parsed and saved as JSON (for a Vue developer: the shape of the Pinia store).
+/// that turn a TMDb id into stream links. Execution mode (device or server) is declared in the
+/// manifest, not configurable per scraper. Nothing here runs code or touches the network.
 library;
 
 import 'dart:convert';
@@ -22,7 +22,7 @@ class ScraperException implements Exception {
   String toString() => message;
 }
 
-/// Where a scraper runs (chosen for each scraper).
+/// Where a repository's scrapers run (declared in the manifest).
 enum ScraperMode {
   /// On this device: QuickJS on Android / iOS, a sandboxed iframe in the browser.
   device('device', 'Appareil'),
@@ -57,7 +57,6 @@ class ScraperEntry {
     this.description,
     this.version = '',
     this.types = const {'movie', 'tv'},
-    this.enabled = true,
     this.logo,
   });
 
@@ -78,7 +77,6 @@ class ScraperEntry {
       description: _text(json['description']),
       version: _text(json['version']) ?? '',
       types: types.isEmpty ? const {'movie', 'tv'} : types,
-      enabled: json['enabled'] != false,
       logo: _text(json['logo']) ?? _text(json['logo_url']),
     );
   }
@@ -93,14 +91,19 @@ class ScraperEntry {
 
   /// "movie", "tv".
   final Set<String> types;
-  final bool enabled;
   final String? logo;
 }
 
 /// A repository's `manifest.json`, read.
 @immutable
 class RepositoryManifest {
-  const RepositoryManifest({required this.name, this.description, this.version, required this.scrapers});
+  const RepositoryManifest({
+    required this.name,
+    this.description,
+    this.version,
+    required this.scrapers,
+    this.execution = ScraperMode.device,
+  });
 
   /// Reads a manifest (the list may be called `scrapers` or `providers`, or be the whole file).
   /// Throws a [ScraperException] when it is not a manifest or has nothing usable.
@@ -119,6 +122,7 @@ class RepositoryManifest {
       description: _text(meta['description']),
       version: _text(meta['version']),
       scrapers: scrapers,
+      execution: ScraperMode.parse(meta['execution']),
     );
   }
 
@@ -126,9 +130,10 @@ class RepositoryManifest {
   final String? description;
   final String? version;
   final List<ScraperEntry> scrapers;
+  final ScraperMode execution;
 }
 
-/// An installed scraper: what the manifest says, plus the person's choices.
+/// An installed scraper: what the manifest says. No individual enable/mode (controlled at repo level).
 @immutable
 class ScraperInfo {
   const ScraperInfo({
@@ -139,8 +144,6 @@ class ScraperInfo {
     this.description,
     this.version = '',
     this.types = const {'movie', 'tv'},
-    this.enabled = true,
-    this.mode = ScraperMode.device,
     this.logo,
   });
 
@@ -152,17 +155,13 @@ class ScraperInfo {
     description: entry.description,
     version: entry.version,
     types: entry.types,
-    enabled: entry.enabled,
     logo: entry.logo,
   );
 
   static ScraperInfo? tryFromJson(String repositoryId, Object? json) {
     final entry = ScraperEntry.tryParse(json);
-    if (entry == null || json is! Map) return null;
-    return ScraperInfo.fromEntry(repositoryId, entry).copyWith(
-      enabled: json['enabled'] != false,
-      mode: ScraperMode.parse(json['mode']),
-    );
+    if (entry == null) return null;
+    return ScraperInfo.fromEntry(repositoryId, entry);
   }
 
   final String id;
@@ -172,8 +171,6 @@ class ScraperInfo {
   final String? description;
   final String version;
   final Set<String> types;
-  final bool enabled;
-  final ScraperMode mode;
   final String? logo;
 
   /// Unique among every repository: the key of its settings and of its provider id.
@@ -184,19 +181,6 @@ class ScraperInfo {
 
   bool supports(MediaType type) => types.contains(type == MediaType.movie ? 'movie' : 'tv');
 
-  ScraperInfo copyWith({bool? enabled, ScraperMode? mode}) => ScraperInfo(
-    id: id,
-    repositoryId: repositoryId,
-    name: name,
-    filename: filename,
-    description: description,
-    version: version,
-    types: types,
-    enabled: enabled ?? this.enabled,
-    mode: mode ?? this.mode,
-    logo: logo,
-  );
-
   Map<String, Object?> toJson() => {
     'id': id,
     'name': name,
@@ -204,8 +188,6 @@ class ScraperInfo {
     if (description != null) 'description': description,
     'version': version,
     'supportedTypes': types.toList()..sort(),
-    'enabled': enabled,
-    'mode': mode.storageName,
     if (logo != null) 'logo': logo,
   };
 }
@@ -220,6 +202,7 @@ class ScraperRepo {
     this.description,
     this.version,
     required this.scrapers,
+    this.mode = ScraperMode.device,
   });
 
   /// Reads a repository from its manifest (first install).
@@ -232,6 +215,7 @@ class ScraperRepo {
       description: manifest.description,
       version: manifest.version,
       scrapers: [for (final entry in manifest.scrapers) ScraperInfo.fromEntry(id, entry)],
+      mode: manifest.execution,
     );
   }
 
@@ -250,6 +234,7 @@ class ScraperRepo {
         for (final item in json['scrapers'] is List ? json['scrapers'] as List : const [])
           ?ScraperInfo.tryFromJson(id, item),
       ],
+      mode: ScraperMode.parse(json['mode']),
     );
   }
 
@@ -297,6 +282,7 @@ class ScraperRepo {
   final String? description;
   final String? version;
   final List<ScraperInfo> scrapers;
+  final ScraperMode mode;
 
   String get host => hostOf(url);
 
@@ -308,6 +294,7 @@ class ScraperRepo {
     String? name,
     String? description,
     String? version,
+    ScraperMode? mode,
   }) => ScraperRepo(
     id: id,
     url: url,
@@ -315,17 +302,18 @@ class ScraperRepo {
     description: description ?? this.description,
     version: version ?? this.version,
     scrapers: scrapers ?? this.scrapers,
+    mode: mode ?? this.mode,
   );
 
   /// This repository after its manifest was read again: the scrapers that are still listed keep
-  /// the person's choices (turned on or off, where they run) and their place; new ones come last;
-  /// the ones no longer listed are dropped.
+  /// their place; new ones come last; the ones no longer listed are dropped. Mode comes from the
+  /// new manifest.
   ScraperRepo updatedWith(RepositoryManifest manifest) {
     final entries = {for (final entry in manifest.scrapers) entry.id: entry};
     final kept = [
       for (final old in scrapers)
         if (entries.remove(old.id) case final entry?)
-          ScraperInfo.fromEntry(id, entry).copyWith(enabled: old.enabled, mode: old.mode),
+          ScraperInfo.fromEntry(id, entry),
     ];
     return ScraperRepo(
       id: id,
@@ -334,6 +322,7 @@ class ScraperRepo {
       description: manifest.description,
       version: manifest.version,
       scrapers: [...kept, for (final entry in entries.values) ScraperInfo.fromEntry(id, entry)],
+      mode: manifest.execution,
     );
   }
 
@@ -342,6 +331,7 @@ class ScraperRepo {
     'name': name,
     if (description != null) 'description': description,
     if (version != null) 'version': version,
+    'mode': mode.storageName,
     'scrapers': [for (final s in scrapers) s.toJson()],
   };
 }
