@@ -8,6 +8,7 @@ import '../account/info_page.dart';
 import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
 import '../library/library.dart';
+import '../ratings/ratings.dart';
 import 'settings_rows.dart';
 
 /// « Mémoriser le dernier profil » (this device): the last profile chosen opens at launch, unless
@@ -67,8 +68,8 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
     );
   }
 
-  /// Images, titles already read and the profile's « Continuer à regarder » / « Ma liste »: read
-  /// again from the API when shown.
+  /// Images, titles and ratings already read and the profile's « Continuer à regarder » /
+  /// « Ma liste »: read again from the API when shown.
   Future<void> _clearCache() async {
     setState(() => _clearing = true);
     try {
@@ -79,7 +80,11 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
     PaintingBinding.instance.imageCache
       ..clear()
       ..clearLiveImages();
+    // Ratings of the other sites (MDBList), on the device too.
+    ref.read(ratingsLoaderProvider).clear();
     ref
+      ..invalidate(titleRatingsProvider)
+      ..invalidate(titlesRatingsProvider)
       ..invalidate(homeProvider)
       ..invalidate(titleProvider)
       ..invalidate(titlesByIdProvider)
@@ -121,7 +126,7 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
             SettingsActionRow(
               icon: Icons.cleaning_services_outlined,
               label: 'Vider le cache',
-              detail: 'Affiches, logos et informations des titres, « Continuer à regarder » compris.',
+              detail: 'Affiches, logos, notes et informations des titres, « Continuer à regarder » compris.',
               busy: _clearing,
               onPressed: _clearCache,
             ),

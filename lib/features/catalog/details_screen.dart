@@ -16,6 +16,7 @@ import '../../core/widgets/expandable_text.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
 import '../profiles/no_spoiler.dart';
+import '../ratings/rating_view.dart';
 import '../search/filter_bar.dart';
 import '../tmdb/rating_buttons.dart';
 import '../tmdb/tmdb.dart';
@@ -420,7 +421,8 @@ class _EpisodeCard extends StatelessWidget {
                                   height: _factsHeight(context, s),
                                   child: Row(
                                     children: [
-                                      // Left: runtime, then TMDb's rating (shrunk rather than cut).
+                                      // Left: runtime, then TMDb's rating (shrunk rather than cut): MDBList
+                                      // has no episode ratings.
                                       Expanded(
                                         child: FittedBox(
                                           fit: BoxFit.scaleDown,
@@ -555,15 +557,21 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                     style: VxText.title(32, weight: FontWeight.w800),
                   ),
                   const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      if (t.voteAverage > 0) TmdbRating(t.voteAverage),
-                      for (final m in _meta(t)) Text(m, style: VxText.body(14, color: VxColors.textSoft)),
-                      if (t.ageRating != null) VxBadge(_ageLabel(t.ageRating!), outlined: true),
-                    ],
+                  // The rating of the profile's site (« Source des notes »), else IMDb's, else TMDb's.
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final rating = watchShownRating(ref, (type: t.type, id: t.id), t.voteAverage);
+                      return Wrap(
+                        spacing: 10,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (!rating.isNone) RatingLabel(source: rating.source!, value: rating.value!),
+                          for (final m in _meta(t)) Text(m, style: VxText.body(14, color: VxColors.textSoft)),
+                          if (t.ageRating != null) VxBadge(_ageLabel(t.ageRating!), outlined: true),
+                        ],
+                      );
+                    },
                   ),
                   if (t.genres.isNotEmpty) ...[
                     const SizedBox(height: 6),
@@ -702,21 +710,28 @@ class _LargeDetails extends StatelessWidget {
                       style: VxText.title(layout.tv(100), weight: FontWeight.w800),
                     ),
                     SizedBox(height: layout.tv(22)),
-                    Wrap(
-                      spacing: layout.tv(18),
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        if (t.voteAverage > 0) TmdbRating(t.voteAverage, fontSize: layout.tv(22)),
-                        for (final m in _meta(t)) Text(m, style: VxText.body(layout.tv(22), color: VxColors.textSoft)),
-                        if (t.genres.isNotEmpty)
-                          Text(
-                            t.genres.map((g) => g.name).join(' · '),
-                            style: VxText.body(layout.tv(22), color: VxColors.textSoft),
-                          ),
-                        if (t.ageRating != null)
-                          VxBadge(_ageLabel(t.ageRating!), outlined: true, fontSize: layout.tv(18)),
-                      ],
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final rating = watchShownRating(ref, (type: t.type, id: t.id), t.voteAverage);
+                        return Wrap(
+                          spacing: layout.tv(18),
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (!rating.isNone)
+                              RatingLabel(source: rating.source!, value: rating.value!, fontSize: layout.tv(22)),
+                            for (final m in _meta(t))
+                              Text(m, style: VxText.body(layout.tv(22), color: VxColors.textSoft)),
+                            if (t.genres.isNotEmpty)
+                              Text(
+                                t.genres.map((g) => g.name).join(' · '),
+                                style: VxText.body(layout.tv(22), color: VxColors.textSoft),
+                              ),
+                            if (t.ageRating != null)
+                              VxBadge(_ageLabel(t.ageRating!), outlined: true, fontSize: layout.tv(18)),
+                          ],
+                        );
+                      },
                     ),
                     if (t.overview != null) ...[
                       SizedBox(height: layout.tv(22)),

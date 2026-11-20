@@ -198,6 +198,7 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
 | Alerte `showVxSnack` | — | — | confirme chaque action (« Ajouté à votre liste », « Note enregistrée : 8/10 ») |
 | État vide `EmptyState` | icône 44, titre 20 | — | une phrase qui dit quoi faire, et un bouton si une action existe |
 | Note TMDb `TmdbRating` | taille du texte autour | — | étoile verte, note, petit logo TMDb (0,7 × la taille du texte) |
+| Note d'un autre site `RatingLabel` | taille du texte autour | badge rayon 0,3 × texte | étoile verte, note sur l'échelle du site (« 8,8 », « 79 % »), badge court aux couleurs du site (`RatingTag`, 0,68 × la taille du texte : « IMDb » noir sur jaune, « RT » blanc sur rouge…) ; TMDb : `TmdbRating` |
 
 ## 8. Cartes de titres, rangées et grilles
 
@@ -210,8 +211,8 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
 - **Pas de nom sur l'image des cartes** : l'image suffit. Le nom n'est écrit que pour un titre sans
   image ; il reste dans le libellé pour les lecteurs d'écran.
 - **Sur téléphone**, sous chaque affiche (rangées et grilles) : le titre sur une ligne (13,
-  semi-gras), puis sur la ligne suivante l'année à gauche et la note TMDb avec son logo à droite
-  (11, texte secondaire). Tablette et TV : l'image seule.
+  semi-gras), puis sur la ligne suivante l'année à gauche et la note de la source choisie par le
+  profil avec son badge à droite (11, texte secondaire ; `CardRating`). Tablette et TV : l'image seule.
 - **Logo sur une image horizontale** :
   - il est demandé à la taille d'une carte (`MediaItem.cardLogoUrl`, w300) ;
   - l'image et le logo apparaissent ensemble, une fois les deux chargés (`ImagesTogether`) : le
@@ -255,7 +256,7 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
 
 - Chaque bouton à icône seule a un libellé (`semanticLabel`).
 - Les blocs d'informations ont un libellé complet, par exemple `TmdbRating` lu « Note TMDb : 7,1
-  sur 10 » ou un QR code décrit.
+  sur 10 », `RatingLabel` lu « Note IMDb : 8,8 sur 10 » ou un QR code décrit.
 - Les zones tactiles font au moins 44 px.
 - Les couleurs qui doivent se distinguer diffèrent aussi par leur clarté.
 

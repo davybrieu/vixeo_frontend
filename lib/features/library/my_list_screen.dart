@@ -11,6 +11,7 @@ import '../../core/widgets/page_header.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
 import '../catalog/widgets.dart';
+import '../ratings/ratings.dart';
 import '../search/filter_bar.dart';
 import '../search/search_filters.dart';
 import '../social/social_repository.dart';
@@ -19,7 +20,8 @@ import '../tv/channel_screen.dart';
 import 'library.dart';
 
 /// "Ma liste": the active profile's favorites (synced between devices), with the search field,
-/// the filters (type, genre, years, rating) and the order of the search page. With [username],
+/// the filters (type, genre, years) and the order of the search page, plus « Note » and « Mieux
+/// notés » on the rating of the profile's site (« Source des notes »), applied here. With [username],
 /// « Sa liste »: another member's list (their profile page, `/membre/:username/list`), the same
 /// page without the channels.
 class MyListScreen extends ConsumerStatefulWidget {
@@ -86,6 +88,8 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                   ? const [SearchKind.all, SearchKind.movie, SearchKind.tv, SearchKind.channels]
                   : const [SearchKind.all, SearchKind.movie, SearchKind.tv],
               channelCategories: false,
+              // Filtered and sorted here: on the profile's site, not TMDb's.
+              ratingSource: ref.watch(ratingSourceProvider),
             ),
           ),
           Expanded(
@@ -229,6 +233,19 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // « Note » and « Mieux notés »: the rating each card shows (the profile's site, else IMDb, else
+    // TMDb), every title's asked at once. TMDb's needs no request.
+    final source = ref.watch(ratingSourceProvider);
+    final byRating = _filters.minRating != null || _filters.sortFor(withText: false) == SearchSort.rating;
+    Map<TitleRef, TitleRatings>? ratings;
+    if (byRating && source != RatingSource.tmdb && refs.isNotEmpty) {
+      final value = ref.watch(titlesRatingsProvider(titlesKey(refs)));
+      if (!value.hasValue) return const Center(child: CircularProgressIndicator());
+      ratings = value.value;
+    }
+    double? ratingOf(MediaItem item) =>
+        ShownRating.pick(source, ratings?[(type: item.type, id: item.id)], item.voteAverage).fraction;
+
     final matching = <MediaItem>[];
     final seen = <TitleRef>{};
     for (final title in titles) {
@@ -243,14 +260,16 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
       final year = item.year;
       final decade = _filters.decade;
       if (decade != null && year != null && (year < (decade.from ?? 0) || year > decade.to)) continue;
-      if (_filters.minRating != null && details != null && item.voteAverage < _filters.minRating!) continue;
+      final minRating = _filters.minRating;
+      if (minRating != null && (ratingOf(item) ?? 0) < minRating / 10) continue;
       if (_filters.genre != null && details != null && !details.genreIds.contains(_filters.genre!.id)) continue;
       matching.add(item);
     }
 
     switch (_filters.sortFor(withText: false)) {
       case SearchSort.rating:
-        matching.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
+        // Without any rating: last.
+        matching.sort((a, b) => (ratingOf(b) ?? -1).compareTo(ratingOf(a) ?? -1));
         break;
       case SearchSort.recent:
         matching.sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));

@@ -9,6 +9,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../library/actions.dart';
+import '../ratings/rating_view.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
 import 'widgets.dart';
@@ -163,7 +164,8 @@ class _FeaturedCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 TitleFacts(
-                  rating: details?.voteAverage ?? item.voteAverage,
+                  title: (type: item.type, id: item.id),
+                  tmdbRating: details?.voteAverage ?? item.voteAverage,
                   year: details?.year ?? item.year,
                   summary: summary,
                   fontSize: 14,
@@ -332,7 +334,8 @@ class _HeroTextState extends ConsumerState<HeroText> {
               ),
               SizedBox(height: layout.tv(20)),
               TitleFacts(
-                rating: details?.voteAverage ?? item.voteAverage,
+                title: (type: item.type, id: item.id),
+                tmdbRating: details?.voteAverage ?? item.voteAverage,
                 year: details?.year ?? item.year,
                 summary: summary,
                 fontSize: layout.tv(22),
@@ -360,12 +363,14 @@ class _HeroTextState extends ConsumerState<HeroText> {
 }
 
 /// Rating, year, length and age rating, then the genres, shown together once the [summary] is
-/// known (with the list item, or from the title page): nothing appears piece by piece. Until then,
+/// known (with the list item, or from the title page) and the rating of the profile's site is
+/// (« Source des notes », usually asked with the row): nothing appears piece by piece. Until then,
 /// an empty space of the same height keeps the lines below in place.
-class TitleFacts extends StatelessWidget {
+class TitleFacts extends ConsumerWidget {
   const TitleFacts({
     super.key,
-    required this.rating,
+    required this.title,
+    required this.tmdbRating,
     required this.year,
     required this.summary,
     required this.fontSize,
@@ -376,7 +381,10 @@ class TitleFacts extends StatelessWidget {
     this.maxGenres,
   });
 
-  final double rating;
+  final TitleRef title;
+
+  /// TMDb's average: shown when the profile chose TMDb, or when no other site rates the title.
+  final double tmdbRating;
   final int? year;
   final TitleSummary? summary;
   final double fontSize;
@@ -391,14 +399,15 @@ class TitleFacts extends StatelessWidget {
   final int? maxGenres;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final summary = this.summary;
     final meta = VxText.body(fontSize, color: VxColors.textSoft);
+    final rating = watchShownRating(ref, title, tmdbRating);
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 200),
       layoutBuilder: (current, previous) => Stack(alignment: Alignment.topLeft, children: [...previous, ?current]),
-      child: summary == null
+      child: summary == null || rating.loading
           ? SizedBox(key: const ValueKey('waiting'), height: fontSize * 1.6 + gap + genreFontSize * 1.45)
           : Column(
               key: const ValueKey('facts'),
@@ -410,7 +419,7 @@ class TitleFacts extends StatelessWidget {
                   runSpacing: fontSize * 0.4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (rating > 0) TmdbRating(rating, fontSize: fontSize),
+                    if (!rating.isNone) RatingLabel(source: rating.source!, value: rating.value!, fontSize: fontSize),
                     if (year != null) Text('$year', style: meta),
                     if (summary.length != null) Text(summary.length!, style: meta),
                     if (summary.ageLabel != null) VxBadge(summary.ageLabel!, outlined: true, fontSize: badgeFontSize),
