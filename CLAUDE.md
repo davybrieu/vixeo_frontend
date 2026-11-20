@@ -121,10 +121,9 @@ lib/
   `/mot-de-passe-oublie` est une page de connexion.
 - **Connexion TV par code** (`features/auth/device_login.dart`, API : `vixeo_backend/docs/connexion-tv.md`) :
   sur grand écran, la page de connexion affiche `TvCodeCard` : **le code court seulement, aucun
-  QR code nulle part** (demande du développeur, 20/11/2026 ; ne pas en réintroduire ; les liens
-  `verification_url*` de l'API sont ignorés ; les builds Android d'avant 403, qui en affichaient
-  un, sont obligés de se mettre à jour par l'API, `ANDROID_MINIMUM_BUILD` ; code lu caractère par
-  caractère par les lecteurs d'écran) et la marche à
+  QR code nulle part** (demande du développeur, 20/11/2026 ; ne pas en réintroduire ; l'API ne
+  renvoie plus de lien `verification_url*` ; code lu caractère par caractère par les lecteurs
+  d'écran) et la marche à
   suivre (« Paramètres » → « Connecter une TV » dans l'appli du téléphone) ; elle interroge
   `/auth/device/token` toutes les `interval` secondes et demande un nouveau code sur un 410. Le
   téléphone (ou un PC Windows) valide sur `/tv` en tapant le code. Le `device_code` reste en
