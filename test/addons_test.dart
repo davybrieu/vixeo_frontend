@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/api/api_client.dart';
-import 'package:vixeo/core/api/api_exception.dart';
 import 'package:vixeo/core/local_store.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/addons/addons_screen.dart';

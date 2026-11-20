@@ -58,8 +58,8 @@ class SocialRepository {
 
   Future<SocialProfile> update({String? username, String? bio}) async {
     final json = await _api.patch('/social/profile', body: {
-      if (username != null) 'username': username,
-      if (bio != null) 'bio': bio,
+      'username': ?username,
+      'bio': ?bio,
     });
     return SocialProfile.fromJson(json['data'] as Map<String, dynamic>);
   }

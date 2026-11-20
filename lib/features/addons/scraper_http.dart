@@ -7,8 +7,6 @@ library;
 
 import 'package:flutter/foundation.dart';
 
-import '../../core/api/api_client.dart';
-import '../../core/api/api_exception.dart';
 import 'scraper_models.dart';
 
 @immutable

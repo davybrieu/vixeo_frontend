@@ -979,7 +979,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ),
                 ),
               GestureDetector(behavior: HitTestBehavior.opaque, onTap: _onSurfaceTap),
-              if (status != null) status,
+              ?status,
               if (engine != null && _captions.isNotEmpty)
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 200),
@@ -1371,7 +1371,6 @@ class _PlayButton extends StatelessWidget {
 /// screen readers (the tests look for it). Green while it is on (subtitles chosen).
 class _BarAction extends StatelessWidget {
   const _BarAction({
-    super.key,
     required this.icon,
     required this.label,
     required this.onPressed,
@@ -1828,7 +1827,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     return ListView.separated(
       padding: const EdgeInsets.all(12),
       itemCount: widget.providers.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (_, index) {
         final provider = widget.providers[index];
         final async = widget.sourcesByProvider[provider.id];
@@ -1909,7 +1908,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     return ListView.separated(
       padding: const EdgeInsets.all(12),
       itemCount: links.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (_, index) {
         final source = links[index];
         final active = widget.current?.url == source.url;
@@ -1933,7 +1932,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         if (lang != null || quality != null) ...[
                           const SizedBox(height: 4),
                           Text(
-                            [if (lang != null) lang, if (quality != null) quality].join(' · '),
+                            [?lang, ?quality].join(' · '),
                             style: VxText.body(12, color: VxColors.textMuted),
                           ),
                         ],

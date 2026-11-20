@@ -168,7 +168,6 @@ class _RemoteNavigationState extends State<RemoteNavigation> {
   @override
   Widget build(BuildContext context) => FocusTraversalGroup(
     policy: vxTraversalPolicy,
-    policy: vxTraversalPolicy,
     child: Shortcuts(
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.arrowUp): _LeaveTextFieldIntent(TraversalDirection.up),
