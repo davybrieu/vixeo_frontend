@@ -314,7 +314,8 @@ void main() {
       // Vixeo owns the reviews: a TMDb account only syncs them.
       expect(find.bySemanticsLabel('Noter'), findsOneWidget);
       expect(find.byType(TmdbLogo), findsOneWidget);
-      expect(find.bySemanticsLabel('Note TMDb : 7,1 sur 10'), findsOneWidget);
+      // No other site's rating here: TMDb's, which opens « Notes ».
+      expect(find.bySemanticsLabel('Note TMDb : 7,1 sur 10. Voir toutes les notes'), findsOneWidget);
     });
 
     testWidgets('rates a movie, then changes and removes the rating', (tester) async {
