@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../library/library.dart';
@@ -176,6 +177,7 @@ class _LargeHomeState extends State<_LargeHome> {
                         return child!;
                       },
                       child: FocusTraversalGroup(
+                        policy: vxTraversalPolicy,
                         child: SizedBox(
                           height: layout.tv(216 + 32),
                           child: ListView.separated(

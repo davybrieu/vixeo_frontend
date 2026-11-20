@@ -11,6 +11,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/choice.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../account/info_page.dart';
 import '../auth/models.dart';
@@ -491,6 +492,7 @@ class _AvatarGrid extends StatelessWidget {
           Text(license.name, style: VxText.body(13 * s, color: VxColors.textMuted, weight: FontWeight.w600)),
           SizedBox(height: 10 * s),
           FocusTraversalGroup(
+            policy: vxTraversalPolicy,
             child: Wrap(
               spacing: gap,
               runSpacing: gap,

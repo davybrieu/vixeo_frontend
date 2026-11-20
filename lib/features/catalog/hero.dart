@@ -8,6 +8,7 @@ import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../library/actions.dart';
 import '../ratings/rating_view.dart';
 import 'catalog_repository.dart';
@@ -15,35 +16,41 @@ import 'models.dart';
 import 'widgets.dart';
 
 /// Title shown in the hero of a large screen (home, search): the selected (focused) card at once,
-/// or the hovered one once the pointer rests on it, so sweeping across a row doesn't flicker.
+/// or the hovered one once the pointer rests on it, so sweeping across a row doesn't flicker. A
+/// remote's arrow held down (the focus runs along the row): the card where the focus stops, not
+/// every card it passes (each would load its large image).
 class HeroSelection {
   HeroSelection([MediaItem? initial]) : item = ValueNotifier(initial);
 
   final ValueNotifier<MediaItem?> item;
   Timer? _hoverTimer;
+  late final _selection = RepeatSettler<MediaItem>((value) => item.value = value);
 
-  /// Remote or keyboard: the hero follows at once.
+  /// Remote or keyboard: the hero follows at once (when the key is held, once the focus stops).
   void select(MediaItem? value) {
     if (value == null) return;
     _hoverTimer?.cancel();
-    item.value = value;
+    _selection.add(value);
   }
 
   /// Mouse: after 150 ms on the card.
   void hover(MediaItem? value) {
     if (value == null) return;
     _hoverTimer?.cancel();
+    _selection.cancel();
     _hoverTimer = Timer(const Duration(milliseconds: 150), () => item.value = value);
   }
 
   /// New results: back to [value] (or nothing).
   void reset([MediaItem? value]) {
     _hoverTimer?.cancel();
+    _selection.cancel();
     item.value = value;
   }
 
   void dispose() {
     _hoverTimer?.cancel();
+    _selection.cancel();
     item.dispose();
   }
 }

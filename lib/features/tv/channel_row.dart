@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import 'channel_screen.dart';
 import 'models.dart';
@@ -144,6 +145,7 @@ class ChannelRow extends ConsumerWidget {
       children: [
         SectionHeader(title, onSeeAll: onSeeAll),
         FocusTraversalGroup(
+          policy: vxTraversalPolicy,
           child: SizedBox(
             // The tile, then its name on up to two lines (12 px, line height 1.45).
             height: tileSize + 8 + 36 + vPad * 2,

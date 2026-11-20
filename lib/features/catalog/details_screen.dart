@@ -13,6 +13,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/expandable_text.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
 import '../profiles/no_spoiler.dart';
@@ -147,6 +148,7 @@ class _PeopleRow extends StatelessWidget {
           onSeeAll: () => context.push(CreditsScreen.location(title.type, title.id, heading)),
         ),
         FocusTraversalGroup(
+          policy: vxTraversalPolicy,
           child: SizedBox(
             height: PersonCard.heightOf(layout) + (layout.isLarge ? layout.tv(32) : 0),
             child: ListView.separated(
@@ -196,6 +198,7 @@ class _EpisodesState extends ConsumerState<_Episodes> {
       children: [
         const SectionHeader('Épisodes'),
         FocusTraversalGroup(
+          policy: vxTraversalPolicy,
           child: SizedBox(
             height: 44 * s,
             child: ListView.separated(
@@ -242,6 +245,7 @@ class _EpisodesState extends ConsumerState<_Episodes> {
             onRetry: () => ref.invalidate(seasonProvider((widget.title.id, _season))),
             loading: const Center(child: CircularProgressIndicator()),
             data: (data) => FocusTraversalGroup(
+              policy: vxTraversalPolicy,
               child: ListView.separated(
                 // Another season starts at its first episode.
                 key: ValueKey(_season),

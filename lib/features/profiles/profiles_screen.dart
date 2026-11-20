@@ -8,6 +8,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/app_loading.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
@@ -101,6 +102,7 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                                 Text('Qui regarde ?', style: VxText.title(large ? layout.tv(60) : 28)),
                                 SizedBox(height: layout.space(VxSpace.xxl)),
                                 FocusTraversalGroup(
+                                  policy: vxTraversalPolicy,
                                   child: Wrap(
                                     alignment: WrapAlignment.center,
                                     spacing: layout.space(VxSpace.xl),

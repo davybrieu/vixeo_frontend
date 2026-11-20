@@ -5,6 +5,7 @@ import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/choice.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
@@ -249,6 +250,7 @@ class FilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     return FocusTraversalGroup(
+      policy: vxTraversalPolicy,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,

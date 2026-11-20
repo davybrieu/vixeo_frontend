@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,6 +9,7 @@ import '../../core/device/layout.dart';
 import '../../core/features.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/app_loading.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
@@ -42,8 +42,6 @@ const _phoneTabs = [
 
 /// Extra bottom inset so list content clears the floating pill (pill ~50 + margins).
 const _phoneNavClearance = 66.0;
-
-final _tvSidebarFocusNode = FocusNode(debugLabel: 'Navigation latérale');
 
 const _guestRailItems = [
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
@@ -153,50 +151,141 @@ class AppShell extends ConsumerWidget {
       );
     }
 
-    final railWidth = layout.isLarge ? layout.tv(120).clamp(64, 140).toDouble() : 80.0;
-    final itemSize = layout.isLarge ? layout.tv(72).clamp(44, 84).toDouble() : 52.0;
     return BackNavigationGuard(
       location: location,
-      child: Scaffold(
-        body: Row(
-          children: [
-            _Rail(
-              width: railWidth,
-              itemSize: itemSize,
-              padding: layout.isLarge ? layout.tv(56) : 24,
-              items: railItems,
-              guest: guest,
-              profile: profile,
-              isSelected: _isSelected,
-            ),
-            Expanded(
-              child: Column(
-                children: [
-                  if (guest) _GuestBanner(onSignIn: () => context.go('/connexion')),
-                  Expanded(child: Focus(
-                onKeyEvent: (node, event) {
-                  if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                    final current = FocusManager.instance.primaryFocus;
-                    if (current != null && current.focusInDirection(TraversalDirection.left)) {
-                      return KeyEventResult.handled;
-                    }
-                    _tvSidebarFocusNode.requestFocus();
-                    return KeyEventResult.handled;
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: child,
-              )),
-                ],
-              ),
-            ),
-          ],
-        ),
+      child: _LargeShell(
+        layout: layout,
+        items: railItems,
+        guest: guest,
+        profile: profile,
+        isSelected: _isSelected,
+        onSignIn: () => context.go('/connexion'),
+        child: child,
       ),
     );
   }
 
   bool _isSelected(String path) => location == path || location.startsWith('$path/');
+}
+
+/// Tablet, computer, TV: the rail on the left, the pages beside it. With the arrows of a remote or
+/// a keyboard (developer's request: navigation with a D-pad):
+///  * Left at the left edge of a page: the rail, on the current destination (not on the item
+///    that happens to be level with the focus);
+///  * Right from the rail: back to the element of the page that had the focus;
+///  * Up / Down stay in the rail or in the page: they never jump from one to the other.
+class _LargeShell extends StatefulWidget {
+  const _LargeShell({
+    required this.layout,
+    required this.items,
+    required this.guest,
+    required this.profile,
+    required this.isSelected,
+    required this.onSignIn,
+    required this.child,
+  });
+
+  final Layout layout;
+  final List<_Destination> items;
+  final bool guest;
+  final Profile? profile;
+  final bool Function(String path) isSelected;
+  final VoidCallback onSignIn;
+  final Widget child;
+
+  @override
+  State<_LargeShell> createState() => _LargeShellState();
+}
+
+class _LargeShellState extends State<_LargeShell> {
+  final _railScope = FocusScopeNode(debugLabel: 'Navigation');
+  final _pageScope = FocusScopeNode(debugLabel: 'Page');
+  final _itemNodes = <String, FocusNode>{};
+
+  FocusNode _itemNode(String path) => _itemNodes.putIfAbsent(path, () => FocusNode(debugLabel: 'Navigation $path'));
+
+  @override
+  void dispose() {
+    _railScope.dispose();
+    _pageScope.dispose();
+    for (final node in _itemNodes.values) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  void _focusRail() {
+    final items = widget.items;
+    final current = items.where((d) => widget.isSelected(d.path)).firstOrNull ?? items.firstOrNull;
+    if (current != null) _itemNode(current.path).requestFocus();
+  }
+
+  /// The element of the page that had the focus last; if none, the first one of the page.
+  void _focusPage() {
+    FocusNode node = _pageScope;
+    while (node is FocusScopeNode && node.focusedChild != null) {
+      node = node.focusedChild!;
+    }
+    if (node is FocusScopeNode) {
+      node.nextFocus();
+    } else {
+      node.requestFocus();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = widget.layout;
+    final railWidth = layout.isLarge ? layout.tv(120).clamp(64, 140).toDouble() : 80.0;
+    final itemSize = layout.isLarge ? layout.tv(72).clamp(44, 84).toDouble() : 52.0;
+    return Scaffold(
+      body: Row(
+        children: [
+          Actions(
+            actions: {
+              DirectionalFocusIntent: EdgeDirectionalFocusAction(outer: context, (direction) {
+                if (direction != TraversalDirection.right) return false;
+                _focusPage();
+                return true;
+              }),
+            },
+            child: FocusScope(
+              node: _railScope,
+              child: _Rail(
+                width: railWidth,
+                itemSize: itemSize,
+                padding: layout.isLarge ? layout.tv(56) : 24,
+                items: widget.items,
+                guest: widget.guest,
+                profile: widget.profile,
+                isSelected: widget.isSelected,
+                itemNode: _itemNode,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                if (widget.guest) _GuestBanner(onSignIn: widget.onSignIn),
+                Expanded(
+                  child: Actions(
+                    actions: {
+                      DirectionalFocusIntent: EdgeDirectionalFocusAction(outer: context, (direction) {
+                        if (direction != TraversalDirection.left) return false;
+                        _focusRail();
+                        return true;
+                      }),
+                    },
+                    child: FocusScope(node: _pageScope, child: widget.child),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Left rail (tablet, desktop, TV): the profile, then the destinations.
@@ -212,6 +301,7 @@ class _Rail extends StatefulWidget {
     required this.guest,
     required this.profile,
     required this.isSelected,
+    required this.itemNode,
   });
 
   final double width;
@@ -223,6 +313,9 @@ class _Rail extends StatefulWidget {
   final bool guest;
   final Profile? profile;
   final bool Function(String path) isSelected;
+
+  /// The focus node of a destination (Left from a page focuses the current one).
+  final FocusNode Function(String path) itemNode;
 
   /// Smallest item on a low screen: still easy to press.
   static const minItemSize = 40.0;
@@ -295,7 +388,7 @@ class _RailState extends State<_Rail> {
                       destination: d,
                       selected: widget.isSelected(d.path),
                       size: size,
-                      focusNode: d == widget.items.first ? _tvSidebarFocusNode : null,
+                      focusNode: widget.itemNode(d.path),
                     ),
                   ),
               ],

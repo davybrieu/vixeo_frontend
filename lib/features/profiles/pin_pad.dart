@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../account/info_page.dart';
 
@@ -195,6 +196,7 @@ class _PinPadState extends State<_PinPad> {
                 ),
               ),
               FocusTraversalGroup(
+                policy: vxTraversalPolicy,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

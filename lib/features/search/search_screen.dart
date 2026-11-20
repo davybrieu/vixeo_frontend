@@ -9,6 +9,7 @@ import '../../core/device/layout.dart';
 import '../../core/features.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/page_header.dart';
 import '../catalog/catalog_repository.dart';
 import '../social/profile_view.dart' show AccountTile, ProfileColumn;
@@ -509,6 +510,7 @@ class _PeopleSection extends StatelessWidget {
         children: [
           const SectionHeader('Personnes'),
           FocusTraversalGroup(
+            policy: vxTraversalPolicy,
             child: SizedBox(
               height: PersonCard.heightOf(layout, withRole: false) + (layout.isLarge ? layout.tv(32) : 0),
               child: ListView.separated(

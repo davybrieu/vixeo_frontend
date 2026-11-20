@@ -313,8 +313,27 @@ lib/
     « Qui regarde ? », confirmation avant de quitter l'appli ; sur TV, Retour pendant la saisie
     d'un champ de texte ne fait que quitter le champ (ce qui ferme le clavier), sans changer de
     page (`BackNavigationGuard.leaveTextField`) ;
+  - **navigation au D-pad** (`core/widgets/focus_navigation.dart`, demande du développeur,
+    21/11/2026) : `RemoteNavigation` (dans le `builder` de `MaterialApp.router`) pose **une seule
+    règle de parcours** pour toute l'appli (`vxTraversalPolicy` : tout `FocusTraversalGroup` la
+    reçoit, `policy: vxTraversalPolicy`, ne jamais en créer un sans) : Bas puis Haut revient sur la
+    même carte d'une rangée à l'autre, et le déplacement du focus ne fait pas défiler lui-même.
+    Sur TV, `RemoteNavigation` fait défiler **une fois, en douceur**, jusqu'à l'élément qui a le
+    focus (tout élément, pas seulement `VxFocusable` ; un peu au-dessus du milieu de chaque liste,
+    `RemoteNavigation.alignment`) : plus de saut suivi d'une animation. Touche maintenue
+    (`RemoteKeys.repeating`) : défilement plus court, et la grande image attend que le focus
+    s'arrête (`RepeatSettler` dans `HeroSelection`) au lieu de charger l'image de chaque carte
+    traversée. Haut / Bas sortent d'un **champ d'une ligne** (Flutter y déplaçait le curseur et
+    gardait le focus) ; Gauche / Droite y déplacent le curseur ; dans un champ de plusieurs lignes,
+    Haut / Bas changent de ligne ;
+  - **rail et pages** (`_LargeShell`, `shell/app_shell.dart`) : le rail et la page sont deux
+    `FocusScope` ; Gauche au bord gauche d'une page → la destination **affichée** du rail (pas
+    l'icône à la même hauteur) ; Droite depuis le rail → l'élément de la page qui avait le focus
+    (sinon le premier) ; Haut / Bas ne passent jamais du rail à la page ni l'inverse ; un bord que
+    le rail ou la page ne gère pas va à ce qui les entoure (`EdgeDirectionalFocusAction(outer:)` :
+    Haut en haut d'une page → barre de mise à jour). Test : `test/dpad_test.dart` ;
   - les tailles TV sont celles du design 1920×1080, converties avec `Layout.of(context).tv(px)` ;
-  - les rangées horizontales sont dans un `FocusTraversalGroup` ;
+  - les rangées horizontales sont dans un `FocusTraversalGroup(policy: vxTraversalPolicy)` ;
   - accueil grand écran : la grande image et ses informations suivent la carte sélectionnée
     (focus : tout de suite) ou survolée à la souris (`onHovered`, après 150 ms), rangée
     « Continuer à regarder » comprise. Les titres de l'accueil et de la recherche arrivent avec

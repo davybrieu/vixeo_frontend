@@ -11,6 +11,7 @@ import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
@@ -257,6 +258,7 @@ class PosterRow extends ConsumerWidget {
       children: [
         SectionHeader(title, onSeeAll: onSeeAll),
         FocusTraversalGroup(
+          policy: vxTraversalPolicy,
           child: SizedBox(
             height: PosterCard.heightFor(width, format) + PosterCard.captionHeightOf(context) + vPad * 2,
             child: ListView.separated(

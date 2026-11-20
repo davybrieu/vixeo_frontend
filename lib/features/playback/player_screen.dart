@@ -15,6 +15,7 @@ import '../addons/scrapers.dart';
 import '../auth/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../catalog/models.dart';
@@ -1293,6 +1294,7 @@ class _CenterControls extends StatelessWidget {
     final seekSize = layout.size(44, tv: 80);
     final spacing = SizedBox(width: layout.size(40, tv: 100));
     return FocusTraversalGroup(
+      policy: vxTraversalPolicy,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1587,6 +1589,7 @@ class _BottomBar extends StatelessWidget {
                   ),
                 ),
               FocusTraversalGroup(
+                policy: vxTraversalPolicy,
                 child: Row(
                   children: [
                     Expanded(

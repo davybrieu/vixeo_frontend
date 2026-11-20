@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme.dart';
+import 'core/widgets/focus_navigation.dart';
 import 'core/widgets/focusable.dart';
 import 'features/notifications/notifications_gate.dart';
 import 'features/updates/update_gate.dart';
@@ -43,7 +44,9 @@ class VixeoApp extends ConsumerWidget {
       theme: buildVixeoTheme(),
       themeMode: ThemeMode.dark,
       routerConfig: router,
-      builder: (context, child) => UpdateGate(child: NotificationsGate(child: child ?? const SizedBox())),
+      // Remote navigation around every page and dialog (focus_navigation.dart).
+      builder: (context, child) =>
+          RemoteNavigation(child: UpdateGate(child: NotificationsGate(child: child ?? const SizedBox()))),
       shortcuts: remoteShortcuts,
       actions: remoteActions,
       locale: const Locale('fr', 'FR'),

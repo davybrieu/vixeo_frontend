@@ -9,6 +9,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import 'channel_search.dart';
@@ -376,6 +377,7 @@ class _Guide extends StatelessWidget {
     }
 
     return FocusTraversalGroup(
+      policy: vxTraversalPolicy,
       child: Column(
         children: [
           for (final (i, p) in programmes.indexed) ...[

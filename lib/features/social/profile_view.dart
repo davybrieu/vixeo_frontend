@@ -7,6 +7,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../catalog/catalog_repository.dart';
@@ -382,6 +383,7 @@ class ProfilePeopleSection extends StatelessWidget {
       children: [
         SectionHeader(title, onSeeAll: onSeeAll),
         FocusTraversalGroup(
+          policy: vxTraversalPolicy,
           child: SizedBox(
             height: height,
             child: ListView.separated(
