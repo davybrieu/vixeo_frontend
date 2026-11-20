@@ -501,9 +501,12 @@ lib/
   en mémoire et **un jour sur l'appareil** (`LocalStore`, `vixeo.ratings`, 1 500 titres), et
   redemande après 2 min un titre sans réponse. Affichage (`watchShownRating`, `ShownRating.pick`) :
   la note du site choisi, **sinon IMDb, sinon TMDb** (`vote_average`, sans requête quand TMDb est
-  choisi) ; étoile verte, valeur sur l'échelle du site (« 8,8 », « 79 % », « 4,3 ») et petit
-  badge du site (`RatingLabel`, `RatingTag` : « IMDb » jaune, « RT » rouge… ; TMDb garde son logo
-  `TmdbRating`), lu « Note IMDb : 8,8 sur 10 ». Cartes du téléphone (`CardRating`), grande image et
+  choisi) ; étoile verte, valeur sur l'échelle du site (« 8,8 », « 79 % », « 4,3 ») et **logo du
+  site** (`RatingLabel`, `RatingLogo` : PNG de `assets/images/ratings`, tirés de
+  `brand/ratings/*.svg` par `brand/tools/rating_logos.py` ; Simple Icons CC0, pop-corn de Lucide
+  pour le public de Rotten Tomatoes, licence ISC dans « Licences » ; hauteur réglée par site,
+  `RatingSource.logoHeight` ; TMDb garde son logo officiel `TmdbRating`), lu « Note IMDb : 8,8 sur
+  10 ». Cartes du téléphone (`CardRating`), grande image et
   carrousel (`TitleFacts` attend la note avec le reste : rien ne bouge), fiche. **Fiche : un appui
   sur la note** (`RatingButton`, petite flèche, focalisable à la télécommande ; demande du
   développeur) ouvre **« Notes »** (`showAllRatings`, `ratings_sheet.dart` : feuille du bas sur

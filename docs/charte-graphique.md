@@ -198,8 +198,8 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
 | Alerte `showVxSnack` | — | — | confirme chaque action (« Ajouté à votre liste », « Note enregistrée : 8/10 ») |
 | État vide `EmptyState` | icône 44, titre 20 | — | une phrase qui dit quoi faire, et un bouton si une action existe |
 | Note TMDb `TmdbRating` | taille du texte autour | — | étoile verte, note, petit logo TMDb (0,7 × la taille du texte) |
-| Note d'un autre site `RatingLabel` | taille du texte autour | badge rayon 0,3 × texte | étoile verte, note sur l'échelle du site (« 8,8 », « 79 % »), badge court aux couleurs du site (`RatingTag`, 0,68 × la taille du texte : « IMDb » noir sur jaune, « RT » blanc sur rouge…) ; TMDb : `TmdbRating` |
-| Toutes les notes `showAllRatings` | lignes 16, note 20 (TV × 1,6) | feuille du bas / fenêtre | ouverte par un appui sur la note de la fiche (`RatingButton`, petite flèche) : badge, site, note sur son échelle, « Votre source » en vert |
+| Note d'un autre site `RatingLabel` | taille du texte autour | — | étoile verte, note sur l'échelle du site (« 8,8 », « 79 % »), logo du site (`RatingLogo`, `brand/ratings` : 0,75 à 1,15 × la taille du texte selon sa forme, pour paraître de même taille) ; TMDb : `TmdbRating` |
+| Toutes les notes `showAllRatings` | lignes 16, note 20 (TV × 1,6) | feuille du bas / fenêtre | ouverte par un appui sur la note de la fiche (`RatingButton`, petite flèche) : logo, site, note sur son échelle, « Votre source » en vert |
 
 ## 8. Cartes de titres, rangées et grilles
 

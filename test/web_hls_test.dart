@@ -65,6 +65,8 @@ void main() {
       expect(packages, contains('hls.js'));
       // And crypto-js, lent to the plug-in scrapers (assets/scrapers).
       expect(packages, contains('crypto-js'));
+      // And Lucide, whose popcorn icon is the logo of Rotten Tomatoes' audience score.
+      expect(packages, contains('Lucide'));
     });
   });
 }

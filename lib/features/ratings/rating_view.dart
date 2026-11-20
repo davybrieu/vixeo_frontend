@@ -24,8 +24,8 @@ void prefetchRatings(WidgetRef ref, Iterable<MediaItem> items) {
   ref.read(ratingsLoaderProvider).prefetch([for (final item in items) (type: item.type, id: item.id)]);
 }
 
-/// A rating and its site: green star, value ("8,8", "79 %") and the site's tag ("IMDb"; TMDb's
-/// logo for TMDb, [TmdbRating]). Read "Note IMDb : 8,8 sur 10" by screen readers.
+/// A rating and its site: green star, value ("8,8", "79 %") and the site's logo ([RatingLogo];
+/// TMDb: [TmdbRating]). Read "Note IMDb : 8,8 sur 10" by screen readers.
 class RatingLabel extends StatelessWidget {
   const RatingLabel({
     super.key,
@@ -54,29 +54,34 @@ class RatingLabel extends StatelessWidget {
           SizedBox(width: fontSize * 0.25),
           Text(source.format(value), style: VxText.body(fontSize, color: color, weight: FontWeight.w600)),
           SizedBox(width: fontSize * 0.45),
-          RatingTag(source, fontSize: fontSize * 0.68),
+          RatingLogo(source, size: fontSize),
         ],
       ),
     );
   }
 }
 
-/// Short name of a rating's site in its colours ("IMDb" in black on yellow…), [fontSize] high.
-class RatingTag extends StatelessWidget {
-  const RatingTag(this.source, {super.key, required this.fontSize});
+/// The logo of a rating's site, next to a text of [size] (`RatingSource.logoHeight`: wide logos
+/// lower, square ones higher). TMDb: its official logo ([TmdbLogo]). Not read by screen readers:
+/// the rating's label names the site.
+class RatingLogo extends StatelessWidget {
+  const RatingLogo(this.source, {super.key, required this.size});
 
   final RatingSource source;
-  final double fontSize;
+  final double size;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.symmetric(horizontal: fontSize * 0.4, vertical: fontSize * 0.12),
-    decoration: BoxDecoration(color: source.tagColor, borderRadius: BorderRadius.circular(fontSize * 0.3)),
-    child: Text(
-      source.tag,
-      style: VxText.body(fontSize, color: source.tagTextColor, weight: FontWeight.w800, height: 1.15),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final height = size * source.logoHeight;
+    if (source == RatingSource.tmdb) return TmdbLogo(height: height);
+    return Image.asset(
+      source.logoAsset,
+      height: height,
+      width: height * source.logoAspect,
+      filterQuality: FilterQuality.medium,
+      excludeFromSemantics: true,
+    );
+  }
 }
 
 /// The rating under a phone card, on the right of the year: shrunk rather than cut on a narrow

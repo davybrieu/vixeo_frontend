@@ -68,6 +68,11 @@ RatingsLoader fakeLoader(Map<TitleRef, TitleRatings> ratings, {List<List<TitleRe
 );
 
 const dune = (type: MediaType.movie, id: 438631);
+
+/// The logo of [source], drawn from its file (TMDb: [TmdbLogo]).
+Finder logo(RatingSource source) => find.byWidgetPredicate(
+  (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == source.logoAsset,
+);
 const severance = (type: MediaType.tv, id: 95396);
 
 void main() {
@@ -297,10 +302,10 @@ void main() {
       );
 
       expect(find.text('8,8'), findsOneWidget);
-      expect(find.text('IMDb'), findsOneWidget);
+      expect(logo(RatingSource.imdb), findsOneWidget);
       expect(find.bySemanticsLabel('Note IMDb : 8,8 sur 10'), findsOneWidget);
       expect(find.text('79 %'), findsOneWidget);
-      expect(find.text('RT'), findsOneWidget);
+      expect(logo(RatingSource.tomatoes), findsOneWidget);
       expect(find.bySemanticsLabel('Note Rotten Tomatoes (critiques) : 79 %'), findsOneWidget);
       // TMDb keeps its logo.
       expect(find.byType(TmdbLogo), findsOneWidget);
@@ -320,7 +325,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(find.text('3,9'), findsOneWidget);
-      expect(find.text('LB'), findsOneWidget);
+      expect(logo(RatingSource.letterboxd), findsOneWidget);
 
       // Rotten Tomatoes chosen, none for this title: IMDb's (known already: at once).
       await tester.pumpWidget(
@@ -328,7 +333,7 @@ void main() {
       );
       await tester.pump();
       expect(find.text('8,0'), findsOneWidget);
-      expect(find.text('IMDb'), findsOneWidget);
+      expect(logo(RatingSource.imdb), findsOneWidget);
       expect(find.byType(TmdbRating), findsNothing);
     });
 
@@ -371,6 +376,12 @@ void main() {
       expect(find.bySemanticsLabel('Rotten Tomatoes (public) : 90\u202f%'), findsOneWidget);
       expect(find.bySemanticsLabel('Letterboxd : 3,9 sur 5'), findsOneWidget);
       expect(find.text('Votre source'), findsOneWidget);
+      // Each with its logo, TMDb's official one included.
+      final sheet = find.byType(BottomSheet);
+      for (final site in [RatingSource.imdb, RatingSource.tomatoes, RatingSource.audience, RatingSource.letterboxd]) {
+        expect(find.descendant(of: sheet, matching: logo(site)), findsOneWidget, reason: site.name);
+      }
+      expect(find.descendant(of: sheet, matching: find.byType(TmdbLogo)), findsOneWidget);
       // No rating there: not listed.
       expect(find.text('Metacritic'), findsNothing);
       expect(find.text('MyAnimeList'), findsNothing);

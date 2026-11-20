@@ -55,3 +55,9 @@ python3 brand/tools/finish_icons.py           # favicon.ico, icônes sans transp
 ```
 
 Puis copier `brand/vixeo-logo.svg` et les fichiers de `brand/icons/` dans le site et l'API.
+
+## Logos des sites de notes
+
+Les logos d'IMDb, Rotten Tomatoes, Metacritic, Letterboxd, Trakt et MyAnimeList affichés à côté
+des notes sont dans `ratings/` (marques de leurs propriétaires ; origine et régénération :
+`ratings/README.md`).

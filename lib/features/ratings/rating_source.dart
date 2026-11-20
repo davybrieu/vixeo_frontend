@@ -1,32 +1,38 @@
-import 'package:flutter/painting.dart';
-
 import '../catalog/models.dart';
 
 /// Site whose rating the titles show: a profile setting (« Paramètres » → « Source des notes »,
 /// API `rating_source`, IMDb by default). Every site but TMDb comes from MDBList, through the API
 /// (`GET /catalog/ratings`, vixeo_backend/docs/notes.md); TMDb's is the one given with each title.
+///
+/// Each site is shown with its logo (`assets/images/ratings/<name>.png`, rendered from
+/// `brand/ratings/*.svg` by `brand/tools/rating_logos.py`; TMDb: its official logo, `TmdbLogo`).
 enum RatingSource {
-  imdb('IMDb', 'IMDb', 10, Color(0xFFF5C518), Color(0xFF000000)),
-  tmdb('TMDb', 'TMDb', 10, Color(0xFF0D253F), Color(0xFFFFFFFF)),
-  tomatoes('Rotten Tomatoes (critiques)', 'RT', 100, Color(0xFFFA320A), Color(0xFFFFFFFF)),
-  audience('Rotten Tomatoes (public)', 'Popcorn', 100, Color(0xFFFA320A), Color(0xFFFFFFFF)),
-  metacritic('Metacritic', 'MC', 100, Color(0xFF2B2B2B), Color(0xFFFFCC34)),
-  letterboxd('Letterboxd', 'LB', 5, Color(0xFF202830), Color(0xFF00E054)),
-  trakt('Trakt', 'Trakt', 100, Color(0xFFED1C24), Color(0xFFFFFFFF)),
-  mal('MyAnimeList', 'MAL', 10, Color(0xFF2E51A2), Color(0xFFFFFFFF));
+  imdb('IMDb', 10, 1.981, 0.95),
+  tmdb('TMDb', 10, 820 / 106, 0.7),
+  tomatoes('Rotten Tomatoes (critiques)', 100, 1, 1.15),
+  audience('Rotten Tomatoes (public)', 100, 1, 1.15),
+  metacritic('Metacritic', 100, 1, 1.1),
+  letterboxd('Letterboxd', 5, 2.703, 0.75),
+  trakt('Trakt', 100, 1, 1.1),
+  mal('MyAnimeList', 10, 1.789, 0.95);
 
-  const RatingSource(this.label, this.tag, this.scale, this.tagColor, this.tagTextColor);
+  const RatingSource(this.label, this.scale, this.logoAspect, this.logoHeight);
 
   /// Name in the settings and for screen readers.
   final String label;
 
-  /// Short name written next to the value (TMDb: its logo instead).
-  final String tag;
-
   /// Best value: 10 (IMDb, TMDb, MyAnimeList), 5 (Letterboxd) or 100.
   final int scale;
-  final Color tagColor;
-  final Color tagTextColor;
+
+  /// Width / height of the logo.
+  final double logoAspect;
+
+  /// Height of the logo next to a text of size 1: wide logos lower, square ones higher, so that
+  /// they all look the same size.
+  final double logoHeight;
+
+  /// The logo's file (TMDb: `assets/images/tmdb_short.png`, drawn by `TmdbLogo`).
+  String get logoAsset => 'assets/images/ratings/$name.png';
 
   /// The API value (`rating_source`), IMDb when missing or unknown.
   static RatingSource parse(Object? value) =>

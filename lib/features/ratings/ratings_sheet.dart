@@ -6,7 +6,6 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../catalog/catalog_repository.dart';
-import '../catalog/widgets.dart';
 import 'rating_view.dart';
 import 'ratings.dart';
 
@@ -157,7 +156,7 @@ class _AllRatings extends ConsumerWidget {
   }
 }
 
-/// A site: its badge (TMDb's logo), its name and its rating on its scale ("8,8 / 10", "79 %").
+/// A site: its logo, its name and its rating on its scale ("8,8 / 10", "79 %").
 class _RatingRow extends StatelessWidget {
   const _RatingRow({required this.site, required this.value, required this.chosen, required this.scale});
 
@@ -180,11 +179,8 @@ class _RatingRow extends StatelessWidget {
         child: Row(
           children: [
             SizedBox(
-              width: 84 * s,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: site == RatingSource.tmdb ? TmdbLogo(height: 10 * s) : RatingTag(site, fontSize: 12 * s),
-              ),
+              width: 104 * s,
+              child: Align(alignment: Alignment.centerLeft, child: RatingLogo(site, size: 18 * s)),
             ),
             SizedBox(width: 12 * s),
             Expanded(
