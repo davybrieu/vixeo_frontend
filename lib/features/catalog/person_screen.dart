@@ -11,8 +11,8 @@ import '../../core/widgets/expandable_text.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
-import '../ratings/rating_view.dart';
 import 'catalog_repository.dart';
+import 'list_screen.dart';
 import 'models.dart';
 import 'widgets.dart';
 
@@ -51,14 +51,15 @@ class _PersonView extends ConsumerStatefulWidget {
 }
 
 class _PersonViewState extends ConsumerState<_PersonView> {
+  /// Titles of the « Filmographie » row (newest first), like a home row: the rest is behind
+  /// « Voir tout ».
+  static const _rowLength = 20;
+
   @override
   Widget build(BuildContext context) {
     final p = widget.person;
     final layout = Layout.of(context);
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
-    final format = posterFormatOf(ref);
-    // The ratings of the filmography's cards in one request.
-    prefetchRatings(ref, p.filmography);
     final photoWidth = layout.isLarge ? layout.tv(300) : (layout.isPhone ? 132.0 : 170.0);
     final session = ref.watch(sessionProvider);
     final canFollow = session.isSignedIn && session.profile != null;
@@ -147,36 +148,33 @@ class _PersonViewState extends ConsumerState<_PersonView> {
               child: ExpandableText(text: p.biography!),
             ),
           ),
+        // Rows scrolled left to right like the home's, each with « Voir tout » (every title of
+        // the person, most voted or newest first).
         if (p.knownFor.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.only(bottom: layout.sectionGap),
-              child: PosterRow(title: 'Connu pour', items: p.knownFor),
-            ),
-          ),
-        if (p.filmography.isNotEmpty) ...[
-          const SliverToBoxAdapter(child: SectionHeader('Filmographie')),
-          SliverPadding(
-            // Room for the focus zoom on TV; the end of the page clear of the tab bar.
-            padding: EdgeInsets.fromLTRB(
-              layout.gutter,
-              layout.size(0, tv: 16),
-              layout.gutter,
-              pageBottomPadding(context),
-            ),
-            sliver: SliverGrid.builder(
-              gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
-              itemCount: p.filmography.length,
-              itemBuilder: (context, i) => LayoutBuilder(
-                builder: (context, c) => PosterCard(item: p.filmography[i], width: c.maxWidth, format: format),
+              child: PosterRow(
+                title: 'Connu pour',
+                items: p.knownFor,
+                onSeeAll: () => context.push(PersonTitlesScreen.location(p.id, PersonCreditsSort.popular)),
               ),
             ),
           ),
-        ],
+        if (p.filmography.isNotEmpty)
+          SliverToBoxAdapter(
+            child: PosterRow(
+              title: 'Filmographie',
+              items: p.filmography.take(_rowLength).toList(),
+              onSeeAll: () => context.push(PersonTitlesScreen.location(p.id, PersonCreditsSort.date)),
+            ),
+          ),
         if (p.knownFor.isEmpty && p.filmography.isEmpty)
           const SliverToBoxAdapter(
             child: EmptyState(icon: Icons.movie_filter_outlined, title: 'Aucun titre disponible pour ce profil'),
           ),
+        // The end of the page clear of the tab bar.
+        SliverToBoxAdapter(child: SizedBox(height: pageBottomPadding(context))),
       ],
     );
   }

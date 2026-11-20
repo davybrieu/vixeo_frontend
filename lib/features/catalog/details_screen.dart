@@ -22,6 +22,7 @@ import '../search/filter_bar.dart';
 import '../tmdb/rating_buttons.dart';
 import '../tmdb/tmdb.dart';
 import 'catalog_repository.dart';
+import 'list_screen.dart';
 import 'models.dart';
 import 'widgets.dart';
 
@@ -135,11 +136,16 @@ class _PeopleRow extends StatelessWidget {
     final layout = Layout.of(context);
     final crewRole = title.type == MediaType.movie ? 'Réalisation' : 'Création';
     final people = [for (final p in title.crew) (p, crewRole), for (final p in title.cast) (p, p.role)];
+    final heading = title.crew.isEmpty ? 'Distribution' : 'Créateur et distribution';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title.crew.isEmpty ? 'Distribution' : 'Créateur et distribution'),
+        // « Voir tout »: the whole cast (this row has 20 of them).
+        SectionHeader(
+          heading,
+          onSeeAll: () => context.push(CreditsScreen.location(title.type, title.id, heading)),
+        ),
         FocusTraversalGroup(
           child: SizedBox(
             height: PersonCard.heightOf(layout) + (layout.isLarge ? layout.tv(32) : 0),
@@ -608,19 +614,27 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
             const Positioned(left: 0, top: 0, child: _BackButton()),
           ],
         ),
-        ..._lowerSections(layout, t),
+        ..._lowerSections(context, layout, t),
       ],
     );
   }
 }
 
-/// Episodes, people and recommendations, a section gap apart (24, TV 36).
-List<Widget> _lowerSections(Layout layout, TitleDetails t) {
+/// Episodes, people and recommendations, a section gap apart (24, TV 36). People and
+/// recommendations have « Voir tout » (the round arrow of their title), like the home rows.
+List<Widget> _lowerSections(BuildContext context, Layout layout, TitleDetails t) {
   final gap = SizedBox(height: layout.sectionGap);
   return [
     if (t.type == MediaType.tv && t.seasons.isNotEmpty) ...[gap, _Episodes(title: t)],
     if (t.cast.isNotEmpty || t.crew.isNotEmpty) ...[gap, _PeopleRow(title: t)],
-    if (t.recommended.isNotEmpty) ...[gap, PosterRow(title: 'Vous pourriez aussi aimer', items: t.recommended)],
+    if (t.recommended.isNotEmpty) ...[
+      gap,
+      PosterRow(
+        title: 'Vous pourriez aussi aimer',
+        items: t.recommended,
+        onSeeAll: () => context.push(RecommendationsScreen.location(t.type, t.id)),
+      ),
+    ],
   ];
 }
 
@@ -772,7 +786,7 @@ class _LargeDetails extends StatelessWidget {
                 ),
               ),
             ),
-            ..._lowerSections(layout, t),
+            ..._lowerSections(context, layout, t),
           ],
         ),
       ],

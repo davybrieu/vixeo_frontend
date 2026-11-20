@@ -349,6 +349,16 @@ lib/
   (`TitleListScreen`, `catalog/list_screen.dart`, `/liste/:type/:list?titre=…`) : bouton retour,
   titre de la rangée, grille qui charge la page suivante en arrivant à la fin (`PagedGrid`, le
   même que la recherche ; API `/catalog/{type}/lists/{list}`, `titleListProvider`).
+- **« Voir tout » de la fiche et de la page d'une personne** (demande du développeur,
+  20/11/2026) : le même bouton rond sur « Vous pourriez aussi aimer »
+  (`RecommendationsScreen`, `/titre/:type/:id/recommandations`, paginé,
+  `recommendationsProvider`), « Créateur et distribution » (`CreditsScreen`,
+  `/titre/:type/:id/distribution?titre=…`, grille de `PersonCard` : réalisation ou création
+  d'abord, puis toute la distribution, `titleCreditsProvider`), « Connu pour » et
+  « Filmographie » (`PersonTitlesScreen`, `/personne/:id/connu-pour` et `/filmographie`, tous les
+  titres, `personCreditsProvider`). Mêmes pages que « Voir tout » de l'accueil (`_SeeAllPage` :
+  retour, titre, grille). **La filmographie est une rangée horizontale** comme les autres
+  (`PosterRow`, 20 titres, plus de grille sur la page). Test : `test/see_all_test.dart`.
 - **Page « Chaînes TV »** (`/chaines-tv`, `TvChannelsScreen` ; demande du développeur : comme
   l'accueil) : une **rangée par catégorie** (`channelCategorySections`, `tvChannelRowsProvider` :
   catégories et chaînes demandées une fois, 24 chaînes par rangée, catégorie vide masquée), avec
@@ -645,7 +655,9 @@ lib/
   `socialProfileProvider`, `socialTitlesProvider`, `socialReviewsProvider` (API
   `/social/profiles/{username}…` ; les avis ont les champs de « Mes avis »). Profil enfant : pas
   de page. **Comptes** (recherche, abonnés) : `AccountTile` = avatar, nom, @pseudo, **sans le
-  nombre d'abonnés** (demande du développeur). Test : `test/profile_screen_test.dart`.
+  nombre d'abonnés** (demande du développeur). **La recherche ne montre jamais le profil actif
+  lui-même** (demande du développeur, 20/11/2026 : on ouvre son profil par la navigation,
+  « Profil ») : l'API le retire et `socialSearchProvider` aussi. Test : `test/profile_screen_test.dart`.
 - **Espacements** (charte, § 5) : les écarts d'une page ont un nom dans `core/design.dart`
   (`layout.sectionGap`, `titleGap`, `introGap`, `listGap`, `cardGap`) et le bas d'une page qui
   défile passe par `pageBottomPadding(context)` (place de la barre d'onglets comprise). Pages

@@ -132,11 +132,18 @@ final socialRepositoryProvider = Provider<SocialRepository>((ref) => SocialRepos
 final socialProfileProvider = FutureProvider.autoDispose.family<SocialProfile, String>(
   (ref, username) => ref.read(socialRepositoryProvider).profile(username),
 );
-final socialSearchProvider = FutureProvider.autoDispose.family<List<SocialProfile>, String>((ref, query) {
+/// Members whose @pseudo matches a text. Never the active profile itself (developer's request):
+/// one's own profile is opened from the navigation (« Profil »). The API leaves it out too.
+final socialSearchProvider = FutureProvider.autoDispose.family<List<SocialProfile>, String>((ref, query) async {
   final activeProfile = ref.watch(sessionProvider.select((s) => s.profile));
-  if (activeProfile?.isKid == true) return Future.value(const <SocialProfile>[]);
-  if (query.trim().length < 2) return Future.value(const <SocialProfile>[]);
-  return ref.read(socialRepositoryProvider).search(query);
+  if (activeProfile?.isKid == true) return const <SocialProfile>[];
+  if (query.trim().length < 2) return const <SocialProfile>[];
+  final found = await ref.read(socialRepositoryProvider).search(query);
+  final me = activeProfile?.username?.toLowerCase();
+  return [
+    for (final profile in found)
+      if (profile.id != activeProfile?.id && (me == null || profile.username.toLowerCase() != me)) profile,
+  ];
 });
 
 /// A member's list (movies and series), by username.

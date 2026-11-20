@@ -227,6 +227,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/personne/:id',
             builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
           ),
+          // « Voir tout » of a person page: every title, most voted or newest first.
+          GoRoute(
+            path: '/personne/:id/connu-pour',
+            builder: (_, state) => PersonTitlesScreen(
+              id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+              sort: PersonCreditsSort.popular,
+            ),
+          ),
+          GoRoute(
+            path: '/personne/:id/filmographie',
+            builder: (_, state) => PersonTitlesScreen(
+              id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+              sort: PersonCreditsSort.date,
+            ),
+          ),
           // « Connecter une TV » (from « Paramètres »); ?code= prefills the code.
           GoRoute(
             path: '/tv',
@@ -256,6 +271,22 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => DetailsScreen(
               type: MediaType.parse(state.pathParameters['type']),
               id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+            ),
+          ),
+          // « Voir tout » of a title page: every recommendation, everyone of the credits.
+          GoRoute(
+            path: '/titre/:type/:id/recommandations',
+            builder: (_, state) => RecommendationsScreen(
+              type: MediaType.parse(state.pathParameters['type']),
+              id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+            ),
+          ),
+          GoRoute(
+            path: '/titre/:type/:id/distribution',
+            builder: (_, state) => CreditsScreen(
+              type: MediaType.parse(state.pathParameters['type']),
+              id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+              title: state.uri.queryParameters['titre'],
             ),
           ),
         ],

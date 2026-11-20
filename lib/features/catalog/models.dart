@@ -267,6 +267,30 @@ class Person {
   }
 }
 
+/// Everyone of a title, for « Créateur et distribution » → « Voir tout »
+/// (`GET /catalog/{type}/{id}/credits`; the title page only has 20 cast members).
+class TitleCredits {
+  const TitleCredits({required this.crew, required this.cast});
+
+  factory TitleCredits.fromJson(Map<String, dynamic> json) =>
+      TitleCredits(crew: _list(json['crew'], Person.fromJson), cast: _list(json['cast'], Person.fromJson));
+
+  /// Directors (movie) or creators (TV show).
+  final List<Person> crew;
+
+  /// The whole cast, in billing order; [Person.role] is the character.
+  final List<Person> cast;
+}
+
+/// Order of a person's titles (`GET /catalog/person/{id}/credits?sort=`).
+enum PersonCreditsSort {
+  /// Most voted first: « Connu pour ».
+  popular,
+
+  /// Newest first: « Filmographie ».
+  date,
+}
+
 class Trailer {
   const Trailer({required this.url, this.name});
 

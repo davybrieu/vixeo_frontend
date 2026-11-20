@@ -332,6 +332,26 @@ void main() {
     expect(find.text('Film noté 1'), findsOneWidget);
     expect(find.bySemanticsLabel('Avis : 5'), findsOneWidget);
   });
+
+  test('the member search never shows the active profile itself (reached from « Profil »)', () async {
+    final container = ProviderContainer(
+      overrides: [
+        sessionProvider.overrideWith(_Signed.new),
+        socialRepositoryProvider.overrideWithValue(_SearchSocial([_social, _member])),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    // Kept alive while read (autoDispose providers).
+    container.listen(socialSearchProvider('a'), (_, _) {});
+    container.listen(socialSearchProvider('le'), (_, _) {});
+    final found = await container.read(socialSearchProvider('a').future);
+    expect(found, isEmpty);
+    final members = await container.read(socialSearchProvider('le').future);
+    // « lea » is the active profile: left out, even if the API returned it.
+    expect(members.map((p) => p.username), ['max']);
+  });
+
 }
 
 class _FakeSocial extends SocialRepository {
@@ -397,3 +417,12 @@ Future<_FakeSocial> _pumpMember(WidgetTester tester) async {
   return social;
 }
 
+/// Answers every search with [found].
+class _SearchSocial extends SocialRepository {
+  _SearchSocial(this.found) : super(ApiClient(token: () => null, profileId: () => null));
+
+  final List<SocialProfile> found;
+
+  @override
+  Future<List<SocialProfile>> search(String query) async => found;
+}

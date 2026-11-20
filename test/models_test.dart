@@ -381,4 +381,21 @@ void main() {
     expect(state.continueWatching.map((i) => i.itemId), ['movie:3', 'movie:2']);
     expect(state.forItem(const MediaItem(id: 2, type: MediaType.movie, title: 'x'))?.isFavorite, isTrue);
   });
+
+  test('parses the credits of a title (« Voir tout » of « Créateur et distribution »)', () {
+    final credits = TitleCredits.fromJson({
+      'crew': [
+        {'id': 7467, 'name': 'David Fincher', 'profile_url': 'https://image.tmdb.org/t/p/w185/fincher.jpg'},
+      ],
+      'cast': [
+        {'id': 819, 'name': 'Edward Norton', 'character': 'The Narrator', 'profile_url': null},
+        {'id': 287, 'name': 'Brad Pitt', 'character': 'Tyler Durden', 'profile_url': null},
+      ],
+    });
+
+    expect(credits.crew.single.name, 'David Fincher');
+    expect(credits.crew.single.profileUrl, 'https://image.tmdb.org/t/p/w185/fincher.jpg');
+    expect(credits.cast.map((p) => '${p.name} (${p.role})'), ['Edward Norton (The Narrator)', 'Brad Pitt (Tyler Durden)']);
+    expect(PersonCreditsSort.date.name, 'date');
+  });
 }
