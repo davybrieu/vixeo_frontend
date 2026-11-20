@@ -37,8 +37,6 @@ class FakeAuth extends AuthRepository {
     return DeviceCode(
       deviceCode: 'secret-$starts',
       userCode: 'K7F-29Q',
-      verificationUrl: 'https://vixeo.test/tv',
-      verificationUrlComplete: 'https://vixeo.test/tv?code=K7F29Q',
       expiresIn: const Duration(minutes: 10),
       interval: const Duration(seconds: 5),
     );
@@ -141,7 +139,12 @@ void main() {
     await tester.pump();
 
     expect(find.text('K7F-29Q'), findsOneWidget);
-    // No QR code (no web app to open): the code is typed in the phone's app.
+    // Screen readers spell it out.
+    expect(
+      find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'Code : K, 7, F, 2, 9, Q'),
+      findsOneWidget,
+    );
+    // No QR code (developer's request): the code is typed in the phone's app.
     expect(find.textContaining('« Connecter une TV »'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 5));
@@ -165,7 +168,7 @@ void main() {
     expect(auth.starts, 2);
   });
 
-  testWidgets('phone: approves the code of the QR link', (tester) async {
+  testWidgets('phone: approves a prefilled code', (tester) async {
     final auth = FakeAuth();
     await tester.pumpWidget(
       wrap(

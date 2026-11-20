@@ -92,7 +92,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
                     if (!DeviceInfo.isTv)
                       _SettingsTile(
                         scale: s,
-                        icon: Icons.qr_code_scanner_rounded,
+                        icon: Icons.tv_rounded,
                         title: 'Connecter une TV',
                         subtitle: 'Approuver le code affiché sur le téléviseur.',
                         onPressed: () => context.push('/tv'),

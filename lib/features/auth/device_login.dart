@@ -14,8 +14,8 @@ import 'auth_repository.dart';
 import 'session.dart';
 
 /// TV sign-in card: a short code to type in the phone's app (« Paramètres » → « Connecter une
-/// TV »), polls the API until the phone approves it. No QR code: there is no web app to open
-/// (developer's request). A new code is fetched automatically when the current one expires.
+/// TV »), polls the API until the phone approves it. No QR code anywhere (developer's request).
+/// A new code is fetched automatically when the current one expires.
 class TvCodeCard extends ConsumerStatefulWidget {
   const TvCodeCard({super.key});
 
@@ -99,16 +99,21 @@ class _TvCodeCardState extends ConsumerState<TvCodeCard> {
           SizedBox(height: 10 * k),
           Text('2. Tapez ce code :', style: VxText.body(18 * k, color: VxColors.textSoft)),
           SizedBox(height: 10 * k),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              code.userCode,
-              style: VxText.title(
-                56 * k,
-                weight: FontWeight.w800,
-                color: VxColors.accent,
-              ).copyWith(letterSpacing: 6 * k),
+          // Screen readers spell the code out (« K, 7, F, 2, 9, Q »).
+          Semantics(
+            label: 'Code : ${code.userCode.replaceAll('-', '').split('').join(', ')}',
+            excludeSemantics: true,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                code.userCode,
+                style: VxText.title(
+                  56 * k,
+                  weight: FontWeight.w800,
+                  color: VxColors.accent,
+                ).copyWith(letterSpacing: 6 * k),
+              ),
             ),
           ),
           SizedBox(height: 12 * k),

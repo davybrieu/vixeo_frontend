@@ -63,7 +63,8 @@ Reste à faire :
   - recherche de secrets, d'URL `http://`, de permissions, de WebView, de *code push*, de SDK de
     suivi ou de publicité ;
   - parcours de bout en bout de l'appli web contre l'API locale (connexion, profils, catalogue,
-    QR code TV, contrôle parental).
+    connexion d'une TV (alors par QR code ; aujourd'hui par un code tapé dans l'appli, sans QR
+    code), contrôle parental).
 - Les règles d'Apple ont été relues le 4 novembre 2026 sur les pages officielles (§9). Elles
   changent souvent : relire ces pages avant chaque soumission.
 
@@ -424,7 +425,7 @@ Ces données sont liées à l'utilisateur et **ne servent pas au suivi**.
 - **Flutter** 3.47.9, Dart 3.13, canal stable.
 - **Paquets directs** : `flutter_riverpod` 3.4.3, `go_router` 18.1.2, `dio` 5.11.1,
   `flutter_secure_storage` 11.2.0, `cached_network_image` 4.0.6, `url_launcher` 6.3.3,
-  `qr_flutter` 4.1.0, `package_info_plus` 10.2.2 (avec son manifeste de confidentialité iOS),
+  `package_info_plus` 10.2.2 (avec son manifeste de confidentialité iOS),
   `cupertino_icons` 1.0.9. `google_fonts` a été retiré (P8).
 - **Code natif iOS** (plugins) :
 

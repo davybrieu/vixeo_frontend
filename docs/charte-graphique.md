@@ -257,7 +257,8 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
 
 - Chaque bouton à icône seule a un libellé (`semanticLabel`).
 - Les blocs d'informations ont un libellé complet, par exemple `TmdbRating` lu « Note TMDb : 7,1
-  sur 10 », `RatingLabel` lu « Note IMDb : 8,8 sur 10 » ou un QR code décrit.
+  sur 10 », `RatingLabel` lu « Note IMDb : 8,8 sur 10 » ou le code de connexion d'une TV lu
+  caractère par caractère.
 - Les zones tactiles font au moins 44 px.
 - Les couleurs qui doivent se distinguer diffèrent aussi par leur clarté.
 

@@ -63,10 +63,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    // Large screens: QR card and form side by side when they fit (a 1080p TV is ~960 dp wide).
+    // Large screens: TV code card and form side by side when they fit (a 1080p TV is ~960 dp wide).
     final available = layout.width - 2 * layout.gutter - 64;
     final formWidth = (available * 0.45).clamp(360.0, 480.0);
-    final qrWidth = (available - formWidth - 40).clamp(400.0, 640.0);
+    final codeCardWidth = (available - formWidth - 40).clamp(400.0, 640.0);
     final form = _LoginForm(
       formKey: _formKey,
       email: _email,
@@ -132,8 +132,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             spacing: 40,
                             runSpacing: 32,
                             children: [
-                              // TV / large screen: sign in from a phone with a QR code.
-                              if (layout.isLarge) SizedBox(width: qrWidth, child: const TvCodeCard()),
+                              // TV / large screen: sign in from a phone by typing the code.
+                              if (layout.isLarge) SizedBox(width: codeCardWidth, child: const TvCodeCard()),
                               Container(
                                 width: formWidth,
                                 padding: const EdgeInsets.all(36),

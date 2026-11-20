@@ -127,7 +127,7 @@ class AuthRepository {
   Future<void> verifyProfilePin(int profileId, String pin) =>
       _api.post('/profiles/$profileId/verify-pin', body: {'pin': pin});
 
-  // ── TV sign-in with a QR code (vixeo_backend/docs/connexion-tv.md) ──
+  // ── TV sign-in with a code (vixeo_backend/docs/connexion-tv.md) ──
 
   /// The TV asks for a code to show.
   Future<DeviceCode> startDeviceLogin() async =>
@@ -169,8 +169,6 @@ class DeviceCode {
   const DeviceCode({
     required this.deviceCode,
     required this.userCode,
-    required this.verificationUrl,
-    required this.verificationUrlComplete,
     required this.expiresIn,
     required this.interval,
   });
@@ -178,8 +176,6 @@ class DeviceCode {
   factory DeviceCode.fromJson(Map<String, dynamic> json) => DeviceCode(
     deviceCode: json['device_code'] as String,
     userCode: json['user_code'] as String,
-    verificationUrl: json['verification_url'] as String,
-    verificationUrlComplete: json['verification_url_complete'] as String,
     expiresIn: Duration(seconds: json['expires_in'] as int? ?? 600),
     interval: Duration(seconds: json['interval'] as int? ?? 5),
   );
@@ -187,12 +183,9 @@ class DeviceCode {
   /// Secret: stays on the TV.
   final String deviceCode;
 
-  /// "K7F-29Q".
+  /// "K7F-29Q": shown on the TV, typed in the phone's app (« Connecter une TV »). No QR code
+  /// (developer's request): the API's verification links are left aside.
   final String userCode;
-  final String verificationUrl;
-
-  /// Put in the QR code.
-  final String verificationUrlComplete;
   final Duration expiresIn;
   final Duration interval;
 }
