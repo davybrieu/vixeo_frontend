@@ -18,6 +18,7 @@ import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/library/my_list_screen.dart';
 import 'package:vixeo/features/ratings/rating_view.dart';
 import 'package:vixeo/features/ratings/ratings.dart';
+import 'package:vixeo/features/ratings/ratings_sheet.dart';
 import 'package:vixeo/features/search/filter_bar.dart';
 import 'package:vixeo/features/social/social_repository.dart';
 
@@ -329,6 +330,72 @@ void main() {
       expect(find.text('8,0'), findsOneWidget);
       expect(find.text('IMDb'), findsOneWidget);
       expect(find.byType(TmdbRating), findsNothing);
+    });
+
+    testWidgets('a press on the title page\'s rating shows every site\'s rating', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final loader = fakeLoader({
+        dune: const TitleRatings({
+          RatingSource.imdb: 8.0,
+          RatingSource.tmdb: 7.9,
+          RatingSource.tomatoes: 83,
+          RatingSource.audience: 90,
+          RatingSource.letterboxd: 3.9,
+        }),
+      });
+      final shown = ShownRating.pick(RatingSource.tomatoes, await loader.get(dune), 7.8);
+
+      await tester.pumpWidget(
+        app(
+          RatingButton(rating: shown, title: dune, name: 'Dune : Deuxième partie', tmdb: 7.8),
+          source: RatingSource.tomatoes,
+          loader: loader,
+        ),
+      );
+      expect(
+        find.bySemanticsLabel('Note Rotten Tomatoes (critiques) : 83\u202f%. Voir toutes les notes'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byType(RatingButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Notes'), findsOneWidget);
+      expect(find.text('Dune : Deuxième partie'), findsOneWidget);
+      // Every site that rates it, in the setting's order, each on its scale; TMDb's own average.
+      expect(find.bySemanticsLabel('IMDb : 8,0 sur 10'), findsOneWidget);
+      expect(find.bySemanticsLabel('TMDb : 7,8 sur 10'), findsOneWidget);
+      expect(find.bySemanticsLabel('Rotten Tomatoes (critiques) : 83\u202f%, votre source'), findsOneWidget);
+      expect(find.bySemanticsLabel('Rotten Tomatoes (public) : 90\u202f%'), findsOneWidget);
+      expect(find.bySemanticsLabel('Letterboxd : 3,9 sur 5'), findsOneWidget);
+      expect(find.text('Votre source'), findsOneWidget);
+      // No rating there: not listed.
+      expect(find.text('Metacritic'), findsNothing);
+      expect(find.text('MyAnimeList'), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('IMDb').last).dy,
+        lessThan(tester.getTopLeft(find.text('Letterboxd')).dy),
+      );
+    });
+
+    testWidgets('all ratings: TMDb alone when MDBList has nothing, with a sentence', (tester) async {
+      await tester.pumpWidget(
+        app(
+          Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showAllRatings(context, title: severance, name: 'Severance', tmdb: 8.4),
+              child: const Text('Ouvrir'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Ouvrir'));
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel('TMDb : 8,4 sur 10'), findsOneWidget);
+      expect(find.text('Les notes des autres sites ne sont pas disponibles pour le moment.'), findsOneWidget);
     });
 
     testWidgets('« Ma liste » sorts and filters on the profile\'s site, not TMDb', (tester) async {

@@ -17,6 +17,7 @@ import '../auth/session.dart';
 import '../library/actions.dart';
 import '../profiles/no_spoiler.dart';
 import '../ratings/rating_view.dart';
+import '../ratings/ratings_sheet.dart';
 import '../search/filter_bar.dart';
 import '../tmdb/rating_buttons.dart';
 import '../tmdb/tmdb.dart';
@@ -566,7 +567,14 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                         runSpacing: 6,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          if (!rating.isNone) RatingLabel(source: rating.source!, value: rating.value!),
+                          // A press: every site's rating.
+                          if (!rating.isNone)
+                            RatingButton(
+                              rating: rating,
+                              title: (type: t.type, id: t.id),
+                              name: t.title,
+                              tmdb: t.voteAverage,
+                            ),
                           for (final m in _meta(t)) Text(m, style: VxText.body(14, color: VxColors.textSoft)),
                           if (t.ageRating != null) VxBadge(_ageLabel(t.ageRating!), outlined: true),
                         ],
@@ -719,7 +727,13 @@ class _LargeDetails extends StatelessWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             if (!rating.isNone)
-                              RatingLabel(source: rating.source!, value: rating.value!, fontSize: layout.tv(22)),
+                              RatingButton(
+                                rating: rating,
+                                title: (type: t.type, id: t.id),
+                                name: t.title,
+                                tmdb: t.voteAverage,
+                                fontSize: layout.tv(22),
+                              ),
                             for (final m in _meta(t))
                               Text(m, style: VxText.body(layout.tv(22), color: VxColors.textSoft)),
                             if (t.genres.isNotEmpty)

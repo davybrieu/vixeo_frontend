@@ -504,7 +504,12 @@ lib/
   choisi) ; étoile verte, valeur sur l'échelle du site (« 8,8 », « 79 % », « 4,3 ») et petit
   badge du site (`RatingLabel`, `RatingTag` : « IMDb » jaune, « RT » rouge… ; TMDb garde son logo
   `TmdbRating`), lu « Note IMDb : 8,8 sur 10 ». Cartes du téléphone (`CardRating`), grande image et
-  carrousel (`TitleFacts` attend la note avec le reste : rien ne bouge), fiche. **Épisodes : note
+  carrousel (`TitleFacts` attend la note avec le reste : rien ne bouge), fiche. **Fiche : un appui
+  sur la note** (`RatingButton`, petite flèche, focalisable à la télécommande ; demande du
+  développeur) ouvre **« Notes »** (`showAllRatings`, `ratings_sheet.dart` : feuille du bas sur
+  téléphone, fenêtre avec « Fermer » ailleurs) : chaque site qui note le titre, dans l'ordre du
+  réglage, badge, nom, note sur son échelle (« 8,8 / 10 », « 79 % »), « Votre source » sous le
+  site choisi ; sans réponse de MDBList, TMDb seul et une phrase. **Épisodes : note
   TMDb** (MDBList n'en a pas). « Vider le cache » efface aussi les notes. Logo TMDb :
   `assets/images/tmdb_short.png` (« Primary short » de themoviedb.org converti en PNG sans
   modification). Pas de page de confidentialité ni de mention TMDb dans l'appli (décision du

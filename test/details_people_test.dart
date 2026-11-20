@@ -10,6 +10,8 @@ import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/profiles/no_spoiler.dart';
+import 'package:vixeo/features/ratings/ratings.dart';
+import 'package:vixeo/features/ratings/ratings_sheet.dart';
 
 class EmptyLibrary extends LibraryController {
   @override
@@ -71,6 +73,30 @@ void main() {
     await pumpDetails(tester, const TitleDetails(id: 3, type: MediaType.movie, title: 'Le Phare'));
     expect(find.byType(CachedNetworkImage), findsNothing);
     expect(find.text('Le Phare'), findsOneWidget);
+  });
+
+  testWidgets('a press on the rating opens « Notes », every site\'s rating', (tester) async {
+    final loader = RatingsLoader(
+      fetch: (titles) async => (
+        ratings: {for (final t in titles) t: const TitleRatings({RatingSource.imdb: 8.8, RatingSource.metacritic: 67})},
+        available: true,
+      ),
+    );
+    await pumpDetails(
+      tester,
+      const TitleDetails(id: 550, type: MediaType.movie, title: 'Nord Sauvage', voteAverage: 8.4),
+      overrides: [ratingsLoaderProvider.overrideWithValue(loader)],
+    );
+
+    // The profile's site (IMDb by default), with an arrow: it opens something.
+    expect(find.bySemanticsLabel('Note IMDb : 8,8 sur 10. Voir toutes les notes'), findsOneWidget);
+    await tester.tap(find.byType(RatingButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Notes'), findsOneWidget);
+    expect(find.bySemanticsLabel('IMDb : 8,8 sur 10, votre source'), findsOneWidget);
+    expect(find.bySemanticsLabel('TMDb : 8,4 sur 10'), findsOneWidget);
+    expect(find.bySemanticsLabel('Metacritic : 67 sur 100'), findsOneWidget);
   });
 
   testWidgets('movie: "Créateur et distribution", the director first, then the cast', (tester) async {
