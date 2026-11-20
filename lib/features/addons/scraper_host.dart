@@ -139,6 +139,7 @@ class ScraperHost {
               ? 'corps trop gros'
               : ScraperGuard.check(request.url));
     if (refused != null) {
+      onLog?.call('garde', '${request.method} ${request.url} refusée : $refused');
       // Answered on the next turn, never inside the sandbox's own call.
       scheduleMicrotask(() => _answer(FetchReply(id, error: refused)));
       return;

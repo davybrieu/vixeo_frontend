@@ -126,7 +126,10 @@ final providerSourcesProvider = FutureProvider.family<List<StreamSource>, Provid
   final repos = await ref.read(scraperReposProvider.future);
   final match = findScraper(repos, key.provider);
   if (match == null || !match.repo.enabled) return const [];
-  final streams = await ref.read(scraperServiceProvider).streams(match.repo, match.scraper, key.item);
+  final journal = ref.read(scraperJournalProvider).start(key.provider);
+  final streams = await ref
+      .read(scraperServiceProvider)
+      .streams(match.repo, match.scraper, key.item, journal: journal);
   return [
     for (final stream in streams)
       StreamSource.fromScraper(stream, provider: key.provider, scraperName: match.scraper.name),
@@ -1181,6 +1184,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     current: _currentSource,
                     onSelect: _playSource,
                     onRetry: (providerId) => ref.invalidate(providerSourcesProvider((item: _item, provider: providerId))),
+                    journalOf: (providerId) => ref.read(scraperJournalProvider).of(providerId),
                     onClose: () {
                       setState(() => _sourcesPanelOpen = false);
                       _scheduleHide();
@@ -1730,6 +1734,7 @@ class _SourcesPanel extends StatefulWidget {
     required this.onSelect,
     required this.onRetry,
     required this.onClose,
+    this.journalOf,
     this.providersLoading = false,
     this.providersError,
     this.noProvidersMessage = noPluginsInstalledMessage,
@@ -1741,6 +1746,9 @@ class _SourcesPanel extends StatefulWidget {
   final ValueChanged<StreamSource> onSelect;
   final ValueChanged<String> onRetry;
   final VoidCallback onClose;
+
+  /// The journal of a source's last run (`ScraperJournal`), shown on a long press.
+  final List<String> Function(String providerId)? journalOf;
   final bool providersLoading;
   final String? providersError;
 
@@ -1767,6 +1775,44 @@ String? scraperFailureReason(Object? error) {
 
 class _SourcesPanelState extends State<_SourcesPanel> {
   String? _selectedProvider;
+
+  /// What a source did during its last run (requests, console, end), to copy and send: the way to
+  /// know, on a phone, why it found nothing.
+  Future<void> _showJournal(SourceProvider provider) {
+    final lines = widget.journalOf?.call(provider.id) ?? const <String>[];
+    final text = lines.isEmpty ? 'Cette source n’a pas encore été interrogée.' : lines.join('\n');
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: VxColors.surface,
+        title: Text('Journal – ${provider.name}', style: VxText.title(16)),
+        content: SizedBox(
+          width: 640,
+          height: MediaQuery.sizeOf(dialogContext).height * 0.6,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              text,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.35, color: VxColors.textSoft),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: text));
+              showVxSnack(dialogContext, 'Journal copié');
+            },
+            child: const Text('Copier'),
+          ),
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
 
   String? _language(StreamSource source) {
     final value = source.name.toUpperCase();
@@ -1832,6 +1878,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 : status == _ProviderStatus.failed
                     ? () => widget.onRetry(provider.id)
                     : null,
+            onLongPress: widget.journalOf == null ? null : () => _showJournal(provider),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(

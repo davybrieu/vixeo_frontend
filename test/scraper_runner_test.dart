@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/features/addons/scraper_guard.dart';
 import 'package:vixeo/features/addons/scraper_host.dart';
 import 'package:vixeo/features/addons/scraper_http.dart';
+import 'package:vixeo/features/addons/scraper_http_io.dart';
 import 'package:vixeo/features/addons/scraper_models.dart';
 
 /// A JavaScript engine that runs nothing: it plays the sandbox's part from a script. The real
@@ -75,6 +76,13 @@ Future<List<ScraperStream>> run(
 );
 
 void main() {
+  test('reads a body in the charset of its Content-Type, UTF-8 by default (as Nuvio)', () {
+    expect(decodeScraperBody(utf8.encode('Odyssée'), 'text/html; charset=UTF-8'), 'Odyssée');
+    expect(decodeScraperBody(utf8.encode('Odyssée'), null), 'Odyssée');
+    expect(decodeScraperBody(latin1.encode('Odyssée'), 'text/html; charset="ISO-8859-1"'), 'Odyssée');
+    expect(decodeScraperBody(latin1.encode('Odyssée'), 'text/html;charset=windows-1252'), 'Odyssée');
+  });
+
   test('never asks flutter_js for a memory limit: its QuickJS for Android lacks it, every scraper then failed', () {
     final source = File('lib/features/addons/scraper_js_engine_io.dart').readAsStringSync();
     expect(source, isNot(contains('memoryLimit:')));

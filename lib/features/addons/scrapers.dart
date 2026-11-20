@@ -38,6 +38,40 @@ final scraperLoaderProvider = Provider<ScraperLoader>((ref) => ScraperLoader(ref
 
 final scraperServiceProvider = Provider<ScraperService>((ref) => ScraperService(ref));
 
+/// What the scrapers did on this device: the « Journal » of the sources panel (appui long sur une
+/// source).
+final scraperJournalProvider = Provider<ScraperJournal>((ref) => ScraperJournal());
+
+/// The last run of each source: its requests (address, status or why it failed, time, size), what
+/// the scraper wrote in its console, how the run ended. In memory only. Made to find out, on a
+/// phone, why a source finds nothing (demande du développeur, 20/11/2026).
+class ScraperJournal {
+  static const maxLines = 400;
+  static const maxLineLength = 300;
+
+  final _runs = <String, List<String>>{};
+
+  /// The lines of the last run of [provider] (`scraper:…`); none when it has not run yet.
+  List<String> of(String provider) => List.unmodifiable(_runs[provider] ?? const <String>[]);
+
+  /// Starts the journal of a new run of [provider] (the previous one is dropped) and returns what
+  /// writes a line in it, after the seconds since the start.
+  void Function(String line) start(String provider) {
+    final lines = <String>[];
+    _runs[provider] = lines;
+    final clock = Stopwatch()..start();
+    return (line) {
+      if (lines.length > maxLines) return;
+      if (lines.length == maxLines) {
+        lines.add('… (journal coupé)');
+        return;
+      }
+      final text = line.length > maxLineLength ? '${line.substring(0, maxLineLength)}…' : line;
+      lines.add('${(clock.elapsedMilliseconds / 1000).toStringAsFixed(1).padLeft(5)} s  $text');
+    };
+  }
+}
+
 /// The installed repositories (« Paramètres » → « Plug-ins »), in the order the person chose.
 final scraperReposProvider = AsyncNotifierProvider<ScraperRepos, List<ScraperRepo>>(ScraperRepos.new);
 
@@ -175,7 +209,15 @@ class ScraperService {
   int _running = 0;
   final _waiting = <Completer<void>>[];
 
-  Future<List<ScraperStream>> streams(ScraperRepo repo, ScraperInfo scraper, PlaybackItem item) async {
+  /// The streams [scraper] finds for [item]. [journal] gets a line for each step, request and
+  /// console message (see [ScraperJournal]).
+  Future<List<ScraperStream>> streams(
+    ScraperRepo repo,
+    ScraperInfo scraper,
+    PlaybackItem item, {
+    void Function(String line)? journal,
+  }) async {
+    final note = journal ?? (String _) {};
     final isMovie = item.type == MediaType.movie;
     final params = ScraperParams(
       tmdbId: '${item.id}',
@@ -185,18 +227,57 @@ class ScraperService {
       // Nuvio's SCRAPER_ID: the manifest's address (lower case) and the scraper's id.
       scraperId: '${repo.url.toLowerCase()}:${scraper.id}',
     );
-    if (repo.mode == ScraperMode.server) return _onServer(repo, scraper, params, item.id);
+    note(
+      '${scraper.name} (${scraper.id}) : ${params.mediaType} ${params.tmdbId}'
+      '${isMovie ? '' : ' saison ${params.season} épisode ${params.episode}'}',
+    );
+    if (repo.mode == ScraperMode.server) {
+      note('exécuté par le serveur');
+      return _onServer(repo, scraper, params, item.id);
+    }
 
     await _acquire();
     try {
+      note('démarrage');
       final code = await _ref.read(scraperLoaderProvider).code(repo, scraper);
-      return await _ref
+      note('code : ${code.length} caractères');
+      final http = _ref.read(scraperHttpProvider);
+      final streams = await _ref
           .read(scraperRuntimeProvider)
-          .run(code: code, params: params, fetch: _ref.read(scraperHttpProvider).send);
+          .run(
+            code: code,
+            params: params,
+            fetch: (request) async {
+              final clock = Stopwatch()..start();
+              try {
+                final response = await http.send(request);
+                note(
+                  '${request.method} ${request.url} → ${response.status} '
+                  '(${clock.elapsedMilliseconds} ms, ${response.body.length} car.)',
+                );
+                return response;
+              } catch (error) {
+                note('${request.method} ${request.url} → échec : ${_reason(error)} (${clock.elapsedMilliseconds} ms)');
+                rethrow;
+              }
+            },
+            onLog: (level, message) => note('[$level] $message'),
+          );
+      note('fin : ${streams.length} flux');
+      return streams;
+    } catch (error) {
+      note('erreur : ${_reason(error)}');
+      rethrow;
     } finally {
       _release();
     }
   }
+
+  static String _reason(Object error) => switch (error) {
+    ScraperException(:final message) => message,
+    ApiException(:final message) => message,
+    _ => '$error',
+  };
 
   Future<List<ScraperStream>> _onServer(ScraperRepo repo, ScraperInfo scraper, ScraperParams params, int id) async {
     try {

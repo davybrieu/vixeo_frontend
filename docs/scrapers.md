@@ -259,6 +259,17 @@ npm test                                        # le bac à sable lui-même (vra
 
 Le même contrôle réseau que l'appli s'y applique : si le scraper passe ici, il passe dans l'appli.
 
+## 8 bis. Journal d'une source (diagnostic sur l'appareil)
+
+Dans le panneau des sources du lecteur, un **appui long** sur une source ouvre son journal
+(`ScraperJournal`) : chaque requête (méthode, adresse, statut ou raison de l'échec, durée, taille),
+ce que le scraper écrit dans sa console (`[log]`, `[warn]`, `[error]`), les requêtes refusées par la
+garde (`[garde]`) et la fin (« fin : N flux » ou l'erreur). Seul le dernier passage de chaque source
+est gardé, en mémoire (400 lignes au plus) ; « Copier » le met dans le presse-papiers. C'est la façon
+de savoir, sur un téléphone, pourquoi une source ne trouve rien. Les corps se lisent dans le
+`charset` de leur `Content-Type` (Latin-1 pour `iso-8859-1` / `windows-1252`, UTF-8 sinon), comme
+Nuvio.
+
 ## 9. Points ouverts
 
 - `flutter_js` (QuickJS / JavaScriptCore) et l'iframe web n'ont pas pu être essayés sur un appareil

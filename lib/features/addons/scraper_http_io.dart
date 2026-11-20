@@ -101,7 +101,7 @@ class DirectScraperHttp implements ScraperHttp {
         status: status,
         statusText: response.statusMessage ?? '',
         headers: {for (final e in response.headers.map.entries) e.key.toLowerCase(): e.value.join(', ')},
-        body: utf8.decode(bytes, allowMalformed: true) + (cut ? ScraperGuard.truncated : ''),
+        body: decodeScraperBody(bytes, response.headers.value('content-type')) + (cut ? ScraperGuard.truncated : ''),
         url: url,
       );
     }
@@ -150,5 +150,16 @@ class DirectScraperHttp implements ScraperHttp {
     DioExceptionType.receiveTimeout ||
     DioExceptionType.sendTimeout => 'délai dépassé',
     _ => 'requête impossible',
+  };
+}
+
+/// The text of a body, in the charset its `Content-Type` names, as Nuvio reads it: Latin-1 for
+/// `iso-8859-1` / `latin1` / `windows-1252` (old French sites), UTF-8 otherwise (and when nothing
+/// is said).
+String decodeScraperBody(List<int> bytes, String? contentType) {
+  final charset = RegExp(r'charset\s*=\s*"?([\w.:-]+)', caseSensitive: false).firstMatch(contentType ?? '')?.group(1);
+  return switch (charset?.toLowerCase()) {
+    'iso-8859-1' || 'iso8859-1' || 'latin1' || 'latin-1' || 'windows-1252' || 'cp1252' => latin1.decode(bytes),
+    _ => utf8.decode(bytes, allowMalformed: true),
   };
 }

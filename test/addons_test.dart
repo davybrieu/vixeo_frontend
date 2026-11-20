@@ -12,7 +12,9 @@ import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/addons/addons_screen.dart';
 import 'package:vixeo/features/addons/scraper_guard.dart';
 import 'package:vixeo/features/addons/scraper_host.dart';
+import 'package:vixeo/features/addons/scraper_http.dart';
 import 'package:vixeo/features/addons/scraper_models.dart';
+import 'package:vixeo/features/addons/scraper_runtime.dart';
 import 'package:vixeo/features/addons/scrapers.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/models.dart';
@@ -309,6 +311,39 @@ void main() {
       expect(runtime.peak, ScraperService.maxParallel);
     });
 
+    test('writes what a run did in the journal of its source: requests, console, end', () async {
+      final repo = testRepo();
+      final container = keptContainer(repos: [repo], http: FakeScraperHttp(_files), runtime: _ChattyRuntime());
+      final journal = container.read(scraperJournalProvider);
+
+      final streams = await container
+          .read(scraperServiceProvider)
+          .streams(repo, repo.scrapers[0], movie, journal: journal.start('scraper:x'));
+
+      expect(streams, hasLength(1));
+      final lines = journal.of('scraper:x').join('\n');
+      expect(lines, contains('movie 550'));
+      expect(lines, contains('GET $repoUrl → 200'));
+      expect(lines, contains('GET https://absent.test/x → 404'));
+      expect(lines, contains('[log] [Films] recherche'));
+      expect(lines, contains('fin : 1 flux'));
+      expect(journal.of('scraper:autre'), isEmpty);
+    });
+
+    test('a journal keeps the last run only, and stops growing', () {
+      final journal = ScraperJournal();
+      journal.start('scraper:x')('ancien');
+      final write = journal.start('scraper:x');
+      for (var i = 0; i < ScraperJournal.maxLines + 50; i++) {
+        write('ligne $i ${'x' * 400}');
+      }
+      final lines = journal.of('scraper:x');
+      expect(lines, hasLength(ScraperJournal.maxLines + 1));
+      expect(lines.any((l) => l.contains('ancien')), isFalse);
+      expect(lines.last, contains('journal coupé'));
+      expect(lines.first.length, lessThan(ScraperJournal.maxLineLength + 20));
+    });
+
     test('gives a scraper its Nuvio id (SCRAPER_ID): the manifest address and its own id', () async {
       final repo = testRepo();
       final runtime = FakeScraperRuntime();
@@ -567,6 +602,23 @@ void main() {
 }
 
 /// A runtime that takes a moment, and counts how many runs overlap.
+/// Asks for two files and writes in its console, like a real scraper.
+class _ChattyRuntime implements ScraperRuntime {
+  @override
+  Future<List<ScraperStream>> run({
+    required String code,
+    required ScraperParams params,
+    required ScraperFetch fetch,
+    ScraperLog? onLog,
+    ScraperLimits limits = ScraperLimits.standard,
+  }) async {
+    onLog?.call('log', '[Films] recherche');
+    await fetch(const ScraperHttpRequest(url: repoUrl));
+    await fetch(const ScraperHttpRequest(url: 'https://absent.test/x'));
+    return const [ScraperStream(url: 'https://cdn.test/a.m3u8')];
+  }
+}
+
 class _SlowRuntime extends FakeScraperRuntime {
   int running = 0;
   int started = 0;
