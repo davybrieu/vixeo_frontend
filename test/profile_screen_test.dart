@@ -54,6 +54,23 @@ class _Library extends LibraryController {
     ),
     // Watched only: not in « Ma liste ».
     'tmdb|movie:550': const ProfileItem(source: 'tmdb', itemId: 'movie:550', type: 'movie', title: 'Fight Club'),
+    // In « Favoris » ❤ only.
+    'tmdb|movie:13': ProfileItem(
+      source: 'tmdb',
+      itemId: 'movie:13',
+      type: 'movie',
+      title: 'Forrest Gump',
+      isLiked: true,
+      likedAt: DateTime(2026, 11, 13),
+    ),
+    'tmdb|person:287': ProfileItem(
+      source: 'tmdb',
+      itemId: 'person:287',
+      type: 'person',
+      title: 'Brad Pitt',
+      isFollowed: true,
+      followedAt: DateTime(2026, 11, 14),
+    ),
   });
 }
 
@@ -83,7 +100,7 @@ Finder _pressable(String label) =>
     find.byWidgetPredicate((widget) => widget is VxFocusable && widget.semanticLabel == label);
 
 Future<void> _pump(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(430, 1400);
+  tester.view.physicalSize = const Size(430, 2000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   Widget page(String text) => Scaffold(body: Text(text));
@@ -136,6 +153,12 @@ void main() {
     expect(series.dx, lessThan(movie.dx));
     expect(find.text('Fight Club'), findsNothing);
 
+    // « Favoris » ❤ and « Personnes suivies », apart from « Ma liste ».
+    expect(find.text('Favoris'), findsOneWidget);
+    expect(find.text('Forrest Gump'), findsWidgets);
+    expect(find.text('Personnes suivies'), findsOneWidget);
+    expect(find.text('Brad Pitt'), findsOneWidget);
+
     // « Mes avis »: the 3 latest only.
     expect(find.text('Film noté 1'), findsOneWidget);
     expect(find.text('Film noté 3'), findsOneWidget);
@@ -152,6 +175,16 @@ void main() {
     await tester.tap(_pressable('Voir tout : Mes avis'));
     await tester.pumpAndSettle();
     expect(find.text('Page Mes avis'), findsOneWidget);
+
+    await _pump(tester);
+    await tester.tap(_pressable('Voir tout : Favoris'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page favoris'), findsOneWidget);
+
+    await _pump(tester);
+    await tester.tap(_pressable('Voir tout : Personnes suivies'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page personnes'), findsOneWidget);
   });
 
   testWidgets('followers open their list', (tester) async {
@@ -171,6 +204,10 @@ void main() {
     expect(find.bySemanticsLabel('Sa liste : 1'), findsOneWidget);
     expect(find.text('Dune'), findsWidgets);
     expect(find.text('Fight Club'), findsOneWidget);
+    expect(find.text('Ses favoris'), findsOneWidget);
+    expect(find.text('Forrest Gump'), findsWidgets);
+    expect(find.text('Personnes suivies'), findsOneWidget);
+    expect(find.text('Brad Pitt'), findsOneWidget);
 
     await tester.tap(find.text('Suivre'));
     await tester.pumpAndSettle();
@@ -322,7 +359,7 @@ const _member = SocialProfile(
 );
 
 Future<_FakeSocial> _pumpMember(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(430, 1400);
+  tester.view.physicalSize = const Size(430, 2000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final social = _FakeSocial();
@@ -347,6 +384,10 @@ Future<_FakeSocial> _pumpMember(WidgetTester tester) async {
         socialReviewsProvider.overrideWith(
           (ref, username) async => const [RatedItem(type: RatedType.movie, id: 550, title: 'Fight Club', value: 9)],
         ),
+        socialLikedProvider.overrideWith(
+          (ref, username) async => const [MediaItem(id: 13, type: MediaType.movie, title: 'Forrest Gump', year: 1994)],
+        ),
+        socialPeopleProvider.overrideWith((ref, username) async => const [Person(id: 287, name: 'Brad Pitt')]),
         titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
       ],
       child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),

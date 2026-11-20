@@ -88,6 +88,20 @@ class SocialRepository {
     );
   }
 
+  /// A member's « Favoris » ❤ (movies and series), the most recently added first.
+  Future<List<MediaItem>> liked(String username) async {
+    final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/liked');
+    return [
+      for (final item in (json['data'] as List).whereType<Map<String, dynamic>>()) ?titleOf(item),
+    ];
+  }
+
+  /// The people (actors, directors…) a member follows, the most recently followed first.
+  Future<List<Person>> people(String username) async {
+    final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/people');
+    return (json['data'] as List).whereType<Map<String, dynamic>>().map(Person.fromJson).toList();
+  }
+
   /// A member's reviews, the most recently rated first (the fields of « Mes avis »).
   Future<List<RatedItem>> reviews(String username) async {
     final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/reviews');
@@ -128,6 +142,16 @@ final socialSearchProvider = FutureProvider.autoDispose.family<List<SocialProfil
 /// A member's list (movies and series), by username.
 final socialTitlesProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>(
   (ref, username) => ref.read(socialRepositoryProvider).titles(username),
+);
+
+/// A member's « Favoris » ❤ (movies and series), by username.
+final socialLikedProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>(
+  (ref, username) => ref.read(socialRepositoryProvider).liked(username),
+);
+
+/// The people a member follows, by username.
+final socialPeopleProvider = FutureProvider.autoDispose.family<List<Person>, String>(
+  (ref, username) => ref.read(socialRepositoryProvider).people(username),
 );
 
 /// A member's reviews, by username.

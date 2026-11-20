@@ -10,6 +10,7 @@ import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
+import '../catalog/widgets.dart';
 import '../library/library.dart';
 import '../library/my_list_screen.dart';
 import '../tmdb/reviews_screen.dart';
@@ -19,8 +20,8 @@ import 'social_repository.dart';
 
 /// « Profil » (tab): the active profile's page (`ProfileView`). At the top, its avatar, name,
 /// @username, followers and following, bio and « Modifier le profil »; then its counters and its
-/// activity: « Ma liste » (a row of posters) and « Mes avis » (the latest reviews). The round arrow
-/// of each section opens the whole list or every review.
+/// activity: « Ma liste » and « Favoris » ❤ (rows of posters), « Personnes suivies » (round
+/// photos) and « Mes avis » (the latest reviews). The round arrow of each section opens it whole.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -67,6 +68,30 @@ class ProfileScreen extends ConsumerWidget {
               ),
           ]);
     }
+    // « Favoris » ❤ and « Personnes suivies », from the same synced library.
+    final AsyncValue<List<MediaItem>> liked;
+    final AsyncValue<List<Person>> people;
+    if (library.value case final state?) {
+      liked = withCatalogDetails(ref, [
+        for (final item in state.liked.take(profileTitlesShown))
+          if (item.tmdbTitle case final t?)
+            MediaItem(
+              id: t.id,
+              type: t.type,
+              title: item.title,
+              year: item.year,
+              posterUrl: item.posterUrl,
+              backdropUrl: item.backdropUrl,
+            ),
+      ]);
+      people = AsyncData(state.followedPeople);
+    } else if (library.hasError) {
+      liked = AsyncError<List<MediaItem>>(library.error!, StackTrace.empty);
+      people = AsyncError<List<Person>>(library.error!, StackTrace.empty);
+    } else {
+      liked = const AsyncLoading<List<MediaItem>>();
+      people = const AsyncLoading<List<Person>>();
+    }
     // « Mes avis ».
     final reviews = ref.watch(reviewsProvider);
 
@@ -107,6 +132,18 @@ class ProfileScreen extends ConsumerWidget {
           titles: titles,
           emptyMessage: 'Ajoutez des films et des séries avec « Ma liste » : ils apparaîtront ici.',
           onSeeAll: () => context.push('/ma-liste'),
+        ),
+        ProfileTitlesSection(
+          title: 'Favoris',
+          titles: liked,
+          emptyMessage: 'Ajoutez des films et des séries à vos favoris avec le cœur de leur fiche : ils apparaîtront ici.',
+          onSeeAll: () => context.push('/profil/social/favoris'),
+        ),
+        ProfilePeopleSection(
+          title: 'Personnes suivies',
+          people: people,
+          emptyMessage: 'Suivez des acteurs et des réalisateurs depuis leur page : ils apparaîtront ici.',
+          onSeeAll: () => context.push('/profil/social/personnes'),
         ),
         ProfileReviewsSection(
           title: 'Mes avis',
@@ -166,6 +203,8 @@ class PublicProfileScreen extends ConsumerWidget {
     }
 
     final titles = ref.watch(socialTitlesProvider(username));
+    final liked = ref.watch(socialLikedProvider(username));
+    final people = ref.watch(socialPeopleProvider(username));
     final reviews = ref.watch(socialReviewsProvider(username));
 
     return Scaffold(
@@ -173,6 +212,8 @@ class PublicProfileScreen extends ConsumerWidget {
         back: true,
         onRefresh: () async {
           ref.invalidate(socialTitlesProvider(username));
+          ref.invalidate(socialLikedProvider(username));
+          ref.invalidate(socialPeopleProvider(username));
           ref.invalidate(socialReviewsProvider(username));
           ref.invalidate(socialProfileProvider(username));
           await ref.read(socialProfileProvider(username).future);
@@ -213,6 +254,22 @@ class PublicProfileScreen extends ConsumerWidget {
             },
             emptyMessage: 'Sa liste est vide pour l’instant.',
             onSeeAll: () => context.push(_section('list')),
+          ),
+          ProfileTitlesSection(
+            title: 'Ses favoris',
+            titles: switch (liked.value) {
+              final list? => withCatalogDetails(ref, list.take(profileTitlesShown).toList()),
+              null when liked.hasError => AsyncError<List<MediaItem>>(liked.error!, StackTrace.empty),
+              null => const AsyncLoading<List<MediaItem>>(),
+            },
+            emptyMessage: 'Aucun favori pour l’instant.',
+            onSeeAll: () => context.push(_section('liked')),
+          ),
+          ProfilePeopleSection(
+            title: 'Personnes suivies',
+            people: people,
+            emptyMessage: 'Aucune personne suivie pour l’instant.',
+            onSeeAll: () => context.push(_section('people')),
           ),
           ProfileReviewsSection(
             title: 'Ses avis',
@@ -344,15 +401,17 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
   }
 }
 
-/// The whole list, reviews, followers or followed profiles of a member (`/membre/:username/list`…)
-/// or of the active profile (`/profil/social/abonnes`…). The list and the reviews are the pages of
-/// « Ma liste » and « Mes avis » (`MyListScreen`, `ReviewsScreen`: search, filters, order), « Sa
-/// liste » and « Ses avis » for a member; followers and followed profiles: back button, title and
-/// the members (`AccountTile`).
+/// The whole list, favorites, followed people, reviews, followers or followed profiles of a member
+/// (`/membre/:username/list`…) or of the active profile (`/profil/social/abonnes`…). The list, the
+/// favorites and the reviews are the pages of « Ma liste » and « Mes avis » (`MyListScreen`,
+/// `ReviewsScreen`: search, filters, order), « Sa liste », « Ses favoris » and « Ses avis » for a
+/// member; followed people: their round photos in a grid; followers and followed profiles: back
+/// button, title and the members (`AccountTile`).
 class SocialCollectionScreen extends ConsumerWidget {
   const SocialCollectionScreen({super.key, required this.section, this.username});
 
-  /// `list` / `liste`, `reviews` / `avis`, `followers` / `abonnes`, `following` / `abonnements`.
+  /// `list` / `liste`, `liked` / `favoris`, `people` / `personnes`, `reviews` / `avis`, `followers` /
+  /// `abonnes`, `following` / `abonnements`.
   final String section;
 
   /// Null: the active profile.
@@ -367,14 +426,20 @@ class SocialCollectionScreen extends ConsumerWidget {
     final kind = switch (section) {
       'avis' || 'reviews' => _Kind.reviews,
       'liste' || 'list' => _Kind.list,
+      'favoris' || 'liked' => _Kind.liked,
+      'personnes' || 'people' => _Kind.people,
       'abonnes' || 'followers' => _Kind.followers,
       _ => _Kind.following,
     };
     switch (kind) {
       case _Kind.list:
         return mine ? const MyListScreen() : MyListScreen(username: handle);
+      case _Kind.liked:
+        return mine ? const MyListScreen(liked: true) : MyListScreen(username: handle, liked: true);
       case _Kind.reviews:
         return mine ? const ReviewsScreen() : ReviewsScreen(username: handle);
+      case _Kind.people:
+        return _PeopleScreen(username: mine ? null : handle);
       case _Kind.followers || _Kind.following:
         break;
     }
@@ -421,7 +486,64 @@ class SocialCollectionScreen extends ConsumerWidget {
   }
 }
 
-enum _Kind { list, reviews, followers, following }
+enum _Kind { list, liked, people, reviews, followers, following }
+
+/// « Personnes suivies » (mine: [username] null) or a member's: back button, title and their round
+/// photos in a grid; a photo opens the person's page.
+class _PeopleScreen extends ConsumerWidget {
+  const _PeopleScreen({this.username});
+
+  final String? username;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final layout = Layout.of(context);
+    final member = username;
+    final AsyncValue<List<Person>> people = member == null
+        ? ref.watch(libraryProvider).whenData((state) => state.followedPeople)
+        : ref.watch(socialPeopleProvider(member));
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.m), layout.gutter, 0),
+              child: const VxBackButton(),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                layout.gutter,
+                layout.space(VxSpace.m),
+                layout.gutter,
+                layout.space(VxSpace.m),
+              ),
+              child: Text('Personnes suivies', style: VxText.title(layout.pageTitleSize)),
+            ),
+            Expanded(
+              child: _Async(
+                value: people,
+                empty: member == null
+                    ? 'Vous ne suivez personne pour l’instant.'
+                    : 'Aucune personne suivie pour l’instant.',
+                builder: (all) => GridView.builder(
+                  padding: pageContentPadding(context),
+                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: PersonCard.widthOf(layout) + layout.cardGap,
+                    mainAxisExtent: PersonCard.heightOf(layout, withRole: false) + layout.cardGap,
+                  ),
+                  itemCount: all.length,
+                  itemBuilder: (_, i) => Center(child: PersonCard(person: all[i])),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 /// [value] loading, failed, empty, or its content.
 class _Async<T> extends StatelessWidget {

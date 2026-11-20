@@ -22,7 +22,7 @@ class FakeLibrary extends LibraryController {
   @override
   Future<LibraryState> build() async => const LibraryState({});
 
-  void _put(MediaItem item, {bool? favorite, bool? watched}) {
+  void _put(MediaItem item, {bool? favorite, bool? watched, bool? liked}) {
     final items = Map.of(state.value!.items);
     final key = 'tmdb|${item.syncId}';
     final old = items[key];
@@ -33,6 +33,25 @@ class FakeLibrary extends LibraryController {
       title: item.title,
       isFavorite: favorite ?? old?.isFavorite ?? false,
       isWatched: watched ?? old?.isWatched ?? false,
+      isLiked: liked ?? old?.isLiked ?? false,
+    );
+    state = AsyncData(LibraryState(items));
+  }
+
+  @override
+  Future<void> setLiked(MediaItem item, bool value) async => _put(item, liked: value);
+
+  @override
+  Future<void> setFollowed(Person person, bool value) async {
+    final items = Map.of(state.value!.items);
+    final id = LibraryController.personSyncId(person.id);
+    items['tmdb|$id'] = ProfileItem(
+      source: 'tmdb',
+      itemId: id,
+      type: 'person',
+      title: person.name,
+      isFollowed: value,
+      followedAt: DateTime(2026, 11, 20),
     );
     state = AsyncData(LibraryState(items));
   }
@@ -95,6 +114,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Supprimé de votre liste'), findsOneWidget);
     expect(find.byIcon(Icons.bookmark_add_outlined), findsOneWidget);
+  });
+
+  testWidgets('the heart adds to and removes from « Favoris », apart from « Ma liste »', (tester) async {
+    await tester.pumpWidget(app(const LikedButton(item: movie)));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
+    expect(find.bySemanticsLabel('Ajouter aux favoris'), findsOneWidget);
+
+    await tester.tap(find.byType(VxIconAction));
+    await tester.pumpAndSettle();
+    expect(find.text('Ajouté à vos favoris'), findsOneWidget);
+    expect(find.bySemanticsLabel('Retirer des favoris'), findsOneWidget);
+    final container = ProviderScope.containerOf(tester.element(find.byType(LikedButton)));
+    final state = container.read(libraryProvider).value!;
+    expect(state.liked.map((i) => i.title), ['Nord Sauvage']);
+    expect(state.favorites, isEmpty);
+
+    await tester.tap(find.byType(VxIconAction));
+    await tester.pumpAndSettle();
+    expect(find.text('Retiré de vos favoris'), findsOneWidget);
+    expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
+  });
+
+  testWidgets('« Suivre » a person, then « Ne plus suivre »', (tester) async {
+    const person = Person(id: 287, name: 'Brad Pitt');
+    await tester.pumpWidget(app(const FollowPersonButton(person: person)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Suivre'));
+    await tester.pumpAndSettle();
+    expect(find.text('Vous suivez Brad Pitt'), findsOneWidget);
+    expect(find.text('Ne plus suivre'), findsOneWidget);
+    final container = ProviderScope.containerOf(tester.element(find.byType(FollowPersonButton)));
+    expect(container.read(libraryProvider).value!.followedPeople.map((p) => p.id), [287]);
+
+    await tester.tap(find.text('Ne plus suivre'));
+    await tester.pumpAndSettle();
+    expect(find.text('Vous ne suivez plus Brad Pitt'), findsOneWidget);
+    expect(container.read(libraryProvider).value!.followedPeople, isEmpty);
   });
 
   testWidgets('the same button marks a movie as watched or not watched', (tester) async {

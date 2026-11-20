@@ -9,6 +9,8 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/expandable_text.dart';
 import '../../core/widgets/page_header.dart';
+import '../auth/session.dart';
+import '../library/actions.dart';
 import '../ratings/rating_view.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
@@ -16,7 +18,8 @@ import 'widgets.dart';
 
 String personPath(int id) => '/personne/$id';
 
-/// Actor / director page: photo, biography, best-known titles, filmography.
+/// Actor / director page: photo, « Suivre » (signed in with a profile), biography, best-known
+/// titles, filmography.
 class PersonScreen extends ConsumerWidget {
   const PersonScreen({super.key, required this.id});
 
@@ -57,6 +60,8 @@ class _PersonViewState extends ConsumerState<_PersonView> {
     // The ratings of the filmography's cards in one request.
     prefetchRatings(ref, p.filmography);
     final photoWidth = layout.isLarge ? layout.tv(300) : (layout.isPhone ? 132.0 : 170.0);
+    final session = ref.watch(sessionProvider);
+    final canFollow = session.isSignedIn && session.profile != null;
 
     final photo = ClipRRect(
       borderRadius: BorderRadius.circular(16 * s),
@@ -85,6 +90,12 @@ class _PersonViewState extends ConsumerState<_PersonView> {
         if (p.lifeLine != null) ...[
           SizedBox(height: layout.space(VxSpace.xs)),
           Text(p.lifeLine!, style: VxText.body(14 * s, color: VxColors.textSecondary)),
+        ],
+        if (canFollow) ...[
+          SizedBox(height: layout.space(VxSpace.m)),
+          FollowPersonButton(
+            person: Person(id: p.id, name: p.name, profileUrl: p.profileUrl),
+          ),
         ],
         if (p.biography != null && !layout.isPhone) ...[
           SizedBox(height: layout.space(VxSpace.m)),

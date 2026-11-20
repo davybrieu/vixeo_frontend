@@ -79,7 +79,8 @@ lib/
     updates/     vérification des mises à jour Android / iOS (UpdateGate, écrans)
     profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
-    library/     synchro par profil (Ma liste, vus, « Continuer à regarder »), page Ma liste
+    library/     synchro par profil (Ma liste, favoris ❤, personnes suivies, vus, « Continuer à
+                 regarder »), page Ma liste (aussi « Favoris »)
     search/      recherche : « Explorer » sans texte, filtres (type, genre, années, note) et tri,
                  recherches récentes synchronisées (search_history.dart)
     playback/    lecteur (PlayerScreen, commun à toutes les plateformes), moteurs de lecture
@@ -447,11 +448,23 @@ lib/
   onglet, ni entrée du rail ; `/films` et `/series` redirigent vers `/accueil`. `HomeScreen` et
   `homeProvider` n'ont plus de paramètre `type`. Pour ne voir que les films ou les séries : le
   filtre de type de la recherche. Ne pas les réintroduire.
-- **Pas de « Favoris » ❤** (supprimés, demande du développeur ; supprimés aussi de l'API, groupe
-  `liked`) : ni page `/favoris`, ni onglet, ni bouton cœur sur les titres, les épisodes ou les
-  chaînes. « Ma liste » (`favorite`) reste. Ne pas les réintroduire.
-- **Actions sur un titre** (Ma liste, Vu / non vu, Noter, Bande-annonce) : toujours le même bouton
-  rond **icône seule** (`VxIconAction`, `FavoriteButton`, `WatchedButton`, `RateTitleButton`), sans
+- **« Favoris » ❤ et personnes suivies** (demande du développeur, 20/11/2026 ; les favoris
+  avaient été supprimés le 11/11, ils reviennent) : groupes `liked` et `followed` de la synchro
+  (`LibraryController.setLiked` / `setFollowed`, API : `vixeo_backend/docs/synchronisation.md`),
+  indépendants de « Ma liste ». Cœur `LikedButton` sur la fiche (films, séries ; pas sur les
+  épisodes ni les chaînes), après « Ma liste » ; « Suivre » / « Ne plus suivre »
+  (`FollowPersonButton`) sur la page d'une personne, sous son métier et ses dates (connecté avec
+  un profil) ; une personne suivie = item `person:<id>` (`ProfileItem.person`,
+  `LibraryState.followedPeople`). Alertes : « Ajouté à vos favoris », « Retiré de vos favoris »,
+  « Vous suivez … », « Vous ne suivez plus … ». Page « Profil » : rangées « Favoris » (affiches) et
+  « Personnes suivies » (`ProfilePeopleSection`, photos rondes `PersonCard`) entre « Ma liste » et
+  « Mes avis » ; « Voir tout » : `/profil/social/favoris` (`MyListScreen(liked: true)`, recherche et
+  filtres de « Ma liste ») et `/profil/social/personnes` (grille). Page d'un membre : « Ses favoris »
+  et « Personnes suivies » (`socialLikedProvider`, `socialPeopleProvider`, API
+  `/social/profiles/{username}/liked` et `/people`). Tests : `test/profile_features_test.dart`,
+  `test/profile_screen_test.dart`, `test/models_test.dart`.
+- **Actions sur un titre** (Ma liste, Favoris ❤, Vu / non vu, Noter, Bande-annonce) : toujours le même bouton
+  rond **icône seule** (`VxIconAction`, `FavoriteButton`, `LikedButton`, `WatchedButton`, `RateTitleButton`), sans
   texte visible (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire.
   Chaque action se confirme par une alerte (`showVxSnack`) : « Ajouté à votre liste », « Supprimé
   de votre liste », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
@@ -601,7 +614,8 @@ lib/
   le bouton (focus à l'arrivée) : « Modifier le profil » (le mien), « Suivre » / « Ne plus
   suivre » (un membre ; invité : « Se connecter pour suivre ») ; puis une carte de compteurs
   (Avis, Vus, Ma liste / Sa liste) ; puis la liste (rangée `PosterRow`, 20 titres au plus, une
-  seule requête `titlesByIdProvider` via `withCatalogDetails`) et les 3 derniers avis
+  seule requête `titlesByIdProvider` via `withCatalogDetails`), les favoris ❤ (même rangée), les
+  personnes suivies (`ProfilePeopleSection`) et les 3 derniers avis
   (`ReviewRow`) ; le bouton rond « Voir tout » ouvre `/ma-liste` et `/avis` (le mien) ou
   `/membre/:username/list|reviews` : **les mêmes pages** « Sa liste » (`MyListScreen(username:)`,
   sans les chaînes) et « Ses avis » (`ReviewsScreen(username:)`), avec recherche, filtres et tri

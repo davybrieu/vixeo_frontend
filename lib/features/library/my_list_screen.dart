@@ -23,12 +23,16 @@ import 'library.dart';
 /// the filters (type, genre, years) and the order of the search page, plus « Note » and « Mieux
 /// notés » on the rating of the profile's site (« Source des notes »), applied here. With [username],
 /// « Sa liste »: another member's list (their profile page, `/membre/:username/list`), the same
-/// page without the channels.
+/// page without the channels. With [liked], « Favoris » ❤ (« Ses favoris » for a member): the
+/// same page for the movies and series liked, without the channels.
 class MyListScreen extends ConsumerStatefulWidget {
-  const MyListScreen({super.key, this.username});
+  const MyListScreen({super.key, this.username, this.liked = false});
 
   /// A member's list; null: mine.
   final String? username;
+
+  /// « Favoris » ❤ instead of « Ma liste ».
+  final bool liked;
 
   @override
   ConsumerState<MyListScreen> createState() => _MyListScreenState();
@@ -56,6 +60,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final member = widget.username;
+    final liked = widget.liked;
 
     return SafeArea(
       bottom: false,
@@ -63,7 +68,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           VxPageHeader(
-            title: member == null ? 'Ma liste' : 'Sa liste',
+            title: liked ? (member == null ? 'Favoris' : 'Ses favoris') : (member == null ? 'Ma liste' : 'Sa liste'),
             // Opened from a profile page: a way back.
             back: GoRouter.maybeOf(context)?.canPop() ?? false,
             search: VxSearchField(
@@ -84,7 +89,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
               onChanged: _setFilters,
               // Saved titles and channels (a member's list, or while live TV is hidden: titles only):
               // no people, no channel category.
-              kinds: member == null && ref.watch(liveTvProvider)
+              kinds: member == null && !liked && ref.watch(liveTvProvider)
                   ? const [SearchKind.all, SearchKind.movie, SearchKind.tv, SearchKind.channels]
                   : const [SearchKind.all, SearchKind.movie, SearchKind.tv],
               channelCategories: false,
@@ -95,32 +100,54 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
           Expanded(
             child: member == null
                 ? _mine(context)
-                : AsyncView(
-                    value: ref.watch(socialTitlesProvider(member)),
-                    onRetry: () => ref.invalidate(socialTitlesProvider(member)),
-                    data: (titles) => _titles(
-                      context,
-                      titles,
-                      mine: false,
-                      onRefresh: () async {
-                        ref.invalidate(socialTitlesProvider(member));
-                        await ref.read(socialTitlesProvider(member).future);
-                      },
-                    ),
-                  ),
+                : _member(context, liked ? socialLikedProvider(member) : socialTitlesProvider(member)),
           ),
         ],
       ),
     );
   }
 
-  /// My list: channels (« Chaînes TV ») or titles, from the synced library.
+  /// A member's list or favorites ([provider]).
+  Widget _member(BuildContext context, FutureProvider<List<MediaItem>> provider) => AsyncView(
+    value: ref.watch(provider),
+    onRetry: () => ref.invalidate(provider),
+    data: (titles) => _titles(
+      context,
+      titles,
+      mine: false,
+      onRefresh: () async {
+        ref.invalidate(provider);
+        await ref.read(provider.future);
+      },
+    ),
+  );
+
+  /// My list: channels (« Chaînes TV ») or titles, from the synced library. My favorites: titles.
   Widget _mine(BuildContext context) {
     final layout = Layout.of(context);
     return AsyncView(
               value: ref.watch(libraryProvider),
               onRetry: () => ref.invalidate(libraryProvider),
               data: (state) {
+                if (widget.liked) {
+                  return _titles(
+                    context,
+                    [
+                      for (final item in state.liked)
+                        if (item.tmdbTitle case final t?)
+                          MediaItem(
+                            id: t.id,
+                            type: t.type,
+                            title: item.title,
+                            year: item.year,
+                            posterUrl: item.posterUrl,
+                            backdropUrl: item.backdropUrl,
+                          ),
+                    ],
+                    mine: true,
+                    onRefresh: () => ref.read(libraryProvider.notifier).refresh(),
+                  );
+                }
                 if (_filters.kind.isChannels) {
                   final favoriteIds = state.favorites
                       .where((item) => item.type == 'channel')
@@ -285,6 +312,15 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
 
     if (matching.isEmpty) {
       final isEmpty = titles.isEmpty;
+      if (widget.liked) {
+        return EmptyState(
+          icon: Icons.favorite_border_rounded,
+          title: isEmpty ? (mine ? 'Aucun favori' : 'Aucun favori pour l’instant') : 'Aucun résultat',
+          message: isEmpty
+              ? (mine ? 'Ajoutez des films et des séries à vos favoris avec le cœur de leur fiche.' : null)
+              : 'Aucun favori ne correspond à cette recherche ou à ces filtres.',
+        );
+      }
       return EmptyState(
         icon: Icons.bookmark_border_rounded,
         title: isEmpty ? (mine ? 'Votre liste est vide' : 'Sa liste est vide') : 'Aucun résultat',

@@ -24,6 +24,10 @@ class ProfileItem {
     this.progress,
     this.lastEngagedAt,
     this.isWatched = false,
+    this.isLiked = false,
+    this.likedAt,
+    this.isFollowed = false,
+    this.followedAt,
   });
 
   factory ProfileItem.fromJson(Map<String, dynamic> json) => ProfileItem(
@@ -44,12 +48,16 @@ class ProfileItem {
     progress: (json['progress'] as num?)?.toDouble(),
     lastEngagedAt: _date(json['last_engaged_at']),
     isWatched: json['is_watched'] as bool? ?? false,
+    isLiked: json['is_liked'] as bool? ?? false,
+    likedAt: _date(json['liked_at']),
+    isFollowed: json['is_followed'] as bool? ?? false,
+    followedAt: _date(json['followed_at']),
   );
 
   final String source;
   final String itemId;
 
-  /// movie, tv, episode, channel, video.
+  /// movie, tv, episode, channel, video, person.
   final String type;
   final String title;
   final int? year;
@@ -68,6 +76,14 @@ class ProfileItem {
   final double? progress;
   final DateTime? lastEngagedAt;
   final bool isWatched;
+
+  /// In « Favoris » ❤ (movies and series).
+  final bool isLiked;
+  final DateTime? likedAt;
+
+  /// A person (type `person`, item `person:287`) the profile follows.
+  final bool isFollowed;
+  final DateTime? followedAt;
 
   String get key => '$source|$itemId';
 
@@ -100,6 +116,13 @@ class ProfileItem {
     return parts.join(' · ');
   }
 
+  /// The followed TMDb person this item points to ("person:287"), or null.
+  Person? get person {
+    if (source != 'tmdb' || type != 'person') return null;
+    final id = int.tryParse(itemId.split(':').last);
+    return id == null ? null : Person(id: id, name: title, profileUrl: posterUrl);
+  }
+
   static DateTime? _date(Object? value) => value is String ? DateTime.tryParse(value) : null;
 }
 
@@ -117,6 +140,22 @@ class LibraryState {
   List<ProfileItem> get favorites =>
       items.values.where((i) => i.isFavorite).toList()
         ..sort((a, b) => (b.favoritedAt ?? DateTime(0)).compareTo(a.favoritedAt ?? DateTime(0)));
+
+  /// « Favoris » ❤: the movies and series liked, the most recently added first.
+  List<ProfileItem> get liked =>
+      items.values.where((i) => i.isLiked && i.tmdbTitle != null).toList()
+        ..sort((a, b) => (b.likedAt ?? DateTime(0)).compareTo(a.likedAt ?? DateTime(0)));
+
+  /// The people the profile follows, the most recently followed first.
+  List<Person> get followedPeople => [
+    for (final item
+        in items.values.where((i) => i.isFollowed).toList()
+          ..sort((a, b) => (b.followedAt ?? DateTime(0)).compareTo(a.followedAt ?? DateTime(0))))
+      ?item.person,
+  ];
+
+  /// The item of a person (followed or not).
+  ProfileItem? forPerson(int id) => items['tmdb|${LibraryController.personSyncId(id)}'];
 
   List<ProfileItem> get continueWatching =>
       items.values.where((i) => i.inContinueWatching).toList()
@@ -147,6 +186,24 @@ class LibraryController extends AsyncNotifier<LibraryState> {
 
   Future<void> setFavorite(MediaItem item, bool value) => _push(item, {
     'favorite': {'value': value, 'at': _now()},
+  });
+
+  /// Adds the title to « Favoris » ❤, or removes it.
+  Future<void> setLiked(MediaItem item, bool value) => _push(item, {
+    'liked': {'value': value, 'at': _now()},
+  });
+
+  /// `person:287`, as in vixeo_backend/docs/synchronisation.md.
+  static String personSyncId(int id) => 'person:$id';
+
+  /// Follows a person (actor, director…), or no longer.
+  Future<void> setFollowed(Person person, bool value) => _pushRaw({
+    'source': 'tmdb',
+    'item_id': personSyncId(person.id),
+    'type': 'person',
+    'title': person.name,
+    'poster_url': person.profileUrl,
+    'followed': {'value': value, 'at': _now()},
   });
 
   /// `episode:1399:1:3` (show, season, episode), as in vixeo_backend/docs/synchronisation.md.

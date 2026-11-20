@@ -314,6 +314,46 @@ void main() {
     expect(item.tmdbTitle, (type: MediaType.tv, id: 1399));
   });
 
+  test('reads « Favoris » ❤ and the followed people of the synced items', () {
+    final liked = ProfileItem.fromJson({
+      'source': 'tmdb',
+      'item_id': 'movie:550',
+      'type': 'movie',
+      'title': 'Fight Club',
+      'is_liked': true,
+      'liked_at': '2026-11-20T10:00:00Z',
+    });
+    final older = ProfileItem.fromJson({
+      'source': 'tmdb',
+      'item_id': 'tv:1399',
+      'type': 'tv',
+      'title': 'Les Hautes Terres',
+      'is_liked': true,
+      'liked_at': '2026-11-19T10:00:00Z',
+      'is_favorite': true,
+    });
+    final person = ProfileItem.fromJson({
+      'source': 'tmdb',
+      'item_id': 'person:287',
+      'type': 'person',
+      'title': 'Brad Pitt',
+      'poster_url': 'https://image.tmdb.org/t/p/w185/brad.jpg',
+      'is_followed': true,
+      'followed_at': '2026-11-20T11:00:00Z',
+    });
+    final state = LibraryState({for (final i in [older, person, liked]) i.key: i});
+
+    expect(liked.isLiked, isTrue);
+    expect(state.liked.map((i) => i.title), ['Fight Club', 'Les Hautes Terres']);
+    expect(state.favorites.map((i) => i.title), ['Les Hautes Terres']);
+    expect(person.tmdbTitle, isNull);
+    expect(state.followedPeople.single.id, 287);
+    expect(state.followedPeople.single.name, 'Brad Pitt');
+    expect(state.followedPeople.single.profileUrl, 'https://image.tmdb.org/t/p/w185/brad.jpg');
+    expect(state.forPerson(287)?.isFollowed, isTrue);
+    expect(LibraryController.personSyncId(287), 'person:287');
+  });
+
   test('lists favorites and continue watching from the synced items', () {
     ProfileItem make(String id, {bool favorite = false, String? favAt, String? engaged, bool watched = false}) =>
         ProfileItem.fromJson({

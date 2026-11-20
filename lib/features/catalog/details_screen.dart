@@ -92,7 +92,7 @@ class _BackButton extends StatelessWidget {
   );
 }
 
-/// Ma liste / Vu / Noter / Bande-annonce: the same round icon-only button for each action.
+/// Ma liste / Favoris ❤ / Vu / Noter / Bande-annonce: the same round icon-only button for each action.
 /// Each click confirms with an alert ("Supprimé de votre liste"…).
 class _Actions extends ConsumerWidget {
   const _Actions({required this.title});
@@ -109,6 +109,7 @@ class _Actions extends ConsumerWidget {
       runSpacing: 12,
       children: [
         if (!guest) FavoriteButton(item: item),
+        if (!guest) LikedButton(item: item),
         if (!guest && title.type == MediaType.movie) WatchedButton(item: item),
         if (!guest && ref.watch(canRateProvider)) RateTitleButton(type: title.type, id: title.id, name: title.title),
         if (title.trailer != null)
