@@ -14,7 +14,6 @@ import 'package:vixeo/features/addons/scraper_guard.dart';
 import 'package:vixeo/features/addons/scraper_host.dart';
 import 'package:vixeo/features/addons/scraper_http.dart';
 import 'package:vixeo/features/addons/scraper_models.dart';
-import 'package:vixeo/features/addons/scraper_runtime.dart';
 import 'package:vixeo/features/addons/scrapers.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/models.dart';
@@ -603,7 +602,7 @@ void main() {
 
 /// A runtime that takes a moment, and counts how many runs overlap.
 /// Asks for two files and writes in its console, like a real scraper.
-class _ChattyRuntime implements ScraperRuntime {
+class _ChattyRuntime extends FakeScraperRuntime {
   @override
   Future<List<ScraperStream>> run({
     required String code,
