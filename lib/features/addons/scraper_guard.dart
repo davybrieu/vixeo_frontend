@@ -4,17 +4,21 @@
 /// `https://`.
 library;
 
-/// The limits of one scraper run.
+/// The limits of one scraper run. They follow the Nuvio app, which the scrapers of Nuvio
+/// repositories are written for (a run may take a minute, a request 30 s like on NuvioTV, timers
+/// may be as long as the run); the request count is a safety net Nuvio does not have, well above
+/// what a real scraper asks.
 class ScraperLimits {
   const ScraperLimits({
-    this.run = const Duration(seconds: 30),
-    this.request = const Duration(seconds: 15),
-    this.timer = const Duration(seconds: 5),
-    this.requests = 40,
+    this.run = const Duration(seconds: 60),
+    this.request = const Duration(seconds: 30),
+    this.timer = const Duration(seconds: 60),
+    this.requests = 200,
     this.responseBytes = 5 * 1024 * 1024,
     this.requestBody = 256 * 1024,
     this.redirects = 5,
-    this.streams = 50,
+    this.streams = 100,
+    this.memoryBytes = 256 * 1024 * 1024,
   });
 
   static const standard = ScraperLimits();
@@ -31,16 +35,30 @@ class ScraperLimits {
   /// `fetch` calls per run.
   final int requests;
 
-  /// One response (the rest is cut).
+  /// One response (the rest is cut, and [ScraperGuard.truncated] is added, as Nuvio does).
   final int responseBytes;
 
   /// The body of one request.
   final int requestBody;
   final int redirects;
   final int streams;
+
+  /// The memory of the JavaScript engine, where it can be capped (QuickJS, on Android).
+  final int memoryBytes;
 }
 
 abstract final class ScraperGuard {
+  /// Added to a response cut at [ScraperLimits.responseBytes], exactly as Nuvio does: scrapers look
+  /// for it before parsing a page.
+  static const truncated = '\n...[truncated]';
+
+  /// A request in `http://` is made in `https://`: Nuvio allows http, Vixeo never sends a scraper's
+  /// request in clear, and most sites answer both. Anything else is returned as it is (trimmed).
+  static String upgrade(String url) {
+    final text = url.trim();
+    return text.length > 7 && text.substring(0, 7).toLowerCase() == 'http://' ? 'https://${text.substring(7)}' : text;
+  }
+
   static const _blockedSuffixes = ['.local', '.localhost', '.internal', '.lan', '.home', '.corp', '.intranet'];
 
   /// Looks like an IPv4 address in any notation (`127.1`, `2130706433`, `0x7f000001`).

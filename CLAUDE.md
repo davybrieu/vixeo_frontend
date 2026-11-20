@@ -376,13 +376,22 @@ lib/
   les réintroduire). Un plug-in est un **dépôt** (`manifest.json`, adresse https) qui liste des
   **scrapers** : des fichiers JavaScript CommonJS qui exportent
   `getStreams(tmdbId, mediaType, season, episode)` et renvoient des liens (`url`, `name`, `title`,
-  `quality`, `size`, `headers`). **Uniquement pour les sources** ; **le catalogue n'en dépend pas**
+  `quality`, `size`, `language`, `type`, `headers`). **Compatible avec les dépôts Nuvio** (demande du
+  développeur, 20/11/2026 : faire marcher `gowaru/gowaru-nuvio-providers` en suivant l'appli Nuvio,
+  `tapframe/NuvioMobile`) : adresse d'un dossier ou d'une page GitHub acceptée (`normalizeUrl`),
+  scrapers `enabled: false` ou exclus par `supportedPlatforms` / `disabledPlatforms` laissés de côté,
+  globales de Nuvio (`window`, `SCRAPER_ID`, `SCRAPER_SETTINGS` = `{}`, `CryptoJS` prêté aux scrapers
+  qui le nomment, `assets/scrapers/crypto-js.min.js`), `fetch` de Nuvio (statut 0 au lieu d'une
+  exception, `json()` → `null`, `\n...[truncated]`), film sans saison ni épisode (`undefined`),
+  titre du flux affiché en premier (`ScraperStream.label`), contournement de QuickJS pour
+  `for … of yield` (`hoistForOfYield`) ; détails dans `docs/scrapers.md` §2-3.
+  **Uniquement pour les sources** ; **le catalogue n'en dépend pas**
   (il reste celui de TMDb : pas de rangées ni de « Voir tout » venus d'un plug-in). **Vixeo ne
   fournit aucun dépôt** et n'en installe aucun ; la page dit que la personne est responsable.
   Fichiers : `scraper_models.dart` (valeurs : manifeste, `ScraperRepo`, `ScraperInfo`,
   `ScraperStream`), `scrapers.dart` (`ScraperRepos` : dépôts et choix gardés **sur l'appareil**,
   par compte, `LocalStore` `vixeo.scrapers.<id>` ; `ScraperLoader` : télécharge manifestes et code,
-  code gardé en mémoire seulement ; `ScraperService.streams` : 3 scrapers en parallèle au plus),
+  code gardé en mémoire seulement ; `ScraperService.streams` : 6 scrapers en parallèle au plus),
   `scraper_guard.dart` (règles et limites), `scraper_host.dart` (la conversation avec le bac à
   sable, la même partout), `scraper_http*.dart`, `scraper_runtime*.dart` et `scraper_js_engine_io.dart`
   (moteurs par plateforme, imports conditionnels comme `engine_factory.dart`).
@@ -395,11 +404,13 @@ lib/
   manifeste (relu tel quel par « mettre à jour », seul « activé » est gardé).
   **Où le JS s'exécute : déclaré par le dépôt** (`execution` du manifeste, `ScraperMode`, affiché
   sans réglage) : **sur l'appareil**
-  (Android / iOS : QuickJS / JavaScriptCore via `flutter_js`, dans un isolate qu'on peut tuer ; web :
+  (Android / iOS : QuickJS plafonné à 256 Mo / JavaScriptCore via `flutter_js`, créés directement,
+  dans un isolate qu'on peut tuer ; web :
   `<iframe sandbox="allow-scripts">` sans origine) ou **sur le serveur** (`POST /scrapers/run`).
   Le bac à sable (`assets/scrapers/sandbox.js`, identique partout) n'a ni réseau, ni DOM, ni
-  `require` : son `fetch` devient un message que l'appli vérifie (`ScraperGuard` : https seulement,
-  jamais le réseau local, 40 requêtes, 30 s…) puis exécute elle-même (en direct sur Android / iOS ;
+  `require` : son `fetch` devient un message que l'appli vérifie (`ScraperGuard` : `http://` fait en
+  `https://`, jamais le réseau local ; limites de Nuvio : 60 s par scraper, 30 s par requête,
+  minuteries de 60 s, 200 requêtes, 100 flux) puis exécute elle-même (en direct sur Android / iOS ;
   par le serveur sur le web, `POST /scrapers/fetch`, à cause de CORS ; le jeton Vixeo n'est jamais
   envoyé à un tiers). Sur le web, un flux passe par `POST /scrapers/stream` (`proxyScraperStream`).
   **Sources** : `sourceProvidersProvider` liste les scrapers des dépôts **activés** qui gèrent le
@@ -408,10 +419,11 @@ lib/
   lisibles** et le lecteur ne les `resolve` pas. Sans dépôt, le panneau écrit « Aucun plug-in n'est
   installé. » ; dépôts tous désactivés : « Les plug-ins installés sont désactivés. ». Après un
   changement : `ref.invalidate(sourceProvidersProvider)`. Implémentation de référence du serveur et
-  de la garde : `tools/scraper-runner` (Node + vrai QuickJS, `npm test`). **Pas encore vérifié** :
-  la partie Dart n'a pas pu être compilée là où elle a été écrite (pas de SDK) ; l'API de
-  `flutter_js` (version et appels) et l'iframe web restent à essayer ; les routes `/scrapers/*` sont à
-  écrire dans `vixeo_backend`. Tests : `test/scraper_models_test.dart`, `scraper_runner_test.dart`,
+  de la garde : `tools/scraper-runner` (Node + vrai QuickJS, `npm test` ; les 37 scrapers de
+  gowaru-nuvio-providers s'y chargent et s'exécutent). **Pas encore vérifié** :
+  sur un appareil (QuickJS de `flutter_js`, JavaScriptCore) ni dans un navigateur (l'iframe) : la CI
+  compile et teste le Dart, `tools/scraper-runner` le JavaScript ; les routes `/scrapers/*` sont à
+  écrire dans `vixeo_backend` (sans elles, rien ne marche sur le web). Tests : `test/scraper_models_test.dart`, `scraper_runner_test.dart`,
   `addons_test.dart`, doublures dans `test/scraper_fakes.dart`.
 - **Avancé** (« Paramètres » → « Avancé », `/profil/avance`, `AdvancedSettingsScreen` ; demande du
   développeur, sans rapports de plantage) : « Mémoriser le dernier profil » (sur l'appareil,

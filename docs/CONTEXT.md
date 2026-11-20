@@ -127,7 +127,10 @@ Le frontend Flutter ne communique jamais directement avec ces services, sauf dé
 - Le JavaScript s'exécute **au choix pour chaque plug-in** : sur l'appareil (Android / iOS : moteur
   JS embarqué ; web : iframe en bac à sable) ou sur le serveur de Vixeo. Le code est téléchargé à la
   demande, jamais écrit sur l'appareil, et n'a aucun accès direct au réseau : ses requêtes passent par
-  une garde (https seulement, jamais le réseau local, limites de temps, de taille et de nombre).
+  une garde (https seulement, une adresse http étant faite en https ; jamais le réseau local ; limites
+  de temps, de taille et de nombre).
+- Compatibles avec les dépôts **Nuvio** tels quels (20/11/2026 : adresse, manifeste, variables
+  globales, `fetch` et durées de l'appli Nuvio ; testé avec `gowaru/gowaru-nuvio-providers`).
 - Écart assumé avec le §5.1 : pour ces plug-ins seulement, l'appli parle à des adresses de tiers
   (manifestes, code, et sur Android / iOS les requêtes des scrapers). L'API reste l'unique
   interlocutrice pour le catalogue, le compte et la lecture hors plug-ins.

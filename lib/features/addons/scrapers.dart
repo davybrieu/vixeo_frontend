@@ -139,7 +139,8 @@ class ScraperLoader {
 
   void forgetCode() => _code.clear();
 
-  Future<String> _download(String url) async {
+  Future<String> _download(String address) async {
+    final url = ScraperGuard.upgrade(address);
     final refused = ScraperGuard.check(url);
     if (refused != null) throw ScraperException('Adresse refusée : $refused.');
     final ScraperHttpResponse response;
@@ -166,8 +167,10 @@ class ScraperService {
   final Ref _ref;
 
   /// At most this many scrapers run at once: the sources panel asks them all together and a phone
-  /// should not start thirty JavaScript engines.
-  static const maxParallel = 3;
+  /// should not start thirty JavaScript engines. Nuvio runs up to ten; a repository like
+  /// gowaru-nuvio-providers has some thirty scrapers that mostly wait for the network, a Vixeo
+  /// TV box has little memory: six is the middle.
+  static const maxParallel = 6;
 
   int _running = 0;
   final _waiting = <Completer<void>>[];
@@ -179,6 +182,8 @@ class ScraperService {
       mediaType: isMovie ? 'movie' : 'tv',
       season: isMovie ? null : item.season,
       episode: isMovie ? null : item.episode,
+      // Nuvio's SCRAPER_ID: the manifest's address (lower case) and the scraper's id.
+      scraperId: '${repo.url.toLowerCase()}:${scraper.id}',
     );
     if (repo.mode == ScraperMode.server) return _onServer(repo, scraper, params, item.id);
 

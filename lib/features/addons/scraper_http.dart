@@ -40,6 +40,10 @@ class ScraperHttpRequest {
   final Map<String, String> headers;
   final String? body;
   final bool followRedirects;
+
+  /// The same request, to another address.
+  ScraperHttpRequest withUrl(String url) =>
+      ScraperHttpRequest(url: url, method: method, headers: headers, body: body, followRedirects: followRedirects);
 }
 
 @immutable
@@ -58,7 +62,8 @@ class ScraperHttpResponse {
   /// Header names in lower case.
   final Map<String, String> headers;
 
-  /// The text of the answer (UTF-8), cut at [ScraperLimits.responseBytes].
+  /// The text of the answer (UTF-8), cut at [ScraperLimits.responseBytes] (and then ending with
+  /// [ScraperGuard.truncated]).
   final String body;
 
   /// The address that finally answered (after the redirections).

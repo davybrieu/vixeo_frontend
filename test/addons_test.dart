@@ -110,7 +110,7 @@ void main() {
         return 'pas d’erreur';
       }
 
-      expect(await failure('http://repo.test/manifest.json'), 'Seules les adresses https:// sont acceptées.');
+      expect(await failure('ftp://repo.test/manifest.json'), 'Seules les adresses https:// sont acceptées.');
       expect(await failure('https://127.0.0.1/manifest.json'), startsWith('Adresse refusée'));
       expect(await failure('https://absent.test/manifest.json'), 'Téléchargement impossible (erreur 404).');
       expect(await failure('https://text.test/manifest.json'), "Ce n'est pas le manifeste d'un dépôt de plug-ins.");
@@ -293,19 +293,32 @@ void main() {
       );
     });
 
-    test('runs at most three scrapers at once', () async {
+    test('runs at most six scrapers at once', () async {
       final repo = testRepo();
       final runtime = _SlowRuntime();
       final container = keptContainer(repos: [repo], http: FakeScraperHttp(_files), runtime: runtime);
       final service = container.read(scraperServiceProvider);
 
-      final all = [for (var i = 0; i < 6; i++) service.streams(repo, repo.scrapers[0], movie)];
+      expect(ScraperService.maxParallel, 6);
+      final all = [for (var i = 0; i < 10; i++) service.streams(repo, repo.scrapers[0], movie)];
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(runtime.running, ScraperService.maxParallel);
 
       await Future.wait(all);
-      expect(runtime.started, 6);
+      expect(runtime.started, 10);
       expect(runtime.peak, ScraperService.maxParallel);
+    });
+
+    test('gives a scraper its Nuvio id (SCRAPER_ID): the manifest address and its own id', () async {
+      final repo = testRepo();
+      final runtime = FakeScraperRuntime();
+      final container = keptContainer(repos: [repo], http: FakeScraperHttp(_files), runtime: runtime);
+
+      await container.read(scraperServiceProvider).streams(repo, repo.scrapers[0], movie);
+
+      expect(runtime.calls.single.params.scraperId, '$repoUrl:films');
+      expect(runtime.calls.single.params.toJson(), containsPair('scraperId', '$repoUrl:films'));
+      expect(runtime.calls.single.params.toJson(), containsPair('settings', isEmpty));
     });
   });
 
@@ -341,7 +354,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text("Collez l'adresse du dépôt."), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'http://repo.test/manifest.json');
+      await tester.enterText(find.byType(TextField), 'ftp://repo.test/manifest.json');
       await tester.tap(find.text('Installer'));
       await tester.pumpAndSettle();
       expect(find.text('Seules les adresses https:// sont acceptées.'), findsOneWidget);

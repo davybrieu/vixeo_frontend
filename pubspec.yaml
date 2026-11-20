@@ -102,6 +102,9 @@ flutter:
     - assets/images/tmdb_short.png
     # The sandbox every plug-in scraper runs on top of (same file on every platform).
     - assets/scrapers/sandbox.js
+    # crypto-js 4.2.0, lent to the scrapers that use it, as Nuvio does (docs/scrapers.md), and its licence.
+    - assets/scrapers/crypto-js.min.js
+    - assets/licenses/crypto-js-MIT.txt
   fonts:
     - family: Sora
       fonts:

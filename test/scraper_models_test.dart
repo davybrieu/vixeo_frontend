@@ -59,6 +59,24 @@ void main() {
       expect(ScraperGuard.check('https://192.168.0.5/'), 'adresse privée interdite');
       expect(ScraperGuard.check('https://nas.local/'), 'hôte local interdit');
     });
+
+    test('makes a request in http:// in https://, and leaves anything else', () {
+      expect(ScraperGuard.upgrade('http://example.com/a?b=1'), 'https://example.com/a?b=1');
+      expect(ScraperGuard.upgrade('HTTP://Example.com/'), 'https://Example.com/');
+      expect(ScraperGuard.upgrade('https://example.com/'), 'https://example.com/');
+      expect(ScraperGuard.upgrade('ftp://example.com/'), 'ftp://example.com/');
+      expect(ScraperGuard.check(ScraperGuard.upgrade('http://127.0.0.1/')), 'adresse privée interdite');
+    });
+
+    test('has the limits of the Nuvio app', () {
+      const limits = ScraperLimits.standard;
+      expect(limits.run, const Duration(seconds: 60));
+      expect(limits.request, const Duration(seconds: 30));
+      expect(limits.timer, limits.run);
+      expect(limits.requests, greaterThanOrEqualTo(150));
+      expect(limits.streams, ScraperStream.maxPerScraper);
+      expect(ScraperGuard.truncated, '\n...[truncated]');
+    });
   });
 
   group('repository manifest', () {
@@ -98,6 +116,39 @@ void main() {
       expect(manifest.scrapers.single.types, {'movie'});
     });
 
+    test('leaves out, as Nuvio does, a scraper its author turned off or kept off this platform', () {
+      final json = {
+        'name': "Gowaru's Repo",
+        'version': '1.2.4',
+        'scrapers': [
+          {'id': 'on', 'filename': 'providers/on.js', 'enabled': true, 'disabledPlatforms': <String>[]},
+          {'id': 'off', 'filename': 'providers/off.js', 'enabled': false},
+          {'id': 'not-tv', 'filename': 'providers/not-tv.js', 'disabledPlatforms': ['tv']},
+          {'id': 'not-android', 'filename': 'providers/x.js', 'disabledPlatforms': ['Android']},
+          {'id': 'ios-only', 'filename': 'providers/y.js', 'supportedPlatforms': ['ios']},
+          {'id': 'series', 'filename': 'providers/z.js', 'supportedTypes': ['series']},
+        ],
+      };
+
+      final android = RepositoryManifest.parse(json, fallbackName: 'x', platform: 'android');
+      final ios = RepositoryManifest.parse(json, fallbackName: 'x', platform: 'ios');
+      final web = RepositoryManifest.parse(json, fallbackName: 'x', platform: 'web');
+
+      expect(android.scrapers.map((s) => s.id), ['on', 'not-tv', 'series']);
+      expect(ios.scrapers.map((s) => s.id), ['on', 'not-tv', 'not-android', 'ios-only', 'series']);
+      expect(web.scrapers.map((s) => s.id), ['on', 'not-tv', 'not-android', 'series']);
+      // Nuvio's "series" is a series.
+      expect(android.scrapers.last.types, {'tv'});
+      expect(
+        () => RepositoryManifest.parse({
+          'scrapers': [
+            {'id': 'off', 'filename': 'off.js', 'enabled': false},
+          ],
+        }, fallbackName: 'x'),
+        throwsA(isA<ScraperException>()),
+      );
+    });
+
     test('refuses what is not a manifest, or has nothing usable', () {
       for (final json in [null, 'texte', 42, <String, Object?>{}, {'scrapers': <Object>[]}, {'scrapers': 'non'}]) {
         expect(() => RepositoryManifest.parse(json, fallbackName: 'x'), throwsA(isA<ScraperException>()), reason: '$json');
@@ -113,8 +164,37 @@ void main() {
       expect(ScraperRepo.normalizeUrl('https://repo.test/m.json#haut'), 'https://repo.test/m.json');
     });
 
-    test('refuses an address that is not https, or not an address', () {
-      for (final text in ['', '   ', 'repo.test/manifest.json', 'http://repo.test/m.json', 'ftp://repo.test/m.json', 'https://']) {
+    test('reads an address the way Nuvio does: folder, missing https, http', () {
+      // The address gowaru-nuvio-providers gives in its README, with or without its last slash.
+      const gowaru = 'https://raw.githubusercontent.com/Gowaru/gowaru-nuvio-providers/refs/heads/main';
+      expect(ScraperRepo.normalizeUrl('$gowaru/'), '$gowaru/manifest.json');
+      expect(ScraperRepo.normalizeUrl(gowaru), '$gowaru/manifest.json');
+      expect(ScraperRepo.normalizeUrl('repo.test/manifest.json'), 'https://repo.test/manifest.json');
+      expect(ScraperRepo.normalizeUrl('http://repo.test/m.json'), 'https://repo.test/m.json');
+      expect(ScraperRepo.normalizeUrl('https://repo.test/repo?token=1'), 'https://repo.test/repo/manifest.json?token=1');
+    });
+
+    test('turns the GitHub page of a repository into the address of its raw manifest', () {
+      expect(
+        ScraperRepo.normalizeUrl('https://github.com/Gowaru/gowaru-nuvio-providers'),
+        'https://raw.githubusercontent.com/Gowaru/gowaru-nuvio-providers/HEAD/manifest.json',
+      );
+      expect(
+        ScraperRepo.normalizeUrl('github.com/owner/repo.git'),
+        'https://raw.githubusercontent.com/owner/repo/HEAD/manifest.json',
+      );
+      expect(
+        ScraperRepo.normalizeUrl('https://github.com/owner/repo/tree/dev/plugins'),
+        'https://raw.githubusercontent.com/owner/repo/dev/plugins/manifest.json',
+      );
+      expect(
+        ScraperRepo.normalizeUrl('https://github.com/owner/repo/blob/main/manifest.json'),
+        'https://raw.githubusercontent.com/owner/repo/main/manifest.json',
+      );
+    });
+
+    test('refuses an address that cannot be one', () {
+      for (final text in ['', '   ', 'ftp://repo.test/m.json', 'https://', 'pas une adresse']) {
         expect(() => ScraperRepo.normalizeUrl(text), throwsA(isA<ScraperException>()), reason: text);
       }
       expect(() => ScraperRepo.normalizeUrl('https://u:p@repo.test/m.json'), throwsA(isA<ScraperException>()));
@@ -124,6 +204,18 @@ void main() {
       final repo = testRepo();
       expect(repo.fileOf(repo.scrapers[0]).toString(), 'https://repo.test/providers/films.js');
       expect(repo.fileOf(repo.scrapers[2]).toString(), 'https://cdn.test/tout.js');
+      // As in Nuvio: a leading slash still means the manifest's folder; http becomes https.
+      final nested = ScraperRepo.fromManifest(
+        'https://raw.test/owner/repo/main/manifest.json?v=2',
+        RepositoryManifest.parse({
+          'scrapers': [
+            {'id': 'a', 'filename': '/providers/a.js'},
+            {'id': 'b', 'filename': 'http://cdn.test/b.js'},
+          ],
+        }, fallbackName: 'x'),
+      );
+      expect(nested.fileOf(nested.scrapers[0]).toString(), 'https://raw.test/owner/repo/main/providers/a.js');
+      expect(nested.fileOf(nested.scrapers[1]).toString(), 'https://cdn.test/b.js');
     });
   });
 
@@ -227,9 +319,43 @@ void main() {
       expect(ScraperStream.parseList('pas une liste'), isEmpty);
     });
 
-    test('keeps 50 links at most', () {
-      final many = [for (var i = 0; i < 80; i++) {'url': 'https://cdn.test/$i'}];
+    test('keeps 100 links at most', () {
+      final many = [for (var i = 0; i < 150; i++) {'url': 'https://cdn.test/$i'}];
       expect(ScraperStream.parseList(many), hasLength(ScraperStream.maxPerScraper));
+      expect(ScraperStream.maxPerScraper, 100);
+    });
+
+    test('reads a stream as Nuvio does: url as an object, no "[object", language and type', () {
+      final streams = ScraperStream.parseList([
+        {
+          'name': 'Coflix (VF)',
+          'title': '[VF] Coflix [1080p]',
+          'url': 'https://cdn.test/master',
+          'quality': '1080p',
+          'language': 'fr',
+          'type': 'hls',
+          'headers': {'Referer': 'https://coflix.test/', 'User-Agent': 'Mozilla/5.0'},
+        },
+        {
+          'url': {'url': 'https://cdn.test/b.mkv'},
+          'name': 'Objet',
+          'title': '[object Object]',
+        },
+        {'url': 'https://cdn.test/[object Object]'},
+        {'url': 'https://cdn.test/c', 'type': 'dash'},
+      ]);
+
+      expect(streams.map((s) => s.url), ['https://cdn.test/master', 'https://cdn.test/b.mkv', 'https://cdn.test/c']);
+      final first = streams[0];
+      expect((first.name, first.title, first.language, first.type), ('Coflix (VF)', '[VF] Coflix [1080p]', 'fr', 'hls'));
+      expect(first.streamType, 'm3u8');
+      expect(first.headers['Referer'], 'https://coflix.test/');
+      // The title Nuvio shows; the quality is not written twice.
+      expect(first.label('Coflix'), '[VF] Coflix [1080p]');
+      expect(streams[1].title, isNull);
+      expect(streams[1].streamType, 'mp4');
+      expect(streams[1].label('x'), 'Objet');
+      expect(streams[2].streamType, isNull);
     });
 
     test('writes a label for the sources panel, which reads the quality in it', () {
@@ -238,6 +364,8 @@ void main() {
       expect(const ScraperStream(url: 'https://cdn.test/a').label('Films libres'), 'Films libres');
       expect(const ScraperStream(url: 'https://cdn.test/a', quality: '720p').label('Films libres'), 'Films libres · 720p');
       expect(const ScraperStream(url: 'https://cdn.test/a?x=.mp4').streamType, isNull);
+      const titled = ScraperStream(url: 'https://cdn.test/a', name: 'Src', title: 'Src - Vidmoly', quality: 'HD', size: '1.4 GB');
+      expect(titled.label('x'), 'Src - Vidmoly · HD · 1.4 GB');
     });
   });
 }

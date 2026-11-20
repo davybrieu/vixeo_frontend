@@ -131,7 +131,8 @@ class ScraperHost {
     final id = message['id'];
     if (id is! int) return;
     _pending++;
-    final request = ScraperHttpRequest.fromMessage(message);
+    final asked = ScraperHttpRequest.fromMessage(message);
+    final request = asked.withUrl(ScraperGuard.upgrade(asked.url));
     final refused = ++_requests > limits.requests
         ? 'trop de requêtes'
         : (request.body != null && request.body!.length > limits.requestBody
@@ -181,8 +182,9 @@ abstract class JsEngine {
   Future<void> dispose();
 }
 
-/// Runs one scraper in a [JsEngine]: the sandbox's own prelude, then the scraper, then the
-/// conversation until it is done, or the limits end it.
+/// Runs one scraper in a [JsEngine]: the sandbox's own prelude, then the scraper (after the
+/// [libraries] lent to it, see `librariesFor`), then the conversation until it is done, or the
+/// limits end it.
 abstract final class ScraperRunner {
   static Future<List<ScraperStream>> run({
     required JsEngine engine,
@@ -190,6 +192,7 @@ abstract final class ScraperRunner {
     required String code,
     required ScraperParams params,
     required ScraperFetch fetch,
+    List<String> libraries = const [],
     ScraperLimits limits = ScraperLimits.standard,
     ScraperLog? onLog,
   }) async {
@@ -207,7 +210,7 @@ abstract final class ScraperRunner {
 
     Future<List<ScraperStream>> conversation() async {
       await engine.evaluate(prelude);
-      await engine.evaluate('__vx.run(${jsonEncode(code)}, ${jsonEncode(params.toJson())})');
+      await engine.evaluate('__vx.run(${jsonEncode(code)}, ${jsonEncode(params.toJson())}, ${jsonEncode(libraries)})');
       while (true) {
         await engine.runPendingJobs();
         final out = jsonDecode(await engine.evaluate('__vx.take()'));

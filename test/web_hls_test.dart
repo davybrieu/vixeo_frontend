@@ -63,6 +63,8 @@ void main() {
         packages.addAll(license.packages);
       }
       expect(packages, contains('hls.js'));
+      // And crypto-js, lent to the plug-in scrapers (assets/scrapers).
+      expect(packages, contains('crypto-js'));
     });
   });
 }

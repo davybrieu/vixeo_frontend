@@ -9,10 +9,10 @@ import 'scraper_runtime.dart';
 
 class IsolateScraperRuntime implements ScraperRuntime {
   /// [startEngine] is replaced in the tests by a fake engine.
-  IsolateScraperRuntime({Future<JsEngine> Function()? startEngine})
-    : _startEngine = startEngine ?? IsolateJsEngine.start;
+  IsolateScraperRuntime({Future<JsEngine> Function(ScraperLimits limits)? startEngine})
+    : _startEngine = startEngine ?? ((limits) => IsolateJsEngine.start(memoryBytes: limits.memoryBytes));
 
-  final Future<JsEngine> Function() _startEngine;
+  final Future<JsEngine> Function(ScraperLimits limits) _startEngine;
 
   @override
   Future<List<ScraperStream>> run({
@@ -23,9 +23,10 @@ class IsolateScraperRuntime implements ScraperRuntime {
     ScraperLimits limits = ScraperLimits.standard,
   }) async {
     final prelude = await loadSandboxPrelude();
+    final libraries = await librariesFor(code);
     final JsEngine engine;
     try {
-      engine = await _startEngine();
+      engine = await _startEngine(limits);
     } catch (_) {
       throw const ScraperException("Le moteur des plug-ins n'a pas pu démarrer sur cet appareil.");
     }
@@ -35,6 +36,7 @@ class IsolateScraperRuntime implements ScraperRuntime {
       code: code,
       params: params,
       fetch: fetch,
+      libraries: libraries,
       limits: limits,
       onLog: onLog,
     );

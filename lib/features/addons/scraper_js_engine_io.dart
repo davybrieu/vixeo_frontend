@@ -8,15 +8,20 @@
 /// `flutter_js` is imported **only here**, behind the conditional import of `scraper_platform.dart`:
 /// a web build never sees it.
 ///
-/// Not verified yet on a device (`docs/scrapers.md` §9): the calls to `flutter_js` are written from
-/// its documentation. `xhr: false` matters: the package's own `fetch` / `XMLHttpRequest` would let a
-/// scraper reach the network without the host's checks.
+/// The engines are made directly (`QuickJsRuntime2`, `JavascriptCoreRuntime`), not with
+/// `getJavascriptRuntime`: that one also installs the package's own `fetch` / `XMLHttpRequest`,
+/// which would let a scraper reach the network without the host's checks, and it cannot cap
+/// QuickJS's memory. The package's `sendMessage` bridge stays, and the sandbox deletes it.
+///
+/// Not verified yet on a device (`docs/scrapers.md` §9).
 library;
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:isolate';
 
-import 'package:flutter_js/flutter_js.dart';
+import 'package:flutter_js/flutter_js.dart' show JavascriptRuntime, QuickJsRuntime2;
+import 'package:flutter_js/javascriptcore/jscore_runtime.dart' show JavascriptCoreRuntime;
 
 import 'scraper_host.dart';
 import 'scraper_models.dart';
@@ -24,10 +29,11 @@ import 'scraper_models.dart';
 class IsolateJsEngine implements JsEngine {
   IsolateJsEngine._(this._isolate, this._commands);
 
-  /// Starts the isolate.
-  static Future<IsolateJsEngine> start() async {
+  /// Starts the isolate. QuickJS (Android) may use [memoryBytes] at most: a scraper that asks for
+  /// more gets an "out of memory" error instead of taking the phone's memory.
+  static Future<IsolateJsEngine> start({int memoryBytes = 256 * 1024 * 1024}) async {
     final handshake = ReceivePort();
-    final isolate = await Isolate.spawn(_engineMain, handshake.sendPort);
+    final isolate = await Isolate.spawn(_engineMain, [handshake.sendPort, memoryBytes]);
     final commands = await handshake.first as SendPort;
     return IsolateJsEngine._(isolate, commands);
   }
@@ -80,8 +86,19 @@ class IsolateJsEngine implements JsEngine {
   }
 }
 
+/// The engine of this platform, as `getJavascriptRuntime` would pick it: QuickJS on Android
+/// (capped), JavaScriptCore on iOS and macOS.
+JavascriptRuntime _newRuntime(int memoryBytes) {
+  if (Platform.isAndroid || Platform.isLinux || Platform.isWindows) {
+    return QuickJsRuntime2(stackSize: 1024 * 1024, memoryLimit: memoryBytes);
+  }
+  return JavascriptCoreRuntime();
+}
+
 /// The isolate's entry point: answers `eval`, `jobs` and `dispose` commands, one at a time.
-void _engineMain(SendPort handshake) {
+void _engineMain(List<Object?> start) {
+  final handshake = start[0] as SendPort;
+  final memoryBytes = start[1] as int;
   final commands = ReceivePort();
   handshake.send(commands.sendPort);
   JavascriptRuntime? runtime;
@@ -91,7 +108,7 @@ void _engineMain(SendPort handshake) {
     try {
       switch (command[1]) {
         case 'eval':
-          runtime ??= getJavascriptRuntime(xhr: false);
+          runtime ??= _newRuntime(memoryBytes);
           final result = runtime!.evaluate(command[2] as String);
           reply.send([!result.isError, result.stringResult]);
         case 'jobs':

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { LIMITS, checkUrl } from './guard.mjs';
-import { normalizeStreams, runScraper } from './host.mjs';
+import { normalizeStreams, runScraper, usesCryptoJs } from './host.mjs';
 
 const movie = { tmdbId: '550', mediaType: 'movie', season: null, episode: null };
 const noNetwork = async () => {
@@ -12,12 +12,13 @@ const ok = (body, extra = {}) => ({ status: 200, statusText: 'OK', headers: { 'c
 /** Runs a scraper whose body is `module.exports = { getStreams: async (...) => ... }`. */
 const run = (code, { params = movie, doFetch = noNetwork, ...rest } = {}) => runScraper({ code, params, doFetch, ...rest });
 
-test('a scraper gets its parameters and returns streams', async () => {
+test('a scraper gets its parameters and returns streams (a film: no season, no episode, like Nuvio)', async () => {
   const streams = await run(`module.exports = { getStreams: async (id, type, s, e) => [
-    { url: 'https://cdn.example.com/' + id + '.m3u8', name: type + ':' + s + ':' + e, quality: '1080p', headers: { Referer: 'https://x.example' } } ] };`);
+    { url: 'https://cdn.example.com/' + id + '.m3u8', name: typeof id + ':' + type + ':' + s + ':' + e, quality: '1080p',
+      headers: { Referer: 'https://x.example' } } ] };`);
   assert.deepEqual(streams, [
-    { url: 'https://cdn.example.com/550.m3u8', name: 'movie:null:null', title: null, quality: '1080p', size: null,
-      headers: { Referer: 'https://x.example' } },
+    { url: 'https://cdn.example.com/550.m3u8', name: 'string:movie:undefined:undefined', title: null, quality: '1080p',
+      size: null, language: null, type: null, headers: { Referer: 'https://x.example' } },
   ]);
 });
 
@@ -154,9 +155,9 @@ test('atob, btoa and TextEncoder / TextDecoder', async () => {
   assert.equal(got.back, text);
 });
 
-test('requests to local, private or non-https addresses are refused before the network', async () => {
+test('requests to local, private or non-web addresses are refused before the network', async () => {
   const urls = [
-    'http://example.com/x', 'https://localhost/x', 'https://127.0.0.1/x', 'https://10.1.2.3/x',
+    'http://localhost/x', 'https://localhost/x', 'https://127.0.0.1/x', 'https://10.1.2.3/x',
     'https://192.168.0.5/x', 'https://172.20.0.1/x', 'https://169.254.169.254/latest', 'https://[::1]/x',
     'https://[fd00::1]/x', 'https://[::ffff:127.0.0.1]/x', 'https://nas.local/x', 'https://intranet/x',
     'https://user:pw@example.com/x', 'ftp://example.com/x', 'https://0x7f000001/x', 'https://2130706433/x',
@@ -168,7 +169,8 @@ test('requests to local, private or non-https addresses are refused before the n
     `module.exports.getStreams = async () => {
        const out = [];
        for (const u of ${JSON.stringify(urls)}) {
-         try { await fetch(u); out.push('reached ' + u); } catch (e) { out.push('refused'); }
+         const r = await fetch(u);
+         out.push(r.status === 0 && !r.ok && r.statusText ? 'refused' : 'reached ' + u);
        }
        return [{ url: 'https://a.example/', name: out.join(',') }];
      };`,
@@ -183,12 +185,25 @@ test('requests to local, private or non-https addresses are refused before the n
   assert.equal(checkUrl('https://[64:ff9b::808:808]/x'), null);
 });
 
+test('a request in http:// is made in https://, and so is a redirect to http://', async () => {
+  const seen = [];
+  const streams = await run(
+    `module.exports.getStreams = async () => {
+       const r = await fetch('http://Example.com/page?a=1');
+       return [{ url: 'https://a.example/', name: r.status + ' ' + r.url }];
+     };`,
+    { doFetch: async (req) => (seen.push(req.url), ok('x', { url: req.url })) },
+  );
+  assert.deepEqual(seen, ['https://Example.com/page?a=1']);
+  assert.equal(streams[0].name, '200 https://Example.com/page?a=1');
+});
+
 test('too many requests are cut, and the scraper can recover', async () => {
   let calls = 0;
   const streams = await run(
     `module.exports.getStreams = async () => {
        let refused = 0;
-       for (let i = 0; i < 10; i++) { try { await fetch('https://a.example/' + i); } catch (e) { refused++; } }
+       for (let i = 0; i < 10; i++) { if ((await fetch('https://a.example/' + i)).status === 0) refused++; }
        return [{ url: 'https://a.example/', name: String(refused) }];
      };`,
     { limits: { ...LIMITS, requests: 6 }, doFetch: async () => (calls++, ok('{}')) },
@@ -197,25 +212,39 @@ test('too many requests are cut, and the scraper can recover', async () => {
   assert.equal(streams[0].name, '4');
 });
 
-test('a network failure is a rejected fetch, not a crash', async () => {
+test('a network failure is, as in Nuvio, a response with status 0 (never a throw)', async () => {
   const streams = await run(
     `module.exports.getStreams = async () => {
-       try { await fetch('https://a.example/'); return []; }
-       catch (e) { return [{ url: 'https://a.example/', name: e.name + ':' + e.message }]; }
+       const r = await fetch('https://a.example/');
+       return [{ url: 'https://a.example/', name: [r.ok, r.status, r.statusText, r.url, await r.text(), await r.json()].join('|') }];
      };`,
     { doFetch: async () => { throw new Error('boom'); } },
   );
-  assert.equal(streams[0].name, 'TypeError:Network request failed: boom');
+  assert.equal(streams[0].name, 'false|0|boom|https://a.example/||');
+});
+
+test('json() gives null for a body that is not JSON, like Nuvio', async () => {
+  const streams = await run(
+    `module.exports.getStreams = async () => {
+       const a = await (await fetch('https://a.example/html')).json();
+       const b = await (await fetch('https://a.example/empty')).json();
+       const c = await (await fetch('https://a.example/json')).json();
+       return [{ url: 'https://a.example/', name: JSON.stringify([a, b, c]) }];
+     };`,
+    { doFetch: async (req) => ok(req.url.endsWith('/json') ? '{"k":1}' : req.url.endsWith('/html') ? '<html>' : '') },
+  );
+  assert.equal(streams[0].name, '[null,null,{"k":1}]');
 });
 
 test('a slow request is cut at the request timeout', async () => {
   const streams = await run(
     `module.exports.getStreams = async () => {
-       try { await fetch('https://a.example/'); return []; } catch (e) { return [{ url: 'https://a.example/', name: e.message }]; }
+       const r = await fetch('https://a.example/');
+       return [{ url: 'https://a.example/', name: r.status + ' ' + r.statusText }];
      };`,
     { limits: { ...LIMITS, requestMs: 50 }, doFetch: () => new Promise(() => {}) },
   );
-  assert.match(streams[0].name, /délai dépassé/);
+  assert.equal(streams[0].name, '0 délai dépassé');
 });
 
 test('an endless loop is interrupted by the run deadline', async () => {
@@ -248,16 +277,82 @@ test('errors are reported: no getStreams, a throw, a broken file', async () => {
 test('the sandbox has no way out: no require, no browser network objects', async () => {
   const streams = await run(
     `module.exports.getStreams = async () => {
-       let req = 'ok';
-       try { require('fs'); req = 'loaded'; } catch (e) { req = 'blocked'; }
-       const names = ['XMLHttpRequest', 'WebSocket', 'importScripts', 'localStorage', 'process', 'window', 'document']
-         .map((n) => typeof globalThis[n]);
+       // (crypto-js is lent only to a scraper that names it: see below)
+       const req = ['fs', 'cheerio'].map((m) => { try { require(m); return 'loaded'; } catch (e) { return e.message; } });
+       const names = ['XMLHttpRequest', 'WebSocket', 'importScripts', 'localStorage', 'process', 'document', 'sendMessage',
+         'Buffer'].map((n) => typeof globalThis[n]);
        let write = 'ok';
        try { globalThis.__vx = {}; write = globalThis.__vx.take ? 'kept' : 'replaced'; } catch (e) { write = 'kept'; }
-       return [{ url: 'https://a.example/', name: [req, ...names, write].join(',') }];
+       return [{ url: 'https://a.example/', name: [...req, ...names, write].join(',') }];
      };`,
   );
-  assert.equal(streams[0].name, 'blocked,' + 'undefined,'.repeat(7) + 'kept');
+  assert.equal(streams[0].name, "Module 'fs' is not available,Module 'cheerio' is not available," +
+    'undefined,'.repeat(8) + 'kept');
+});
+
+test('what Nuvio sets for a scraper: SCRAPER_ID, SCRAPER_SETTINGS, window / global / self', async () => {
+  const streams = await run(
+    `module.exports.getStreams = async () => [{ url: 'https://a.example/', name: JSON.stringify([
+       SCRAPER_ID, globalThis.SCRAPER_SETTINGS, window === globalThis, global === globalThis, self === globalThis]) }];`,
+    { params: { ...movie, scraperId: 'coflix' } },
+  );
+  assert.equal(streams[0].name, '["coflix",{},true,true,true]');
+});
+
+test('a bundle built for Nuvio (esbuild IIFE, global getStreams) loads and runs', async () => {
+  // The shape of every provider of a Nuvio repository (build.js of gowaru-nuvio-providers).
+  const streams = await run(`var __provider=(()=>{var u=(t,e,n)=>new Promise((r,s)=>{var o=c=>{try{l(n.next(c))}catch(i){s(i)}},
+    a=c=>{try{l(n.throw(c))}catch(i){s(i)}},l=c=>c.done?r(c.value):Promise.resolve(c.value).then(o,a);l((n=n.apply(t,e)).next())});
+    function getStreams(id,type,season,episode){return u(this,null,function*(){const r=yield fetch('https://api.example.com/'+id);
+    const d=yield r.json();if(!d)return[];const out=[];for(let x of yield Promise.resolve(d.links))out.push({name:'Ex (VF)',
+    title:'[VF] Ex',url:x,quality:'1080p',language:'fr',type:'hls'});return out})}return{getStreams}})();
+    if (typeof module !== 'undefined' && module.exports) { module.exports = __provider; }
+    if (__provider && __provider.getStreams) { if (typeof globalThis !== 'undefined') { globalThis.getStreams = __provider.getStreams; } }`,
+  { doFetch: async () => ok('{"links":["https://cdn.example.com/a.m3u8"]}') });
+  assert.deepEqual(streams, [{ url: 'https://cdn.example.com/a.m3u8', name: 'Ex (VF)', title: '[VF] Ex', quality: '1080p',
+    size: null, language: 'fr', type: 'hls', headers: {} }]);
+});
+
+test('a generator with yield in a for…of head (QuickJS cannot compile it) is rewritten and runs', async () => {
+  const streams = await run(`
+    function* g(list) {
+      const out = [];
+      try { for (let x of yield Promise.resolve(list)) out.push(x); } catch (e) {}
+      if (out.length) for (const [k, v] of yield Promise.resolve([['a', 1]])) { out.push(k + v); }
+      lbl: for (const y of yield Promise.resolve([1, 2])) { for (const z of [1, 2]) { if (z === 2) continue lbl; out.push(y * 10 + z); } }
+      return out;
+    }
+    function run(gen) { return new Promise((res, rej) => { const step = (v) => { const r = gen.next(v); r.done ? res(r.value) : Promise.resolve(r.value).then(step, rej); }; step(); }); }
+    module.exports.getStreams = () => run(g(['p', 'q'])).then((out) => [{ url: 'https://a.example/', name: out.join(',') }]);`);
+  assert.equal(streams[0].name, 'p,q,a1,11,21');
+});
+
+test('CryptoJS is lent to a scraper that uses it (global and require), as Nuvio does', async () => {
+  assert.equal(usesCryptoJs('const k = CryptoJS.MD5(x)'), true);
+  assert.equal(usesCryptoJs("const C = require('crypto-js')"), true);
+  assert.equal(usesCryptoJs('const subtle = crypto.subtle'), false);
+  const streams = await run(
+    `module.exports.getStreams = async () => {
+       const C = require('crypto-js');
+       const key = CryptoJS.enc.Hex.parse('000102030405060708090a0b0c0d0e0f');
+       const iv = CryptoJS.enc.Hex.parse('f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff');
+       const enc = C.AES.encrypt('https://cdn.example.com/master.m3u8', key, { mode: C.mode.CTR, iv, padding: C.pad.NoPadding });
+       const dec = CryptoJS.AES.decrypt(enc, key, { mode: CryptoJS.mode.CTR, iv, padding: CryptoJS.pad.NoPadding });
+       return [{ url: dec.toString(CryptoJS.enc.Utf8), name: CryptoJS.SHA256('abc').toString().slice(0, 16) }];
+     };`,
+  );
+  assert.equal(streams[0].url, 'https://cdn.example.com/master.m3u8');
+  assert.equal(streams[0].name, 'ba7816bf8f01cfea');
+});
+
+test('setInterval ticks until cleared', async () => {
+  const streams = await run(
+    `module.exports.getStreams = () => new Promise((resolve) => {
+       let n = 0;
+       const id = setInterval((step) => { n += step; if (n >= 3) { clearInterval(id); setTimeout(() => resolve([{ url: 'https://a.example/', name: String(n) }]), 30); } }, 5, 1);
+     });`,
+  );
+  assert.equal(streams[0].name, '3');
 });
 
 test('a scraper can use setTimeout inside AbortController timeouts', async () => {
@@ -273,20 +368,24 @@ test('a scraper can use setTimeout inside AbortController timeouts', async () =>
   assert.equal(streams[0].name, 'AbortError');
 });
 
-test('stream normalization keeps playable links and drops the rest', () => {
+test('stream normalization keeps playable links and drops the rest (Nuvio rules)', () => {
   const out = normalizeStreams([
-    { url: 'https://a.example/1.m3u8', title: 'Serveur 1', quality: 1080, size: '1.2 GB', headers: { A: 'b', n: 3, bad: {} } },
+    { url: 'https://a.example/1.m3u8', title: 'Serveur 1', quality: 1080, size: '1.2 GB', language: 'fr', type: 'hls',
+      headers: { A: 'b', n: 3, bad: {} } },
     { url: 'javascript:alert(1)' },
     { url: 'file:///etc/passwd' },
     { name: 'sans lien' },
     null,
     'texte',
-    { url: 'http://a.example/2.mp4', name: '  Nom  ' },
+    { url: 'http://a.example/2.mp4', name: '  Nom  ', title: '[object Object]' },
+    { url: { url: 'https://a.example/3.mkv' }, name: 'objet' },
+    { url: 'https://a.example/[object Object]' },
   ]);
-  assert.deepEqual(out.map((s) => s.url), ['https://a.example/1.m3u8', 'http://a.example/2.mp4']);
+  assert.deepEqual(out.map((s) => s.url), ['https://a.example/1.m3u8', 'http://a.example/2.mp4', 'https://a.example/3.mkv']);
   assert.deepEqual(out[0], { url: 'https://a.example/1.m3u8', name: 'Serveur 1', title: 'Serveur 1', quality: '1080', size: '1.2 GB',
-    headers: { A: 'b', n: '3' } });
+    language: 'fr', type: 'hls', headers: { A: 'b', n: '3' } });
   assert.equal(out[1].name, 'Nom');
+  assert.equal(out[1].title, null);
   assert.deepEqual(normalizeStreams('pas une liste'), []);
-  assert.equal(normalizeStreams(Array.from({ length: 80 }, (_, i) => ({ url: `https://a.example/${i}` }))).length, LIMITS.streams);
+  assert.equal(normalizeStreams(Array.from({ length: 150 }, (_, i) => ({ url: `https://a.example/${i}` }))).length, LIMITS.streams);
 });

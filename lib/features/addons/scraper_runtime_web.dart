@@ -34,6 +34,7 @@ class WebScraperRuntime implements ScraperRuntime {
     ScraperLimits limits = ScraperLimits.standard,
   }) async {
     final prelude = await loadSandboxPrelude();
+    final libraries = await librariesFor(code);
     final nonce = _nonce();
     final ready = Completer<void>();
     final iframe = web.document.createElement('iframe') as web.HTMLIFrameElement;
@@ -67,7 +68,7 @@ class WebScraperRuntime implements ScraperRuntime {
         const Duration(seconds: 5),
         onTimeout: () => throw const ScraperException("Le moteur des plug-ins n'a pas pu démarrer."),
       );
-      post({'op': 'run', 'code': code, 'params': params.toJson()});
+      post({'op': 'run', 'code': code, 'params': params.toJson(), 'libs': libraries});
       return await host.result.timeout(
         limits.run,
         onTimeout: () => throw const ScraperException('Le plug-in a mis trop de temps à répondre.'),
@@ -97,7 +98,7 @@ String sandboxPage(String prelude, String nonce) =>
   addEventListener('message', function (e) {
     var d = e.data;
     if (!d || d.nonce !== nonce || e.source !== parent) return;
-    if (d.op === 'run') __vx.run(d.code, d.params);
+    if (d.op === 'run') __vx.run(d.code, d.params, d.libs);
     else if (d.op === 'deliver') __vx.deliver(d.id, d.res);
     else if (d.op === 'timer') __vx.timer(d.id);
   });

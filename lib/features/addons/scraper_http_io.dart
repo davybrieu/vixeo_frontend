@@ -16,7 +16,7 @@ import 'scraper_http.dart';
 import 'scraper_models.dart';
 
 /// A browser's way of introducing itself: many sites turn away anything else. A scraper may send
-/// its own `user-agent`.
+/// its own `user-agent` (Nuvio adds one too when the scraper sends none).
 const _userAgent =
     'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) '
     'Chrome/126.0.0.0 Mobile Safari/537.36';
@@ -44,7 +44,13 @@ class DirectScraperHttp implements ScraperHttp {
 
   @override
   Future<ScraperHttpResponse> send(ScraperHttpRequest request) async {
-    var url = request.url;
+    var url = ScraperGuard.upgrade(request.url);
+    // As in Nuvio, the HTTP stack chooses the compression and undoes it: a scraper that asks for
+    // another one (`br`…) would get bytes it cannot read.
+    final headers = {
+      for (final e in request.headers.entries)
+        if (e.key.toLowerCase() != 'accept-encoding') e.key: e.value,
+    };
     var method = request.method;
     var body = request.body;
     for (var hop = 0; hop <= limits.redirects; hop++) {
@@ -63,8 +69,9 @@ class DirectScraperHttp implements ScraperHttp {
             method: method,
             headers: {
               'user-agent': _userAgent,
-              if (body != null) 'content-type': 'text/plain;charset=UTF-8',
-              ...request.headers,
+              // Nuvio's default for a body (OkHttp's): scrapers written for it may not say.
+              if (body != null) 'content-type': 'application/x-www-form-urlencoded',
+              ...headers,
             },
             responseType: ResponseType.stream,
             followRedirects: false,
@@ -81,7 +88,7 @@ class DirectScraperHttp implements ScraperHttp {
         cancel.cancel();
         final next = Uri.tryParse(url)?.resolve(location);
         if (next == null) throw const ScraperException('redirection invalide');
-        url = next.toString();
+        url = ScraperGuard.upgrade(next.toString());
         if (status != 307 && status != 308) {
           method = 'GET';
           body = null;
@@ -89,20 +96,21 @@ class DirectScraperHttp implements ScraperHttp {
         continue;
       }
 
-      final bytes = await _read(response.data!, cancel);
+      final (:bytes, :cut) = await _read(response.data!, cancel);
       return ScraperHttpResponse(
         status: status,
         statusText: response.statusMessage ?? '',
         headers: {for (final e in response.headers.map.entries) e.key.toLowerCase(): e.value.join(', ')},
-        body: utf8.decode(bytes, allowMalformed: true),
+        body: utf8.decode(bytes, allowMalformed: true) + (cut ? ScraperGuard.truncated : ''),
         url: url,
       );
     }
     throw const ScraperException('trop de redirections');
   }
 
-  /// The body, cut at the limit (the connection is dropped, the rest is not downloaded).
-  Future<Uint8List> _read(ResponseBody body, CancelToken cancel) async {
+  /// The body, cut at the limit (the connection is dropped, the rest is not downloaded); [cut] says
+  /// whether something was left out.
+  Future<({Uint8List bytes, bool cut})> _read(ResponseBody body, CancelToken cancel) async {
     final builder = BytesBuilder(copy: false);
     await for (final chunk in body.stream) {
       builder.add(chunk);
@@ -112,7 +120,8 @@ class DirectScraperHttp implements ScraperHttp {
       }
     }
     final all = builder.takeBytes();
-    return all.length > limits.responseBytes ? Uint8List.sublistView(all, 0, limits.responseBytes) : all;
+    if (all.length <= limits.responseBytes) return (bytes: all, cut: false);
+    return (bytes: Uint8List.sublistView(all, 0, limits.responseBytes), cut: true);
   }
 
   /// A name that leads to a private address is refused like a private address (a scraper could

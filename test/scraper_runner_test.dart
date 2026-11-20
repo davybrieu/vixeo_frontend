@@ -61,12 +61,14 @@ Future<List<ScraperStream>> run(
   ScraperLimits limits = ScraperLimits.standard,
   ScraperLog? onLog,
   String code = 'module.exports = {};',
+  List<String> libraries = const [],
 }) => ScraperRunner.run(
   engine: engine,
   prelude: '/* prelude */',
   code: code,
   params: _params,
   fetch: fetch ?? (request) async => ScraperHttpResponse(status: 200, url: request.url),
+  libraries: libraries,
   limits: limits,
   onLog: onLog,
 );
@@ -91,7 +93,37 @@ void main() {
       expect(start, contains(jsonEncode('module.exports = { getStreams() {} };')));
       expect(start, contains('"tmdbId":"550"'));
       expect(start, contains('"mediaType":"movie"'));
+      // Nuvio's SCRAPER_SETTINGS (always the defaults), and no library lent.
+      expect(start, contains('"settings":{}'));
+      expect(start, endsWith(', [])'));
       expect(engine.disposed, isTrue);
+    });
+
+    test('lends the libraries it is given to the sandbox, before the scraper', () async {
+      final engine = ScriptedEngine(onRun: (e) => e.done(const []));
+
+      await run(engine, libraries: const ['var CryptoJS = {};']);
+
+      expect(engine.evaluated[1], endsWith(', ${jsonEncode(['var CryptoJS = {};'])})'));
+    });
+
+    test('makes a request in http:// in https://, as the guard wants', () async {
+      final asked = <String>[];
+      final engine = ScriptedEngine(
+        onRun: (e) => e.fetch(1, 'http://api.test/x?y=1'),
+        onReply: (e, source) => e.done(const []),
+      );
+
+      await run(
+        engine,
+        fetch: (request) async {
+          asked.add(request.url);
+          return ScraperHttpResponse(status: 200, url: request.url);
+        },
+      );
+
+      expect(asked, ['https://api.test/x?y=1']);
+      expect(engine.delivered.single, contains('"status":200'));
     });
 
     test('does a request for the scraper, and gives the answer back to it', () async {

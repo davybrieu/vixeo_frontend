@@ -3,9 +3,13 @@
 // port of it. Real QuickJS, so what passes here behaves like Android and iOS.
 import { readFile } from 'node:fs/promises';
 import { getQuickJS, newQuickJSWASMModule } from 'quickjs-emscripten';
-import { LIMITS, checkUrl } from './guard.mjs';
+import { LIMITS, checkUrl, upgradeUrl } from './guard.mjs';
 
 const PRELUDE = await readFile(new URL('../../assets/scrapers/sandbox.js', import.meta.url), 'utf8');
+const CRYPTO_JS = await readFile(new URL('../../assets/scrapers/crypto-js.min.js', import.meta.url), 'utf8');
+
+/** Whether a scraper uses CryptoJS, which Nuvio lends to its plug-ins (Dart: `usesCryptoJs`). */
+export const usesCryptoJs = (code) => /\bCryptoJS\b|['"]crypto-js['"]/.test(code);
 
 // QuickJS cannot free a runtime that ran out of memory (its own assertion aborts the WebAssembly
 // module): when that happens the module is thrown away and the next run gets a fresh one.
@@ -16,7 +20,7 @@ let quickjs = getQuickJS();
  *
  * @param {object} o
  * @param {string} o.code        the scraper's JavaScript (a CommonJS bundle exporting getStreams)
- * @param {{tmdbId:string, mediaType:'movie'|'tv', season:number|null, episode:number|null}} o.params
+ * @param {{tmdbId:string, mediaType:'movie'|'tv', season:number|null, episode:number|null, scraperId?:string}} o.params
  * @param {(req:{url:string,method:string,headers:object,body:string|null,redirect:string}) => Promise<object>} o.doFetch
  *        does ONE request (already checked) and resolves { status, statusText, headers, body, url }
  * @param {(entry:{level:string,msg:string}) => void} [o.onLog]
@@ -74,13 +78,14 @@ export async function runScraper({ code, params, doFetch, onLog = () => {}, limi
     const id = Number(m.id);
     const deliver = (res) => post(`__vx.deliver(${id}, ${JSON.stringify(res)})`);
     activity++;
+    const url = upgradeUrl(String(m.url));
     const refused = ++requests > limits.requests
       ? 'trop de requêtes'
-      : (m.body && m.body.length > limits.requestBody ? 'corps trop gros' : checkUrl(String(m.url)));
+      : (m.body && m.body.length > limits.requestBody ? 'corps trop gros' : checkUrl(url));
     if (refused) return deliver({ error: refused });
     let timeout;
     Promise.race([
-      doFetch({ url: String(m.url), method: String(m.method), headers: m.headers || {}, body: m.body ?? null,
+      doFetch({ url, method: String(m.method), headers: m.headers || {}, body: m.body ?? null,
         redirect: m.redirect }),
       new Promise((_, reject) => {
         timeout = later(() => reject(new Error('délai dépassé')), limits.requestMs);
@@ -93,7 +98,8 @@ export async function runScraper({ code, params, doFetch, onLog = () => {}, limi
 
   try {
     evalJs(PRELUDE);
-    evalJs(`__vx.run(${JSON.stringify(code)}, ${JSON.stringify(params)})`);
+    const libs = usesCryptoJs(code) ? [CRYPTO_JS] : [];
+    evalJs(`__vx.run(${JSON.stringify(code)}, ${JSON.stringify({ settings: {}, ...params })}, ${JSON.stringify(libs)})`);
     while (!done) {
       runtime.executePendingJobs();
       for (const m of JSON.parse(evalJs('__vx.take()'))) handle(m);
@@ -126,22 +132,30 @@ export async function runScraper({ code, params, doFetch, onLog = () => {}, limi
   return normalizeStreams(done.streams, limits.streams);
 }
 
-/** What the app keeps of a scraper's answer (the Dart `ScraperStream.tryParse` does the same). */
+/**
+ * What the app keeps of a scraper's answer (the Dart `ScraperStream.tryParse` does the same), with
+ * Nuvio's rules: `url` may also be `{ url }`, a text that contains "[object" is no text.
+ */
 export function normalizeStreams(list, max = LIMITS.streams) {
   const out = [];
+  const text = (v) => (typeof v === 'string' && v.trim() && !v.includes('[object') ? v.trim() : null);
+  const textOrNumber = (v) => text(v) ?? (typeof v === 'number' && Number.isFinite(v) ? String(v) : null);
   for (const s of Array.isArray(list) ? list : []) {
-    if (!s || typeof s !== 'object' || typeof s.url !== 'string' || checkUrlLoose(s.url)) continue;
+    if (!s || typeof s !== 'object') continue;
+    const url = text(s.url) ?? (s.url && typeof s.url === 'object' ? text(s.url.url) : null);
+    if (!url || checkUrlLoose(url)) continue;
     const headers = {};
     if (s.headers && typeof s.headers === 'object') {
       for (const [k, v] of Object.entries(s.headers)) if (typeof v === 'string' || typeof v === 'number') headers[k] = String(v);
     }
-    const text = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
     out.push({
-      url: s.url,
+      url,
       name: text(s.name) ?? text(s.title) ?? text(s.provider),
       title: text(s.title),
-      quality: text(s.quality) ?? (typeof s.quality === 'number' ? String(s.quality) : null),
-      size: text(s.size) ?? (typeof s.size === 'number' ? String(s.size) : null),
+      quality: textOrNumber(s.quality),
+      size: textOrNumber(s.size),
+      language: text(s.language),
+      type: text(s.type),
       headers,
     });
     if (out.length >= max) break;
@@ -153,7 +167,7 @@ export function normalizeStreams(list, max = LIMITS.streams) {
 function checkUrlLoose(raw) {
   try {
     const u = new URL(raw);
-    return u.protocol === 'https:' || u.protocol === 'http:' ? null : 'protocole interdit';
+    return (u.protocol === 'https:' || u.protocol === 'http:') && u.hostname ? null : 'protocole interdit';
   } catch {
     return 'adresse invalide';
   }

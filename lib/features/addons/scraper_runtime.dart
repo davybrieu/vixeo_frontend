@@ -26,3 +26,18 @@ Future<String>? _prelude;
 
 /// The sandbox's prelude (`assets/scrapers/sandbox.js`), read once.
 Future<String> loadSandboxPrelude() => _prelude ??= rootBundle.loadString('assets/scrapers/sandbox.js');
+
+Future<String>? _cryptoJs;
+
+/// crypto-js 4.2.0 (`assets/scrapers/crypto-js.min.js`, MIT), which Nuvio lends to its plug-ins as
+/// the global `CryptoJS` and as `require('crypto-js')`. Read once.
+Future<String> loadCryptoJs() => _cryptoJs ??= rootBundle.loadString('assets/scrapers/crypto-js.min.js');
+
+final _cryptoJsUse = RegExp(r'''\bCryptoJS\b|['"]crypto-js['"]''');
+
+/// Whether [code] uses CryptoJS (the same rule as `usesCryptoJs` in `tools/scraper-runner`).
+bool usesCryptoJs(String code) => _cryptoJsUse.hasMatch(code);
+
+/// The libraries the sandbox runs before [code]: CryptoJS for a scraper that names it, nothing
+/// otherwise (62 KB a scraper does not need is not parsed for nothing).
+Future<List<String>> librariesFor(String code) async => usesCryptoJs(code) ? [await loadCryptoJs()] : const [];

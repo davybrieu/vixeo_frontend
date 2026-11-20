@@ -1,18 +1,33 @@
 // Which requests a scraper may make. The SAME rules apply on the device (lib/features/addons/
 // scraper_guard.dart), in the server's /scrapers/fetch proxy and in this runner (docs/scrapers.md §5).
 
+// The values follow the Nuvio app, which the scrapers of Nuvio repositories are written for: a
+// scraper may take up to a minute and set timers that long, one request may wait 30 s (NuvioTV's
+// HTTP timeout). The request count is a safety net Nuvio does not have, set well above what a real
+// scraper asks.
 export const LIMITS = {
-  requests: 40, // fetch calls per run
-  responseBytes: 5 * 1024 * 1024, // per response; the rest is cut
+  requests: 200, // fetch calls per run
+  responseBytes: 5 * 1024 * 1024, // per response; the rest is cut (and TRUNCATED is added)
   requestBody: 256 * 1024,
-  runMs: 30_000, // the whole run
-  requestMs: 15_000, // one request
-  timerMs: 5_000, // one setTimeout
+  runMs: 60_000, // the whole run
+  requestMs: 30_000, // one request
+  timerMs: 60_000, // one setTimeout
   redirects: 5,
-  streams: 50,
-  memory: 64 * 1024 * 1024,
+  streams: 100,
+  memory: 256 * 1024 * 1024,
   stack: 1024 * 1024,
 };
+
+/** Added to a body cut at `responseBytes`, as Nuvio does: scrapers look for it. */
+export const TRUNCATED = '\n...[truncated]';
+
+/**
+ * A request in `http://` is made in `https://` (Nuvio allows http; Vixeo never sends a scraper's
+ * request in clear, and most sites answer both).
+ */
+export function upgradeUrl(raw) {
+  return /^http:\/\//i.test(raw) ? `https://${raw.slice(7)}` : raw;
+}
 
 const BLOCKED_SUFFIXES = ['.local', '.localhost', '.internal', '.lan', '.home', '.corp', '.intranet'];
 
