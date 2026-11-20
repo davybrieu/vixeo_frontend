@@ -5,8 +5,7 @@
 /// and may loop forever. In the app's own isolate that would freeze the screen and nothing could
 /// stop it; in another one, the host just kills it when the time is up ([IsolateJsEngine.dispose]).
 ///
-/// `flutter_js` is imported **only here**, behind the conditional import of `scraper_platform.dart`:
-/// a web build never sees it.
+/// `flutter_js` is imported **only here** (through `scraper_platform.dart`).
 ///
 /// The engines are made directly (`QuickJsRuntime2`, `JavascriptCoreRuntime`), not with
 /// `getJavascriptRuntime`: that one also installs the package's own `fetch` / `XMLHttpRequest`,

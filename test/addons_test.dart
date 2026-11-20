@@ -244,56 +244,6 @@ void main() {
       );
     });
 
-    test('on the server: asks the API, and never runs or downloads anything itself', () async {
-      final repo = testRepo().copyWith(mode: ScraperMode.server);
-      final server = repo.scrapers[0];
-      final adapter = RoutingAdapter([
-        (
-          '/scrapers/run',
-          {
-            'data': [
-              {'url': 'https://cdn.test/s.mp4', 'name': 'Serveur', 'quality': '720p'},
-              {'url': 'pas un lien'},
-            ],
-          },
-          200,
-        ),
-      ]);
-      final http = FakeScraperHttp(_files);
-      final runtime = FakeScraperRuntime();
-      final container = keptContainer(repos: [repo], http: http, runtime: runtime, api: apiWith(adapter));
-
-      final streams = await container.read(scraperServiceProvider).streams(repo, server, movie);
-
-      expect(streams.single.label('x'), 'Serveur · 720p');
-      final request = adapter.requests.single;
-      expect(request.method, 'POST');
-      expect(request.data, {
-        'repository_url': repoUrl,
-        'scraper_id': 'films',
-        'tmdb_id': 550,
-        'media_type': 'movie',
-        'season': null,
-        'episode': null,
-      });
-      expect(http.requests, isEmpty);
-      expect(runtime.calls, isEmpty);
-    });
-
-    test('on the server: an API error becomes a sentence for the person', () async {
-      final repo = testRepo().copyWith(mode: ScraperMode.server);
-      final server = repo.scrapers[0];
-      final adapter = RoutingAdapter([
-        ('/scrapers/run', {'message': 'Le serveur ne peut pas lancer ce plug-in.'}, 503),
-      ]);
-      final container = keptContainer(repos: [repo], api: apiWith(adapter));
-
-      await expectLater(
-        container.read(scraperServiceProvider).streams(repo, server, movie),
-        throwsA(isA<ScraperException>().having((e) => e.message, 'message', 'Le serveur ne peut pas lancer ce plug-in.')),
-      );
-    });
-
     test('runs at most six scrapers at once', () async {
       final repo = testRepo();
       final runtime = _SlowRuntime();
@@ -546,7 +496,7 @@ void main() {
       await closePlayer(tester);
     });
 
-    testWidgets('plays a scraper’s stream as it is, with its headers, without asking the API to resolve it', (
+    testWidgets('plays a scraper’s stream as it is, with its headers', (
       tester,
     ) async {
       final engine = FakeEngine();
@@ -588,7 +538,6 @@ void main() {
       await tester.tap(find.text('Serveur 1 · 1080p'));
       await settle(tester);
 
-      expect(playback.resolved, isEmpty);
       expect(runtime.calls.single.params.tmdbId, '550');
       expect(engine.opened?.url, 'https://cdn.test/fc.m3u8');
       expect(engine.opened?.isHls, isTrue);
@@ -640,17 +589,9 @@ class _SlowRuntime extends FakeScraperRuntime {
   }
 }
 
-/// Records the links it is asked to resolve: a scraper's stream must not be one.
+/// The player's data without the network (no subtitles).
 class _NoResolve extends PlaybackRepository {
   _NoResolve() : super(ApiClient(token: () => null, profileId: () => null));
-
-  final resolved = <String>[];
-
-  @override
-  Future<ResolvedStream> resolve(String url) async {
-    resolved.add(url);
-    throw const ApiException('Cette source n’est pas lisible.', status: 502);
-  }
 
   @override
   Future<List<SubtitleOption>> subtitles(PlaybackItem item, {List<String>? languages}) async => const [];

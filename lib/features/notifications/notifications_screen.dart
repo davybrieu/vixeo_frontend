@@ -13,7 +13,7 @@ import 'system_notifications.dart';
 
 /// « Notifications » (Paramètres): the new-episode alerts of the profile's « Ma liste » shows on
 /// this device, and a test notification. The server sends them (push, docs:
-/// vixeo_backend/docs/notifications.md); a browser can't receive them.
+/// vixeo_backend/docs/notifications.md); Windows can't receive them (no Firebase Messaging there).
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 

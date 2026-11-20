@@ -1,37 +1,25 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:video_player/video_player.dart';
 
 import 'player_engine.dart';
 import 'player_errors.dart';
-import 'web/browser_support.dart';
 
-/// The official `video_player` plugin. On the web its implementation (`video_player_web`) is the
-/// browser's own HTML5 `<video>`: MP4 everywhere, HLS where the browser plays it itself (Safari).
-/// It is also the engine of the platforms without a native one (desktop) and of the tests.
+/// The official `video_player` plugin: the engine of the tests (which run on the computer) and of
+/// the platforms without an engine of their own (macOS, Linux).
 ///
-/// It never runs on Android / iOS (see `engine_factory_io.dart`).
+/// It never runs on Android / iOS (native engine) nor on Windows (media_kit), see
+/// `engine_factory_io.dart`.
 class VideoPlayerEngine extends PlayerEngine {
   VideoPlayerController? _controller;
-  PlayerSource? _source;
-  double _volume = 1;
-
-  /// Web: the browser refused a start, and the stream was opened again, paused. Once only.
-  bool _recovered = false;
 
   @override
-  String get name => kIsWeb ? 'html5' : 'video_player';
+  String get name => 'video_player';
 
   @override
   Future<void> open(PlayerSource source) async {
-    if (kIsWeb && source.drm != null) {
-      // No EME adapter yet (docs/lecteur.md): say so instead of showing a black picture.
-      throw const PlayerError(PlayerErrorKind.drm, 'DRM is not implemented on the web');
-    }
-    _source = source;
     final controller = _create(source);
     try {
       await controller.initialize();
@@ -60,10 +48,6 @@ class VideoPlayerEngine extends PlayerEngine {
     if (v.hasError) {
       if (value.hasError) return;
       final detail = v.errorDescription ?? '';
-      if (kIsWeb && !_recovered && looksLikeAutoplayRefusal(detail)) {
-        unawaited(_recoverFromAutoplayRefusal());
-        return;
-      }
       value = value.copyWith(error: PlayerError(classifyPlayerError(detail), detail), playing: false, buffering: false);
       return;
     }
@@ -77,42 +61,10 @@ class VideoPlayerEngine extends PlayerEngine {
     );
   }
 
-  /// Web: a start the browser refuses (autoplay policy) leaves `video_player` in an error state
-  /// it never leaves, although nothing is wrong with the stream. The stream is opened again and
-  /// stays paused: the play sign shows, and a tap (a gesture the browser sees) starts it.
-  Future<void> _recoverFromAutoplayRefusal() async {
-    final source = _source;
-    final refused = _controller;
-    if (source == null || refused == null) return;
-    _recovered = true;
-    refused.removeListener(_sync);
-    value = value.copyWith(initialized: false, playing: false, buffering: false);
-    // Not during its own notification (ChangeNotifier forbids it): right after.
-    unawaited(Future.microtask(refused.dispose));
-
-    final controller = _create(source);
-    try {
-      await controller.initialize();
-      if (isDisposed || controller != _controller) return;
-      await controller.setVolume(_volume);
-    } catch (e) {
-      final detail = _describe(e);
-      value = value.copyWith(error: PlayerError(classifyPlayerError(detail), detail));
-      return;
-    }
-    _sync();
-  }
-
   @override
   Future<void> play() async {
     final controller = _controller;
     if (controller == null || isDisposed) return;
-    if (kIsWeb && _volume > 0 && !viewerHasInteracted()) {
-      // Nobody touched the page yet (a link opened straight on the player): the browser only
-      // lets a muted video start. The sound button then says « Activer le son ».
-      await controller.setVolume(0);
-      value = value.copyWith(autoplayMuted: true);
-    }
     await controller.play();
   }
 
@@ -124,7 +76,6 @@ class VideoPlayerEngine extends PlayerEngine {
 
   @override
   Future<void> setVolume(double volume) async {
-    _volume = volume;
     if (volume > 0 && value.autoplayMuted) value = value.copyWith(autoplayMuted: false);
     await _controller?.setVolume(volume);
   }

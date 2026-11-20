@@ -1,8 +1,8 @@
 /// The data of the plug-in system: repositories of JavaScript scrapers (`docs/scrapers.md`).
 ///
 /// A **repository** is a `manifest.json` somebody hosts; it lists **scrapers**, JavaScript files
-/// that turn a TMDb id into stream links. Execution mode (device or server) is declared in the
-/// manifest, not configurable per scraper. Nothing here runs code or touches the network.
+/// that turn a TMDb id into stream links. They always run on the device (Android, iOS, Windows).
+/// Nothing here runs code or touches the network.
 ///
 /// The formats are Nuvio's (its app reads them the same way): a repository made for Nuvio, such as
 /// gowaru-nuvio-providers, installs and gives its streams as it is.
@@ -26,26 +26,9 @@ class ScraperException implements Exception {
   String toString() => message;
 }
 
-/// Where a repository's scrapers run (declared in the manifest).
-enum ScraperMode {
-  /// On this device: QuickJS on Android / iOS, a sandboxed iframe in the browser.
-  device('device', 'Appareil'),
-
-  /// On the Vixeo server (`POST /scrapers/run`).
-  server('server', 'Serveur');
-
-  const ScraperMode(this.storageName, this.label);
-
-  final String storageName;
-  final String label;
-
-  static ScraperMode parse(Object? value) => value == 'server' ? server : device;
-}
-
 /// The platform names a Nuvio manifest uses in `supportedPlatforms` / `disabledPlatforms`
-/// ("android", "ios"; "web" for the browser, which Nuvio does not have).
+/// ("android", "ios"; "windows" for the Windows app, which Nuvio does not have).
 String get currentScraperPlatform {
-  if (kIsWeb) return 'web';
   return switch (defaultTargetPlatform) {
     TargetPlatform.android => 'android',
     TargetPlatform.iOS => 'ios',
@@ -131,7 +114,6 @@ class RepositoryManifest {
     this.description,
     this.version,
     required this.scrapers,
-    this.execution = ScraperMode.device,
   });
 
   /// Reads a manifest (the list may be called `scrapers` or `providers`, or be the whole file).
@@ -157,7 +139,6 @@ class RepositoryManifest {
       description: _text(meta['description']),
       version: _text(meta['version']),
       scrapers: scrapers,
-      execution: ScraperMode.parse(meta['execution']),
     );
   }
 
@@ -165,7 +146,6 @@ class RepositoryManifest {
   final String? description;
   final String? version;
   final List<ScraperEntry> scrapers;
-  final ScraperMode execution;
 
   /// Whether the author lets this entry run on [platform] (Nuvio's `enabled`,
   /// `supportedPlatforms`, `disabledPlatforms`).
@@ -178,7 +158,7 @@ class RepositoryManifest {
   }
 }
 
-/// An installed scraper: what the manifest says. No individual enable/mode (controlled at repo level).
+/// An installed scraper: what the manifest says. No individual switch (controlled at repo level).
 @immutable
 class ScraperInfo {
   const ScraperInfo({
@@ -249,7 +229,6 @@ class ScraperRepo {
     this.description,
     this.version,
     required this.scrapers,
-    this.mode = ScraperMode.device,
     this.enabled = true,
   });
 
@@ -263,7 +242,6 @@ class ScraperRepo {
       description: manifest.description,
       version: manifest.version,
       scrapers: [for (final entry in manifest.scrapers) ScraperInfo.fromEntry(id, entry)],
-      mode: manifest.execution,
     );
   }
 
@@ -282,7 +260,6 @@ class ScraperRepo {
         for (final item in json['scrapers'] is List ? json['scrapers'] as List : const [])
           ?ScraperInfo.tryFromJson(id, item),
       ],
-      mode: ScraperMode.parse(json['mode']),
       // Older data has no flag: the repository was in use.
       enabled: json['enabled'] != false,
     );
@@ -356,7 +333,6 @@ class ScraperRepo {
   final String? description;
   final String? version;
   final List<ScraperInfo> scrapers;
-  final ScraperMode mode;
 
   /// Off: still installed, but its scrapers give no sources (« Plug-ins »).
   final bool enabled;
@@ -380,7 +356,6 @@ class ScraperRepo {
     String? name,
     String? description,
     String? version,
-    ScraperMode? mode,
     bool? enabled,
   }) => ScraperRepo(
     id: id,
@@ -389,12 +364,11 @@ class ScraperRepo {
     description: description ?? this.description,
     version: version ?? this.version,
     scrapers: scrapers ?? this.scrapers,
-    mode: mode ?? this.mode,
     enabled: enabled ?? this.enabled,
   );
 
   /// This repository after its manifest was read again: its scrapers are the manifest's, in the
-  /// manifest's order (the add-on decides, the person does not see them), and so is the mode. Only
+  /// manifest's order (the add-on decides, the person does not see them). Only
   /// what the person chose stays: on or off.
   ScraperRepo updatedWith(RepositoryManifest manifest) => ScraperRepo(
     id: id,
@@ -403,7 +377,6 @@ class ScraperRepo {
     description: manifest.description,
     version: manifest.version,
     scrapers: [for (final entry in manifest.scrapers) ScraperInfo.fromEntry(id, entry)],
-    mode: manifest.execution,
     enabled: enabled,
   );
 
@@ -412,7 +385,6 @@ class ScraperRepo {
     'name': name,
     if (description != null) 'description': description,
     if (version != null) 'version': version,
-    'mode': mode.storageName,
     'enabled': enabled,
     'scrapers': [for (final s in scrapers) s.toJson()],
   };

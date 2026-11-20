@@ -24,7 +24,7 @@ class DeviceInfo {
   static bool isTv = false;
 
   static Future<void> init() async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    if (defaultTargetPlatform != TargetPlatform.android) {
       return;
     }
     try {
@@ -38,7 +38,6 @@ class DeviceInfo {
 
   /// Label sent as `device_name` when logging in (shown in the account's sessions).
   static String get deviceName {
-    if (kIsWeb) return 'Vixeo Web';
     if (isTv) return 'Vixeo TV';
     return switch (defaultTargetPlatform) {
       TargetPlatform.android => 'Vixeo Android',

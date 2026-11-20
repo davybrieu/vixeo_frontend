@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,8 +38,7 @@ class RememberProfile extends AsyncNotifier<bool> {
 /// network images). Replaced in tests.
 final imageDiskCacheProvider = Provider<Future<void> Function()>(
   (ref) => () async {
-    // In a browser the images are in the browser's own cache.
-    if (!kIsWeb) await DefaultCacheManager().emptyCache();
+    await DefaultCacheManager().emptyCache();
   },
 );
 

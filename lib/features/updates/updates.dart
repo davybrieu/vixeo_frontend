@@ -5,21 +5,20 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/api/api_client.dart';
 import '../auth/session.dart';
 
-/// Platforms whose app checks for updates (vixeo_backend/docs/mise-a-jour.md). The web always
-/// loads the latest version, so it doesn't check.
-enum UpdatePlatform { android, ios }
+/// Platforms whose app checks for updates (vixeo_backend/docs/mise-a-jour.md).
+enum UpdatePlatform { android, ios, windows }
 
-/// Platform of this app for update checks, or null when it doesn't check (web, desktop).
+/// Platform of this app for update checks, or null when it doesn't check (macOS, Linux).
 ///
-/// Debug and profile builds can force one, to try the screens in a browser:
+/// Debug and profile builds can force one, to try the screens on another platform:
 /// `--dart-define=UPDATE_PLATFORM=android`.
 UpdatePlatform? currentUpdatePlatform() {
   const forced = String.fromEnvironment('UPDATE_PLATFORM');
   if (!kReleaseMode && forced.isNotEmpty) return UpdatePlatform.values.asNameMap()[forced];
-  if (kIsWeb) return null;
   return switch (defaultTargetPlatform) {
     TargetPlatform.android => UpdatePlatform.android,
     TargetPlatform.iOS => UpdatePlatform.ios,
+    TargetPlatform.windows => UpdatePlatform.windows,
     _ => null,
   };
 }
@@ -66,7 +65,8 @@ class AppRelease {
   /// What's new, in French.
   final String? notes;
 
-  /// Android (no Play Store): the APK the app downloads and installs, and its SHA-256.
+  /// Android and Windows (no store): the APK or the installer the app downloads and runs, and its
+  /// SHA-256.
   final String? downloadUrl;
   final String? sha256;
 }

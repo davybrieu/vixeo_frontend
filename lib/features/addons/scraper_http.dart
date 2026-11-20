@@ -1,9 +1,8 @@
 /// The requests a scraper makes, done by the app (never by the scraper itself).
 ///
 /// A scraper has no network of its own: its `fetch` becomes a [ScraperHttpRequest] that the host
-/// checks ([ScraperGuard]) and hands to a [ScraperHttp]. On Android and iOS that is
-/// `DirectScraperHttp` (the device itself asks, `scraper_http_io.dart`); in a browser it is
-/// [ProxyScraperHttp] (the Vixeo server asks, because a page cannot read most other sites: CORS).
+/// checks ([ScraperGuard]) and hands to a [ScraperHttp]: `DirectScraperHttp` (the device itself
+/// asks, `scraper_http_io.dart`), on Android, iOS and Windows alike.
 library;
 
 import 'package:flutter/foundation.dart';
@@ -81,41 +80,4 @@ class ScraperHttpResponse {
 /// Does ONE request, after the guard let it through. Throws a [ScraperException] when it cannot.
 abstract class ScraperHttp {
   Future<ScraperHttpResponse> send(ScraperHttpRequest request);
-}
-
-/// Asks the Vixeo server to do the request (`POST /scrapers/fetch`, `docs/scrapers.md` §6).
-class ProxyScraperHttp implements ScraperHttp {
-  ProxyScraperHttp(this._api);
-
-  final ApiClient _api;
-
-  @override
-  Future<ScraperHttpResponse> send(ScraperHttpRequest request) async {
-    try {
-      final json = await _api.post(
-        '/scrapers/fetch',
-        body: {
-          'url': request.url,
-          'method': request.method,
-          'headers': request.headers,
-          'body': request.body,
-          'redirect': request.followRedirects ? 'follow' : 'manual',
-        },
-        receiveTimeout: const Duration(seconds: 20),
-      );
-      final data = json['data'] is Map ? json['data'] as Map : json;
-      return ScraperHttpResponse(
-        status: (data['status'] as num?)?.toInt() ?? 502,
-        statusText: data['status_text'] as String? ?? '',
-        headers: {
-          for (final e in data['headers'] is Map ? (data['headers'] as Map).entries : const <MapEntry>[])
-            '${e.key}'.toLowerCase(): '${e.value}',
-        },
-        body: data['body'] as String? ?? '',
-        url: data['url'] as String? ?? request.url,
-      );
-    } on ApiException catch (e) {
-      throw ScraperException(e.message);
-    }
-  }
 }

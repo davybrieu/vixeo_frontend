@@ -18,8 +18,8 @@ import 'player_errors.dart';
 /// `better_native_video_player`. The plugin draws the picture in a native view; its own controls
 /// are off, the Flutter ones of `PlayerScreen` are drawn over it.
 ///
-/// This file is only ever imported by `engine_factory_io.dart`: the web build never sees the
-/// plugin (it has no web implementation), and no native API is called in a browser.
+/// This file is only ever imported by `engine_factory_io.dart`, which uses it on Android and iOS
+/// only (the plugin has no Windows implementation).
 class NativePlayerEngine extends PlayerEngine {
   NativePlayerEngine()
     : _controller = NativeVideoPlayerController(

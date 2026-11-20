@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -21,8 +22,9 @@ Future<bool> openUpdatePage(BuildContext context, UpdateInfo info) async {
   return opened;
 }
 
-/// "Télécharger" / "Mettre à jour": on Android, downloads and installs the APK in the app
-/// ([updateDownloadProvider]); otherwise (iOS, release without APK) opens the install page.
+/// "Télécharger" / "Mettre à jour": on Android and Windows, downloads and installs the new version
+/// in the app ([updateDownloadProvider]); otherwise (iOS, release without a file) opens the install
+/// page.
 Future<void> startUpdate(BuildContext context, WidgetRef ref, UpdateInfo info) async {
   final release = info.latest;
   if (ref.read(apkInstallerProvider).canInstall(release)) {
@@ -34,6 +36,8 @@ Future<void> startUpdate(BuildContext context, WidgetRef ref, UpdateInfo info) a
 
 /// What the last download attempt means for the person (null before it).
 String? updateDownloadMessage(UpdateDownload download) => switch (download.result) {
+  ApkInstallResult.started when defaultTargetPlatform == TargetPlatform.windows =>
+    'Installation de la nouvelle version : Vixeo se ferme, puis redémarre.',
   ApkInstallResult.started => 'Confirmez l’installation dans la fenêtre d’Android : Vixeo redémarre ensuite.',
   ApkInstallResult.permissionNeeded =>
     'Autorisez Vixeo à installer des applis (« Installer des applis inconnues »), revenez ici, puis réessayez.',

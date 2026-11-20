@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/api/api_exception.dart';
 import 'package:vixeo/core/api/session_storage.dart';
@@ -142,7 +141,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('K7F-29Q'), findsOneWidget);
-    expect(find.byType(QrImageView), findsOneWidget);
+    // No QR code (no web app to open): the code is typed in the phone's app.
+    expect(find.textContaining('« Connecter une TV »'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 5));
     await tester.pump(const Duration(seconds: 5));

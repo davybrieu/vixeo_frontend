@@ -256,7 +256,6 @@ void main() {
       expect(back.single.url, repoUrl);
       expect(back.single.id, repo.id);
       expect(back.single.scrapers.map((s) => s.id), ['films', 'series', 'tout']);
-      expect(back.single.mode, ScraperMode.device);
       expect(back.single.scrapers[0].types, {'movie'});
       for (final bad in [null, '', 'pas du json', '{"a":1}', '[1,"x",{"url":null}]']) {
         expect(ScraperRepo.decodeList(bad), isEmpty, reason: '$bad');
@@ -267,7 +266,6 @@ void main() {
       final repo = testRepo().copyWith(enabled: false);
       final manifest = RepositoryManifest.parse({
         'name': 'Nouveau nom',
-        'execution': 'server',
         'scrapers': [
           {'id': 'tout', 'name': 'Tout', 'filename': 'https://cdn.test/tout.js'},
           {'id': 'films', 'name': 'Films libres 2', 'filename': 'providers/films.js', 'version': '2.0.0'},
@@ -280,7 +278,6 @@ void main() {
 
       expect(updated.id, repo.id);
       expect(updated.name, 'Nouveau nom');
-      expect(updated.mode, ScraperMode.server);
       expect(updated.enabled, isFalse);
       expect(updated.scrapers.map((s) => s.id), ['tout', 'films', 'neuf']);
       expect(updated.scrapers[1].name, 'Films libres 2');

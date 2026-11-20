@@ -14,7 +14,7 @@ import 'system_notifications.dart';
 /// registers the app with the server (at launch, back in the foreground, when the session, the
 /// profile, the « Nouveaux épisodes » setting or the push token changes), shows a push received
 /// while the app is open, and opens the page of a tapped notification (also one that launched
-/// the app). Nothing in a browser.
+/// the app). Nothing on Windows.
 class NotificationsGate extends ConsumerStatefulWidget {
   const NotificationsGate({super.key, required this.child});
 

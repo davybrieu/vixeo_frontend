@@ -227,7 +227,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('in a browser: one sentence', (tester) async {
+    testWidgets('on Windows: one sentence', (tester) async {
       await pump(tester, FakeNotifications(supported: false), push: FakePush(supported: false));
 
       expect(find.text('Les notifications sont disponibles dans l’appli Android.'), findsOneWidget);

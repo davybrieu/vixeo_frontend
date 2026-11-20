@@ -2,11 +2,9 @@
 ///
 /// This file is the app's logic for them, in four parts:
 /// - [ScraperRepos]: the installed repositories, kept **on the device**
-///   (`LocalStore`), per account, in the person's order, each on or off. Execution mode comes
-///   from the manifest.
+///   (`LocalStore`), per account, in the person's order, each on or off.
 /// - [ScraperLoader]: downloads manifests and scrapers' code (never run here).
-/// - [ScraperService]: asks one scraper for the streams of a title, on the device or on the server
-///   according to the repository's declared mode.
+/// - [ScraperService]: asks one scraper for the streams of a title, on the device.
 /// - the providers that wire them to the player's sources panel (`player_screen.dart`).
 ///
 /// The catalog is not concerned: plug-ins only give **sources** (demande du développeur).
@@ -29,7 +27,7 @@ import 'scraper_platform.dart';
 import 'scraper_runtime.dart';
 
 /// How requests leave the app (tests replace it).
-final scraperHttpProvider = Provider<ScraperHttp>((ref) => createScraperHttp(ref.read(apiClientProvider)));
+final scraperHttpProvider = Provider<ScraperHttp>((ref) => createScraperHttp());
 
 /// Where scrapers' JavaScript runs on this platform (tests replace it).
 final scraperRuntimeProvider = Provider<ScraperRuntime>((ref) => createLocalScraperRuntime());
@@ -231,11 +229,6 @@ class ScraperService {
       '${scraper.name} (${scraper.id}) : ${params.mediaType} ${params.tmdbId}'
       '${isMovie ? '' : ' saison ${params.season} épisode ${params.episode}'}',
     );
-    if (repo.mode == ScraperMode.server) {
-      note('exécuté par le serveur');
-      return _onServer(repo, scraper, params, item.id);
-    }
-
     await _acquire();
     try {
       note('démarrage');
@@ -278,29 +271,6 @@ class ScraperService {
     ApiException(:final message) => message,
     _ => '$error',
   };
-
-  Future<List<ScraperStream>> _onServer(ScraperRepo repo, ScraperInfo scraper, ScraperParams params, int id) async {
-    try {
-      final json = await _ref
-          .read(apiClientProvider)
-          .post(
-            '/scrapers/run',
-            body: {
-              'repository_url': repo.url,
-              'scraper_id': scraper.id,
-              'tmdb_id': id,
-              'media_type': params.mediaType,
-              'season': params.season,
-              'episode': params.episode,
-            },
-            // The server may wait for the scraper up to a minute.
-            receiveTimeout: const Duration(seconds: 65),
-          );
-      return ScraperStream.parseList(json['data']);
-    } on ApiException catch (e) {
-      throw ScraperException(e.message);
-    }
-  }
 
   Future<void> _acquire() async {
     if (_running < maxParallel) {

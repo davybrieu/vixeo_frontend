@@ -21,7 +21,7 @@ class PushRegistration {
   static const refresh = Duration(hours: 6);
 
   /// One registration at a time. True when the server has this app's registration; false when
-  /// it can't (browser, no Firebase in this build, signed out, no profile chosen, server down).
+  /// it can't (Windows, no Firebase in this build, signed out, no profile chosen, server down).
   Future<bool> sync({bool force = false}) {
     final next = (_running ?? Future.value(false)).then((_) => _run(force), onError: (_) => _run(force));
     _running = next;
@@ -86,7 +86,7 @@ final pushRegistrationProvider = Provider<PushRegistration>(PushRegistration.new
 enum PushAvailability {
   ready,
 
-  /// A browser: no push.
+  /// Windows: no push.
   unsupported,
 
   /// This build has no Firebase project, or Google Play services are missing.

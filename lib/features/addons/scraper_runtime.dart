@@ -1,7 +1,5 @@
-/// Runs a scraper's JavaScript. What differs from one platform to another is only the engine:
-/// QuickJS in an isolate on Android / iOS ([scraper_runtime_io.dart]), a sandboxed iframe in the
-/// browser ([scraper_runtime_web.dart]). The conversation with the sandbox is common
-/// ([ScraperHost]).
+/// Runs a scraper's JavaScript in an isolate (`scraper_runtime_io.dart`): QuickJS on Android and
+/// Windows, JavaScriptCore on iOS. The conversation with the sandbox is common ([ScraperHost]).
 library;
 
 import 'package:flutter/services.dart' show rootBundle;

@@ -12,7 +12,7 @@ abstract class SessionStorage {
   Future<void> writeRememberProfile(bool value);
 }
 
-/// Keychain (iOS) / Keystore (Android) / encrypted storage (web).
+/// Keychain (iOS) / Keystore (Android) / Credential Manager (Windows).
 class SecureSessionStorage implements SessionStorage {
   SecureSessionStorage([FlutterSecureStorage? storage]) : _storage = storage ?? const FlutterSecureStorage();
 

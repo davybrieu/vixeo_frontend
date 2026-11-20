@@ -21,9 +21,9 @@ class PushNotification {
 
 /// Push notifications sent by the Vixeo server through Firebase Cloud Messaging
 /// (vixeo_backend/docs/notifications.md): the app only gives its token to the API
-/// (`PushRegistration`). Android (iOS ready); not in a browser. A fake in tests.
+/// (`PushRegistration`). Android (iOS ready); not on Windows (no Firebase Messaging there). A fake in tests.
 abstract class PushMessaging {
-  /// False in a browser.
+  /// False on Windows.
   bool get supported;
 
   /// This app's FCM token; null when the build has no Firebase project (docs/android-release.md)
@@ -51,8 +51,7 @@ class FirebasePushMessaging implements PushMessaging {
   bool _launchRead = false;
 
   @override
-  bool get supported =>
-      !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
+  bool get supported => defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS;
 
   Future<FirebaseMessaging?> _messaging() => _ready ??= () async {
     if (!supported) return null;

@@ -10,9 +10,9 @@ import 'features/notifications/notifications_gate.dart';
 import 'features/updates/update_gate.dart';
 import 'router.dart';
 
-/// Same keys everywhere (TV remote, keyboard, web): arrows move the focus,
-/// OK / Enter / Space activate. On the web Flutter would otherwise scroll with
-/// the arrows and only activate Material buttons with Enter.
+/// Same keys everywhere (TV remote, keyboard): arrows move the focus, OK / Enter / Space
+/// activate. Flutter would otherwise scroll with the arrows on a computer and only activate
+/// Material buttons with Enter.
 final Map<ShortcutActivator, Intent> remoteShortcuts = {
   ...WidgetsApp.defaultShortcuts,
   const SingleActivator(LogicalKeyboardKey.enter): const ActivateIntent(),
@@ -49,7 +49,7 @@ class VixeoApp extends ConsumerWidget {
       locale: const Locale('fr', 'FR'),
       supportedLocales: const [Locale('fr', 'FR')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      // Rows can also be dragged with a mouse (web, Chromebook).
+      // Rows can also be dragged with a mouse (Windows, Chromebook).
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         dragDevices: {
           PointerDeviceKind.touch,

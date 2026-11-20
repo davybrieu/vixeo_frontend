@@ -5,9 +5,8 @@
 /// (`engine_factory.dart`):
 ///
 /// - Android / iOS: `NativePlayerEngine` (better_native_video_player: ExoPlayer / AVPlayer);
-/// - web: `VideoPlayerEngine` (video_player + video_player_web: the browser's HTML5 `<video>`)
-///   when the browser plays the stream itself, `HlsJsEngine` (hls.js) for HLS elsewhere;
-/// - anything else (desktop, tests): `VideoPlayerEngine`.
+/// - Windows: `MediaKitPlayerEngine` (media_kit: libmpv, any format, with the headers);
+/// - anything else (the tests, macOS, Linux): `VideoPlayerEngine`.
 ///
 /// For a Vue developer: an engine is a small store (a `ValueNotifier`, like a `ref()`), whose
 /// [PlayerEngineValue] the screen watches, plus a few commands (play, pause, seek, volume).
@@ -23,10 +22,10 @@ enum PlayerErrorKind {
   /// The server cannot be reached, or stopped answering.
   network,
 
-  /// The server answers, but does not allow this website to read the stream (CORS, web only).
+  /// Kept for the error messages of older engines: shown as a connection problem.
   cors,
 
-  /// The container or the codec is not one this browser / device plays (H.265 in Chrome…).
+  /// The container or the codec is not one this device plays.
   unsupported,
 
   /// The stream started, then could not be decoded.
@@ -80,8 +79,7 @@ class PlayerSource {
 
   final String url;
 
-  /// HTTP headers the player should send (Referer, a token…). A browser only sends them through
-  /// hls.js, and never the ones it reserves (Referer, Origin, User-Agent…).
+  /// HTTP headers the player should send (Referer, a token…).
   final Map<String, String> headers;
 
   /// Null: guessed from the URL ([isHls]).
@@ -128,8 +126,8 @@ class PlayerEngineValue {
   /// Zero for a live stream.
   final Duration duration;
 
-  /// The browser refused to start with sound, so playback started muted: the sound button shows
-  /// « Activer le son », and pressing it (a real gesture) is allowed to turn the sound on.
+  /// Playback started muted (an engine that may not start with sound): the sound button shows
+  /// « Activer le son ».
   final bool autoplayMuted;
   final PlayerError? error;
 
@@ -185,7 +183,7 @@ abstract class PlayerEngine extends ValueNotifier<PlayerEngineValue> {
   /// Disposed engines ignore what their plugin still tells them.
   bool get isDisposed => _disposed;
 
-  /// For logs and tests: "native", "html5", "hls.js".
+  /// For logs and tests: "native", "media_kit", "video_player".
   String get name;
 
   /// Opens [source], paused. The engine's view ([buildView]) must already be on screen: a
@@ -194,8 +192,7 @@ abstract class PlayerEngine extends ValueNotifier<PlayerEngineValue> {
   /// Throws a [PlayerError] when the stream cannot be opened.
   Future<void> open(PlayerSource source);
 
-  /// Starts playback. A browser may refuse a start it did not see the viewer ask for: the engine
-  /// then starts muted ([PlayerEngineValue.autoplayMuted]) or stays paused, never fails.
+  /// Starts playback. Never fails: a failure shows in [PlayerEngineValue.error].
   Future<void> play();
 
   Future<void> pause();

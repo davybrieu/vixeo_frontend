@@ -35,7 +35,6 @@ class StreamSource {
     this.stream,
     this.streamType,
     this.headers = const {},
-    this.proxy = false,
   });
 
   factory StreamSource.fromJson(Map<String, dynamic> json) => StreamSource(
@@ -47,8 +46,8 @@ class StreamSource {
     headers: (json['headers'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? const {},
   );
 
-  /// A link a plug-in's scraper found (`docs/scrapers.md`). It is already playable, so nothing is
-  /// resolved; in a browser it first goes through the server's stream proxy ([proxy]).
+  /// A link a plug-in's scraper found (`docs/scrapers.md`): already playable, the app plays it as
+  /// it is, with its headers.
   factory StreamSource.fromScraper(ScraperStream stream, {required String provider, required String scraperName}) =>
       StreamSource(
         provider: provider,
@@ -57,7 +56,6 @@ class StreamSource {
         stream: stream.url,
         streamType: stream.streamType,
         headers: stream.headers,
-        proxy: kIsWeb,
       );
 
   final String provider;
@@ -66,17 +64,12 @@ class StreamSource {
   /// The link the server knows the source by (a player page, or the stream itself).
   final String url;
 
-  /// Already playable: a plug-in's stream. Null: the link has to be resolved by the API first
-  /// (`POST /catalog/resolve`).
+  /// The address to play (a plug-in's stream). Null: nothing playable.
   final String? stream;
   final String? streamType;
 
   /// HTTP headers to send with [stream].
   final Map<String, String> headers;
-
-  /// A browser cannot send most headers nor read most sites (CORS): [stream] must first be given
-  /// an address on our own origin (`POST /scrapers/stream`). Android and iOS play it as it is.
-  final bool proxy;
 }
 
 /// A provider the sources panel offers, as declared by the API.
@@ -148,7 +141,7 @@ final providerSourcesProvider = FutureProvider.family<List<StreamSource>, Provid
 /// and the media keys of a remote.
 ///
 /// This screen and its controls are the same on every platform. What plays the video is a
-/// [PlayerEngine] (`engine/`): the native player on Android / iOS, the browser's on the web.
+/// [PlayerEngine] (`engine/`): the native player on Android / iOS, media_kit on Windows.
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key, required this.type, required this.id, this.season, this.episode})
     : live = false, liveTitle = null, loadLiveStream = null, returnLocation = null, guestOverride = null;
@@ -405,8 +398,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
     if (engine == null) return;
     await engine.setVolume(_muted ? 0 : _volume);
-    // A live stream may need a user gesture to start on the web: a refused play() starts muted
-    // or leaves the engine paused, and a tap (or the play button) starts it.
     await engine.play();
     if (!mounted || engine != _engine) return;
     setState(() {});
@@ -423,26 +414,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
     await _stopPlayback();
 
-    final ResolvedStream resolved;
-    try {
-      // A plug-in's stream is already playable: nothing to resolve. In a browser it first gets an
-      // address on our own origin, which adds the headers the site asks for.
-      final direct = source.stream;
-      if (direct == null || direct.isEmpty) {
-        resolved = await ref.read(playbackRepositoryProvider).resolve(source.url);
-      } else if (source.proxy) {
-        resolved = await ref.read(playbackRepositoryProvider).proxyScraperStream(direct, source.headers);
-      } else {
-        resolved = ResolvedStream(stream: direct, streamType: source.streamType, headers: source.headers);
-      }
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _resolving = false;
-        _error = e.message;
-      });
-      return;
-    } catch (_) {
+    // A plug-in's stream is already playable: the app plays it as it is, with its headers.
+    final direct = source.stream;
+    if (direct == null || direct.isEmpty) {
       if (!mounted) return;
       setState(() {
         _resolving = false;
@@ -453,11 +427,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     if (!mounted) return;
     final engine = await _open(
-      PlayerSource(
-        url: resolved.stream,
-        headers: resolved.headers,
-        format: streamFormatFromApi(resolved.streamType),
-      ),
+      PlayerSource(url: direct, headers: source.headers, format: streamFormatFromApi(source.streamType)),
     );
     if (engine == null) return;
     setState(() => _resolving = false);
@@ -515,7 +485,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     // Not during its own notification (ChangeNotifier forbids it): right after.
     Future.microtask(failed.dispose);
     setState(() {
-      _error = playerErrorMessage(cause, fallback: widget.live ? _liveError : _sourceError, web: kIsWeb);
+      _error = playerErrorMessage(cause, fallback: widget.live ? _liveError : _sourceError);
       _resolving = false;
       _initialized = false;
       _playing = false;
@@ -961,7 +931,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _VolumeAction(
         silent: _muted || _volume == 0,
         volume: _muted ? 0 : _volume,
-        // A mouse (web or desktop): phones and tablets in landscape have volume keys, and a green
+        // A mouse (Windows): phones and tablets in landscape have volume keys, and a green
         // slider there looked like the seek bar.
         slider: !DeviceInfo.isTv &&
             defaultTargetPlatform != TargetPlatform.android &&
@@ -1630,7 +1600,7 @@ class _BottomBar extends StatelessWidget {
                             return false;
                           },
                           child: ScrollConfiguration(
-                            // A mouse drags the row too (web, computer).
+                            // A mouse drags the row too (Windows).
                             behavior: ScrollConfiguration.of(context).copyWith(
                               dragDevices: {
                                 PointerDeviceKind.touch,

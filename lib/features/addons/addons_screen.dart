@@ -236,7 +236,7 @@ class _AddonCard extends StatelessWidget {
     final s = uiScale(context);
     final name = repo.name;
     final on = repo.enabled;
-    final facts = [repo.host, if (repo.version != null) 'v${repo.version}', repo.mode.label].join(' · ');
+    final facts = [repo.host, if (repo.version != null) 'v${repo.version}'].join(' · ');
     final gap = SizedBox(width: layout.size(6, tv: 14));
 
     Widget step(IconData icon, String label, VoidCallback? onPressed) => Opacity(

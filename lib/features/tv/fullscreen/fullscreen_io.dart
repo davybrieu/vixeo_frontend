@@ -1,4 +1,7 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 
 bool _fullscreen = false;
 bool _landscapeLocked = false;
@@ -21,6 +24,11 @@ Future<void> unlockOrientation() async {
 
 Future<void> enterFullscreen() async {
   _fullscreen = true;
+  // Windows: the window covers the whole screen (taskbar included), as in a desktop player.
+  if (Platform.isWindows) {
+    await windowManager.setFullScreen(true);
+    return;
+  }
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   await _applyOrientation();
 }
@@ -28,13 +36,23 @@ Future<void> enterFullscreen() async {
 Future<void> exitFullscreen() async {
   if (!_fullscreen) return;
   _fullscreen = false;
+  if (Platform.isWindows) {
+    await windowManager.setFullScreen(false);
+    return;
+  }
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   await _applyOrientation();
 }
 
 /// Landscape while the player is open or full screen; otherwise every orientation (the app's
 /// default: none is set anywhere else).
-Future<void> _applyOrientation() => SystemChrome.setPreferredOrientations(
+Future<void> _applyOrientation() async {
+  // A computer's screen has no orientation to lock.
+  if (Platform.isWindows) return;
+  await _setOrientation();
+}
+
+Future<void> _setOrientation() => SystemChrome.setPreferredOrientations(
   _landscapeLocked || _fullscreen
       ? const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
       : const <DeviceOrientation>[],

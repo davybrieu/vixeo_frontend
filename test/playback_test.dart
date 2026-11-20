@@ -323,39 +323,6 @@ void main() {
       expect(await repository(file).subtitleFile(7), startsWith('WEBVTT'));
       expect(file.requests.single.path, '/catalog/subtitles/7');
     });
-
-    test('resolves a player link into a playable stream, with its headers', () async {
-      final adapter = FakeAdapter({
-        'data': {
-          'stream': 'https://delivery.voe.sx/hls/master.m3u8',
-          'stream_type': 'm3u8',
-          'extractor': 'voe',
-          'headers': {'Referer': 'https://voe.sx/', 'User-Agent': 'Vixeo'},
-          'subtitles': <Object>[],
-        },
-      });
-
-      final resolved = await repository(adapter).resolve('https://voe.sx/e/abc');
-
-      final request = adapter.requests.single;
-      expect(request.path, '/catalog/resolve');
-      expect(request.method, 'POST');
-      expect(request.data, {'url': 'https://voe.sx/e/abc'});
-      expect(resolved.stream, 'https://delivery.voe.sx/hls/master.m3u8');
-      expect(resolved.streamType, 'm3u8');
-      expect(resolved.extractor, 'voe');
-      expect(resolved.headers['Referer'], 'https://voe.sx/');
-    });
-
-    test('surfaces the API error when a link cannot be resolved', () async {
-      final adapter = FakeAdapter({'message': 'Cette source n’est pas lisible.'}, status: 502);
-
-      // A 502 from the API: the player shows the French message, no raw URL fallback.
-      await expectLater(
-        repository(adapter).resolve('https://unknown-host.tld/e/xyz'),
-        throwsA(isA<ApiException>().having((e) => e.message, 'message', 'Cette source n’est pas lisible.')),
-      );
-    });
   });
 
   group('stream providers', () {
@@ -493,30 +460,6 @@ void main() {
 
       expect(state.hasError, isTrue);
       expect(state.error, isA<ScraperException>());
-    });
-
-    test('asks the API to relay a stream for a browser, which cannot read most hosts', () async {
-      final adapter = RoutingAdapter([
-        (
-          '/scrapers/stream',
-          {
-            'data': {'stream': 'https://api.test/relay/abc.m3u8', 'stream_type': 'm3u8', 'headers': <String, String>{}},
-          },
-          200,
-        ),
-      ]);
-      final repository = PlaybackRepository(routingClient(adapter));
-
-      final stream = await repository.proxyScraperStream('https://cdn.test/a.m3u8', const {'Referer': 'https://x.test/'});
-
-      expect(stream.stream, 'https://api.test/relay/abc.m3u8');
-      expect(stream.streamType, 'm3u8');
-      final request = adapter.requests.single;
-      expect(request.method, 'POST');
-      expect(request.data, {
-        'url': 'https://cdn.test/a.m3u8',
-        'headers': {'Referer': 'https://x.test/'},
-      });
     });
   });
 }

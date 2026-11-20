@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
@@ -14,8 +13,9 @@ import '../../core/widgets/common.dart';
 import 'auth_repository.dart';
 import 'session.dart';
 
-/// TV sign-in card: QR code + short code, polls the API until a phone approves it.
-/// A new code is fetched automatically when the current one expires.
+/// TV sign-in card: a short code to type in the phone's app (« Paramètres » → « Connecter une
+/// TV »), polls the API until the phone approves it. No QR code: there is no web app to open
+/// (developer's request). A new code is fetched automatically when the current one expires.
 class TvCodeCard extends ConsumerStatefulWidget {
   const TvCodeCard({super.key});
 
@@ -86,62 +86,35 @@ class _TvCodeCardState extends ConsumerState<TvCodeCard> {
       body = ErrorPanel(error: _error!, onRetry: _start);
     } else if (code == null) {
       // Quiet placeholder while the code is asked for: no spinner on the sign-in page (the
-      // start-up loading is the only one), the QR code then takes its place.
+      // start-up loading is the only one), the code then takes its place.
       body = _CodePlaceholder(k: k);
     } else {
-      body = Row(
+      body = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Semantics(
-            image: true,
-            label: 'QR code à scanner avec votre téléphone',
-            child: Container(
-              padding: EdgeInsets.all(10 * k),
-              decoration: BoxDecoration(color: VxColors.text, borderRadius: BorderRadius.circular(14 * k)),
-              child: QrImageView(
-                data: code.verificationUrlComplete,
-                size: 200 * k,
-                padding: EdgeInsets.zero,
-                backgroundColor: VxColors.text,
-                eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: VxColors.background),
-                dataModuleStyle: const QrDataModuleStyle(
-                  dataModuleShape: QrDataModuleShape.square,
-                  color: VxColors.background,
-                ),
-              ),
+          Text(
+            '1. Sur votre téléphone, ouvrez Vixeo, puis « Paramètres » → « Connecter une TV ».',
+            style: VxText.body(18 * k, color: VxColors.textSoft),
+          ),
+          SizedBox(height: 10 * k),
+          Text('2. Tapez ce code :', style: VxText.body(18 * k, color: VxColors.textSoft)),
+          SizedBox(height: 10 * k),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              code.userCode,
+              style: VxText.title(
+                56 * k,
+                weight: FontWeight.w800,
+                color: VxColors.accent,
+              ).copyWith(letterSpacing: 6 * k),
             ),
           ),
-          SizedBox(width: 24 * k),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '1. Scannez le code, ou ouvrez ${_shortUrl(code.verificationUrl)}',
-                  style: VxText.body(18 * k, color: VxColors.textSoft),
-                ),
-                SizedBox(height: 10 * k),
-                Text('2. Saisissez ce code :', style: VxText.body(18 * k, color: VxColors.textSoft)),
-                SizedBox(height: 10 * k),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    code.userCode,
-                    style: VxText.title(
-                      44 * k,
-                      weight: FontWeight.w800,
-                      color: VxColors.accent,
-                    ).copyWith(letterSpacing: 4 * k),
-                  ),
-                ),
-                SizedBox(height: 12 * k),
-                Text(
-                  'Un nouveau code s\u2019affiche toutes les ${code.expiresIn.inMinutes} minutes.',
-                  style: VxText.body(14 * k, color: VxColors.textMuted),
-                ),
-              ],
-            ),
+          SizedBox(height: 12 * k),
+          Text(
+            'Un nouveau code s\u2019affiche toutes les ${code.expiresIn.inMinutes} minutes.',
+            style: VxText.body(14 * k, color: VxColors.textMuted),
           ),
         ],
       );
@@ -167,11 +140,9 @@ class _TvCodeCardState extends ConsumerState<TvCodeCard> {
       ),
     );
   }
-
-  static String _shortUrl(String url) => url.replaceFirst(RegExp(r'^https?://'), '');
 }
 
-/// The shape of the QR code and the code, empty, while they are asked for.
+/// The shape of the instructions and the code, empty, while the code is asked for.
 class _CodePlaceholder extends StatelessWidget {
   const _CodePlaceholder({required this.k});
 
@@ -186,34 +157,22 @@ class _CodePlaceholder extends StatelessWidget {
       decoration: BoxDecoration(color: fill, borderRadius: BorderRadius.circular(6 * k)),
     );
     return ExcludeSemantics(
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 220 * k,
-            height: 220 * k,
-            decoration: BoxDecoration(color: fill, borderRadius: BorderRadius.circular(14 * k)),
-          ),
-          SizedBox(width: 24 * k),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                bar(260 * k, 18 * k),
-                SizedBox(height: 16 * k),
-                bar(180 * k, 18 * k),
-                SizedBox(height: 18 * k),
-                bar(200 * k, 44 * k),
-              ],
-            ),
-          ),
+          bar(420 * k, 18 * k),
+          SizedBox(height: 16 * k),
+          bar(180 * k, 18 * k),
+          SizedBox(height: 18 * k),
+          bar(240 * k, 56 * k),
         ],
       ),
     );
   }
 }
 
-/// Page opened by the QR code (`/tv?code=K7F29Q`): a signed-in person signs the TV in.
+/// « Connecter une TV » (`/tv`, from « Paramètres »): a signed-in person types the code the TV
+/// shows and signs the TV in.
 class DeviceApproveScreen extends ConsumerStatefulWidget {
   const DeviceApproveScreen({super.key, this.initialCode});
 

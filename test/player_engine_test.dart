@@ -26,7 +26,7 @@ class FakeEngine extends PlayerEngine {
   /// Thrown by [open] (a stream that cannot be played).
   final PlayerError? openError;
 
-  /// The browser refuses a start with sound: the first [play] starts muted.
+  /// The engine may not start with sound: the first [play] starts muted.
   final bool startsMuted;
 
   PlayerSource? opened;
@@ -175,13 +175,6 @@ class FakePlayback extends PlaybackRepository {
   FakePlayback() : super(ApiClient(token: () => null, profileId: () => null));
 
   @override
-  Future<ResolvedStream> resolve(String url) async => const ResolvedStream(
-    stream: 'https://cdn.test/film.mp4',
-    streamType: 'mp4',
-    headers: {'Referer': 'https://host.test/'},
-  );
-
-  @override
   Future<List<SubtitleOption>> subtitles(PlaybackItem item, {List<String>? languages}) async => const [
     SubtitleOption(fileId: 7, language: 'fr'),
   ];
@@ -192,32 +185,7 @@ class FakePlayback extends PlaybackRepository {
 }
 
 void main() {
-  group('choosing the web engine', () {
-    test('MP4 always plays in the browser’s own player', () {
-      expect(chooseWebEngine(hls: false, nativeHls: false, mediaSource: true), WebEngineChoice.html5);
-    });
-
-    test('HLS: the browser’s own player when it has one (Safari), and hls.js is not loaded', () {
-      expect(chooseWebEngine(hls: true, nativeHls: true, mediaSource: true), WebEngineChoice.html5);
-      expect(chooseWebEngine(hls: true, nativeHls: true, mediaSource: false), WebEngineChoice.html5);
-    });
-
-    test('HLS: hls.js where the browser has none (Chrome, Firefox, Edge)', () {
-      expect(chooseWebEngine(hls: true, nativeHls: false, mediaSource: true), WebEngineChoice.hlsJs);
-    });
-
-    test('HLS that needs headers: hls.js wherever it can run, <video> sends none', () {
-      expect(
-        chooseWebEngine(hls: true, nativeHls: true, mediaSource: true, needsHeaders: true),
-        WebEngineChoice.hlsJs,
-      );
-      // An old iPhone (no Media Source Extensions): the native player is the only one.
-      expect(
-        chooseWebEngine(hls: true, nativeHls: true, mediaSource: false, needsHeaders: true),
-        WebEngineChoice.html5,
-      );
-    });
-
+  group('stream formats', () {
     test('recognises an HLS stream from the API’s format, or from the URL', () {
       expect(const PlayerSource(url: 'https://a.test/x', format: StreamFormat.hls).isHls, isTrue);
       expect(const PlayerSource(url: 'https://a.test/live/index.m3u8?token=1').isHls, isTrue);
@@ -229,63 +197,24 @@ void main() {
       expect(streamFormatFromApi('ts'), isNull);
       expect(streamFormatFromApi(null), isNull);
     });
-
-    test('only sends the headers a browser lets a page send', () {
-      expect(
-        browserHeaders({'Referer': 'https://a.test/', 'User-Agent': 'x', 'Origin': 'y', 'Authorization': 'Bearer t'}),
-        {'Authorization': 'Bearer t'},
-      );
-      expect(browserHeaders({'Sec-Fetch-Mode': 'cors'}), isEmpty);
-    });
   });
 
   group('reading player errors', () {
-    test('sorts the messages of the HTML5 player', () {
+    test('sorts the messages of the players', () {
       expect(classifyPlayerError('MEDIA_ERR_NETWORK: A network error occurred'), PlayerErrorKind.network);
       expect(classifyPlayerError('MEDIA_ERR_SRC_NOT_SUPPORTED: Format error'), PlayerErrorKind.unsupported);
       expect(classifyPlayerError('MEDIA_ERR_DECODE: PIPELINE_ERROR_DECODE'), PlayerErrorKind.decode);
       expect(classifyPlayerError('dead stream'), PlayerErrorKind.unknown);
     });
 
-    test('sorts the fatal errors of hls.js', () {
-      expect(
-        classifyHlsError(type: 'networkError', details: 'manifestLoadError', httpStatus: 0),
-        PlayerErrorKind.network,
-      );
-      expect(
-        classifyHlsError(type: 'mediaError', details: 'manifestIncompatibleCodecsError'),
-        PlayerErrorKind.unsupported,
-      );
-      expect(classifyHlsError(type: 'mediaError', details: 'bufferAddCodecError'), PlayerErrorKind.unsupported);
-      expect(classifyHlsError(type: 'mediaError', details: 'fragParsingError'), PlayerErrorKind.decode);
-      expect(classifyHlsError(type: 'keySystemError', details: 'keySystemNoAccess'), PlayerErrorKind.drm);
-      expect(classifyHlsError(type: 'otherError', details: 'internalException'), PlayerErrorKind.unknown);
-    });
-
-    test('recognises a start refused by the browser (autoplay), in the three browsers’ words', () {
-      expect(
-        looksLikeAutoplayRefusal("play() failed because the user didn't interact with the document first."),
-        isTrue,
-      );
-      expect(
-        looksLikeAutoplayRefusal(
-          'The play method is not allowed by the user agent or the platform in the current context',
-        ),
-        isTrue,
-      );
-      expect(looksLikeAutoplayRefusal('NotAllowedError'), isTrue);
-      expect(looksLikeAutoplayRefusal('MEDIA_ERR_DECODE'), isFalse);
-    });
-
     test('one sentence per cause, the usual one when the cause is unknown', () {
-      String message(PlayerErrorKind kind, {bool web = true}) =>
-          playerErrorMessage(PlayerError(kind), fallback: 'Impossible de lire cette chaîne.', web: web);
+      String message(PlayerErrorKind kind) =>
+          playerErrorMessage(PlayerError(kind), fallback: 'Impossible de lire cette chaîne.');
       expect(message(PlayerErrorKind.unknown), 'Impossible de lire cette chaîne.');
-      expect(playerErrorMessage(null, fallback: 'x', web: true), 'x');
+      expect(playerErrorMessage(null, fallback: 'x'), 'x');
       expect(message(PlayerErrorKind.network), contains('connexion'));
-      expect(message(PlayerErrorKind.cors), contains('navigateur'));
-      expect(message(PlayerErrorKind.unsupported), contains('navigateur'));
-      expect(message(PlayerErrorKind.unsupported, web: false), contains('appareil'));
+      expect(message(PlayerErrorKind.cors), contains('connexion'));
+      expect(message(PlayerErrorKind.unsupported), contains('appareil'));
       expect(message(PlayerErrorKind.drm), contains('protégé'));
     });
   });
@@ -377,7 +306,7 @@ void main() {
       expect(orientations.last, isEmpty);
     });
 
-    testWidgets('a start the browser only allows muted: « Activer le son », and one press turns it on', (tester) async {
+    testWidgets('a start only allowed muted: « Activer le son », and one press turns it on', (tester) async {
       final engine = await openLive(tester, FakeEngine(startsMuted: true));
 
       expect(find.text('EN DIRECT'), findsOneWidget);
@@ -392,14 +321,14 @@ void main() {
       await closePlayer(tester);
     });
 
-    testWidgets('says why a stream cannot be played: network, CORS, format', (tester) async {
+    testWidgets('says why a stream cannot be played: network, format', (tester) async {
       await openLive(tester, FakeEngine(openError: const PlayerError(PlayerErrorKind.network, 'manifestLoadError')));
       expect(find.text('Problème de connexion : la vidéo ne se charge pas.'), findsOneWidget);
       expect(find.text('Réessayer'), findsOneWidget);
       await closePlayer(tester);
 
-      await openLive(tester, FakeEngine(openError: const PlayerError(PlayerErrorKind.cors)));
-      expect(find.text('Ce flux n’autorise pas la lecture dans un navigateur.'), findsOneWidget);
+      await openLive(tester, FakeEngine(openError: const PlayerError(PlayerErrorKind.unsupported)));
+      expect(find.text('Ce format vidéo n’est pas pris en charge par cet appareil.'), findsOneWidget);
       await closePlayer(tester);
 
       await openLive(tester, FakeEngine(openError: const PlayerError(PlayerErrorKind.unknown)));
@@ -421,11 +350,18 @@ void main() {
       await closePlayer(tester);
     });
 
-    testWidgets('a title: resolved stream and headers go to the engine; seek bar and WebVTT subtitles', (
+    testWidgets('a title: the plug-in’s stream and headers go to the engine; seek bar and WebVTT subtitles', (
       tester,
     ) async {
       final engine = FakeEngine();
-      const source = StreamSource(provider: 'p', name: 'Film VF 1080P', url: 'https://host.test/embed/1');
+      const source = StreamSource(
+        provider: 'p',
+        name: 'Film VF 1080P',
+        url: 'https://cdn.test/film.mp4',
+        stream: 'https://cdn.test/film.mp4',
+        streamType: 'mp4',
+        headers: {'Referer': 'https://host.test/'},
+      );
       await tester.pumpWidget(
         ProviderScope(
           overrides: [

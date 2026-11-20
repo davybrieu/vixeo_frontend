@@ -217,7 +217,7 @@ void main() {
     expect(find.text('Mise à jour nécessaire'), findsNothing);
   });
 
-  testWidgets('does not check on the web', (tester) async {
+  testWidgets('does not check on a platform without updates (macOS, Linux)', (tester) async {
     final updates = await pumpApp(tester, () => info(UpdateStatus.updateRequired), platform: null);
 
     expect(updates.asked, isEmpty);
@@ -253,11 +253,15 @@ void main() {
       await cache.delete(recursive: true);
     });
 
-    ApkInstaller installer(BytesAdapter adapter, {bool onAndroid = true}) => ApkInstaller(
+    final launched = <String>[];
+
+    ApkInstaller installer(BytesAdapter adapter, {bool onAndroid = true, bool onWindows = false}) => ApkInstaller(
       dio: Dio()..httpClientAdapter = adapter,
       channel: channel,
       cacheDirectory: () async => cache,
       onAndroid: onAndroid,
+      onWindows: onWindows,
+      runInstaller: (path) async => launched.add(path),
     );
 
     AppRelease release({String? sha, String url = 'https://vixeo.test/vixeo-1.2.0.apk'}) =>
@@ -314,6 +318,24 @@ void main() {
       expect(installer(adapter).canInstall(release(sha: 'nope')), isFalse);
       expect(installer(adapter, onAndroid: false).canInstall(release()), isFalse);
       expect(installer(adapter).canInstall(release()), isTrue);
+    });
+
+    test('Windows: downloads the installer, checks its SHA-256 and runs it', () async {
+      launched.clear();
+      final adapter = BytesAdapter(apk);
+      final windows = installer(adapter, onAndroid: false, onWindows: true);
+      final setup = release(url: 'https://vixeo.test/vixeo-setup-14.exe');
+
+      expect(windows.canInstall(setup), isTrue);
+      expect(await windows.install(setup), ApkInstallResult.started);
+      expect(launched, ['${cache.path}/updates/vixeo-setup-14.exe']);
+      // No Android channel on Windows.
+      expect(native.calls, isEmpty);
+
+      launched.clear();
+      expect(await windows.install(release(url: setup.downloadUrl!, sha: 'a' * 64)), ApkInstallResult.corrupted);
+      expect(launched, isEmpty);
+      expect(File('${cache.path}/updates/vixeo-setup-14.exe').existsSync(), isFalse);
     });
   });
 

@@ -2,10 +2,8 @@
 ///
 /// The sandbox sends **messages** (`fetch`, `timer`, `log`, `done`); the host answers them. This file
 /// is that conversation, the same everywhere: [ScraperHost] checks and does what is asked, and
-/// [ScraperRunner] feeds a JavaScript engine (QuickJS in an isolate) with the answers. In a browser
-/// the engine is an iframe and `scraper_runtime_web.dart` carries the same messages with
-/// `postMessage`. `tools/scraper-runner/host.mjs` is the same loop in JavaScript, tested against a
-/// real QuickJS.
+/// [ScraperRunner] feeds a JavaScript engine (QuickJS in an isolate) with the answers.
+/// `tools/scraper-runner/host.mjs` is the same loop in JavaScript, tested against a real QuickJS.
 library;
 
 import 'dart:async';
@@ -27,7 +25,7 @@ sealed class ScraperReply {
   /// JavaScript to evaluate in an engine.
   String toJs();
 
-  /// The same, as a message for the iframe (`op`, `id` and the rest).
+  /// The same, as a message (`op`, `id` and the rest): what `tools/scraper-runner` exchanges.
   Map<String, Object?> toMessage();
 }
 

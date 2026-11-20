@@ -32,8 +32,6 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  flutter_web_plugins:
-    sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -47,21 +45,23 @@ dependencies:
   url_launcher: ^6.3.3
   # The player's engines (lib/features/playback/engine): the screen and its controls are common,
   # only what plays the video depends on the platform.
-  # - Web, desktop, tests: video_player (on the web, video_player_web: the browser's HTML5 <video>),
-  #   plus the bundled hls.js (web/hls.min.js, loaded on demand) for HLS outside Safari.
-  # - Android / iOS: better_native_video_player (ExoPlayer / AVPlayer). No web implementation: it
-  #   is only imported behind a conditional import, never compiled into the web build.
+  # - Android / iOS: better_native_video_player (ExoPlayer / AVPlayer).
+  # - Windows: media_kit (libmpv, bundled by media_kit_libs_windows_video): HLS, MP4, MKV… with
+  #   the headers the plug-ins ask for.
+  # - The tests (and macOS / Linux): video_player.
   video_player: ^2.9.2
   better_native_video_player: ^1.9.1
+  media_kit: ^1.2.3
+  media_kit_video: ^2.0.1
+  media_kit_libs_windows_video: ^1.0.11
+  # Windows: the player's full screen.
+  window_manager: ^0.5.1
   # Plug-ins (lib/features/addons, docs/scrapers.md): the JavaScript engine that runs a scraper on
-  # Android (QuickJS) and iOS (JavaScriptCore), in its own isolate. Imported only behind the
-  # conditional import of scraper_platform.dart: the web build never compiles it (an iframe is used).
+  # Android and Windows (QuickJS) and iOS (JavaScriptCore), in its own isolate.
   flutter_js: ^0.8.0
-  qr_flutter: ^4.1.0
   package_info_plus: ^10.2.2
   crypto: ^3.0.8
   path_provider: ^2.1.6
-  web: ^1.1.1
   # Push notifications sent by the Vixeo server (Firebase Cloud Messaging), and those received
   # while the app is open, shown by the app (docs/notifications.md of vixeo_backend).
   firebase_core: ^5.0.0
@@ -96,8 +96,6 @@ flutter:
   assets:
     - assets/fonts/OFL-Sora.txt
     - assets/fonts/OFL-Inter.txt
-    # Licence of the hls.js copy bundled in web/hls.min.js (HLS playback on the web, outside Safari).
-    - assets/licenses/hls-js-Apache-2.0.txt
     # Official TMDb logo ("Primary short", themoviedb.org/about/logos-attribution), as a PNG.
     - assets/images/tmdb_short.png
     # Logos of the other rating sites (brand/ratings, brand/tools/rating_logos.py) and the licence

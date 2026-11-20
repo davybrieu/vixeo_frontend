@@ -252,8 +252,6 @@ class _ChannelLogo extends StatelessWidget {
                 logo,
                 fit: BoxFit.contain,
                 alignment: Alignment.centerLeft,
-                // Web: an <img> element, so the logo host needs no CORS headers.
-                webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                 errorBuilder: (_, _, _) => icon,
               ),
             ),

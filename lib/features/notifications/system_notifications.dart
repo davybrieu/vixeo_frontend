@@ -39,10 +39,10 @@ class LocalNotification {
 
 /// The device's notification system: channels, the system's permission, a notification shown
 /// while the app is open, and the page of a tapped one. The notifications themselves come from
-/// the server (push, `push_messaging.dart`). Android (iOS ready, no app yet); not in a browser.
+/// the server (push, `push_messaging.dart`). Android (iOS ready, no app yet); not on Windows.
 /// A fake in tests.
 abstract class SystemNotifications {
-  /// False in a browser: the page says so.
+  /// False on Windows: the page says so.
   bool get supported;
 
   /// Prepares the channels; [onOpen] receives the page of a notification shown by the app and
@@ -88,8 +88,7 @@ class PluginNotifications implements SystemNotifications {
   );
 
   @override
-  bool get supported =>
-      !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
+  bool get supported => defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS;
 
   AndroidFlutterLocalNotificationsPlugin? get _android =>
       _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
