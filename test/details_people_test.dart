@@ -227,7 +227,9 @@ void main() {
       final name = tester.getRect(find.text('Le départ'));
       expect(name.top, greaterThan(badge.bottom));
       expect(name.bottom, lessThan(still.bottom));
-      // Runtime and rating on the left, air date on the right of the same line, at the bottom of the image.
+      // Runtime on the left, air date on the right of the same line, at the bottom of the image. No
+      // rating on an episode (developer's request).
+      expect(find.text('7,1'), findsNothing);
       final runtime = tester.getCenter(find.text('52 min').first);
       final date = tester.getRect(find.text('1er mars 2024'));
       expect(date.center.dy, closeTo(runtime.dy, 1));

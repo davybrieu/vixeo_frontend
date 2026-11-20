@@ -99,13 +99,15 @@ void main() {
     });
   });
 
-  test('shows the profile\'s site, else IMDb, else TMDb', () {
+  test('shows the profile\'s site, else TMDb (never IMDb in between)', () {
     const ratings = TitleRatings({RatingSource.imdb: 8.1, RatingSource.tomatoes: 92});
     final tomatoes = ShownRating.pick(RatingSource.tomatoes, ratings, 7.4);
     expect((tomatoes.source, tomatoes.value), (RatingSource.tomatoes, 92));
-    // No Letterboxd rating for a TV show: IMDb's.
+    // No Letterboxd rating for a TV show: TMDb's, even with an IMDb rating.
     final letterboxd = ShownRating.pick(RatingSource.letterboxd, ratings, 7.4);
-    expect((letterboxd.source, letterboxd.value), (RatingSource.imdb, 8.1));
+    expect((letterboxd.source, letterboxd.value), (RatingSource.tmdb, 7.4));
+    // IMDb chosen: IMDb's.
+    expect(ShownRating.pick(RatingSource.imdb, ratings, 7.4).source, RatingSource.imdb);
     // Nothing from MDBList: the title's TMDb average.
     final none = ShownRating.pick(RatingSource.imdb, TitleRatings.empty, 7.4);
     expect((none.source, none.value), (RatingSource.tmdb, 7.4));
@@ -113,7 +115,7 @@ void main() {
     expect(ShownRating.pick(RatingSource.tmdb, ratings, 7.4).source, RatingSource.tmdb);
     expect(ShownRating.pick(RatingSource.imdb, null, 0).isNone, isTrue);
     expect(tomatoes.fraction, closeTo(0.92, 0.001));
-    expect(letterboxd.fraction, closeTo(0.81, 0.001));
+    expect(letterboxd.fraction, closeTo(0.74, 0.001));
   });
 
   test('reads the API\'s answer, one request for 100 titles', () async {
@@ -311,7 +313,7 @@ void main() {
       expect(find.byType(TmdbLogo), findsOneWidget);
     });
 
-    testWidgets('phone card: the profile\'s site under the poster, else IMDb', (tester) async {
+    testWidgets('phone card: the profile\'s site under the poster, else TMDb', (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -327,14 +329,14 @@ void main() {
       expect(find.text('3,9'), findsOneWidget);
       expect(logo(RatingSource.letterboxd), findsOneWidget);
 
-      // Rotten Tomatoes chosen, none for this title: IMDb's (known already: at once).
+      // Rotten Tomatoes chosen, none for this title: TMDb's, not IMDb's (known already: at once).
       await tester.pumpWidget(
         app(const PosterCard(item: card, width: 116), source: RatingSource.tomatoes, loader: loader),
       );
       await tester.pump();
-      expect(find.text('8,0'), findsOneWidget);
-      expect(logo(RatingSource.imdb), findsOneWidget);
-      expect(find.byType(TmdbRating), findsNothing);
+      expect(find.text('8,0'), findsNothing);
+      expect(logo(RatingSource.imdb), findsNothing);
+      expect(find.byType(TmdbRating), findsOneWidget);
     });
 
     testWidgets('a press on the title page\'s rating shows every site\'s rating', (tester) async {

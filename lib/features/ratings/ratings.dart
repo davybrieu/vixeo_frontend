@@ -40,8 +40,9 @@ class TitleRatings {
   bool get isEmpty => values.isEmpty;
 }
 
-/// The rating a title shows: the profile's site, else IMDb, else TMDb. [loading] while its ratings
-/// are asked: nothing is shown yet, so that a rating never changes once shown.
+/// The rating a title shows: the profile's site, else TMDb (developer's request, 20/11/2026: no
+/// IMDb in between). [loading] while its ratings are asked: nothing is shown yet, so that a rating
+/// never changes once shown.
 @immutable
 class ShownRating {
   const ShownRating._(this.source, this.value, {this.loading = false});
@@ -52,10 +53,8 @@ class ShownRating {
   /// The rating for [preferred] among [ratings] (MDBList) and [tmdb] (the title's TMDb average).
   factory ShownRating.pick(RatingSource preferred, TitleRatings? ratings, double tmdb) {
     if (preferred != RatingSource.tmdb) {
-      for (final source in [preferred, RatingSource.imdb]) {
-        final value = ratings?[source];
-        if (value != null) return ShownRating._(source, value);
-      }
+      final value = ratings?[preferred];
+      if (value != null) return ShownRating._(preferred, value);
     }
     if (tmdb > 0) return ShownRating._(RatingSource.tmdb, tmdb);
     final fromMdbList = ratings?[RatingSource.tmdb];

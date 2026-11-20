@@ -501,23 +501,25 @@ lib/
   connecté note, modifie et supprime ses avis (`canRateProvider` = connecté avec un profil),
   **gardés par Vixeo seulement**. **Plus de liaison d'un compte TMDb ni de synchronisation**
   (supprimées, demande du développeur, 20/11/2026 : ni page ni tuile « Connexions » ;
-  `/profil/connexions` et `/profil/tmdb` mènent à « Paramètres » ; ne pas les réintroduire). Bouton
-  « Noter » sur la fiche (film, série) et étoile en haut à droite de l'image de chaque épisode
-  (« Ma note : 8/10 » en haut de l'image, après le badge « Épisode 3 ») ;
+  `/profil/connexions` et `/profil/tmdb` mènent à « Paramètres » ; ne pas les réintroduire).
+  **Films et séries seulement : plus aucune note sur les épisodes** (supprimées, demande du
+  développeur, 20/11/2026 : ni étoile ni « Ma note » sur les cartes d'épisodes, ni filtre
+  « Épisodes », ni adresse d'épisode ; l'API ne les accepte plus ; ne pas les réintroduire). Bouton
+  « Noter » sur la fiche (film, série) ;
   fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK ;
   **commentaire facultatif**). La fenêtre et « Mon avis »
   ne parlent pas de TMDb et le bouton s'appelle « Supprimer » (demande du développeur). **« Mes avis »** (`/avis`,
   `ReviewsScreen`, ouverte depuis la page « Profil » ; « Ses avis » pour un membre,
-  `ReviewsScreen(username:)`) : en-tête commun avec recherche (titre, épisode, commentaire, sans
+  `ReviewsScreen(username:)`) : en-tête commun avec recherche (titre, commentaire, sans
   accents ni casse) et, comme la recherche (demande du développeur), filtres Tout (par défaut) /
-  Films / Séries / Épisodes, « Années », « Note » (note de l'avis) et « Tri » (`ReviewSort` : plus
+  Films / Séries, « Années », « Note » (note de l'avis) et « Tri » (`ReviewSort` : plus
   récents par défaut, plus anciens, meilleures / moins bonnes notes, titre), « Réinitialiser ». Chaque avis montre ses étoiles (`StarRow`) et **aucun bouton** (demande
   du développeur) : un appui ouvre « Mon avis » (`ReviewScreen`, `/avis/movie/550`,
-  `/avis/tv/1399?saison=1&episode=2`), où l'on change les étoiles et le commentaire (`RatingForm`,
+  `/avis/tv/1399`), où l'on change les étoiles et le commentaire (`RatingForm`,
   le même formulaire que la fenêtre de note) ; « Enregistrer » et « Supprimer »
   (confirmation) ramènent à la liste, « Voir la fiche » ouvre le titre. Toutes les notes sont chargées d'un coup
-  (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche, les
-  épisodes et « Avis ». Les notes vont de 0,5 à 10. Ancienne adresse `/profil/notes` redirigée.
+  (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche et
+  « Avis ». Les notes vont de 0,5 à 10. Ancienne adresse `/profil/notes` redirigée.
 - **Notes des titres : source au choix** (`features/ratings`, demande du développeur, 20/11/2026 ;
   API : `vixeo_backend/docs/notes.md`) : « Paramètres » → « Apparence » → **« Source des notes »**
   (`RatingSource`, champ du profil `rating_source`, synchronisé ; **IMDb par défaut**) : IMDb, TMDb,
@@ -530,8 +532,8 @@ lib/
   filmographie, « Continuer à regarder » TV ; jamais une requête par carte), garde les réponses
   en mémoire et **un jour sur l'appareil** (`LocalStore`, `vixeo.ratings`, 1 500 titres), et
   redemande après 2 min un titre sans réponse. Affichage (`watchShownRating`, `ShownRating.pick`) :
-  la note du site choisi, **sinon IMDb, sinon TMDb** (`vote_average`, sans requête quand TMDb est
-  choisi) ; étoile verte, valeur sur l'échelle du site (« 8,8 », « 79 % », « 4,3 ») et **logo du
+  la note du site choisi, **sinon celle de TMDb** (`vote_average`, sans requête quand TMDb est
+  choisi ; jamais IMDb à la place d'un autre site, demande du développeur, 20/11/2026) ; étoile verte, valeur sur l'échelle du site (« 8,8 », « 79 % », « 4,3 ») et **logo du
   site** (`RatingLabel`, `RatingLogo` : PNG de `assets/images/ratings`, tirés de
   `brand/ratings/*.svg` par `brand/tools/rating_logos.py` ; Simple Icons CC0, pop-corn de Lucide
   pour le public de Rotten Tomatoes, licence ISC dans « Licences » ; hauteur réglée par site,
@@ -542,8 +544,8 @@ lib/
   développeur) ouvre **« Notes »** (`showAllRatings`, `ratings_sheet.dart` : feuille du bas sur
   téléphone, fenêtre avec « Fermer » ailleurs) : chaque site qui note le titre, dans l'ordre du
   réglage, logo, nom, note sur son échelle (« 8,8 / 10 », « 79 % »), « Votre source » sous le
-  site choisi ; sans réponse de MDBList, TMDb seul et une phrase. **Épisodes : note
-  TMDb** (MDBList n'en a pas). « Vider le cache » efface aussi les notes. Logo TMDb :
+  site choisi ; sans réponse de MDBList, TMDb seul et une phrase. **Épisodes : aucune
+  note** (ni celle de TMDb : voir « Avis »). « Vider le cache » efface aussi les notes. Logo TMDb :
   `assets/images/tmdb_short.png` (« Primary short » de themoviedb.org converti en PNG sans
   modification). Pas de page de confidentialité ni de mention TMDb dans l'appli (décision du
   développeur). Tests : `test/ratings_test.dart`.
@@ -603,9 +605,8 @@ lib/
   (largeur 300 téléphone, 340 tablette, 520 TV) qui défile de gauche à droite. Carte : image 16:9
   avec le badge « Épisode 3 » en haut à gauche ; **le texte est sur l'image, en bas**, sur un
   dégradé sombre (demande du développeur) : le titre (1 ligne), le résumé (**2 lignes au plus**,
-  pour laisser voir l'image) et, sur la dernière ligne, la durée puis la note TMDb (pas de note
-  d'épisode chez MDBList) à gauche et la
-  date de diffusion à droite. Hauteur de carte fixe (`_EpisodeCard.heightOf` : 16:9, plus haute
+  pour laisser voir l'image) et, sur la dernière ligne, la durée à gauche et la
+  date de diffusion à droite (**aucune note**, ni étoile, demande du développeur, 20/11/2026). Hauteur de carte fixe (`_EpisodeCard.heightOf` : 16:9, plus haute
   seulement si le texte du système est très grand). Changer de saison revient au premier épisode. Test :
   `test/details_people_test.dart`.
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
@@ -691,7 +692,7 @@ lib/
   (tapé dans l'appli du téléphone), « Qui regarde ? » (PIN de profil, ajout avec PIN parental si
   activé), accueil (carrousel / grande image, « Continuer à regarder », rangées),
   fiche film et série (saisons, épisodes avec date de diffusion, distribution, recommandations,
-  bande-annonce, Ma liste, Vu, avis sur le film, la série et les épisodes), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
+  bande-annonce, Ma liste, Vu, avis sur le film et la série), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (filtres type / genre / années, tri, grande image
   sur grand écran, résultats groupés, recherches récentes synchronisées), notes des titres sur le
   site choisi par le profil (IMDb par défaut, MDBList par l'API),

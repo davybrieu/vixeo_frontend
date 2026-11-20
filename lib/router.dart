@@ -177,7 +177,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/ma-liste', pageBuilder: (_, state) => tab(state, const MyListScreen())),
           // "Mes avis": the profile's ratings and comments (vixeo_backend/docs/avis.md).
           GoRoute(path: '/avis', pageBuilder: (_, state) => tab(state, const ReviewsScreen())),
-          // "Mon avis": one review, to change or remove (/avis/tv/1399?saison=1&episode=2 for an episode).
+          // "Mon avis": one review of a movie or a TV show, to change or remove (/avis/tv/1399).
           GoRoute(
             path: '/avis/:type/:id',
             builder: (_, state) =>

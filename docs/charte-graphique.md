@@ -64,7 +64,7 @@ interligne 1,45).
 | Titre de page (Recherche, Ma liste, Mes avis) | 28 | 56 | 700 | `layout.pageTitleSize` |
 | Titre de rangée ou de section | 18 | 30 | 700 | `layout.sectionTitleSize`, `SectionHeader` |
 | Corps (résumé, commentaire) | 15–16 | 22–24 | 400 | `layout.bodySize` |
-| Légende (date, durée, « Ma note ») | 13 | 18 | 400–600 | `layout.captionSize` |
+| Légende (date, durée) | 13 | 18 | 400–600 | `layout.captionSize` |
 | Bouton | 16 | 24 | 600 | `VxButton` |
 | Puce | 14 | 24 | 500–600 | `FilterChipButton` |
 

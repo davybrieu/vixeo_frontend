@@ -260,8 +260,8 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // « Note » and « Mieux notés »: the rating each card shows (the profile's site, else IMDb, else
-    // TMDb), every title's asked at once. TMDb's needs no request.
+    // « Note » and « Mieux notés »: the rating each card shows (the profile's site, else TMDb),
+    // every title's asked at once. TMDb's needs no request.
     final source = ref.watch(ratingSourceProvider);
     final byRating = _filters.minRating != null || _filters.sortFor(withText: false) == SearchSort.rating;
     Map<TitleRef, TitleRatings>? ratings;

@@ -5,40 +5,32 @@ import '../../core/api/api_client.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
 
-// The active profile's reviews: a rating and an optional comment per movie, TV show or episode
-// (vixeo_backend/docs/avis.md). Kept by Vixeo only: no TMDb account is linked any more.
+// The active profile's reviews: a rating and an optional comment per movie or TV show
+// (vixeo_backend/docs/avis.md). Kept by Vixeo only: no TMDb account is linked any more, and
+// episodes are not rated (developer's request, 20/11/2026).
 
-/// What a profile rates: tabs of "Mes notes".
+/// What a profile rates: the type filter of « Mes avis ».
 enum RatedType {
   movie('Films'),
-  tv('Séries'),
-  episode('Épisodes');
+  tv('Séries');
 
   const RatedType(this.label);
 
   final String label;
 }
 
-/// A reviewed movie, TV show or episode.
+/// A reviewed movie or TV show.
 @immutable
 class RatingTarget {
-  const RatingTarget.title(this.type, this.id) : season = null, episode = null;
-
-  const RatingTarget.episode(this.id, int this.season, int this.episode) : type = MediaType.tv;
+  const RatingTarget.title(this.type, this.id);
 
   final MediaType type;
-
-  /// Movie or TV show (also for an episode).
   final int id;
-  final int? season;
-  final int? episode;
 
-  bool get isEpisode => episode != null;
-
-  RatedType get ratedType => isEpisode ? RatedType.episode : (type == MediaType.movie ? RatedType.movie : RatedType.tv);
+  RatedType get ratedType => type == MediaType.movie ? RatedType.movie : RatedType.tv;
 
   /// Path under `/profiles/{id}/tmdb/ratings/`.
-  String get path => isEpisode ? 'tv/$id/season/$season/episode/$episode' : '${type.name}/$id';
+  String get path => '${type.name}/$id';
 
   @override
   bool operator ==(Object other) => other is RatingTarget && other.path == path;
@@ -79,12 +71,8 @@ class RatedItem {
     this.comment,
     this.ratedAt,
     this.year,
-    this.seasonNumber,
-    this.episodeNumber,
-    this.episodeName,
     this.posterUrl,
     this.backdropUrl,
-    this.stillUrl,
     this.voteAverage = 0,
   });
 
@@ -96,18 +84,14 @@ class RatedItem {
     comment: json['comment'] as String?,
     ratedAt: DateTime.tryParse(json['rated_at'] as String? ?? '')?.toLocal(),
     year: json['year'] as int?,
-    seasonNumber: json['season_number'] as int?,
-    episodeNumber: json['episode_number'] as int?,
-    episodeName: json['episode_name'] as String?,
     posterUrl: json['poster_url'] as String?,
     backdropUrl: json['backdrop_url'] as String?,
-    stillUrl: json['still_url'] as String?,
     voteAverage: (json['vote_average'] as num?)?.toDouble() ?? 0,
   );
 
   final RatedType type;
 
-  /// Movie or TV show (the page to open), also for an episode.
+  /// Movie or TV show (the page to open).
   final int id;
   final String title;
 
@@ -120,35 +104,27 @@ class RatedItem {
   /// When it was rated.
   final DateTime? ratedAt;
   final int? year;
-  final int? seasonNumber;
-  final int? episodeNumber;
-  final String? episodeName;
   final String? posterUrl;
   final String? backdropUrl;
-  final String? stillUrl;
   final double voteAverage;
 
   MediaType get mediaType => type == RatedType.movie ? MediaType.movie : MediaType.tv;
 
-  RatingTarget get target => type == RatedType.episode
-      ? RatingTarget.episode(id, seasonNumber ?? 0, episodeNumber ?? 0)
-      : RatingTarget.title(mediaType, id);
+  RatingTarget get target => RatingTarget.title(mediaType, id);
 
   MyRating get rating => MyRating(value, comment: comment);
 
-  /// "Film · 2021", "Série", "Saison 1, épisode 2 · Le Départ"…
-  String get subtitle => type == RatedType.episode
-      ? 'Saison $seasonNumber, épisode $episodeNumber${episodeName == null ? '' : ' · $episodeName'}'
-      : [type == RatedType.movie ? 'Film' : 'Série', if (year != null) '$year'].join(' · ');
+  /// "Film · 2021", "Série"…
+  String get subtitle => [type == RatedType.movie ? 'Film' : 'Série', if (year != null) '$year'].join(' · ');
 
-  /// "Dune", "Les Hautes Terres · S1 · É2"…
-  String get label => type == RatedType.episode ? '$title · S$seasonNumber · É$episodeNumber' : title;
+  /// "Dune".
+  String get label => title;
 
-  /// Matches a search of "Mes avis": title, episode name or comment, whatever the case and accents.
+  /// Matches a search of "Mes avis": title or comment, whatever the case and accents.
   bool matches(String query) {
     final q = foldForSearch(query.trim());
     if (q.isEmpty) return true;
-    return [title, episodeName, comment].any((text) => text != null && foldForSearch(text).contains(q));
+    return [title, comment].any((text) => text != null && foldForSearch(text).contains(q));
   }
 
   /// The same review, rated again (now on top of "Mes avis").
@@ -160,12 +136,8 @@ class RatedItem {
     comment: rating.comment,
     ratedAt: rating.value == value ? ratedAt : DateTime.now(),
     year: year,
-    seasonNumber: seasonNumber,
-    episodeNumber: episodeNumber,
-    episodeName: episodeName,
     posterUrl: posterUrl,
     backdropUrl: backdropUrl,
-    stillUrl: stillUrl,
     voteAverage: voteAverage,
   );
 }
@@ -200,15 +172,6 @@ class TmdbRepository {
   Future<MyRating?> rating(int profileId, RatingTarget target) async {
     final data = (await _api.get('/profiles/$profileId/tmdb/ratings/${target.path}'))['data'];
     return data is Map<String, dynamic> && data['value'] != null ? MyRating.fromJson(data) : null;
-  }
-
-  /// Ratings of a season's episodes: episode number → rating and comment.
-  Future<Map<int, MyRating>> seasonRatings(int profileId, int showId, int season) async {
-    final data = (await _api.get('/profiles/$profileId/tmdb/ratings/tv/$showId/season/$season'))['data'];
-    return {
-      if (data is List)
-        for (final e in data.whereType<Map<String, dynamic>>()) e['episode_number'] as int: MyRating.fromJson(e),
-    };
   }
 
   /// Saves the rating and the comment (null removes it).
@@ -253,15 +216,8 @@ final titleRatingProvider = FutureProvider.autoDispose.family<MyRating?, RatingT
   return ref.read(tmdbRepositoryProvider).rating(profileId, target);
 });
 
-/// The profile's ratings of a season's episodes, by episode number.
-final seasonRatingsProvider = FutureProvider.autoDispose.family<Map<int, MyRating>, (int, int)>((ref, key) async {
-  final profileId = _profileId(ref);
-  if (!ref.watch(canRateProvider) || profileId == null) return const {};
-  return ref.read(tmdbRepositoryProvider).seasonRatings(profileId, key.$1, key.$2);
-});
-
 /// Rates, updates or removes a rating (and its comment), then refreshes what shows it (title
-/// page, episodes, "Mes avis").
+/// page, "Mes avis").
 final tmdbRatingsProvider = Provider<TmdbRatings>(TmdbRatings.new);
 
 class TmdbRatings {
@@ -278,11 +234,7 @@ class TmdbRatings {
     if (profileId == null) return;
     final repository = _ref.read(tmdbRepositoryProvider);
     rating == null ? await repository.unrate(profileId, target) : await repository.rate(profileId, target, rating);
-    if (target.isEpisode) {
-      _ref.invalidate(seasonRatingsProvider((target.id, target.season!)));
-    } else {
-      _ref.invalidate(titleRatingProvider(target));
-    }
+    _ref.invalidate(titleRatingProvider(target));
     if (_ref.exists(reviewsProvider)) _ref.read(reviewsProvider.notifier).changed(target, rating);
   }
 }
