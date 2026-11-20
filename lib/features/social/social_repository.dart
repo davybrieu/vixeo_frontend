@@ -56,14 +56,6 @@ class SocialRepository {
     return SocialProfile.fromJson(json['data'] as Map<String, dynamic>);
   }
 
-  Future<SocialProfile> update({String? username, String? bio}) async {
-    final json = await _api.patch('/social/profile', body: {
-      'username': ?username,
-      'bio': ?bio,
-    });
-    return SocialProfile.fromJson(json['data'] as Map<String, dynamic>);
-  }
-
   /// The movies and series of a member's list, the most recently added first.
   Future<List<MediaItem>> titles(String username) async {
     final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/list');

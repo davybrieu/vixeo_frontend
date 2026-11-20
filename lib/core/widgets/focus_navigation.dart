@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../device/layout.dart';
@@ -53,10 +53,12 @@ abstract final class RemoteKeys {
   static void ensureInitialized() {
     if (_installed) return;
     _installed = true;
-    HardwareKeyboard.instance.addHandler(_onKey);
+    HardwareKeyboard.instance.addHandler(onKey);
   }
 
-  static bool _onKey(KeyEvent event) {
+  /// Every key event of the app (never handled here: it goes on to the focused element).
+  @visibleForTesting
+  static bool onKey(KeyEvent event) {
     _repeating = event is KeyRepeatEvent;
     return false;
   }

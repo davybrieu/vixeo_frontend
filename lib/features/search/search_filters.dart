@@ -145,14 +145,14 @@ class SearchFilters {
   int get hashCode => Object.hash(kind, genre, decade, minRating, sort, category);
 }
 
-/// One request of titles: explore (no [query]) or search, for one type.
+/// One search of titles of one type (the search page shows nothing without a text).
 @immutable
 class TitleQuery {
-  const TitleQuery(this.type, this.filters, {this.query, this.page = 1});
+  const TitleQuery(this.type, this.filters, {required this.query, this.page = 1});
 
   final MediaType type;
   final SearchFilters filters;
-  final String? query;
+  final String query;
   final int page;
 
   TitleQuery atPage(int page) => TitleQuery(type, filters, query: query, page: page);

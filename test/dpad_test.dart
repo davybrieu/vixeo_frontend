@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -235,13 +235,14 @@ void main() {
     expect(hero.item.value?.id, 3);
   });
 
-  testWidgets('the remote keys: repeating while a key is held', (tester) async {
-    RemoteKeys.ensureInitialized();
-    await simulateKeyDownEvent(LogicalKeyboardKey.arrowRight);
+  test('the remote keys: repeating while a key is held', () {
+    const key = PhysicalKeyboardKey.arrowRight;
+    const arrow = LogicalKeyboardKey.arrowRight;
+    RemoteKeys.onKey(const KeyDownEvent(physicalKey: key, logicalKey: arrow, timeStamp: Duration.zero));
     expect(RemoteKeys.repeating, isFalse);
-    await simulateKeyRepeatEvent(LogicalKeyboardKey.arrowRight);
+    RemoteKeys.onKey(const KeyRepeatEvent(physicalKey: key, logicalKey: arrow, timeStamp: Duration(milliseconds: 500)));
     expect(RemoteKeys.repeating, isTrue);
-    await simulateKeyUpEvent(LogicalKeyboardKey.arrowRight);
+    RemoteKeys.onKey(const KeyUpEvent(physicalKey: key, logicalKey: arrow, timeStamp: Duration(milliseconds: 600)));
     expect(RemoteKeys.repeating, isFalse);
   });
 }

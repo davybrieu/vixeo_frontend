@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Colors of the Vixeo design system (see the "Charte graphique" artboard).
 class VxColors {

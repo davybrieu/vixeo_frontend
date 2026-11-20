@@ -67,20 +67,18 @@ class CatalogRepository {
         await _api.get('/catalog/search', query: {'query': query, ...filters.query(withText: true)}),
       );
 
-  /// Movies or TV shows of one type: explore (`/discover`, without text) or search by text.
-  Future<Paged<MediaItem>> titles(TitleQuery q) async {
-    final params = {...q.filters.query(withText: q.query != null), 'page': q.page};
-    final json = q.query == null
-        ? await _api.get('/catalog/${q.type.name}/discover', query: params)
-        : await _api.get('/catalog/search/${q.type.name}', query: {'query': q.query, ...params});
-    return Paged.fromJson(json, MediaItem.fromJson);
-  }
+  /// Movies or TV shows of one type matching a text.
+  Future<Paged<MediaItem>> titles(TitleQuery q) async => Paged.fromJson(
+    await _api.get(
+      '/catalog/search/${q.type.name}',
+      query: {'query': q.query, ...q.filters.query(withText: true), 'page': q.page},
+    ),
+    MediaItem.fromJson,
+  );
 
-  /// People matching [query]; without a text, TMDb's popular people.
+  /// People matching [query].
   Future<Paged<Person>> people(String query, {int page = 1}) async => Paged.fromJson(
-    query.isEmpty
-        ? await _api.get('/catalog/people/popular', query: {'page': page})
-        : await _api.get('/catalog/search/person', query: {'query': query, 'page': page}),
+    await _api.get('/catalog/search/person', query: {'query': query, 'page': page}),
     Person.fromJson,
   );
 

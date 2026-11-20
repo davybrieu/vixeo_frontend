@@ -69,6 +69,10 @@ class FirebasePushMessaging implements PushMessaging {
     final messaging = await _messaging();
     if (messaging == null) return null;
     try {
+      // Deprecated by firebase_messaging 17 for Firebase Installation IDs (register(),
+      // onRegistered): a change of identifier the server's sending (FCM HTTP v1, push_devices)
+      // has to follow, to be tested on a device. The token keeps working meanwhile.
+      // ignore: deprecated_member_use
       return await messaging.getToken();
     } catch (e) {
       debugPrint('No push token: $e');
@@ -82,6 +86,7 @@ class FirebasePushMessaging implements PushMessaging {
   }
 
   @override
+  // ignore: deprecated_member_use
   Stream<String> get tokenRefresh => _stream((messaging) => messaging.onTokenRefresh);
 
   @override
