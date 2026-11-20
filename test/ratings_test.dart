@@ -268,6 +268,8 @@ void main() {
 
   group('display', () {
     Widget app(Widget child, {RatingSource source = RatingSource.imdb, RatingsLoader? loader}) => ProviderScope(
+      // A new scope per source (overrides are read once per scope).
+      key: ValueKey(source),
       overrides: [
         sessionProvider.overrideWith(() => _Session(Profile(id: 1, name: 'Léa', ratingSource: source))),
         libraryProvider.overrideWith(_NoLibrary.new),
@@ -367,7 +369,9 @@ void main() {
 
       List<String> order() {
         final names = ['Arrakis', 'Bene', 'Caladan'].where((n) => find.text(n).evaluate().isNotEmpty).toList();
-        Offset at(String n) => tester.getTopLeft(find.text(n).first);
+        // The card's place (its name may wrap on the image: not the same height from one to another).
+        Offset at(String n) =>
+            tester.getTopLeft(find.ancestor(of: find.text(n).first, matching: find.byType(PosterCard)).first);
         int compare(String x, String y) =>
             at(x).dy != at(y).dy ? at(x).dy.compareTo(at(y).dy) : at(x).dx.compareTo(at(y).dx);
         return names..sort(compare);
