@@ -1753,6 +1753,18 @@ class _SourcesPanel extends StatefulWidget {
 
 enum _ProviderStatus { loading, failed, empty, links }
 
+/// Why a source failed, in the words of the plug-in system or of the API (French), written under
+/// « Échec » in the sources panel; null when there are no such words (an unexpected error). Without
+/// it, a failure on a device cannot be told from another one.
+String? scraperFailureReason(Object? error) {
+  final text = switch (error) {
+    ScraperException(:final message) => message,
+    ApiException(:final message) => message,
+    _ => '',
+  }.trim();
+  return text.isEmpty ? null : text;
+}
+
 class _SourcesPanelState extends State<_SourcesPanel> {
   String? _selectedProvider;
 
@@ -1798,6 +1810,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         final provider = widget.providers[index];
         final async = widget.sourcesByProvider[provider.id];
         final links = async?.value ?? const <StreamSource>[];
+        final failure = async != null && async.hasError ? scraperFailureReason(async.error) : null;
         final _ProviderStatus status;
         if (async == null || async.isLoading) {
           status = _ProviderStatus.loading;
@@ -1832,12 +1845,21 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         Text(
                           switch (status) {
                             _ProviderStatus.loading => 'Recherche...',
-                            _ProviderStatus.failed => 'Echec - appuyer pour reessayer',
+                            _ProviderStatus.failed => 'Échec – appuyer pour réessayer',
                             _ProviderStatus.empty => 'Aucune source',
                             _ProviderStatus.links => '${links.length} source${links.length > 1 ? 's' : ''}',
                           },
                           style: VxText.body(12, color: VxColors.textMuted),
                         ),
+                        if (status == _ProviderStatus.failed && failure != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            failure,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: VxText.body(11, color: VxColors.textMuted),
+                          ),
+                        ],
                       ],
                     ),
                   ),

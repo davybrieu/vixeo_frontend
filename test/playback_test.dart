@@ -347,6 +347,17 @@ void main() {
   });
 
   group('stream providers', () {
+    test('a failed source says why, in the words of the plug-in system or of the API', () {
+      expect(
+        scraperFailureReason(const ScraperException("Le moteur des plug-ins n'a pas pu démarrer sur cet appareil.")),
+        "Le moteur des plug-ins n'a pas pu démarrer sur cet appareil.",
+      );
+      expect(scraperFailureReason(const ApiException('Trop de requêtes.')), 'Trop de requêtes.');
+      expect(scraperFailureReason(const ScraperException('  ')), isNull);
+      expect(scraperFailureReason(StateError('x')), isNull);
+      expect(scraperFailureReason(null), isNull);
+    });
+
     const item = (type: MediaType.movie, id: 550, season: null, episode: null);
     const tvItem = (type: MediaType.tv, id: 1399, season: 1, episode: 2);
 

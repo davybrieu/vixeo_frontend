@@ -10,8 +10,13 @@
 ///
 /// The engines are made directly (`QuickJsRuntime2`, `JavascriptCoreRuntime`), not with
 /// `getJavascriptRuntime`: that one also installs the package's own `fetch` / `XMLHttpRequest`,
-/// which would let a scraper reach the network without the host's checks, and it cannot cap
-/// QuickJS's memory. The package's `sendMessage` bridge stays, and the sandbox deletes it.
+/// which would let a scraper reach the network without the host's checks. The package's
+/// `sendMessage` bridge stays, and the sandbox deletes it.
+///
+/// **No memory cap**: the `memoryLimit` of `QuickJsRuntime2` calls `jsSetMemoryLimit`, which the native
+/// QuickJS library of `flutter_js` on Android (fastdev-jsruntimes-quickjs 0.3.6) does not have:
+/// the engine then fails to start and every scraper fails (seen on a phone, 20/11/2026). Only the
+/// stack size is set (`jsSetMaxStackSize` exists).
 ///
 /// Not verified yet on a device (`docs/scrapers.md` §9).
 library;
@@ -29,11 +34,10 @@ import 'scraper_models.dart';
 class IsolateJsEngine implements JsEngine {
   IsolateJsEngine._(this._isolate, this._commands);
 
-  /// Starts the isolate. QuickJS (Android) may use [memoryBytes] at most: a scraper that asks for
-  /// more gets an "out of memory" error instead of taking the phone's memory.
-  static Future<IsolateJsEngine> start({int memoryBytes = 256 * 1024 * 1024}) async {
+  /// Starts the isolate.
+  static Future<IsolateJsEngine> start() async {
     final handshake = ReceivePort();
-    final isolate = await Isolate.spawn(_engineMain, [handshake.sendPort, memoryBytes]);
+    final isolate = await Isolate.spawn(_engineMain, handshake.sendPort);
     final commands = await handshake.first as SendPort;
     return IsolateJsEngine._(isolate, commands);
   }
@@ -86,19 +90,17 @@ class IsolateJsEngine implements JsEngine {
   }
 }
 
-/// The engine of this platform, as `getJavascriptRuntime` would pick it: QuickJS on Android
-/// (capped), JavaScriptCore on iOS and macOS.
-JavascriptRuntime _newRuntime(int memoryBytes) {
+/// The engine of this platform, as `getJavascriptRuntime` would pick it: QuickJS on Android,
+/// JavaScriptCore on iOS and macOS. Never `memoryLimit` (see the top of this file).
+JavascriptRuntime _newRuntime() {
   if (Platform.isAndroid || Platform.isLinux || Platform.isWindows) {
-    return QuickJsRuntime2(stackSize: 1024 * 1024, memoryLimit: memoryBytes);
+    return QuickJsRuntime2(stackSize: 1024 * 1024);
   }
   return JavascriptCoreRuntime();
 }
 
 /// The isolate's entry point: answers `eval`, `jobs` and `dispose` commands, one at a time.
-void _engineMain(List<Object?> start) {
-  final handshake = start[0] as SendPort;
-  final memoryBytes = start[1] as int;
+void _engineMain(SendPort handshake) {
   final commands = ReceivePort();
   handshake.send(commands.sendPort);
   JavascriptRuntime? runtime;
@@ -108,7 +110,7 @@ void _engineMain(List<Object?> start) {
     try {
       switch (command[1]) {
         case 'eval':
-          runtime ??= _newRuntime(memoryBytes);
+          runtime ??= _newRuntime();
           final result = runtime!.evaluate(command[2] as String);
           reply.send([!result.isError, result.stringResult]);
         case 'jobs':

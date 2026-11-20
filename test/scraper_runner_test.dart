@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/features/addons/scraper_guard.dart';
@@ -74,6 +75,12 @@ Future<List<ScraperStream>> run(
 );
 
 void main() {
+  test('never asks flutter_js for a memory limit: its QuickJS for Android lacks it, every scraper then failed', () {
+    final source = File('lib/features/addons/scraper_js_engine_io.dart').readAsStringSync();
+    expect(source, isNot(contains('memoryLimit:')));
+    expect(source, contains('QuickJsRuntime2(stackSize: 1024 * 1024)'));
+  });
+
   group('ScraperRunner', () {
     test('loads the prelude, starts the scraper with its parameters, and returns its streams', () async {
       final engine = ScriptedEngine(

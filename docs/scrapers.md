@@ -165,8 +165,10 @@ sans le proposer comme réglage :
 | **Serveur** | `POST /scrapers/run` | `POST /scrapers/run` |
 
 Même prélude (`sandbox.js`), même boucle (`ScraperRunner` en Dart, `tools/scraper-runner/host.mjs`
-en JS), mêmes limites partout. Sur Android, le moteur est `QuickJsRuntime2` créé directement (mémoire
-plafonnée, pas le `fetch` du paquet) ; sur iOS, `JavascriptCoreRuntime`. Six scrapers tournent en
+en JS), mêmes limites partout. Sur Android, le moteur est `QuickJsRuntime2` créé directement (pas le
+`fetch` du paquet ; **pas de plafond de mémoire** : la bibliothèque QuickJS de `flutter_js`,
+fastdev-jsruntimes-quickjs 0.3.6, n'a pas `jsSetMemoryLimit`, et le demander empêchait le moteur de
+démarrer, donc tous les scrapers échouaient) ; sur iOS, `JavascriptCoreRuntime`. Six scrapers tournent en
 même temps au plus (`ScraperService.maxParallel` ; Nuvio en lance dix) : un dépôt comme
 gowaru-nuvio-providers en a une trentaine, qui attendent surtout le réseau. Le mode « Serveur » convient aux appareils faibles ou aux sites qui
 refusent les adresses d'abonnés ; le mode « Appareil » n'expose pas l'adresse du serveur.
@@ -195,7 +197,7 @@ l'ancienne limite de 30 s et 40 requêtes en coupait plusieurs) :
 | Taille d'une réponse | 5 Mo (le reste est coupé, suivi de `\n...[truncated]` ; Nuvio : 1 Mo) |
 | Corps d'une requête | 256 Ko |
 | `setTimeout` / `setInterval` | 60 s au plus |
-| Mémoire / pile du bac à sable | 256 Mo (QuickJS, Android) / 1 Mo |
+| Mémoire / pile du bac à sable | pas de plafond sur l'appareil (§4), 256 Mo dans `tools/scraper-runner` / pile 1 Mo |
 | Flux gardés | 100 par scraper |
 
 Le jeton Vixeo n'est **jamais** envoyé à un scraper ni à un site tiers (client HTTP séparé de

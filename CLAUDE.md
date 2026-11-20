@@ -404,8 +404,9 @@ lib/
   manifeste (relu tel quel par « mettre à jour », seul « activé » est gardé).
   **Où le JS s'exécute : déclaré par le dépôt** (`execution` du manifeste, `ScraperMode`, affiché
   sans réglage) : **sur l'appareil**
-  (Android / iOS : QuickJS plafonné à 256 Mo / JavaScriptCore via `flutter_js`, créés directement,
-  dans un isolate qu'on peut tuer ; web :
+  (Android / iOS : QuickJS / JavaScriptCore via `flutter_js`, créés directement, **sans
+  `memoryLimit`** (absent de la bibliothèque Android : le moteur ne démarrait plus, tous les
+  scrapers échouaient ; test dans `scraper_runner_test.dart`), dans un isolate qu'on peut tuer ; web :
   `<iframe sandbox="allow-scripts">` sans origine) ou **sur le serveur** (`POST /scrapers/run`).
   Le bac à sable (`assets/scrapers/sandbox.js`, identique partout) n'a ni réseau, ni DOM, ni
   `require` : son `fetch` devient un message que l'appli vérifie (`ScraperGuard` : `http://` fait en
@@ -415,7 +416,8 @@ lib/
   envoyé à un tiers). Sur le web, un flux passe par `POST /scrapers/stream` (`proxyScraperStream`).
   **Sources** : `sourceProvidersProvider` liste les scrapers des dépôts **activés** qui gèrent le
   type du titre, dans l'ordre des dépôts (un fournisseur chacun, `scraper:{dépôt}:{id}`) ;
-  `providerSourcesProvider` les exécute (rien pour un dépôt désactivé) ; leurs flux sont **déjà
+  `providerSourcesProvider` les exécute (rien pour un dépôt désactivé ; un échec affiche sa raison
+  sous « Échec – appuyer pour réessayer », `scraperFailureReason`) ; leurs flux sont **déjà
   lisibles** et le lecteur ne les `resolve` pas. Sans dépôt, le panneau écrit « Aucun plug-in n'est
   installé. » ; dépôts tous désactivés : « Les plug-ins installés sont désactivés. ». Après un
   changement : `ref.invalidate(sourceProvidersProvider)`. Implémentation de référence du serveur et

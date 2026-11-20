@@ -18,7 +18,6 @@ class ScraperLimits {
     this.requestBody = 256 * 1024,
     this.redirects = 5,
     this.streams = 100,
-    this.memoryBytes = 256 * 1024 * 1024,
   });
 
   static const standard = ScraperLimits();
@@ -42,9 +41,6 @@ class ScraperLimits {
   final int requestBody;
   final int redirects;
   final int streams;
-
-  /// The memory of the JavaScript engine, where it can be capped (QuickJS, on Android).
-  final int memoryBytes;
 }
 
 abstract final class ScraperGuard {
