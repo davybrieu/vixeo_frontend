@@ -1,7 +1,8 @@
 # Publier une version Android (APK, sans Play Store)
 
 Vixeo n'est pas sur le Play Store (décision du développeur). L'appli Android (téléphones,
-tablettes, Android TV / Google TV) est un **APK signé**, téléchargé depuis le site `vixeo_web`.
+tablettes, Android TV / Google TV) est un **APK signé**, téléchargé depuis le site (`www.vixeo.app/#installer`, dans `vixeo_backend`). Windows : voir
+[`windows-release.md`](windows-release.md).
 Les mises à jour se font depuis l'appli : elle télécharge le nouvel APK, vérifie son empreinte
 SHA-256, puis ouvre l'installateur d'Android, qui demande une confirmation.
 
@@ -51,9 +52,11 @@ Un seul APK sert aux téléphones, aux tablettes et aux TV.
 
 ## 3. Publier
 
-La CI s'en charge (`.github/workflows/build-web.yml`) : à chaque poussée sur `main`, elle compile
+La CI s'en charge (`.github/workflows/build.yml`) : à chaque poussée sur `main`, elle compile
 l'APK signé (clé de release dans les secrets) et le publie en **release GitHub** `android-<n>`,
-avec l'APK et son fichier `.apk.sha256`. `<n>` est le numéro du run de la CI, utilisé aussi comme
+avec l'APK et son fichier `.apk.sha256`. `<n>` est le numéro du run de la CI **+ 400** (`BUILD_OFFSET` : le workflow
+a été renommé le 20/11/2026 et son compteur est reparti de 1, alors que le dernier APK était le
+build 367 ; ne jamais baisser ce décalage, Android refuse un build plus petit), utilisé aussi comme
 build de l'APK (`--build-number`) : il augmente tout seul. Le titre de la release reprend la
 version de `pubspec.yaml` (« Vixeo Android v1.0.0 - build 160 »). L'API lit ces releases (c'est sa seule source, voir
 `vixeo_backend/docs/mise-a-jour.md`) : il n'y a rien à déclarer à la main.

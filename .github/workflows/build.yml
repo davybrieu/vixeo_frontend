@@ -13,6 +13,8 @@ permissions:
   contents: write
 
 env:
+  # Added to github.run_number to make the build number (see "Read app version").
+  BUILD_OFFSET: 400
   API_URL: https://api.vixeo.app
   PUBLISHER_NAME: Vixeo
   SUPPORT_EMAIL: support@vixeo.app
@@ -108,6 +110,10 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Build number: always growing. This workflow was renamed on 20/11/2026 (build-web.yml →
+          # build.yml), which restarted github.run_number at 1, while the last APK was build 367:
+          # the offset keeps every new build above the old ones (Android refuses a lower one).
+          echo "build=$(( ${{ github.run_number }} + BUILD_OFFSET ))" >> "$GITHUB_OUTPUT"
 
       - name: Restore Android release keystore
         env:
@@ -140,24 +146,24 @@ jobs:
             echo "::warning::Missing secrets:$missing. This APK receives no push notification (docs/android-release.md)"
           fi
           flutter build apk --release \
-            --build-number="${{ github.run_number }}" \
+            --build-number="${{ steps.app-version.outputs.build }}" \
             --dart-define=API_URL="${{ env.API_URL }}" \
             --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}" \
             --dart-define=SUPPORT_EMAIL="${{ env.SUPPORT_EMAIL }}"
           mkdir -p release
-          cp build/app/outputs/flutter-apk/app-release.apk "release/vixeo-${{ github.run_number }}.apk"
-          sha256sum "release/vixeo-${{ github.run_number }}.apk" > "release/vixeo-${{ github.run_number }}.apk.sha256"
+          cp build/app/outputs/flutter-apk/app-release.apk "release/vixeo-${{ steps.app-version.outputs.build }}.apk"
+          sha256sum "release/vixeo-${{ steps.app-version.outputs.build }}.apk" > "release/vixeo-${{ steps.app-version.outputs.build }}.apk.sha256"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-${{ github.run_number }}
-          name: Vixeo Android v${{ steps.app-version.outputs.version }} - build ${{ github.run_number }}
+          tag_name: android-${{ steps.app-version.outputs.build }}
+          name: Vixeo Android v${{ steps.app-version.outputs.version }} - build ${{ steps.app-version.outputs.build }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           files: |
-            release/vixeo-${{ github.run_number }}.apk
-            release/vixeo-${{ github.run_number }}.apk.sha256
+            release/vixeo-${{ steps.app-version.outputs.build }}.apk
+            release/vixeo-${{ steps.app-version.outputs.build }}.apk.sha256
 
   # The Windows app (docs/windows-release.md): an Inno Setup installer, for the current user (no
   # administrator rights), published as the GitHub release windows-<build>. Same build number as
@@ -190,12 +196,16 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Build number: always growing. This workflow was renamed on 20/11/2026 (build-web.yml →
+          # build.yml), which restarted github.run_number at 1, while the last APK was build 367:
+          # the offset keeps every new build above the old ones (Android refuses a lower one).
+          echo "build=$(( ${{ github.run_number }} + BUILD_OFFSET ))" >> "$GITHUB_OUTPUT"
 
       - name: Build Windows app
         shell: bash
         run: |
           flutter build windows --release \
-            --build-number="${{ github.run_number }}" \
+            --build-number="${{ steps.app-version.outputs.build }}" \
             --dart-define=API_URL="${{ env.API_URL }}" \
             --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}" \
             --dart-define=SUPPORT_EMAIL="${{ env.SUPPORT_EMAIL }}"
@@ -209,7 +219,7 @@ jobs:
             choco install innosetup --no-progress -y
             $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           }
-          $build = "${{ github.run_number }}"
+          $build = "${{ steps.app-version.outputs.build }}"
           $source = Join-Path $env:GITHUB_WORKSPACE "build\windows\x64\runner\Release"
           $output = Join-Path $env:GITHUB_WORKSPACE "release"
           & $iscc "/DAppVersion=${{ steps.app-version.outputs.version }}" "/DBuildNumber=$build" "/DSourceDir=$source" "/DOutputDir=$output" "windows\installer\vixeo.iss"
@@ -221,10 +231,10 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: windows-${{ github.run_number }}
-          name: Vixeo Windows v${{ steps.app-version.outputs.version }} - build ${{ github.run_number }}
+          tag_name: windows-${{ steps.app-version.outputs.build }}
+          name: Vixeo Windows v${{ steps.app-version.outputs.version }} - build ${{ steps.app-version.outputs.build }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           files: |
-            release/vixeo-setup-${{ github.run_number }}.exe
-            release/vixeo-setup-${{ github.run_number }}.exe.sha256
+            release/vixeo-setup-${{ steps.app-version.outputs.build }}.exe
+            release/vixeo-setup-${{ steps.app-version.outputs.build }}.exe.sha256

@@ -1,7 +1,7 @@
 # Vixeo : à faire
 
-Liste mise à jour le 5 novembre 2026, pour les trois dépôts : `vixeo_frontend` (appli),
-`vixeo_backend` (API) et `vixeo_web` (site). Cocher au fur et à mesure.
+Liste mise à jour le 5 novembre 2026, pour les deux dépôts : `vixeo_frontend` (appli),
+`vixeo_backend` (API et site). Cocher au fur et à mesure.
 
 Les décisions déjà prises (pas de Play Store, pas d'IPTV / M3U / Xtream, ni de radio ou de replays,
 travail sur `main`, pas de workflow GitHub Actions pour l'API) sont dans les `CLAUDE.md`.
@@ -42,20 +42,24 @@ travail sur `main`, pas de workflow GitHub Actions pour l'API) sont dans les `CL
 - [ ] **Android TV / Google TV** :
   - [ ] installer l'APK avec une appli de téléchargement (lien court `/apk`) ;
   - [ ] naviguer à la télécommande (focus vert, flèches, OK, retour) ;
-  - [ ] se connecter par QR code depuis le téléphone ;
+  - [ ] se connecter avec le code de la TV, tapé dans l'appli du téléphone ;
   - [ ] mise à jour intégrée sur TV ;
   - [ ] grande image : logos des titres, fond, lisibilité à 3 m.
-- [ ] **Navigateurs** : appli web sur Chrome, Edge, Firefox et Safari ; site `vixeo_web` sur
-      téléphone, tablette et ordinateur.
+- [ ] **Windows 10 et 11** (`docs/windows-release.md`) :
+  - [ ] installer depuis le site (avertissement SmartScreen, « Exécuter quand même ») ;
+  - [ ] lecture d'un film, d'un épisode et d'une chaîne (media_kit), plein écran, cadrage ;
+  - [ ] plug-ins : un dépôt Nuvio qui donne des sources (QuickJS de `flutter_js`) ;
+  - [ ] mise à jour intégrée (téléchargement, installation silencieuse, redémarrage) ;
+  - [ ] désinstallation depuis « Paramètres » → « Applications ».
+- [ ] **Site** (`vixeo_backend`) sur téléphone, tablette et ordinateur.
 
 ### Serveurs (Laravel Forge)
 
 - [ ] Choisir les domaines :
   - [ ] l'API (`api.…`) ;
-  - [ ] l'appli web (`app.…`, adresse des QR codes `/tv`) ;
   - [ ] le site (domaine principal).
 - [ ] **API** : site Forge, PostgreSQL, Redis, file d'attente, planificateur (`schedule:run`).
-      Variables : `WEB_URL`, `SITE_URL`, `CORS_ALLOWED_ORIGINS` (limité aux domaines Vixeo),
+      Variables : `APP_URL` (le site), `API_URL`,
       `TMDB_READ_ACCESS_TOKEN`, `SANCTUM_EXPIRATION`, `APP_LOCALE=fr`.
       → `vixeo_backend/docs/deploiement.md`
 - [ ] **Jeton TMDb de production** : en générer un nouveau sur TMDb (celui des essais a été écrit
@@ -69,11 +73,12 @@ travail sur `main`, pas de workflow GitHub Actions pour l'API) sont dans les `CL
       facultative (`THEINTRODB_API_KEY`) si 5 000 requêtes par jour ne suffisent plus.
 - [ ] **Service d'e-mails** (`MAIL_*`, adresse d'envoi vérifiée SPF / DKIM). Sans lui, « Mot de
       passe oublié » et l'export des données ne fonctionnent pas.
-- [ ] **Site `vixeo_web`** : site Forge sans base, daemon SSR `php artisan inertia:start-ssr`,
-      dossier `public/telechargements/`. → `vixeo_web/docs/deploiement.md`
-- [ ] **Appli web** : publier `flutter build web` (workflow `deploy-web.yml` du `docs/CONTEXT.md`
-      §8.2, pas encore fait). Nginx : `try_files … /index.html`, et pas de cache sur `index.html`,
-      `flutter_bootstrap.js` et `main.dart.js`.
+- [ ] **Site** : dans le même projet et le même site Forge que l'API (daemon SSR
+      `php artisan inertia:start-ssr`). → `vixeo_backend/docs/deploiement.md`
+- [ ] **Plus d'appli web** : supprimer le site Forge `app.…` et son DNS s'ils existent, et le
+      secret GitHub `FORGE_DEPLOY_WEBHOOK` de `vixeo_frontend`.
+- [ ] **Signer l'installateur Windows** (certificat de signature de code, `docs/windows-release.md`
+      § 4) pour éviter l'avertissement SmartScreen.
 - [ ] HTTPS partout (Let's Encrypt), redirection HTTP → HTTPS et en-tête HSTS.
 - [ ] Compiler l'appli avec `API_URL` en https, `PUBLISHER_NAME` et `SUPPORT_EMAIL` : sans ces
       réglages, une version Release refuse de démarrer.

@@ -22,11 +22,15 @@ Les décisions marquées « décidé » ne sont pas à rediscuter sans raison. C
 
 Créer une application multiplateforme de type « media center », avec une seule base de code pour :
 
-- Web.
 - Android (téléphone et tablette).
 - Android TV / Google TV (navigation à la télécommande).
-- Chromebook (via APK Android ou version web).
-- iOS (et éventuellement Apple TV plus tard).
+- Windows (10 et 11, 64 bits).
+- Chromebook (via l'APK Android).
+- iOS ensuite (et éventuellement Apple TV plus tard).
+
+**Plus de version web** (décision du développeur, 20/11/2026) : l'appli web, son déploiement et
+la connexion des TV par QR code (page `/tv` de l'appli web) sont supprimés ; une TV se connecte
+avec un code tapé dans l'appli du téléphone.
 
 Priorité absolue : l'esthétique et la fluidité. Interface sur mesure soignée, inspirée des plateformes de streaming, animations fluides, y compris sur les petites box TV.
 
@@ -200,7 +204,7 @@ Le backend est entièrement responsable de la logique métier et des traitements
 
 Pour le frontend, le fonctionnement interne du backend doit rester totalement transparent.
 
-Pour la version web, un proxy de flux côté serveur pourra être nécessaire pour les flux qui exigent des en-têtes HTTP ou ne disposent pas de CORS.
+Il n'y a plus de version web : les applis (Android, Windows, iOS) lisent les flux directement, avec leurs en-têtes HTTP, sans problème de CORS.
 
 Attention au coût en bande passante et aux ressources serveur si le backend relaie directement les vidéos.
 
@@ -592,7 +596,7 @@ CORS :
 - Autoriser le domaine Flutter web.
 - Autoriser le domaine de staging.
 
-8.2 Flutter web sur Forge
+8.2 Flutter web sur Forge (abandonné le 20/11/2026 : plus de version web, gardé pour mémoire)
 
 Ne pas compiler sur le serveur Forge.
 

@@ -227,7 +227,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/personne/:id',
             builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
           ),
-          // Opened by the QR code of a TV: /tv?code=K7F29Q.
+          // « Connecter une TV » (from « Paramètres »); ?code= prefills the code.
           GoRoute(
             path: '/tv',
             builder: (_, state) =>

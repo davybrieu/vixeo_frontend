@@ -2,9 +2,10 @@
 
 > Décision du développeur, **19/11/2026** : les plug-ins de sources ne sont plus des add-ons Stremio
 > appelés par l'API ; ce sont des **scrapers JavaScript** installés depuis des **dépôts**
-> (`manifest.json`), comme dans Nuvio. Ils s'exécutent **sur l'appareil** (Android, iOS, web) ou
-> **sur le serveur**, selon ce que déclare le dépôt. Cela renverse « l'appli ne parle jamais aux
-> plug-ins » (`CONTEXT.md` §3.5 et §5.1) : ces passages sont mis à jour.
+> (`manifest.json`), comme dans Nuvio. Ils s'exécutent **toujours sur l'appareil** (Android,
+> Windows, puis iOS) : plus de version web ni d'exécution sur le serveur (demande du développeur,
+> 20/11/2026 ; le champ `execution` d'un manifeste est ignoré). Cela renverse « l'appli ne parle
+> jamais aux plug-ins » (`CONTEXT.md` §3.5 et §5.1) : ces passages sont mis à jour.
 > Le catalogue reste celui de TMDb ; un scraper ne fournit que des **sources** (films et séries).
 >
 > **Compatibilité Nuvio** (20/11/2026, demande du développeur : « faire fonctionner
@@ -20,10 +21,9 @@
 
 ```
   Dépôt (manifest.json + scrapers .js)         hébergé par un tiers, ajouté par la personne
-            │ téléchargé (directement, ou via POST /scrapers/fetch sur le web)
+            │ téléchargé directement par l'appli
             ▼
-  Appli ── scraper en mode « Appareil » ──►  bac à sable JS (QuickJS / iframe)  ── fetch ──► sites tiers
-        └─ scraper en mode « Serveur »   ──►  POST /scrapers/run (l'API fait la même chose)
+  Appli ──►  bac à sable JS (QuickJS / JavaScriptCore)  ── fetch (vérifié par l'appli) ──► sites tiers
             │
             ▼
   flux [{ url, name, quality, headers… }]  →  panneau des sources du lecteur
@@ -44,7 +44,6 @@ l'`id` s'il manque).
   "name": "Mon dépôt",
   "version": "1.0.0",
   "description": "Facultatif",
-  "execution": "device",
   "scrapers": [
     {
       "id": "monscraper",
@@ -67,11 +66,12 @@ l'`id` s'il manque).
 - `enabled: false` : le scraper est **laissé de côté** (son auteur l'a coupé, un site en panne…),
   comme dans Nuvio. La personne, elle, active ou désactive le dépôt entier (§7).
 - `supportedPlatforms` / `disabledPlatforms` : appliqués comme NuvioMobile, avec la plateforme
-  `android`, `ios` ou `web` (`currentScraperPlatform`) ; `tv` ne concerne que NuvioTV et n'écarte
+  `android`, `ios` ou `windows` (`currentScraperPlatform`) ; `tv` ne concerne que NuvioTV et n'écarte
   rien dans Vixeo (Android TV a le même moteur que le téléphone).
 - Les autres champs (`author`, `logo`, `contentLanguage`, `formats`, `limited`, `hasSettings`,
   `supportsExternalPlayer`…) sont ignorés.
-- `execution` (propre à Vixeo) : `device` (défaut) ou `server`, pour tout le dépôt (§4).
+- `execution` (ancien champ propre à Vixeo, `device` / `server`) : ignoré, tout s'exécute sur
+  l'appareil (§4).
 - `id` : lettres, chiffres, `-`, `_`, `.` (1 à 64 caractères) ; unique dans le dépôt.
 
 **Adresse du dépôt** (`ScraperRepo.normalizeUrl`, comme Nuvio) : l'adresse d'un dossier reçoit
@@ -138,7 +138,7 @@ seulement aux scrapers dont le code le nomme (`CryptoJS` ou `'crypto-js'`), auss
 `crypto-js` lève « Module '…' is not available », comme Nuvio quand il ne l'a pas) : les dépôts
 Nuvio groupent leur propre cheerio dans chaque fichier ; `TMDB_API_KEY` (la clé TMDb de Vixeo ne sort
 pas du serveur ; les scrapers ont leur propre clé de secours) ; `crypto.subtle` dans QuickJS
-(Android ; les scrapers le testent et passent à CryptoJS) ; `Buffer`, `process`, DOM,
+(Android, Windows ; les scrapers le testent et passent à CryptoJS) ; `Buffer`, `process`, DOM,
 `XMLHttpRequest`, `WebSocket`, stockage ; le pont `sendMessage` de `flutter_js` (supprimé par le
 prélude). `Response.arrayBuffer()` encode le texte reçu en UTF-8 : les réponses binaires ne sont pas
 prises en charge.
@@ -152,17 +152,18 @@ underflow », « nip_catch: no catch op »). esbuild écrit exactement cela quan
 `es2016` : `fullanime`, `jetanimes`, `mugiwarastream`, `voiranime` ne se chargeaient pas). Quand la
 compilation échoue ainsi (`InternalError`), le prélude sort l'opérande de la boucle
 (`var __vxOf0 = yield f(); for (… of __vxOf0)`, `hoistForOfYield`) et compile à nouveau ; JavaScriptCore
-(iOS) et les navigateurs n'en ont pas besoin.
+(iOS) n'en a pas besoin.
 
 ## 4. Où s'exécute un scraper
 
-Déclaré **par le dépôt** (`execution` du manifeste), pour tous ses scrapers ; l'appli l'affiche
-sans le proposer comme réglage :
+**Toujours sur l'appareil**, dans un isolate qu'on peut tuer ; les requêtes partent de l'appareil
+(`DirectScraperHttp`), après la garde (§5) :
 
-| Mode | Android / iOS | Web |
-|------|---------------|-----|
-| **Appareil** (défaut) | QuickJS (`flutter_js`) ; les requêtes partent de l'appareil | iframe `sandbox="allow-scripts"` sans origine, CSP `connect-src 'none'` ; les requêtes passent par `POST /scrapers/fetch` (CORS) |
-| **Serveur** | `POST /scrapers/run` | `POST /scrapers/run` |
+| Plateforme | Moteur JavaScript |
+|------------|-------------------|
+| Android (téléphone, tablette, TV) | QuickJS (`flutter_js`, `QuickJsRuntime2`) |
+| Windows | QuickJS (`flutter_js`, `QuickJsRuntime2`) |
+| iOS (plus tard) | JavaScriptCore (`JavascriptCoreRuntime`) |
 
 Même prélude (`sandbox.js`), même boucle (`ScraperRunner` en Dart, `tools/scraper-runner/host.mjs`
 en JS), mêmes limites partout. Sur Android, le moteur est `QuickJsRuntime2` créé directement (pas le
@@ -170,10 +171,9 @@ en JS), mêmes limites partout. Sur Android, le moteur est `QuickJsRuntime2` cr�
 fastdev-jsruntimes-quickjs 0.3.6, n'a pas `jsSetMemoryLimit`, et le demander empêchait le moteur de
 démarrer, donc tous les scrapers échouaient) ; sur iOS, `JavascriptCoreRuntime`. Six scrapers tournent en
 même temps au plus (`ScraperService.maxParallel` ; Nuvio en lance dix) : un dépôt comme
-gowaru-nuvio-providers en a une trentaine, qui attendent surtout le réseau. Le mode « Serveur » convient aux appareils faibles ou aux sites qui
-refusent les adresses d'abonnés ; le mode « Appareil » n'expose pas l'adresse du serveur.
+gowaru-nuvio-providers en a une trentaine, qui attendent surtout le réseau.
 
-## 5. Garde-fous (mêmes règles sur l'appareil, sur le serveur et dans `tools/`)
+## 5. Garde-fous (mêmes règles sur l'appareil et dans `tools/`)
 
 Un scraper est du code d'un tiers : il n'a **aucun accès direct** au réseau. Chaque `fetch` passe
 par l'hôte, qui refuse :
@@ -202,43 +202,24 @@ l'ancienne limite de 30 s et 40 requêtes en coupait plusieurs) :
 
 Le jeton Vixeo n'est **jamais** envoyé à un scraper ni à un site tiers (client HTTP séparé de
 `ApiClient`). Sur l'appareil, le nom d'hôte est aussi résolu avant la requête et refusé s'il
-mène à une adresse privée (la résolution peut encore changer entre le contrôle et la requête :
-le serveur, lui, doit **fixer l'adresse résolue**, voir §6). Le refus donne l'adresse obtenue
+mène à une adresse privée (la résolution peut encore changer entre le contrôle et la requête,
+mais l'appareil est celui de la personne : elle n'attaque que son propre réseau). Le refus donne l'adresse obtenue
 (« adresse privée interdite (api.exemple.fr → 127.0.0.1) ») : `127.0.0.1` ou `0.0.0.0` pour un site
 public, c'est en général le DNS du réseau (fournisseur d'accès, filtre) qui bloque ce nom, pas le site.
 De `192.0.0.0/16`, seuls `192.0.0.0/24` et `192.0.2.0/24` sont réservés : le reste est public.
 
-## 6. API du serveur (à implémenter dans `vixeo_backend`)
+## 6. Pas d'API côté serveur
 
-Toutes demandent le jeton Vixeo. Le serveur applique les règles du §5 et le comportement Nuvio du §3
-(`http://` fait en `https://`, `\n...[truncated]` après un corps coupé, `User-Agent` et
-`Content-Type` par défaut, `Accept-Encoding` retiré) ; il **résout le nom, refuse une adresse privée
-et se connecte à l'adresse vérifiée** (pas de re-résolution : sinon un nom qui change de cible,
-« DNS rebinding », contourne la garde), revérifie chaque redirection, limite le débit par compte et
-ne journalise pas les corps. Le débit doit suivre un vrai dépôt : gowaru-nuvio-providers lance une
-trentaine de scrapers par épisode, qui font chacun de 2 à 60 requêtes (plutôt 1 000 requêtes par
-minute et par compte que 120).
-
-- `POST /scrapers/fetch` : `{ url, method, headers, body, redirect }` →
-  `{ status, status_text, headers, body, url }` (corps en texte UTF-8, 5 Mo au plus). Sert au web
-  (CORS) : téléchargement des dépôts et requêtes des scrapers en mode « Appareil ».
-- `POST /scrapers/run` : `{ repository_url, scraper_id, tmdb_id, media_type, season, episode }` →
-  `{ data: [ { url, name, title, quality, size, headers } ] }`. Le serveur télécharge le manifeste et
-  le scraper (cache par empreinte), l'exécute dans le même bac à sable (voir
-  `tools/scraper-runner`, qui sert de modèle) et normalise les flux comme `normalizeStreams`. Délai
-  du client : 65 s.
-- `POST /scrapers/stream` (**web seulement**) : `{ url, headers }` →
-  `{ data: { stream, stream_type, headers } }` : une adresse sur **notre origine** (proxy signé,
-  comme `/tv/channels/{id}/stream`) pour qu'un navigateur lise un flux qui exige des en-têtes ou
-  n'a pas de CORS. Sur Android et iOS, le lecteur natif envoie lui-même les en-têtes.
-
+Le serveur n'exécute aucun scraper et ne relaie aucune requête ni aucun flux : les routes
+`/scrapers/fetch`, `/scrapers/run` et `/scrapers/stream`, prévues pour le web et le mode
+« Serveur », ne sont plus nécessaires (plus de version web, demande du développeur, 20/11/2026).
 Rien n'est stocké côté serveur sur les dépôts de la personne : la liste des dépôts et les
 réglages restent **sur l'appareil** (§7).
 
 ## 7. Stockage sur l'appareil
 
 `LocalStore` (stockage protégé), clé `vixeo.scrapers.<id du compte>` : une liste JSON de dépôts
-`{ url, name, description, version, mode, enabled, scrapers: [ { id, name, filename, version, supportedTypes, logo } ] }`
+`{ url, name, description, version, enabled, scrapers: [ { id, name, filename, version, supportedTypes, logo } ] }`
 dans l'ordre choisi par la personne.
 
 La page « Plug-ins » ne montre que les **dépôts** (les add-ons), jamais leurs scrapers : chacun
@@ -276,16 +257,14 @@ Nuvio.
 
 ## 9. Points ouverts
 
-- `flutter_js` (QuickJS / JavaScriptCore) et l'iframe web n'ont pas pu être essayés sur un appareil
-  ni dans un navigateur dans les sessions qui ont écrit ce code (pas de SDK Flutter) : la CI compile
+- `flutter_js` (QuickJS / JavaScriptCore) n'a pas pu être essayé sur un appareil (Android,
+  Windows) dans les sessions qui ont écrit ce code (pas de SDK Flutter) : la CI compile
   et teste le Dart, `tools/scraper-runner` teste le JavaScript avec un vrai QuickJS (dont les 37
   scrapers de gowaru-nuvio-providers, sans réseau : ils se chargent, s'exécutent et finissent).
 - QuickJS libère mal certains contextes : dans le QuickJS de `tools/scraper-runner` (build avec
   assertions), libérer le moteur après quelques scrapers réels déclenche
   `Assertion failed: list_empty(&rt->gc_obj_list)` (le module est alors recréé). Le QuickJS de
   `flutter_js` est compilé en Release (assertions coupées, en principe) : à surveiller sur Android.
-- Web : rien ne marche sans les routes `/scrapers/fetch` et `/scrapers/stream` de `vixeo_backend`
-  (CORS) ; `crypto.subtle` existe dans l'iframe si la page est en https.
 - Pas de page de réglages par scraper (`hasSettings` / `onSettings` de Nuvio, demande du développeur :
   « Plug-ins » ne montre que les dépôts) : `SCRAPER_SETTINGS` vaut toujours `{}`, donc les options
   d'un scraper (solveur Turnstile de Coflix, filtres de Frenchstream…) restent à leur valeur par

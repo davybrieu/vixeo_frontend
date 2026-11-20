@@ -1,7 +1,8 @@
 # Vixeo — appli Flutter (vixeo_frontend)
 
-Appli **Vixeo** (media center) pour le web, Android, Android TV / Google TV et iOS, avec une
-seule base de code. L'API Laravel est dans
+Appli **Vixeo** (media center) pour Android, Android TV / Google TV et Windows, puis iOS, avec
+une seule base de code. **Plus de version web** (demande du développeur, 20/11/2026 : ni build
+web, ni dossier `web/`, ni code propre au navigateur ; ne pas la réintroduire). L'API Laravel est dans
 [`davybrieu/vixeo_backend`](https://github.com/davybrieu/vixeo_backend).
 
 **Charte graphique : [`docs/charte-graphique.md`](docs/charte-graphique.md)** (couleurs, textes,
@@ -15,7 +16,7 @@ périmètre légal (§3 : ce qui est hors périmètre ne doit pas être impléme
 
 **Distribution Android** (décision du développeur, ne plus poser la question) : **pas de Play
 Store**. L'appli Android (téléphones, tablettes, Android TV / Google TV) est distribuée en
-**APK signé** depuis le site `vixeo_web` (page `/installer`). Conséquences :
+**APK signé** depuis le site (`www.vixeo.app/#installer`, dans `vixeo_backend`). Conséquences :
 - chaque version est signée avec la **même clé de release** (keystore hors du dépôt, dans les
   secrets) : sinon Android refuse d'installer la mise à jour par-dessus l'ancienne version ;
 - les mises à jour passent par la vérification intégrée à l'appli (`GET /app/update`), pas par
@@ -23,6 +24,12 @@ Store**. L'appli Android (téléphones, tablettes, Android TV / Google TV) est d
 - vérification des développeurs Android par Google : obligatoire hors Play Store dans 4 pays
   depuis le 30/09/2026, prévue partout en 2027 : enregistrer le développeur dans l'Android
   Developer Console avant.
+
+**Distribution Windows** (demande du développeur, 20/11/2026) : **installateur Inno Setup**
+(`windows/installer/vixeo.iss`, `vixeo-setup-<build>.exe`, pour l'utilisateur, sans droits
+d'administrateur), publié en release GitHub `windows-<build>` par la CI et téléchargé depuis le
+site ; pas de Microsoft Store ; **non signé** pour l'instant (SmartScreen). Détails :
+[`docs/windows-release.md`](docs/windows-release.md).
 
 Design de référence (canevas) : https://claude.ai/artifact/ESe8nVYEhsSdPbzeV8UdNc
 (écrans téléphone + TV, charte graphique).
@@ -46,9 +53,9 @@ flutter test                       # tests unitaires et de widgets
 dart format lib test               # largeur 120 (analysis_options.yaml)
 
 # Lancer contre une API locale (php artisan serve dans vixeo_backend)
-flutter run -d chrome --dart-define=API_URL=http://localhost:8000
+flutter run -d windows --dart-define=API_URL=http://localhost:8000
 flutter run -d <android> --dart-define=API_URL=http://10.0.2.2:8000   # émulateur Android
-flutter build web --release --dart-define=API_URL=https://api.<domaine> \
+flutter build windows --release --dart-define=API_URL=https://api.<domaine> \
   --dart-define=PUBLISHER_NAME="…" --dart-define=SUPPORT_EMAIL=support@<domaine>
 ```
 
@@ -56,8 +63,9 @@ Une version Release refuse de démarrer sans `API_URL` en `https://`, ni sans `P
 `SUPPORT_EMAIL` (`AppConfig.configurationError`).
 
 Dans un conteneur Claude Code cloud, Flutter n'est pas préinstallé : voir le script de
-`docs/CONTEXT.md` §7 (clone du canal stable dans `/opt/flutter`). Pas de SDK Android ni de
-Xcode : seules les cibles web et les tests se vérifient dans le conteneur.
+`docs/CONTEXT.md` §7 (clone du canal stable dans `/opt/flutter`). Pas de SDK Android, ni de
+Windows, ni de Xcode : seuls `flutter analyze` et les tests se vérifient dans le conteneur ; les
+APK et l'installateur Windows sont compilés par la CI.
 
 ## Structure
 
@@ -74,9 +82,10 @@ lib/
     widgets/                         VxFocusable (focus TV), boutons, images, états vides / erreur
   features/
     auth/        connexion (page d'accueil de l'appli), inscription, mot de passe oublié, session,
-                 connexion TV par QR code (device_login.dart : carte TV + page /tv)
+                 connexion TV par code (device_login.dart : carte TV + page /tv)
     account/     Mon compte (export, suppression), appareils connectés
-    updates/     vérification des mises à jour Android / iOS (UpdateGate, écrans)
+    updates/     vérification et installation des mises à jour Android / Windows (UpdateGate,
+                 écrans, ApkInstaller : APK ou installateur Windows)
     profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
     library/     synchro par profil (Ma liste, favoris ❤, personnes suivies, vus, « Continuer à
@@ -84,7 +93,7 @@ lib/
     search/      recherche : « Explorer » sans texte, filtres (type, genre, années, note) et tri,
                  recherches récentes synchronisées (search_history.dart)
     playback/    lecteur (PlayerScreen, commun à toutes les plateformes), moteurs de lecture
-                 (engine/ : natif Android / iOS, HTML5 et hls.js sur le web), sous-titres WebVTT,
+                 (engine/ : natif Android / iOS, media_kit sur Windows), sous-titres WebVTT,
                  moments à passer (TheIntroDB) et sous-titres (OpenSubtitles) via l'API
     tv/          TV en direct : chaînes et catégories de l'API (rangée, grille de la recherche),
                  lecteur d'un flux (HLS) ; pas de page à part
@@ -106,14 +115,17 @@ lib/
 - **Navigation** : go_router. La connexion est la page d'entrée ; le routeur redirige vers
   `/connexion` tant qu'on n'est pas connecté, puis vers `/profils` tant qu'aucun profil n'est choisi.
   Le routeur n'écoute que le statut de connexion et la présence d'un profil : modifier le profil
-  (avatar…) ne doit pas reconstruire les pages. Exception : `/tv` (validation d'une TV) ne demande
-  pas de profil ; ouvert sans être connecté, il est mémorisé et rouvert juste après la connexion.
+  (avatar…) ne doit pas reconstruire les pages. Exception : `/tv` (« Connecter une TV ») ne
+  demande pas de profil ; ouvert sans être connecté, il est mémorisé et rouvert juste après la
+  connexion.
   `/mot-de-passe-oublie` est une page de connexion.
-- **Connexion TV par QR code** (`features/auth/device_login.dart`, API : `vixeo_backend/docs/connexion-tv.md`) :
-  sur grand écran, la page de connexion affiche `TvCodeCard` (QR code vers `<WEB_URL>/tv?code=…`
-  + code court), qui interroge `/auth/device/token` toutes les `interval` secondes et demande un
-  nouveau code sur un 410. Le téléphone valide sur `/tv` (« Mon profil » → « Connecter une TV »).
-  Le `device_code` reste en mémoire, jamais dans une URL.
+- **Connexion TV par code** (`features/auth/device_login.dart`, API : `vixeo_backend/docs/connexion-tv.md`) :
+  sur grand écran, la page de connexion affiche `TvCodeCard` : **le code court seulement, pas de
+  QR code** (demande du développeur, 20/11/2026 : plus d'appli web pour l'ouvrir) et la marche à
+  suivre (« Paramètres » → « Connecter une TV » dans l'appli du téléphone) ; elle interroge
+  `/auth/device/token` toutes les `interval` secondes et demande un nouveau code sur un 410. Le
+  téléphone (ou un PC Windows) valide sur `/tv` en tapant le code. Le `device_code` reste en
+  mémoire, jamais dans une URL.
 - **TV en direct masquée pour l'instant** (demande du développeur, 17/11/2026) : `liveTvProvider`
   (`core/features.dart`, faux par défaut ; `--dart-define=LIVE_TV=true` la réaffiche) retire
   l'onglet et l'entrée du rail « Chaînes TV », le type et la section « Chaînes TV » de la
@@ -132,8 +144,7 @@ lib/
   même bouton `FilterChipButton` que « Genre » ; section « Chaînes TV » de « Tout »). Une chaîne
   passe toujours par `ChannelTile` (focus télécommande). **Logo** : l'URL `logo` de l'API, sur notre
   domaine (`/tv/logo/{hash}` : l'API relaie l'image du fournisseur sans la stocker, gardée 7 jours
-  par l'appli et le navigateur) ; sur le web, `Image.network(webHtmlElementStrategy:
-  WebHtmlElementStrategy.prefer)` (balise `<img>`) ; `http://` passé en `https://` par
+  par l'appli) ; `http://` passé en `https://` par
   `TvChannel.fromJson` ; sans logo, une icône ; **toucher une chaîne ouvre sa page**
   (`ChannelScreen`, `/chaine/:id`, `openChannel`, demande du développeur ; comme une fiche film /
   série) : logo, nom, catégorie,
@@ -142,7 +153,7 @@ lib/
   `tvGuideProvider` ; heures locales, « Demain 08:30 » ; un appui montre le résumé complet ; mis à
   jour toutes les 30 s ; sans guide sur le serveur : « Le programme n’est pas disponible pour le
   moment. »). Test : `test/channel_screen_test.dart`. « Regarder »
-  ouvre tout de suite `PlayerScreen.live` **en plein écran, sur le navigateur racine** (`playLiveChannel`,
+  ouvre tout de suite `PlayerScreen.live` **en plein écran, sur le `Navigator` racine** (`playLiveChannel`,
   `rootNavigator: true` : ni rail ni barre d'onglets par-dessus), qui demande son flux (`/tv/channels/{id}/stream`) sous
   le même indicateur que le début de la lecture (un seul chargement, pas de fenêtre avant). Lecteur : le même que pour
   les films et séries (`features/playback/player_screen.dart`, `LivePlayerScreen` n'en est qu'une entrée) ;
@@ -150,8 +161,7 @@ lib/
   ce libellé : pas d'`IconButton` à infobulle). Contrôles en surimpression (retour, nom de la chaîne, « EN DIRECT » ; lecture / pause, son et
   volume (souris), « Revenir au direct », plein écran sauf
   sur TV : `fullscreen/`) ; le lecteur est **toujours horizontal** (`lockLandscape` à
-  l'ouverture, `unlockOrientation` à la fermeture ; sur le web, seulement en plein écran sur
-  Android, limite des navigateurs), masqués après 4 s de lecture, rappelés par un appui, la souris ou une
+  l'ouverture, `unlockOrientation` à la fermeture ; rien à verrouiller sur Windows), masqués après 4 s de lecture, rappelés par un appui, la souris ou une
   touche (la première touche de la télécommande ne fait que les montrer) ; raccourcis K, M, F et
   touches média. **Un seul flux par chaîne** (`url`), pas de choix de source ni de passage
   à une autre source (demande du développeur). Un flux qui refuse de démarrer, ou dont l'image ne
@@ -161,22 +171,20 @@ lib/
   position réelle (`engine.position`, pas `value.position`, figée pour un direct) ;
   tant que l'image ne bouge pas, les contrôles et un indicateur restent affichés. Test : `test/live_player_test.dart`. L'API renvoie une URL sur **notre
   propre origine** (un proxy signé, jamais l'adresse du fournisseur) ; `TvStream.headers` reste
-  vide et est tout de même transmis au lecteur. Test : `test/web_hls_test.dart`.
+  vide et est tout de même transmis au lecteur.
 - **Lecteur : un écran, plusieurs moteurs** (demande du développeur ; détails et matrice de tests :
   [`docs/lecteur.md`](docs/lecteur.md)) : `PlayerScreen` et ses commandes sont les mêmes partout
   et ne parlent qu'à un `PlayerEngine` (`features/playback/engine/`, obtenu par
-  `playerEngineFactoryProvider`). Android / iOS : `NativePlayerEngine`
-  (`better_native_video_player`, importé **uniquement** par `engine_factory_io.dart` : il n'a pas
-  d'implémentation web). Web : `WebPlayerEngine` choisit `VideoPlayerEngine` (`video_player` /
-  `video_player_web`, `<video>` HTML5) quand le navigateur lit le flux seul (MP4 ; HLS sur
-  Safari), sinon `HlsJsEngine` (`web/hls.min.js`, hls.js, Apache-2.0, servi depuis notre origine,
-  licence dans « Licences ») ; **`index.html` ne charge pas hls.js** : il est ajouté au premier
-  flux qui en a besoin. Ne jamais importer un plugin vidéo dans `PlayerScreen` : passer par le
-  moteur. Erreurs : `PlayerError(kind)` (réseau, CORS, format, DRM) → une phrase par cause
-  (`playerErrorMessage`). Autoplay refusé : démarrage muet (« Activer le son ») ou pause.
-  Sous-titres : WebVTT lu par `webvtt.dart`, dessiné par Flutter (même rendu partout). **DRM web :
-  étudié, pas implémenté** (un flux protégé est refusé avec une phrase) ; aucune clé dans Flutter.
-  Tests : `test/player_engine_test.dart` (faux moteur) ; les navigateurs se testent à la main.
+  `playerEngineFactoryProvider`, choisi par `engine_factory_io.dart`). Android / iOS :
+  `NativePlayerEngine` (`better_native_video_player`, ExoPlayer / AVPlayer). **Windows :
+  `MediaKitPlayerEngine`** (`media_kit` + `media_kit_libs_windows_video`, libmpv : HLS, MP4,
+  MPEG-TS, en-têtes HTTP de la source ; `MediaKit.ensureInitialized()` dans `main.dart`).
+  Autres (tests) : `VideoPlayerEngine` (`video_player`). Ne jamais importer un plugin vidéo dans
+  `PlayerScreen` : passer par le moteur. Erreurs : `PlayerError(kind)` (réseau, format, DRM) →
+  une phrase par cause (`playerErrorMessage`). Sous-titres : WebVTT lu par `webvtt.dart`, dessiné
+  par Flutter (même rendu partout). **DRM : pas implémenté** (un flux protégé est refusé avec une
+  phrase) ; aucune clé dans Flutter. Tests : `test/player_engine_test.dart` (faux moteur) ; les
+  appareils se testent à la main (matrice de `docs/lecteur.md`).
 - **Commandes du lecteur** (demande du développeur, d'après un autre lecteur ; `docs/lecteur.md`) :
   retour **en haut à gauche** (`VxBackButton`, comme les autres pages), « EN DIRECT » en haut à
   droite (chaîne qui joue) ; au milieu −10 s, lecture / pause (cercle de chargement à sa place),
@@ -225,8 +233,8 @@ lib/
   et changer ses restrictions, et il est envoyé avec la modification (`parental_pin`). Après une
   modification de restriction : invalider `profilesProvider` et `homeProvider` (le catalogue
   dépend des limites).
-- **Mises à jour** (`features/updates`, API : `vixeo_backend/docs/mise-a-jour.md`) : sur Android et
-  iOS, `UpdateGate` (dans le `builder` de `MaterialApp.router`) interroge `GET /app/update` avec le
+- **Mises à jour** (`features/updates`, API : `vixeo_backend/docs/mise-a-jour.md`) : sur Android,
+  Windows et iOS, `UpdateGate` (dans le `builder` de `MaterialApp.router`) interroge `GET /app/update` avec le
   **build** installé (`package_info_plus`) au lancement et au retour au premier plan (toutes les 6 h
   au plus). `update_required` → écran « Mise à jour nécessaire » à la place de l'appli ;
   `update_available` → barre `UpdateBanner` tout en haut des pages (« Une nouvelle mise à jour est
@@ -237,20 +245,30 @@ lib/
   (`latest.download_url`, https uniquement, sans le jeton Vixeo), vérifient son SHA-256, puis
   ouvrent l'installateur d'Android (`ApkInstaller`, canal `app.vixeo/updates` dans `MainActivity.kt`,
   `FileProvider` sur `cache/updates`, permission `REQUEST_INSTALL_PACKAGES`), qui demande une
-  confirmation ; la progression est partagée (`updateDownloadProvider`). Sans APK, ou sur iOS, le
-  bouton ouvre la page d'installation du site. L'appli ne
-  charge jamais de code **de mise à jour** qu'elle exécuterait elle-même (les scrapers des plug-ins, eux, tournent dans un bac à sable : voir « Plug-ins »). Publication : `docs/android-release.md`. Le web ne vérifie pas. Pour essayer dans un navigateur :
-  version « profile » avec `--dart-define=UPDATE_PLATFORM=android`.
+  confirmation ; la progression est partagée (`updateDownloadProvider`). **Sur Windows**, les
+  mêmes boutons téléchargent l'installateur (`vixeo-setup-<build>.exe`), vérifient son SHA-256,
+  le lancent en silencieux (`/SILENT /SUPPRESSMSGBOXES /NORESTART`, détaché) et ferment Vixeo,
+  que l'installateur relance (« Installation de la nouvelle version : Vixeo se ferme, puis
+  redémarre. »). Sans fichier, ou sur iOS, le bouton ouvre la page d'installation du site.
+  L'appli ne charge jamais de code **de mise à jour** qu'elle exécuterait elle-même (les scrapers
+  des plug-ins, eux, tournent dans un bac à sable : voir « Plug-ins »). Publication :
+  `docs/android-release.md`, `docs/windows-release.md`. Pour essayer les écrans d'une autre
+  plateforme : version « profile » avec `--dart-define=UPDATE_PLATFORM=android`.
 - **Version et signature** : `version: x.y.z+build` dans `pubspec.yaml` (`x.y.z` : version
-  affichée). Les APK de la CI prennent comme build le numéro du run (`--build-number`), toujours
+  affichée). Les APK de la CI prennent comme build le numéro du run **+ 400** (`BUILD_OFFSET` de `build.yml` :
+  le renommage du workflow, le 20/11/2026, a remis son compteur à 1 alors que le dernier APK était
+  le build 367 ; ne jamais baisser ce décalage) (`--build-number`), toujours
   croissant ; un APK compilé à la main doit avoir un build plus grand que le dernier publié. La version Release est signée avec la clé de release
   (`android/key.properties` ou variables `VIXEO_KEYSTORE_*`, jamais dans le dépôt) ; sans clé, le
   build Release échoue. La CI publie chaque APK en release GitHub `android-<build>` (APK et
+  SHA-256) et l'installateur Windows en release `windows-<build>` (même build ; `.exe` et
   SHA-256), **seule source** des mises à jour pour l'API (plus de commande `vixeo:release`) ;
-  `[obligatoire]` dans le titre de la release impose la mise à jour. Pas d'appli iOS pour
-  l'instant (l'API répond « à jour » pour iOS). Détails : `docs/android-release.md`.
-- **Chargement au démarrage** (demande du développeur : un seul chargement) : `web/index.html`
-  n'affiche rien avant Flutter (fond sombre seulement, pas d'écran HTML). Ensuite, un seul
+  `[obligatoire]` dans le titre d'une release impose la mise à jour à sa plateforme. Pas d'appli
+  iOS pour l'instant (l'API répond « à jour » pour iOS). Détails : `docs/android-release.md`,
+  `docs/windows-release.md`. **Fenêtre Windows** (`main.dart`, `_setUpWindows`, `window_manager`) :
+  titre « Vixeo », 1280×800, 960×600 au minimum, centrée, fond de la charte ; icône
+  `windows/runner/resources/app_icon.ico` (tirée de `brand/icons/icon-rounded.svg`).
+- **Chargement au démarrage** (demande du développeur : un seul chargement) : un seul
   chargement : `AppLoading` (`core/widgets/app_loading.dart`, logo + cercle), affiché par
   l'écran de démarrage (`/demarrage`), par « Qui regarde ? » tant que les profils chargent et par
   `AppShell` au premier chargement de l'accueil (sans la navigation, une seule fois par lancement).
@@ -370,11 +388,11 @@ lib/
   `SystemNotifications`, canaux Android `episodes` et `general` créés au lancement) ; un appui
   ouvre `data.path` (aussi quand la notification lance l'appli). Icône
   `drawable/ic_notification.xml` (gardée par `raw/keep.xml`), couleur `values/colors.xml`,
-  désucrage Java activé (`build.gradle.kts`). Sur le web : une phrase. Les tests passent par
+  désucrage Java activé (`build.gradle.kts`). Sur Windows (pas de FCM) : une phrase. Les tests passent par
   `FakePush` et `FakeNotifications` (`test/notifications_test.dart`).
 - **Plug-ins** (`features/addons`, « Paramètres » → « Plug-ins », `/profil/plugins`,
   `AddonsScreen` ; contrat complet : [`docs/scrapers.md`](docs/scrapers.md) ; demande du développeur,
-  19/11/2026 : « comme Nuvio », **Android, iOS et web**, **exécuter du code JS** pour les sources).
+  19/11/2026 : « comme Nuvio », **Android, Windows, puis iOS**, **exécuter du code JS** pour les sources).
   **Remplace les add-ons Stremio** (`AddonInfo`, `GET /addons`, `addonsProvider` : supprimés ; ne pas
   les réintroduire). Un plug-in est un **dépôt** (`manifest.json`, adresse https) qui liste des
   **scrapers** : des fichiers JavaScript CommonJS qui exportent
@@ -396,27 +414,26 @@ lib/
   par compte, `LocalStore` `vixeo.scrapers.<id>` ; `ScraperLoader` : télécharge manifestes et code,
   code gardé en mémoire seulement ; `ScraperService.streams` : 6 scrapers en parallèle au plus),
   `scraper_guard.dart` (règles et limites), `scraper_host.dart` (la conversation avec le bac à
-  sable, la même partout), `scraper_http*.dart`, `scraper_runtime*.dart` et `scraper_js_engine_io.dart`
-  (moteurs par plateforme, imports conditionnels comme `engine_factory.dart`).
+  sable, la même partout), `scraper_http*.dart` (`DirectScraperHttp`), `scraper_runtime*.dart` et
+  `scraper_js_engine_io.dart` (moteur JS de la plateforme).
   **La page « Plug-ins » ne montre que les dépôts (les add-ons), jamais leurs scrapers** (demande du
-  développeur, 19/11/2026) : une carte par dépôt (nom, adresse, version, mode, description), un
+  développeur, 19/11/2026) : une carte par dépôt (nom, adresse, version, description), un
   interrupteur sur le haut de la carte (`ScraperRepo.enabled`, gardé sur l'appareil ; désactivé, le
   dépôt reste installé mais ne donne plus de sources), « monter » / « descendre » (des boutons,
   comme « Rangées de l'accueil » ; l'ordre des dépôts est celui du panneau des sources), « mettre à
   jour » et « retirer ». Pas d'ordre ni d'interrupteur par scraper : un dépôt garde l'ordre de son
   manifeste (relu tel quel par « mettre à jour », seul « activé » est gardé).
-  **Où le JS s'exécute : déclaré par le dépôt** (`execution` du manifeste, `ScraperMode`, affiché
-  sans réglage) : **sur l'appareil**
-  (Android / iOS : QuickJS / JavaScriptCore via `flutter_js`, créés directement, **sans
+  **Où le JS s'exécute : toujours sur l'appareil** (demande du développeur, 20/11/2026 : plus de
+  web ni de mode « Serveur » ; `execution` d'un manifeste est ignoré, plus de `ScraperMode`) :
+  QuickJS (Android, Windows) ou JavaScriptCore (iOS) via `flutter_js`, créés directement, **sans
   `memoryLimit`** (absent de la bibliothèque Android : le moteur ne démarrait plus, tous les
-  scrapers échouaient ; test dans `scraper_runner_test.dart`), dans un isolate qu'on peut tuer ; web :
-  `<iframe sandbox="allow-scripts">` sans origine) ou **sur le serveur** (`POST /scrapers/run`).
+  scrapers échouaient ; test dans `scraper_runner_test.dart`), dans un isolate qu'on peut tuer.
   Le bac à sable (`assets/scrapers/sandbox.js`, identique partout) n'a ni réseau, ni DOM, ni
   `require` : son `fetch` devient un message que l'appli vérifie (`ScraperGuard` : `http://` fait en
   `https://`, jamais le réseau local ; limites de Nuvio : 60 s par scraper, 30 s par requête,
-  minuteries de 60 s, 200 requêtes, 100 flux) puis exécute elle-même (en direct sur Android / iOS ;
-  par le serveur sur le web, `POST /scrapers/fetch`, à cause de CORS ; le jeton Vixeo n'est jamais
-  envoyé à un tiers). Sur le web, un flux passe par `POST /scrapers/stream` (`proxyScraperStream`).
+  minuteries de 60 s, 200 requêtes, 100 flux) puis exécute elle-même, en direct (le jeton Vixeo
+  n'est jamais envoyé à un tiers). Le lecteur lit le flux avec ses `headers` ; aucune route
+  `/scrapers/*` côté serveur.
   **Sources** : `sourceProvidersProvider` liste les scrapers des dépôts **activés** qui gèrent le
   type du titre, dans l'ordre des dépôts (un fournisseur chacun, `scraper:{dépôt}:{id}`) ;
   `providerSourcesProvider` les exécute (rien pour un dépôt désactivé ; un échec affiche sa raison
@@ -427,12 +444,11 @@ lib/
   sur un téléphone pourquoi une source ne trouve rien) ; leurs flux sont **déjà
   lisibles** et le lecteur ne les `resolve` pas. Sans dépôt, le panneau écrit « Aucun plug-in n'est
   installé. » ; dépôts tous désactivés : « Les plug-ins installés sont désactivés. ». Après un
-  changement : `ref.invalidate(sourceProvidersProvider)`. Implémentation de référence du serveur et
-  de la garde : `tools/scraper-runner` (Node + vrai QuickJS, `npm test` ; les 37 scrapers de
-  gowaru-nuvio-providers s'y chargent et s'exécutent). **Pas encore vérifié** :
-  sur un appareil (QuickJS de `flutter_js`, JavaScriptCore) ni dans un navigateur (l'iframe) : la CI
-  compile et teste le Dart, `tools/scraper-runner` le JavaScript ; les routes `/scrapers/*` sont à
-  écrire dans `vixeo_backend` (sans elles, rien ne marche sur le web). Tests : `test/scraper_models_test.dart`, `scraper_runner_test.dart`,
+  changement : `ref.invalidate(sourceProvidersProvider)`. Implémentation de référence du bac à
+  sable et de la garde : `tools/scraper-runner` (Node + vrai QuickJS, `npm test` ; les 37 scrapers
+  de gowaru-nuvio-providers s'y chargent et s'exécutent). **Pas encore vérifié** sur un appareil
+  (QuickJS de `flutter_js` sur Android et Windows, JavaScriptCore) : la CI compile et teste le
+  Dart, `tools/scraper-runner` le JavaScript. Tests : `test/scraper_models_test.dart`, `scraper_runner_test.dart`,
   `addons_test.dart`, doublures dans `test/scraper_fakes.dart`.
 - **Avancé** (« Paramètres » → « Avancé », `/profil/avance`, `AdvancedSettingsScreen` ; demande du
   développeur, sans rapports de plantage) : « Mémoriser le dernier profil » (sur l'appareil,
@@ -637,16 +653,18 @@ lib/
   (`profile_preferences_screen.dart`). Tests : `test/design_test.dart`.
 - **Logo** (`brand/README.md`) : V blanc, triangle vert, « Vixeo » en Sora ExtraBold, couleurs
   de la charte, **le même partout** (demande du développeur) : `VxLogo` dans l'appli (mêmes
-  formes que `brand/vixeo-logo.svg`), favicon et icônes web (`web/`), icône Android adaptative
+  formes que `brand/vixeo-logo.svg`), icône Android adaptative
   (`mipmap-anydpi-v26`, `drawable/ic_launcher_foreground.xml`) et PNG d'avant Android 8, bannière
-  Android TV (`drawable/tv_banner.xml`), icônes iOS (`AppIcon.appiconset`), site (`vixeo_web`) et
-  favicon de l'API. Tout est généré par `brand/tools` : changer le logo là, puis recopier.
+  Android TV (`drawable/tv_banner.xml`), icône Windows (`windows/runner/resources/app_icon.ico`),
+  icônes iOS (`AppIcon.appiconset`), site et favicon de `vixeo_backend`. Tout est généré par `brand/tools` : changer le logo là, puis recopier.
 - **Images** : `NetImage` (cache, couleur de remplacement). Tailles TMDb via
   `MediaItem.poster('w780')` / `backdrop('original')`, dérivées des URL renvoyées par l'API.
 - Tests : `flutter test` ne charge pas les polices (texte de remplacement), sans réseau.
-- **CI** (`.github/workflows/build-web.yml`) : `flutter analyze` (les erreurs bloquent) et
-  `flutter test` d'abord ; puis compilation web (commitée dans `build/web`, déploiement Forge) et
-  APK signé publié en release GitHub `android-<n>` (lue par l'API pour les mises à jour). Couleurs
+- **CI** (`.github/workflows/build.yml`) : `flutter analyze` (les erreurs bloquent) et
+  `flutter test` d'abord ; puis, sur `main`, APK signé publié en release GitHub `android-<n>` et
+  installateur Windows (`windows-latest`, Inno Setup) publié en release `windows-<n>` (lues par
+  l'API pour les mises à jour et par le site) ; APK de debug pour les pull requests. **Plus de
+  build web ni de déploiement Forge** (demande du développeur, 20/11/2026). Couleurs
   des actions destructives : `VxColors.danger` / `dangerText`, `VxButtonKind.danger`.
 
 ## Branches
@@ -655,8 +673,8 @@ lib/
 
 ## État actuel
 
-- Fait : connexion, inscription, session persistante (jeton chiffré), connexion TV par QR code
-  (validée depuis le téléphone), « Qui regarde ? » (PIN de profil, ajout avec PIN parental si
+- Fait : connexion, inscription, session persistante (jeton chiffré), connexion TV par code
+  (tapé dans l'appli du téléphone), « Qui regarde ? » (PIN de profil, ajout avec PIN parental si
   activé), accueil (carrousel / grande image, « Continuer à regarder », rangées),
   fiche film et série (saisons, épisodes avec date de diffusion, distribution, recommandations,
   bande-annonce, Ma liste, Vu, avis sur le film, la série et les épisodes), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
@@ -670,15 +688,15 @@ lib/
   Avancé (dernier profil, cache),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
-  mises à jour (Android / iOS), plug-ins de sources = dépôts de scrapers JavaScript façon Nuvio (page « Plug-ins », sources du
+  mises à jour (Android / Windows, installées depuis l'appli), plug-ins de sources = dépôts de scrapers JavaScript façon Nuvio (page « Plug-ins », sources du
   lecteur ; le catalogue reste celui de TMDb ; Dart non vérifié, voir « Plug-ins »), TV en direct (catégories, chaînes, lecture du flux), lecteur à
-  moteurs par plateforme (natif sur Android / iOS, HTML5 ou hls.js sur le web : `docs/lecteur.md`), mises en page téléphone et TV / grand écran, navigation à la
-  télécommande.
+  moteurs par plateforme (natif sur Android / iOS, media_kit sur Windows : `docs/lecteur.md`),
+  appli Windows (fenêtre, plein écran, installateur), mises en page téléphone et TV / grand
+  écran, navigation à la télécommande.
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
-- Vérifié de bout en bout (web) contre l'API Laravel locale avec un faux TMDb.
-- Pas encore fait : lecteur vidéo et sources (Jellyfin / Plex / Emby), qui utilisera les réglages
-  de lecture, les moments à passer et les sous-titres déjà prêts ; déploiement web (workflow
-  `deploy-web.yml` du §8.2).
-- Limite connue : sur le web avec le mode lecteur d'écran activé, le focus initial et les flèches
-  passent par le navigateur (Tab fonctionne). Sans lecteur d'écran, et sur Android TV, les flèches
-  et OK fonctionnent.
+- Vérifié de bout en bout (ancienne version web) contre l'API Laravel locale avec un faux TMDb.
+- Pas encore vérifié sur un vrai PC Windows : lecture (media_kit), plug-ins (QuickJS de
+  `flutter_js`), mise à jour par l'installateur ; la CI ne fait que compiler (matrice de
+  `docs/lecteur.md`, `docs/windows-release.md`).
+- Pas encore fait : appli iOS ; moments à passer et langues préférées du profil pas encore
+  utilisés par le lecteur (les sous-titres de l'API, si) ; signature de l'installateur Windows.

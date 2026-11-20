@@ -6,10 +6,13 @@ de commandes Flutter, sur toutes les plateformes. Seul le **moteur de lecture** 
 | Plateforme | Moteur | Paquet | Ce qui lit réellement |
 |---|---|---|---|
 | Android (téléphone, tablette, Android TV) | `NativePlayerEngine` | `better_native_video_player` | ExoPlayer (Media3) |
-| iOS | `NativePlayerEngine` | `better_native_video_player` | AVPlayer |
-| Web, flux lu par le navigateur (MP4 ; HLS sur Safari) | `VideoPlayerEngine` | `video_player` + `video_player_web` | `<video>` HTML5 |
-| Web, HLS ailleurs (Chrome, Firefox, Edge) | `HlsJsEngine` | hls.js 1.5.17 (`web/hls.min.js`) | `<video>` + Media Source Extensions |
-| Ordinateur, tests | `VideoPlayerEngine` | `video_player` | selon la plateforme |
+| iOS (plus tard) | `NativePlayerEngine` | `better_native_video_player` | AVPlayer |
+| Windows (10 et 11, 64 bits) | `MediaKitPlayerEngine` | `media_kit`, `media_kit_video`, `media_kit_libs_windows_video` | libmpv (FFmpeg) |
+| Tests, autres ordinateurs | `VideoPlayerEngine` | `video_player` | selon la plateforme |
+
+**Plus de version web** (demande du développeur, 20/11/2026) : ni `<video>` HTML5, ni hls.js, ni
+problème de CORS. Les applis lisent les flux directement, avec les en-têtes HTTP que donne la
+source (`Referer`, `User-Agent`…).
 
 ## Commandes (demande du développeur, d'après un autre lecteur)
 
@@ -31,64 +34,50 @@ Les mêmes sur toutes les plateformes, par-dessus l'image :
   développeur). Trop d'icônes pour la largeur : la rangée **défile de gauche à droite** (doigt,
   souris, ou focus de la télécommande), jamais sous le temps ; pas de flèche. Le temps
   « 00:02 / 2:52:35 » est à droite (« 00:00 / 00:00 » avant la vidéo). Le curseur de volume
-  n'existe qu'avec une souris (web, ordinateur), pas sur Android ni iOS.
+  n'existe qu'avec une souris (Windows), pas sur Android ni iOS.
 - **Cadrage** (un appui passe au suivant, une alerte dit lequel) : **Ajuster** (toute l'image,
   bandes noires), **Remplir** (étirée à tout l'écran), **Zoom** (l'écran rempli, les bords
   coupés). Chaque moteur donne la forme de l'image (`PlayerEngineValue.aspectRatio` : taille de
-  la vue native, `video_player`, `videoWidth` / `videoHeight` de hls.js) ; `_FramedVideo` pose la
-  vue à cette forme puis l'agrandit (`FittedBox` `contain` / `fill` / `cover`) : le même arbre
-  quel que soit le cadrage, la vue native n'est jamais reconstruite. Tant que la forme n'est pas
-  connue, la vue prend tout l'écran.
+  la vue native, de la vidéo de mpv, de `video_player`) ; `_FramedVideo` pose la vue à cette forme
+  puis l'agrandit (`FittedBox` `contain` / `fill` / `cover`) : le même arbre quel que soit le
+  cadrage, la vue native n'est jamais reconstruite. Tant que la forme n'est pas connue, la vue
+  prend tout l'écran.
 
-`better_native_video_player` n'a **pas** d'implémentation web. Il n'est importé que par
-`native_player_engine.dart`, lui-même importé seulement par `engine_factory_io.dart` : la
-compilation web ne voit jamais ce paquet, et aucune API native n'est appelée dans un navigateur
-(test : `test/web_hls_test.dart`).
+Chaque plugin vidéo n'est importé que par son moteur, et les moteurs seulement par
+`engine_factory_io.dart` : `PlayerScreen` ne parle qu'à un `PlayerEngine`.
 
 ## Fichiers (`lib/features/playback/engine/`)
 
 ```
-player_engine.dart          l'abstraction : PlayerEngine, PlayerEngineValue, PlayerSource,
-                            PlayerError, DrmConfig
-player_errors.dart          Dart pur : tri des erreurs, phrase affichée, choix du moteur web,
-                            en-têtes autorisés par un navigateur
-engine_factory.dart         playerEngineFactoryProvider + import conditionnel
-engine_factory_io.dart      Android / iOS -> natif ; sinon video_player
-engine_factory_web.dart     WebPlayerEngine : choisit HTML5 ou hls.js, repli de l'un vers l'autre
-native_player_engine.dart   better_native_video_player
-video_player_engine.dart    video_player (HTML5 sur le web)
-web/browser_support*.dart   questions au navigateur (HLS natif, MSE, geste, CORS)
-web/hls_js_interop.dart     liaisons hls.js + chargement du script à la demande
-web/hls_js_engine.dart      <video> + hls.js
-../webvtt.dart              sous-titres WebVTT (lecture du fichier, texte à l'instant t)
+player_engine.dart           l'abstraction : PlayerEngine, PlayerEngineValue, PlayerSource,
+                             PlayerError, DrmConfig
+player_errors.dart           Dart pur : tri des erreurs, phrase affichée
+engine_factory.dart          playerEngineFactoryProvider
+engine_factory_io.dart       Android / iOS -> natif ; Windows -> media_kit ; sinon video_player
+native_player_engine.dart    better_native_video_player
+media_kit_player_engine.dart media_kit (libmpv), Windows
+video_player_engine.dart     video_player
+../webvtt.dart               sous-titres WebVTT (lecture du fichier, texte à l'instant t)
 ```
 
 Parallèle Vue : `PlayerEngine` est un petit store (`ValueNotifier`, comme un `ref()`) que l'écran
-observe, avec quelques commandes (`open`, `play`, `pause`, `seekTo`, `setVolume`). L'import
-conditionnel (`import 'a.dart' if (dart.library.js_interop) 'b.dart'`) est l'équivalent d'un alias
-de build : le compilateur ne garde qu'un des deux fichiers.
+observe, avec quelques commandes (`open`, `play`, `pause`, `seekTo`, `setVolume`).
+`engine_factory_io.dart` choisit le moteur selon `Platform`, comme une fabrique de services
+Laravel qui lirait l'environnement.
 
-## Web : choix du moteur
+## Windows : media_kit
 
-À l'ouverture d'un flux (`WebPlayerEngine.open`) :
-
-1. Le flux est-il du HLS ? Format donné par l'API (`hls`, `m3u8`), sinon l'URL (`.m3u8`).
-2. Le navigateur lit-il le HLS seul ? `video.canPlayType('application/vnd.apple.mpegurl')`.
-3. hls.js peut-il fonctionner ? `MediaSource` ou `ManagedMediaSource` (iPhone, iOS 17.1+).
-
-| Flux | HLS natif | MSE | Moteur |
-|---|---|---|---|
-| MP4 | – | – | HTML5 |
-| HLS | oui | – | HTML5 (hls.js **n'est pas téléchargé**) |
-| HLS | non | oui | hls.js |
-| HLS avec en-têtes qu'une page peut envoyer | oui | oui | hls.js (`<video>` n'envoie aucun en-tête) |
-| HLS | non | non | HTML5, qui échoue : « format non pris en charge » |
-
-Repli : si le lecteur HTML5 annonce le HLS (« maybe ») puis échoue à l'ouverture (format,
-décodage, cause inconnue) et que MSE existe, le flux est rouvert avec hls.js.
-
-`web/index.html` ne charge plus `hls.min.js` : `ensureHlsJsLoaded()` ajoute la balise `<script>`
-au premier flux qui en a besoin (toujours depuis notre origine).
+- `MediaKit.ensureInitialized()` est appelé au démarrage (`main.dart`, `_setUpWindows`), avec la
+  fenêtre (`window_manager` : titre « Vixeo », 1280×800, 960×600 au minimum, fond de la charte).
+- `MediaKitPlayerEngine.open` ouvre le flux en pause (`Media(url, httpHeaders: headers)`) et
+  attend sa durée ou sa taille d'image (30 s au plus, sinon `PlayerError(network)`). mpv lit le
+  HLS, le MP4, le MPEG-TS et la plupart des codecs (H.264, H.265, AV1…) sans rien installer.
+- Volume : 0 à 1 dans l'appli, 0 à 100 pour mpv.
+- Vue : `Video(controller:, controls: NoVideoControls)` : les commandes restent celles de Vixeo.
+- Plein écran : `windowManager.setFullScreen` (`features/tv/fullscreen/fullscreen_io.dart`) ;
+  pas d'orientation à verrouiller.
+- Les DLL de libmpv sont copiées à côté de `vixeo.exe` par `media_kit_libs_windows_video` au
+  build, puis dans l'installateur (`docs/windows-release.md`).
 
 ### Erreurs
 
@@ -97,133 +86,69 @@ Chaque moteur traduit ses erreurs en `PlayerError(kind)` ; l'écran affiche une 
 
 | Cause | D'où | Phrase |
 |---|---|---|
-| `network` | `MEDIA_ERR_NETWORK`, hls.js `networkError`, délai de 30 s | Problème de connexion : la vidéo ne se charge pas. |
-| `cors` | hls.js `networkError` sans réponse lisible **et** la même URL répond en `no-cors` | Ce flux n’autorise pas la lecture dans un navigateur. |
-| `unsupported`, `decode` | `MEDIA_ERR_SRC_NOT_SUPPORTED`, `MEDIA_ERR_DECODE`, codecs incompatibles | Ce format vidéo n’est pas pris en charge par ce navigateur. |
+| `network` | erreur réseau, HTTP, délai de 30 s | Problème de connexion : la vidéo ne se charge pas. |
+| `unsupported`, `decode` | format ou codec inconnu, décodage impossible | Ce format vidéo n’est pas pris en charge par cet appareil. |
 | `drm` | flux protégé | Ce contenu protégé ne peut pas être lu ici. |
 | `unknown` | le reste | la phrase habituelle (« Impossible de lire cette chaîne. » / « … cette source. ») |
 
-Limites connues :
-- un navigateur ne dit jamais « CORS » à une page : le diagnostic est une déduction (seconde
-  requête `no-cors`), faite seulement pour hls.js. `<video>` seul n'a pas besoin de CORS ;
-- `video_player` ne transmet que le message de l'erreur après l'ouverture (pas son code) : le tri
-  se fait alors sur le texte, différent selon les navigateurs ;
-- l'image figée d'un direct reste surveillée par l'écran (`stallTimeout`, 15 s) ;
-- un flux MPEG-TS brut (`format: ts`) n'est lu par aucun navigateur (ni par hls.js).
-
-### Lecture automatique (autoplay)
-
-Un navigateur refuse de démarrer avec le son une vidéo que le spectateur n'a pas demandée.
-- HTML5 : si personne n'a encore touché la page (`navigator.userActivation.hasBeenActive`), le
-  démarrage se fait **muet**. Si le navigateur refuse quand même, le flux est rouvert en pause.
-- hls.js : `play()` refusé → nouvel essai muet → sinon pause.
-
-Démarrage muet : le bouton du son affiche « Activer le son » ; un appui (un vrai geste) remet le
-son. En pause : le signe lecture est affiché, un appui sur l'image démarre.
+Les moteurs ne donnent souvent qu'un texte (ExoPlayer, AVPlayer, mpv) : `classifyPlayerError` le
+trie par mots-clés. L'image figée d'un direct reste surveillée par l'écran (`stallTimeout`, 15 s).
 
 ### Sous-titres WebVTT
 
 L'API sert du WebVTT (`/catalog/subtitles/{id}`). `webvtt.dart` le lit et `PlayerScreen` dessine
 le texte lui-même par-dessus l'image, à la position donnée par le moteur : même rendu partout,
-sans `<track>` ni vue native de sous-titres.
+sans vue native de sous-titres.
 
 ### Orientation et plein écran
 
 Le lecteur est **toujours horizontal** (demande du développeur) : `PlayerScreen` appelle
 `lockLandscape()` à l'ouverture et `unlockOrientation()` à la fermeture
 (`features/tv/fullscreen/`). Android / iOS : paysage seulement tant que le lecteur est ouvert,
-plein écran ou non ; le reste de l'appli tourne avec l'appareil. Web : un navigateur ne laisse
-verrouiller l'orientation qu'en plein écran (Chrome, Edge, Firefox sur Android) : le verrou est
-demandé à l'ouverture puis au passage en plein écran ; ni Safari sur iPhone ni un ordinateur ne le
-permettent, la page tourne alors avec le téléphone.
+plein écran ou non ; le reste de l'appli tourne avec l'appareil. Windows : rien à verrouiller.
 
-Plein écran : API Fullscreen du navigateur sur l'élément racine, mode immersif sur Android / iOS. Sur iPhone, Safari n'offre le plein écran qu'à la balise `<video>`
-avec ses propres commandes : le bouton reste donc sans effet dans Safari iPhone (iPad : oui).
+Plein écran : mode immersif sur Android / iOS, fenêtre plein écran sur Windows (touche F, Échap
+pour sortir).
 
-## DRM Web : étude (rien n'est implémenté)
+## DRM : rien n'est implémenté
 
-**État : aucun DRM ne fonctionne sur le web.** Un flux marqué protégé (`PlayerSource.drm`) est
-refusé avec la phrase « Ce contenu protégé ne peut pas être lu ici. ». L'API ne renvoie
-aujourd'hui aucun flux protégé (`ResolvedStream` et `TvStream` n'ont pas de champ DRM).
-
-Ce qui existe : le contrat `DrmConfig` (schéma, URL du serveur de licences, URL du certificat
-FairPlay, en-têtes). Sur Android / iOS, `NativePlayerEngine` le transmet au plugin
-(`drmConfig` de `better_native_video_player`), **jamais essayé** faute de flux protégé.
-
-Faisabilité d'un adaptateur EME (Encrypted Media Extensions) :
-
-| Navigateur | Système | Voie | Remarques |
-|---|---|---|---|
-| Chrome, Edge, Firefox (ordinateur, Android) | Widevine (`com.widevine.alpha`) | hls.js : `emeEnabled`, `drmSystems`, `licenseXhrSetup` | HTTPS obligatoire ; en logiciel (L3) la plupart des serveurs limitent la définition ; Edge sait aussi PlayReady |
-| Safari macOS / iPadOS | FairPlay (`com.apple.fps`) | hls.js (MSE + EME) ou `<video>` natif avec les événements `encrypted` | certificat d'application à télécharger ; format des messages propre à chaque serveur de licences |
-| Safari iPhone | FairPlay | `<video>` natif, ou hls.js avec `ManagedMediaSource` (iOS 17.1+) | à vérifier sur appareil |
-
-Possible donc, à ces conditions :
-1. **Côté API** : renvoyer avec le flux `drm: {scheme, license_url, certificate_url, headers}`,
-   les en-têtes portant un jeton à durée courte. Le serveur de licences doit accepter les
-   requêtes de l'origine web (CORS) ;
-2. **Côté appli** : un `EmeAdapter` dans `HlsJsEngine` (configuration hls.js ci-dessus, en-têtes
-   ajoutés dans `licenseXhrSetup`), la détection par
-   `navigator.requestMediaKeySystemAccess`, et les erreurs `keySystemError` (déjà triées en `drm`) ;
-3. **Tests** : sur de vrais flux et un vrai serveur de licences, navigateur par navigateur.
-   FairPlay ne se teste que sur du matériel Apple.
+Un flux marqué protégé (`PlayerSource.drm`) est refusé avec la phrase « Ce contenu protégé ne
+peut pas être lu ici. ». Aucune source ne renvoie aujourd'hui de flux protégé. Le contrat
+`DrmConfig` (schéma, URL du serveur de licences, URL du certificat FairPlay, en-têtes) existe ;
+sur Android / iOS, `NativePlayerEngine` le transmet au plugin (`drmConfig` de
+`better_native_video_player`), **jamais essayé** faute de flux protégé. mpv (Windows) ne lit pas
+de flux Widevine / PlayReady.
 
 Règle : **aucune clé de licence dans Flutter**. L'appli ne connaît que l'URL du serveur de
-licences et un jeton ; les clés restent dans le module DRM (CDM) du navigateur ou du système.
+licences et un jeton ; les clés restent dans le module DRM du système.
 
 ## Tests
 
 Automatiques (`flutter test`, exécutés par la CI) :
-- `test/player_engine_test.dart` : choix du moteur web, tri des erreurs, en-têtes, WebVTT, et
-  `PlayerScreen` avec un faux moteur (commandes, démarrage muet, erreurs réseau / CORS / format,
-  panne en cours de lecture, recherche dans la vidéo, sous-titres) ;
-- `test/live_player_test.dart` : le lecteur en direct avec `video_player` simulé (inchangé) ;
-- `test/web_hls_test.dart` : hls.js fourni mais pas chargé par `index.html`, le web n'importe
-  jamais le plugin natif.
+- `test/player_engine_test.dart` : tri des erreurs, WebVTT, et `PlayerScreen` avec un faux moteur
+  (commandes, flux et en-têtes d'une source, erreurs réseau / format, panne en cours de lecture,
+  recherche dans la vidéo, sous-titres, cadrage) ;
+- `test/live_player_test.dart` : le lecteur en direct avec `video_player` simulé.
 
-Ces tests tournent sur la machine de test, **pas dans un navigateur**.
-
-### Essais réels dans Chrome (17/11/2026)
-
-Le build web de cette branche a été piloté dans Chrome 153 (Chrome for Testing, sans écran), avec
-une fausse API locale et des flux fabriqués par ffmpeg (MP4 H.264 / AAC, HLS H.264, HLS H.265),
-servis avec ou sans en-têtes CORS. Constaté :
-
-- MP4 : lecture, pause / reprise (K), muet (M, « Activer le son »), recherche à 50 % par la barre,
-  curseur de volume, sous-titres WebVTT au bon moment, plein écran (F) aller-retour, commandes
-  masquées après 4 s et rappelées par la souris ; `hls.min.js` jamais demandé ;
-- HLS : ce Chrome annonce le HLS natif (`canPlayType` = « maybe ») → moteur HTML5, `hls.min.js`
-  jamais demandé ; lecture, pause, recherche à 75 %, muet ;
-- HLS avec un en-tête à envoyer, et HLS avec `canPlayType` forcé à vide (ce que répondent Firefox
-  et les Chrome plus anciens) → hls.js chargé à la demande ; lecture, pause, recherche, muet ;
-- erreurs : playlist 404 et serveur éteint → « Problème de connexion » ; HLS H.265 → repli HTML5
-  puis hls.js, puis « format non pris en charge » ; HLS sans CORS par hls.js → « n’autorise pas
-  la lecture dans un navigateur » ; le même flux sans CORS par `<video>` natif se lit (normal).
-
-Limites de ces essais : un MP4 en 404 donne « format non pris en charge » (le navigateur ne dit
-pas autre chose à la page) ; l'autoplay sans geste et un direct réel n'ont pas été essayés ;
-**Safari, Firefox et Edge n'ont pas été essayés du tout**, ni aucun appareil Android / iOS.
-La matrice ci-dessous reste donc à faire à la main avant de publier.
+Ces tests tournent sur la machine de test, sans vrai moteur vidéo.
 
 ### Matrice manuelle (à cocher)
 
-Flux d'essai : un MP4 H.264 et un flux HLS servis par l'API (une chaîne en direct, un film),
-ou le flux HLS public de démonstration `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`.
+Flux d'essai : une source d'un plug-in (film, épisode), une chaîne en direct, ou le flux HLS
+public de démonstration `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`.
 
-| Essai | Safari | Chrome (153, sans écran) | Firefox | Edge |
-|---|---|---|---|---|
-| MP4 H.264 | ☐ | ☑ | ☐ | ☐ |
-| HLS (moteur attendu) | ☐ HTML5, `hls.min.js` absent de l'onglet Réseau | ☑ HTML5 natif, et hls.js (forcé) | ☐ hls.js | ☐ hls.js |
-| Lecture / pause (bouton, appui sur l'image, touche K) | ☐ | ☑ (K) | ☐ | ☐ |
-| Recherche dans la vidéo (barre, ±10 s) | ☐ | ☑ (barre) | ☐ | ☐ |
-| Volume, muet (curseur, touche M) | ☐ | ☑ | ☐ | ☐ |
-| Sous-titres | ☐ | ☑ | ☐ | ☐ |
-| Plein écran (bouton, touche F, Échap) | ☐ | ☑ (F) | ☐ | ☐ |
-| Erreur : URL inexistante | ☐ | ☑ | ☐ | ☐ |
-| Erreur : flux H.265 | ☐ | ☑ | ☐ | ☐ |
-| CORS : HLS sans `Access-Control-Allow-Origin` | – | ☑ (hls.js) | ☐ | ☐ |
-| Autoplay : page rechargée directement sur le lecteur | ☐ | ☐ | ☐ | ☐ |
-| Commandes : masquage après 4 s, retour au survol, « Revenir au direct » | ☐ | ☑ (sauf direct) | ☐ | ☐ |
+| Essai | Android (téléphone) | Android TV | Windows |
+|---|---|---|---|
+| MP4 H.264 | ☐ | ☐ | ☐ |
+| HLS | ☐ | ☐ | ☐ |
+| Flux qui exige un `Referer` | ☐ | ☐ | ☐ |
+| Lecture / pause (bouton, appui sur l'image, touche K) | ☐ | ☐ | ☐ |
+| Recherche dans la vidéo (barre, ±10 s) | ☐ | ☐ | ☐ |
+| Volume, muet (curseur, touche M) | – | – | ☐ |
+| Sous-titres | ☐ | ☐ | ☐ |
+| Plein écran (bouton, touche F, Échap) | ☐ | – | ☐ |
+| Cadrage (Ajuster, Remplir, Zoom) | ☐ | ☐ | ☐ |
+| Erreur : URL inexistante | ☐ | ☐ | ☐ |
+| Commandes : masquage après 4 s, retour au toucher / à la souris, « Revenir au direct » | ☐ | ☐ | ☐ |
 
-Le moteur utilisé s'affiche dans la console en cas d'échec (`Player engine "hls.js" failed: …`).
-À faire aussi sur un téléphone Android, une Android TV et un iPhone (moteur natif).
+Le moteur utilisé s'affiche dans la console en cas d'échec (`Player engine "media_kit" failed: …`).
