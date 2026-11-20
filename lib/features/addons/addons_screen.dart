@@ -203,7 +203,7 @@ class _AddonsScreenState extends ConsumerState<AddonsScreen> {
   }
 }
 
-/// One add-on: its name, address, version and execution mode, a switch to turn it on or off, then
+/// One add-on: its name, address and version, a switch to turn it on or off, then
 /// « monter », « descendre » (buttons, not drag and drop: they work with a TV remote), « mettre à
 /// jour » and « retirer ». Its scrapers are not listed.
 class _AddonCard extends StatelessWidget {

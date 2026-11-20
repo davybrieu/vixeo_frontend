@@ -132,7 +132,13 @@ Future<FakeEngine> openTitle(WidgetTester tester, PlayerScreen screen, {bool cho
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final engine = FakeEngine();
-  const link = StreamSource(provider: 'p', name: 'Film VF 1080P', url: 'https://host.test/embed/1');
+  const link = StreamSource(
+    provider: 'p',
+    name: 'Film VF 1080P',
+    url: 'https://cdn.test/film.m3u8',
+    stream: 'https://cdn.test/film.m3u8',
+    streamType: 'hls',
+  );
   await tester.pumpWidget(
     ProviderScope(
       overrides: [

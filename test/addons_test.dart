@@ -347,7 +347,7 @@ void main() {
       await tester.tap(find.text('Installer'));
       await tester.pumpAndSettle();
       expect(find.text('Dépôt installé : Dépôt test'), findsOneWidget);
-      expect(find.text('repo.test · v1.0.0 · Appareil'), findsOneWidget);
+      expect(find.text('repo.test · v1.0.0'), findsOneWidget);
       expect(find.bySemanticsLabel('Dépôt test, activé'), findsOneWidget);
       expect(find.bySemanticsLabel('Retirer le dépôt : Dépôt test'), findsOneWidget);
       expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
@@ -358,9 +358,9 @@ void main() {
       await open(tester, keptContainer(repos: [testRepo(), otherRepo()]));
 
       expect(find.text('Dépôt test'), findsOneWidget);
-      expect(find.text('repo.test · v1.0.0 · Appareil'), findsOneWidget);
+      expect(find.text('repo.test · v1.0.0'), findsOneWidget);
       expect(find.text('Autre dépôt'), findsOneWidget);
-      expect(find.text('autre.test · Appareil'), findsOneWidget);
+      expect(find.text('autre.test'), findsOneWidget);
       for (final scraper in ['Films libres', 'Séries libres', 'Tout', 'Autre source', 'Des films.']) {
         expect(find.textContaining(scraper), findsNothing, reason: scraper);
       }
@@ -436,7 +436,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Téléchargement impossible (erreur 404).'), findsOneWidget);
-      expect(find.text('repo.test · v1.0.0 · Appareil'), findsOneWidget);
+      expect(find.text('repo.test · v1.0.0'), findsOneWidget);
     });
   });
 

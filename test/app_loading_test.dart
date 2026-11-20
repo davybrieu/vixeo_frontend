@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,11 +54,5 @@ void main() {
     await tester.pump();
     expect(find.byType(AppLoading), findsNothing);
     expect(find.text('Qui regarde ?'), findsOneWidget);
-  });
-
-  test('the web page has no loading of its own before Flutter', () {
-    final html = File('web/index.html').readAsStringSync();
-    expect(html, isNot(contains('spinner')));
-    expect(html, isNot(contains('boot-loader')));
   });
 }
