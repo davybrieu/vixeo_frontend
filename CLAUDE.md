@@ -511,7 +511,7 @@ lib/
   sur la note** (`RatingButton`, petite flèche, focalisable à la télécommande ; demande du
   développeur) ouvre **« Notes »** (`showAllRatings`, `ratings_sheet.dart` : feuille du bas sur
   téléphone, fenêtre avec « Fermer » ailleurs) : chaque site qui note le titre, dans l'ordre du
-  réglage, badge, nom, note sur son échelle (« 8,8 / 10 », « 79 % »), « Votre source » sous le
+  réglage, logo, nom, note sur son échelle (« 8,8 / 10 », « 79 % »), « Votre source » sous le
   site choisi ; sans réponse de MDBList, TMDb seul et une phrase. **Épisodes : note
   TMDb** (MDBList n'en a pas). « Vider le cache » efface aussi les notes. Logo TMDb :
   `assets/images/tmdb_short.png` (« Primary short » de themoviedb.org converti en PNG sans
