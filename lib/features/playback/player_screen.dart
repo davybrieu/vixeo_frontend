@@ -739,6 +739,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         return;
       }
       final choice = await showModalBottomSheet<SubtitleOption?>(
+        // Above the phone's tab bar, drawn over the pages' navigator (AppShell).
+        useRootNavigator: true,
         context: context,
         backgroundColor: VxColors.surface,
         builder: (sheetContext) => SafeArea(
@@ -784,6 +786,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (!mounted) return;
     final initialSeason = _season ?? (details.seasons.isNotEmpty ? details.seasons.first.number : null);
     showModalBottomSheet<void>(
+      // Above the phone's tab bar, drawn over the pages' navigator (AppShell).
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       backgroundColor: VxColors.surface,

@@ -57,6 +57,8 @@ Future<(T?,)?> showVxChoice<T>(
 
   if (!large) {
     return showModalBottomSheet<(T?,)>(
+      // Above the phone's tab bar, drawn over the pages' navigator (AppShell).
+      useRootNavigator: true,
       context: context,
       backgroundColor: VxColors.surface,
       showDragHandle: true,

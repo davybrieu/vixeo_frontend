@@ -594,6 +594,8 @@ class PosterGrid extends ConsumerWidget {
 
 /// Long press menu: Ma liste, marquer vu / non vu.
 Future<void> showTitleMenu(BuildContext context, MediaItem item) => showModalBottomSheet<void>(
+  // Above the phone's tab bar, drawn over the pages' navigator (AppShell).
+  useRootNavigator: true,
   context: context,
   backgroundColor: VxColors.surface,
   showDragHandle: true,
@@ -637,6 +639,8 @@ Future<void> showTitleMenu(BuildContext context, MediaItem item) => showModalBot
 
 /// Long press menu of a "Continuer à regarder" card.
 Future<void> showResumeMenu(BuildContext context, ProfileItem item) => showModalBottomSheet<void>(
+  // Above the phone's tab bar, drawn over the pages' navigator (AppShell).
+  useRootNavigator: true,
   context: context,
   backgroundColor: VxColors.surface,
   showDragHandle: true,
