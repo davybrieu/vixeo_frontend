@@ -1,3 +1,5 @@
+import '../ratings/rating_source.dart';
+
 /// Account returned by `GET /me` (UserResource).
 class User {
   const User({required this.id, required this.name, required this.email, required this.parentalControl});
@@ -71,6 +73,7 @@ class Profile {
     this.bio,
     this.avatar,
     this.posterFormat = PosterFormat.portrait,
+    this.ratingSource = RatingSource.imdb,
     this.isKid = false,
     this.maxAgeRating,
     this.effectiveMaxAgeRating,
@@ -93,6 +96,7 @@ class Profile {
     bio: json['bio'] as String?,
     avatar: json['avatar'] as String?,
     posterFormat: PosterFormat.parse(json['poster_format']),
+    ratingSource: RatingSource.parse(json['rating_source']),
     isKid: json['is_kid'] as bool? ?? false,
     maxAgeRating: json['max_age_rating'] as int?,
     effectiveMaxAgeRating: json['effective_max_age_rating'] as int?,
@@ -116,6 +120,9 @@ class Profile {
   /// Avatar id from `GET /avatars` (null = initial letter).
   final String? avatar;
   final PosterFormat posterFormat;
+
+  /// Site whose rating the titles show (« Source des notes », MDBList through the API).
+  final RatingSource ratingSource;
   final bool isKid;
   final int? maxAgeRating;
 

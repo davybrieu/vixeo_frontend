@@ -8,6 +8,7 @@ import '../../core/widgets/choice.dart';
 import '../../core/widgets/focusable.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
+import '../ratings/rating_source.dart';
 import '../tv/models.dart';
 import '../tv/tv_repository.dart';
 import 'search_filters.dart';
@@ -30,9 +31,11 @@ String _fold(String s) => s
     .replaceAll(RegExp('[ùûü]'), 'u')
     .replaceAll('ç', 'c');
 
-/// Type, genre, years, rating and order of the search page, in one scrollable row of chips.
-/// Genre, years, rating and order don't apply to people or live channels: hidden for those kinds.
-/// Live channels have their « Catégorie » instead, the same kind of chip as « Genre ».
+/// Type, genre, years and order of the search page, in one scrollable row of chips. Genre, years
+/// and order don't apply to people or live channels: hidden for those kinds. Live channels have
+/// their « Catégorie » instead, the same kind of chip as « Genre ». With a [ratingSource] (« Ma
+/// liste », which filters and sorts by itself), also « Note » and « Mieux notés » on that site's
+/// rating; the search page has neither: the API's rating is TMDb's (developer's choice).
 class SearchFilterBar extends ConsumerWidget {
   const SearchFilterBar({
     super.key,
@@ -41,6 +44,7 @@ class SearchFilterBar extends ConsumerWidget {
     required this.onChanged,
     this.kinds = SearchKind.values,
     this.channelCategories = true,
+    this.ratingSource,
   });
 
   /// Types offered (« Ma liste » has no people).
@@ -48,6 +52,9 @@ class SearchFilterBar extends ConsumerWidget {
 
   /// « Catégorie » for live channels (the search page; not « Ma liste »).
   final bool channelCategories;
+
+  /// Site of the « Note » filter and of « Mieux notés » (« Ma liste »); null: neither.
+  final RatingSource? ratingSource;
 
   final SearchFilters filters;
 
@@ -111,12 +118,17 @@ class SearchFilterBar extends ConsumerWidget {
       if (choice != null) onChanged(filters.copyWith(decade: () => choice.$1));
     }
 
-    Future<void> pickRating() async {
+    final source = ratingSource;
+
+    Future<void> pickRating(RatingSource source) async {
       final choice = await showVxChoice<int>(
         context,
-        title: 'Note minimale',
+        title: 'Note minimale (${source.label})',
         selected: filters.minRating,
-        options: [(null, 'Toutes les notes'), for (final r in SearchFilters.ratings) (r, '$r et plus')],
+        options: [
+          (null, 'Toutes les notes'),
+          for (final r in SearchFilters.ratings) (r, '${source.threshold(r)} et plus'),
+        ],
       );
       if (choice != null) onChanged(filters.copyWith(minRating: () => choice.$1));
     }
@@ -126,7 +138,9 @@ class SearchFilterBar extends ConsumerWidget {
         context,
         title: 'Trier par',
         selected: order,
-        options: [for (final s in SearchSort.available(withText: withText)) (s, s.label)],
+        options: [
+          for (final s in SearchSort.available(withText: withText, withRating: source != null)) (s, s.label),
+        ],
       );
       if (choice != null) onChanged(filters.copyWith(sort: () => choice.$1));
     }
@@ -163,14 +177,18 @@ class SearchFilterBar extends ConsumerWidget {
               onPressed: pickDecade,
             ),
             SizedBox(width: gap),
-            FilterChipButton(
-              label: filters.minRating == null ? 'Note' : 'Note ${filters.minRating}+',
-              semanticLabel: 'Note minimale : ${filters.minRating == null ? 'toutes' : '${filters.minRating} et plus'}',
-              selected: filters.minRating != null,
-              dropdown: true,
-              onPressed: pickRating,
-            ),
-            SizedBox(width: gap),
+            if (source != null) ...[
+              FilterChipButton(
+                label: filters.minRating == null ? 'Note' : 'Note ≥ ${source.threshold(filters.minRating!)}',
+                semanticLabel:
+                    'Note minimale ${source.label} : '
+                    '${filters.minRating == null ? 'toutes' : '${source.threshold(filters.minRating!)} et plus'}',
+                selected: filters.minRating != null,
+                dropdown: true,
+                onPressed: () => pickRating(source),
+              ),
+              SizedBox(width: gap),
+            ],
             FilterChipButton(
               label: 'Tri : ${order.label}',
               semanticLabel: 'Trier par : ${order.label}',

@@ -9,6 +9,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/expandable_text.dart';
 import '../../core/widgets/page_header.dart';
+import '../ratings/rating_view.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
 import 'widgets.dart';
@@ -53,6 +54,8 @@ class _PersonViewState extends ConsumerState<_PersonView> {
     final layout = Layout.of(context);
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     final format = posterFormatOf(ref);
+    // The ratings of the filmography's cards in one request.
+    prefetchRatings(ref, p.filmography);
     final photoWidth = layout.isLarge ? layout.tv(300) : (layout.isPhone ? 132.0 : 170.0);
 
     final photo = ClipRRect(

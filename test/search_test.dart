@@ -162,7 +162,9 @@ void main() {
         minRating: 7,
         sort: SearchSort.oldest,
       ).query(withText: false);
-      expect(query, {'genre': 18, 'year_from': null, 'year_to': 1979, 'min_rating': 7, 'sort': 'oldest'});
+      // Never the rating: the API's is TMDb's, not the profile's site (« Ma liste » applies it).
+      expect(query, {'genre': 18, 'year_from': null, 'year_to': 1979, 'sort': 'oldest'});
+      expect(const SearchFilters(sort: SearchSort.rating).query(withText: true)['sort'], isNull);
     });
 
     test('relevance needs a text; people stay without one (popular people)', () {
@@ -171,6 +173,14 @@ void main() {
       expect(filters.sortFor(withText: false), SearchSort.popularity);
       expect(filters.kind, SearchKind.person);
       expect(SearchSort.available(withText: false), isNot(contains(SearchSort.relevance)));
+      // « Mieux notés »: « Ma liste » only.
+      expect(SearchSort.available(withText: true), isNot(contains(SearchSort.rating)));
+      expect(SearchSort.available(withText: false, withRating: true), [
+        SearchSort.popularity,
+        SearchSort.rating,
+        SearchSort.recent,
+        SearchSort.oldest,
+      ]);
     });
 
     test('"Tout" offers the movie and TV genres once, sorted', () {
@@ -247,9 +257,14 @@ void main() {
     expect(fake.titleQueries.last.query, 'film');
     expect(find.text('Drame'), findsOneWidget);
 
-    await choose(tester, 'Tri :', 'Mieux notés');
-    expect(fake.titleQueries.last.filters.sort, SearchSort.rating);
-    expect(find.text('Tri : Mieux notés'), findsOneWidget);
+    // Neither « Note » nor « Mieux notés »: the API's rating is TMDb's, not the profile's site.
+    expect(find.ancestor(of: find.text('Note'), matching: find.byType(FilterChipButton)), findsNothing);
+    await tapChip(tester, 'Tri :');
+    expect(find.text('Mieux notés'), findsNothing);
+    await tester.tap(find.text('Plus récents').last);
+    await tester.pumpAndSettle();
+    expect(fake.titleQueries.last.filters.sort, SearchSort.recent);
+    expect(find.text('Tri : Plus récents'), findsOneWidget);
 
     await tapChip(tester, 'Réinitialiser');
     expect(find.text('Tri : Pertinence'), findsOneWidget);

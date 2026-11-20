@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
+import '../ratings/rating_view.dart';
 import '../search/search_screen.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
@@ -75,6 +76,7 @@ class TitleListScreen extends ConsumerWidget {
             PagedGrid<MediaItem>(
               page: (page) => titleListProvider((type, list, page)),
               idOf: (item) => item.id,
+              prefetch: prefetchRatings,
               gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
               itemBuilder: (_, item) => LayoutBuilder(
                 builder: (_, c) => PosterCard(item: item, width: c.maxWidth, format: format),

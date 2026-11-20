@@ -18,6 +18,7 @@ import '../catalog/hero.dart';
 import '../catalog/models.dart';
 import '../catalog/widgets.dart';
 import '../auth/session.dart';
+import '../ratings/rating_view.dart';
 import '../tv/channel_row.dart';
 import '../tv/channel_search.dart';
 import 'filter_bar.dart';
@@ -299,6 +300,7 @@ class _Results extends ConsumerWidget {
           key: ValueKey(q),
           page: (page) => titlesProvider(q.atPage(page)),
           idOf: (item) => item.id,
+          prefetch: prefetchRatings,
           gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
           itemBuilder: (_, item) => LayoutBuilder(
             builder: (_, c) => PosterCard(
@@ -609,6 +611,7 @@ class PagedGrid<T> extends ConsumerStatefulWidget {
     required this.gridDelegate,
     required this.itemBuilder,
     required this.empty,
+    this.prefetch,
   });
 
   final FutureProvider<Paged<T>> Function(int page) page;
@@ -616,6 +619,10 @@ class PagedGrid<T> extends ConsumerStatefulWidget {
   final SliverGridDelegate gridDelegate;
   final Widget Function(BuildContext context, T item) itemBuilder;
   final Widget empty;
+
+  /// Called with the loaded items at each build: titles ask their ratings for the whole page
+  /// ([prefetchRatings]), not one request per card.
+  final void Function(WidgetRef ref, List<T> items)? prefetch;
 
   @override
   ConsumerState<PagedGrid<T>> createState() => _PagedGridState<T>();
@@ -661,6 +668,7 @@ class _PagedGridState<T> extends ConsumerState<PagedGrid<T>> {
     if (items.isEmpty && !(last.value?.hasMore ?? false)) {
       return SliverFillRemaining(hasScrollBody: false, child: widget.empty);
     }
+    widget.prefetch?.call(ref, items);
     final next = last.value?.hasMore ?? false ? _pages + 1 : null;
 
     return SliverMainAxisGroup(

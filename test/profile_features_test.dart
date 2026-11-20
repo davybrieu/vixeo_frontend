@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/features.dart';
 import 'package:vixeo/core/theme.dart';
@@ -13,6 +14,7 @@ import 'package:vixeo/features/library/actions.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
+import 'package:vixeo/features/ratings/ratings.dart';
 import 'package:vixeo/features/shell/app_shell.dart';
 
 /// In-memory library: records favorites / watched like the sync API would.
@@ -54,13 +56,19 @@ class FakeSession extends SessionController {
 
 const movie = MediaItem(id: 550, type: MediaType.movie, title: 'Nord Sauvage');
 
-Widget app(Widget child, {Profile profile = const Profile(id: 1, name: 'Davy'), bool liveTv = false}) => ProviderScope(
+Widget app(
+  Widget child, {
+  Profile profile = const Profile(id: 1, name: 'Davy'),
+  bool liveTv = false,
+  List<Override> overrides = const [],
+}) => ProviderScope(
   // A new scope per profile (overrides are read once per scope).
-  key: ValueKey((profile.id, liveTv)),
+  key: ValueKey((profile.id, profile.ratingSource, liveTv)),
   overrides: [
     libraryProvider.overrideWith(FakeLibrary.new),
     sessionProvider.overrideWith(() => FakeSession(profile)),
     liveTvProvider.overrideWithValue(liveTv),
+    ...overrides,
   ],
   child: MaterialApp(
     theme: buildVixeoTheme(),
@@ -132,7 +140,7 @@ void main() {
     expect(find.text('Nord Sauvage'), findsNWidgets(2));
   });
 
-  testWidgets('phone: name, then year (left) and TMDb rating (right) under each poster card', (tester) async {
+  testWidgets('phone: name, then year (left) and rating (right) under each poster card', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -145,8 +153,17 @@ void main() {
       posterUrl: 'https://image.tmdb.org/t/p/w342/p.jpg',
       backdropUrl: 'https://image.tmdb.org/t/p/w780/b.jpg',
     );
+    // MDBList has nothing for this title: TMDb's rating, with its logo (also when the profile chose
+    // TMDb).
+    final noRatings = ratingsLoaderProvider.overrideWithValue(
+      RatingsLoader(
+        fetch: (titles) async => (ratings: {for (final t in titles) t: TitleRatings.empty}, available: true),
+      ),
+    );
     for (final format in PosterFormat.values) {
-      await tester.pumpWidget(app(PosterCard(item: item, width: 116, format: format)));
+      await tester.pumpWidget(app(PosterCard(item: item, width: 116, format: format), overrides: [noRatings]));
+      // The ratings are asked after the frame, then shown.
+      await tester.pump();
       await tester.pump();
       final name = tester.widget<Text>(find.text('Nord Sauvage'));
       expect(name.maxLines, 1, reason: format.name);
@@ -284,7 +301,7 @@ void main() {
     Rect heading(String title) => tester.getRect(find.text(title));
     // Each section: its title, its first row and its last row.
     final sections = [
-      (heading('Apparence'), row('Format des affiches'), row('Format des affiches')),
+      (heading('Apparence'), row('Format des affiches'), row('Source des notes')),
       (heading('No spoil'), row('Activer No spoil'), row('Activer No spoil')),
       (heading('Langues'), row('Langue audio préférée'), row('Sous-titres')),
       (heading('Passer automatiquement'), row('Générique de début'), row('Aperçu de la suite')),

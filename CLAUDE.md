@@ -90,6 +90,8 @@ lib/
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
     tmdb/        compte TMDb du profil (page Connexions, QR code), notes et commentaires (fenêtre,
                  boutons, onglet « Avis »)
+    ratings/     notes des autres sites (IMDb, Rotten Tomatoes, Letterboxd…) via l'API (MDBList),
+                 source choisie par le profil, chargeur groupé et cache de l'appareil
     notifications/  notifications push (FCM) : page « Notifications », inscription auprès de
                  l'API (`PushRegistration`), affichage et appui (`NotificationsGate`)
     addons/      plug-ins : dépôts de scrapers JavaScript (façon Nuvio), page « Plug-ins » (`docs/scrapers.md`)
@@ -486,17 +488,38 @@ lib/
   (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche, les
   épisodes et « Avis ». Les notes vont de 0,5 à 10 (échelle de TMDb). Anciennes adresses `/profil/tmdb` et
   `/profil/notes` redirigées.
-- **Note TMDb** : la note moyenne de TMDb s'affiche partout avec `TmdbRating` (étoile, note, petit
-  logo officiel TMDb `assets/images/tmdb_short.png`, « Primary short » de themoviedb.org converti
-  en PNG sans modification). Pas de page de confidentialité ni de mention TMDb dans l'appli
-  (décision du développeur).
+- **Notes des titres : source au choix** (`features/ratings`, demande du développeur, 20/11/2026 ;
+  API : `vixeo_backend/docs/notes.md`) : « Paramètres » → « Apparence » → **« Source des notes »**
+  (`RatingSource`, champ du profil `rating_source`, synchronisé ; **IMDb par défaut**) : IMDb, TMDb,
+  Rotten Tomatoes (critiques / public), Metacritic, Letterboxd, Trakt, MyAnimeList. Les notes
+  viennent de **MDBList par l'API** (`GET /catalog/ratings?ids=…`, clé de Vixeo ; l'appli ne parle
+  jamais à MDBList). Quota MDBList partagé par tous (gratuit : 1 000 requêtes / jour) : l'API garde
+  les notes 3 jours pour tous et demande 200 titres à la fois ; l'appli (`RatingsLoader`,
+  `ratingsLoaderProvider`) **regroupe les titres d'une image** (rangée, page de grille : une
+  requête de 100 titres au plus, `prefetchRatings` dans `PosterRow`, `PosterGrid`, `PagedGrid(prefetch:)`,
+  filmographie, « Continuer à regarder » TV ; jamais une requête par carte), garde les réponses
+  en mémoire et **un jour sur l'appareil** (`LocalStore`, `vixeo.ratings`, 1 500 titres), et
+  redemande après 2 min un titre sans réponse. Affichage (`watchShownRating`, `ShownRating.pick`) :
+  la note du site choisi, **sinon IMDb, sinon TMDb** (`vote_average`, sans requête quand TMDb est
+  choisi) ; étoile verte, valeur sur l'échelle du site (« 8,8 », « 79 % », « 4,3 ») et petit
+  badge du site (`RatingLabel`, `RatingTag` : « IMDb » jaune, « RT » rouge… ; TMDb garde son logo
+  `TmdbRating`), lu « Note IMDb : 8,8 sur 10 ». Cartes du téléphone (`CardRating`), grande image et
+  carrousel (`TitleFacts` attend la note avec le reste : rien ne bouge), fiche. **Épisodes : note
+  TMDb** (MDBList n'en a pas). « Vider le cache » efface aussi les notes. Logo TMDb :
+  `assets/images/tmdb_short.png` (« Primary short » de themoviedb.org converti en PNG sans
+  modification). Pas de page de confidentialité ni de mention TMDb dans l'appli (décision du
+  développeur). Tests : `test/ratings_test.dart`.
 - **Recherche** (`features/search`, API : filtres de `/catalog/{type}/discover` et `/catalog/search`) :
   barre de filtres `SearchFilterBar` (Tout / Films / Séries / Chaînes TV / Personnes, genre,
-  années, note minimale, tri ; « Catégorie » pour les chaînes) ; `SearchFilters` donne les
-  paramètres de l'API. **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
+  années, tri ; « Catégorie » pour les chaînes) ; `SearchFilters` donne les paramètres de l'API.
+  **Ni filtre « Note » ni tri « Mieux notés » dans la recherche** (demande du développeur,
+  20/11/2026 : l'API ne connaît que la note TMDb, pas la source choisie ; `min_rating` et
+  `sort=rating` ne sont plus envoyés). « Ma liste », qui filtre et trie elle-même, les garde, sur
+  la note de la source choisie (`SearchFilterBar(ratingSource:)`, seuils en dixièmes de l'échelle
+  du site : « Note ≥ 7 », « Note ≥ 70 % », « Note ≥ 3,5 »). **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
   (demande du développeur) : dans « Tout », après Films et Séries, une section « Chaînes TV » et
   une section « Personnes » toujours affichées (une ligne « Aucune … » si vide ; masquées avec un
-  filtre genre / années / note, qui ne s'applique qu'aux titres). **Sans recherche, aucun
+  filtre genre / années, qui ne s'applique qu'aux titres). **Sans recherche, aucun
   résultat** (demande du développeur ; plus d'« Explorer », ni chaînes ni personnes populaires) :
   champ vide → les recherches récentes seulement ; un texte en cours de saisie (ou d'une seule
   lettre) → rien, ni récentes ni « Aucun résultat » ; « Aucun résultat » uniquement quand un
@@ -542,14 +565,15 @@ lib/
   (largeur 300 téléphone, 340 tablette, 520 TV) qui défile de gauche à droite. Carte : image 16:9
   avec le badge « Épisode 3 » en haut à gauche ; **le texte est sur l'image, en bas**, sur un
   dégradé sombre (demande du développeur) : le titre (1 ligne), le résumé (**2 lignes au plus**,
-  pour laisser voir l'image) et, sur la dernière ligne, la durée puis la note TMDb à gauche et la
+  pour laisser voir l'image) et, sur la dernière ligne, la durée puis la note TMDb (pas de note
+  d'épisode chez MDBList) à gauche et la
   date de diffusion à droite. Hauteur de carte fixe (`_EpisodeCard.heightOf` : 16:9, plus haute
   seulement si le texte du système est très grand). Changer de saison revient au premier épisode. Test :
   `test/details_people_test.dart`.
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
   horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Sur téléphone** (demande du
-  développeur), sous chaque affiche : le titre sur une ligne, puis l'année à gauche et la note
-  TMDb avec son logo à droite (`PosterCard`, hauteur `PosterCard.captionHeightOf(context)`, que
+  développeur), sous chaque affiche : le titre sur une ligne, puis l'année à gauche et la note de
+  la source choisie avec son badge à droite (`CardRating` ; `PosterCard`, hauteur `PosterCard.captionHeightOf(context)`, que
   les rangées et les grilles ajoutent à l'image ; grilles : `posterGridDelegate(…,
   captionHeight:)`). **Tablette et TV : pas de nom sur les affiches**, dans les deux formats
   (l'image suffit) ; le nom n'est écrit que pour un titre sans aucune image, et reste dans le
@@ -625,8 +649,9 @@ lib/
   activé), accueil (carrousel / grande image, « Continuer à regarder », rangées),
   fiche film et série (saisons, épisodes avec date de diffusion, distribution, recommandations,
   bande-annonce, Ma liste, Vu, notes TMDb du film, de la série et des épisodes), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
-  la distribution et la recherche), recherche (« Explorer », filtres type / genre / années /
-  note, tri, grande image sur grand écran, résultats groupés, recherches récentes synchronisées),
+  la distribution et la recherche), recherche (filtres type / genre / années, tri, grande image
+  sur grand écran, résultats groupés, recherches récentes synchronisées), notes des titres sur le
+  site choisi par le profil (IMDb par défaut, MDBList par l'API),
   Ma liste, « Avis » (notes TMDb et commentaires), « Mon profil » (paramètres
   d’apparence, No spoil, langues et lecture automatique, code PIN parental dans « Mon compte »,
   restrictions dans « Modifier le profil »,
