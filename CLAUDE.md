@@ -88,7 +88,7 @@ lib/
     tv/          TV en direct : chaînes et catégories de l'API (rangée, grille de la recherche),
                  lecteur d'un flux (HLS) ; pas de page à part
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
-    tmdb/        compte TMDb du profil (page Connexions, QR code), notes et commentaires (fenêtre,
+    tmdb/        avis du profil (nom historique) : notes et commentaires (fenêtre,
                  boutons, onglet « Avis »)
     ratings/     notes des autres sites (IMDb, Rotten Tomatoes, Letterboxd…) via l'API (MDBList),
                  source choisie par le profil, chargeur groupé et cache de l'appareil
@@ -440,8 +440,6 @@ lib/
   accueil et « Ma liste » / « Continuer à regarder », rechargés à l'affichage). Lignes des
   réglages communes : `profiles/settings_rows.dart` (`SettingsSection`, `SettingsChoiceRow`,
   `SettingsSwitchRow`, `SettingsActionRow`). Test : `test/advanced_settings_test.dart`.
-- **Tuile « Connexions » des paramètres** : une seule phrase, « Lier ou déconnecter un service. »
-  (demande du développeur : pas d'autre texte, ni le nom du compte lié).
 - **Rail de navigation sur un écran bas** : icônes et marges rétrécissent selon la hauteur
   (40 au minimum), puis le rail défile avec une barre (`_Rail`, `shell/app_shell.dart`). Test :
   `test/profile_features_test.dart`.
@@ -458,23 +456,15 @@ lib/
   Chaque action se confirme par une alerte (`showVxSnack`) : « Ajouté à votre liste », « Supprimé
   de votre liste », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
   « Note enregistrée : 8/10 », « Note supprimée ».
-- **Avis et compte TMDb** (`features/tmdb`, API : `vixeo_backend/docs/compte-tmdb.md`) : **Vixeo
-  est propriétaire des avis** (demande du développeur) : tout profil connecté note, modifie et
-  supprime ses avis **sans compte TMDb** (`canRateProvider` = connecté avec un profil). Lier un
-  compte TMDb dans « Paramètres » → **Connexions** (`/profil/connexions`, `ConnectionsScreen`) ne
-  sert qu'à **synchroniser** : chaque note donnée dans Vixeo part sur TMDb ; à la liaison, les
-  notes de Vixeo remplacent celles de TMDb pour les mêmes titres, et les notes de themoviedb.org
-  absentes de Vixeo arrivent dans « Mes avis ». **Un compte TMDb ne se lie qu'à un seul profil
-  Vixeo** : sinon `link/complete` répond 409 (`taken`), la page arrête d'attendre et affiche le
-  message. Liaison : la page d'autorisation de TMDb s'ouvre (téléphone, ordinateur) ou s'affiche
-  en QR code (grand écran), et la page interroge `link/complete` toutes les 5 s (et au retour au
-  premier plan) ; « Changer de compte », « Déconnecter » (les avis restent dans Vixeo). **Pas de
-  paragraphe d'explication** sur la page (demande du développeur) ; compte lié : logo TMDb au-dessus
-  du nom (une ligne), boutons l'un sous l'autre sur téléphone. Bouton
+- **Avis** (`features/tmdb`, nom historique ; API : `vixeo_backend/docs/avis.md`) : tout profil
+  connecté note, modifie et supprime ses avis (`canRateProvider` = connecté avec un profil),
+  **gardés par Vixeo seulement**. **Plus de liaison d'un compte TMDb ni de synchronisation**
+  (supprimées, demande du développeur, 20/11/2026 : ni page ni tuile « Connexions » ;
+  `/profil/connexions` et `/profil/tmdb` mènent à « Paramètres » ; ne pas les réintroduire). Bouton
   « Noter » sur la fiche (film, série) et étoile en haut à droite de l'image de chaque épisode
   (« Ma note : 8/10 » en haut de l'image, après le badge « Épisode 3 ») ;
   fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK ;
-  **commentaire facultatif**, gardé par Vixeo, jamais envoyé à TMDb). La fenêtre et « Mon avis »
+  **commentaire facultatif**). La fenêtre et « Mon avis »
   ne parlent pas de TMDb et le bouton s'appelle « Supprimer » (demande du développeur). **« Mes avis »** (`/avis`,
   `ReviewsScreen`, ouverte depuis la page « Profil » ; « Ses avis » pour un membre,
   `ReviewsScreen(username:)`) : en-tête commun avec recherche (titre, épisode, commentaire, sans
@@ -486,8 +476,7 @@ lib/
   le même formulaire que la fenêtre de note) ; « Enregistrer » et « Supprimer »
   (confirmation) ramènent à la liste, « Voir la fiche » ouvre le titre. Toutes les notes sont chargées d'un coup
   (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche, les
-  épisodes et « Avis ». Les notes vont de 0,5 à 10 (échelle de TMDb). Anciennes adresses `/profil/tmdb` et
-  `/profil/notes` redirigées.
+  épisodes et « Avis ». Les notes vont de 0,5 à 10. Ancienne adresse `/profil/notes` redirigée.
 - **Notes des titres : source au choix** (`features/ratings`, demande du développeur, 20/11/2026 ;
   API : `vixeo_backend/docs/notes.md`) : « Paramètres » → « Apparence » → **« Source des notes »**
   (`RatingSource`, champ du profil `rating_source`, synchronisé ; **IMDb par défaut**) : IMDb, TMDb,
@@ -620,7 +609,7 @@ lib/
   abonnements. Ouvertes par-dessus une autre page, elles ont le bouton retour de
   `VxPageHeader(back:)` (`VxBackButton`) ; pas les onglets. Un avis d'un membre (`ReviewRow(mine: false)`) ouvre la fiche du
   titre, pas « Mon avis ». Le mien : liste et avis des providers locaux (`libraryProvider`,
-  `reviewsProvider`), sans compte TMDb une phrase et « Lier mon compte TMDb ». Un membre :
+  `reviewsProvider`). Un membre :
   `socialProfileProvider`, `socialTitlesProvider`, `socialReviewsProvider` (API
   `/social/profiles/{username}…` ; les avis ont les champs de « Mes avis »). Profil enfant : pas
   de page. **Comptes** (recherche, abonnés) : `AccountTile` = avatar, nom, @pseudo, **sans le
@@ -656,14 +645,14 @@ lib/
   (validée depuis le téléphone), « Qui regarde ? » (PIN de profil, ajout avec PIN parental si
   activé), accueil (carrousel / grande image, « Continuer à regarder », rangées),
   fiche film et série (saisons, épisodes avec date de diffusion, distribution, recommandations,
-  bande-annonce, Ma liste, Vu, notes TMDb du film, de la série et des épisodes), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
+  bande-annonce, Ma liste, Vu, avis sur le film, la série et les épisodes), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (filtres type / genre / années, tri, grande image
   sur grand écran, résultats groupés, recherches récentes synchronisées), notes des titres sur le
   site choisi par le profil (IMDb par défaut, MDBList par l'API),
-  Ma liste, « Avis » (notes TMDb et commentaires), « Mon profil » (paramètres
+  Ma liste, « Avis » (notes et commentaires), « Mon profil » (paramètres
   d’apparence, No spoil, langues et lecture automatique, code PIN parental dans « Mon compte »,
   restrictions dans « Modifier le profil »,
-  connecter une TV, changer de profil, Connexions (TMDb), Notifications (nouveaux épisodes),
+  connecter une TV, changer de profil, Notifications (nouveaux épisodes),
   Avancé (dernier profil, cache),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des

@@ -42,11 +42,6 @@ class Favorites extends LibraryController {
   });
 }
 
-class Linked extends TmdbAccountController {
-  @override
-  Future<TmdbAccount> build() async => const TmdbAccount(linked: true, username: 'davy');
-}
-
 class NoReviews extends Reviews {
   @override
   Future<List<RatedItem>> build() async => const [];
@@ -102,7 +97,6 @@ Future<void> pumpPage(
           };
         }),
         libraryProvider.overrideWith(Favorites.new),
-        tmdbAccountProvider.overrideWith(Linked.new),
         reviewsProvider.overrideWith(NoReviews.new),
         ...overrides,
       ],

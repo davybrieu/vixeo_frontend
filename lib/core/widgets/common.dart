@@ -398,7 +398,7 @@ class EmptyState extends StatelessWidget {
   final String title;
   final String? message;
 
-  /// A button under the message ("Lier mon compte TMDb"…).
+  /// A button under the message ("Réessayer"…).
   final Widget? action;
 
   @override

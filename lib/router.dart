@@ -36,7 +36,6 @@ import 'features/shell/back_navigation_guard.dart';
 import 'features/tv/channel_screen.dart';
 import 'features/tv/tv_channels_screen.dart';
 import 'features/tv/models.dart';
-import 'features/tmdb/connections_screen.dart';
 import 'features/tmdb/review_screen.dart';
 import 'features/tmdb/reviews_screen.dart';
 
@@ -176,7 +175,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, state) => tab(state, SearchScreen(initialType: state.extra as MediaType?)),
           ),
           GoRoute(path: '/ma-liste', pageBuilder: (_, state) => tab(state, const MyListScreen())),
-          // "Mes avis": ratings of the TMDb account and comments (vixeo_backend/docs/compte-tmdb.md).
+          // "Mes avis": the profile's ratings and comments (vixeo_backend/docs/avis.md).
           GoRoute(path: '/avis', pageBuilder: (_, state) => tab(state, const ReviewsScreen())),
           // "Mon avis": one review, to change or remove (/avis/tv/1399?saison=1&episode=2 for an episode).
           GoRoute(
@@ -216,13 +215,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
           GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
-          // Services linked to the profile (TMDb). The former addresses lead to the new pages.
-          GoRoute(path: '/profil/connexions', builder: (_, _) => const ConnectionsScreen()),
+          // No more « Connexions » page: a TMDb account is no longer linked (developer's request).
+          GoRoute(path: '/profil/connexions', redirect: (_, _) => '/parametres'),
           GoRoute(path: NotificationsScreen.location, builder: (_, _) => const NotificationsScreen()),
           GoRoute(path: AdvancedSettingsScreen.location, builder: (_, _) => const AdvancedSettingsScreen()),
           // Plug-ins in the Stremio add-on format (vixeo_backend/docs/plugins.md).
           GoRoute(path: AddonsScreen.location, builder: (_, _) => const AddonsScreen()),
-          GoRoute(path: '/profil/tmdb', redirect: (_, _) => '/profil/connexions'),
+          GoRoute(path: '/profil/tmdb', redirect: (_, _) => '/parametres'),
           GoRoute(path: '/profil/notes', redirect: (_, _) => '/avis'),
           GoRoute(
             path: '/personne/:id',

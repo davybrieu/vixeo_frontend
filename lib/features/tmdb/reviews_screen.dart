@@ -30,8 +30,7 @@ enum ReviewSort {
   final String label;
 }
 
-/// "Mes avis" (`/avis`, opened from the profile page): the profile's ratings of its TMDb account
-/// and its comments. With [username], « Ses avis »: another member's reviews (their profile page,
+/// "Mes avis" (`/avis`, opened from the profile page): the profile's ratings and comments. With [username], « Ses avis »: another member's reviews (their profile page,
 /// `/membre/:username/reviews`), read only. A search field (title, episode, comment) and, as on the
 /// search page, filters (Tout by default, Films, Séries, Épisodes, years, rating) and an order (the
 /// most recent first by default). Each of my reviews opens « Mon avis » (`ReviewScreen`), where it
@@ -120,7 +119,6 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
         },
       );
     } else {
-      // Mine: with or without a TMDb account (Vixeo owns the reviews).
       body = _ReviewsList(
         reviews: ref.watch(reviewsProvider),
         filters: filters,

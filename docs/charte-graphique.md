@@ -173,7 +173,7 @@ Contenu                            pageContentPadding(context)
 
 ### Pages secondaires
 
-Les pages secondaires (Paramètres du profil, compte, appareils, connexions, Mon avis, contrôle
+Les pages secondaires (Paramètres du profil, compte, appareils, Mon avis, contrôle
 parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre de titre :
 - une barre de titre ;
 - une colonne de lecture centrée (720 au plus), aux marges de page, 8 (TV 12) sous la barre ;

@@ -58,14 +58,7 @@ class _Library extends LibraryController {
 }
 
 class _Tmdb extends TmdbRepository {
-  _Tmdb({required this.linked}) : super(ApiClient(token: () => null, profileId: () => null));
-
-  final bool linked;
-
-  @override
-  Future<TmdbAccount> account(int profileId) async => linked
-      ? TmdbAccount(linked: true, accountId: 42, username: 'lea', name: 'Léa', linkedAt: DateTime(2026, 11, 9))
-      : TmdbAccount.none;
+  _Tmdb() : super(ApiClient(token: () => null, profileId: () => null));
 
   @override
   Future<List<RatedItem>> reviews(int profileId) async => [
@@ -89,7 +82,7 @@ const _social = SocialProfile(
 Finder _pressable(String label) =>
     find.byWidgetPredicate((widget) => widget is VxFocusable && widget.semanticLabel == label);
 
-Future<void> _pump(WidgetTester tester, {bool linked = true}) async {
+Future<void> _pump(WidgetTester tester) async {
   tester.view.physicalSize = const Size(430, 1400);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -99,7 +92,6 @@ Future<void> _pump(WidgetTester tester, {bool linked = true}) async {
       GoRoute(path: '/', builder: (_, _) => const Scaffold(body: ProfileScreen())),
       GoRoute(path: '/ma-liste', builder: (_, _) => page('Page Ma liste')),
       GoRoute(path: '/avis', builder: (_, _) => page('Page Mes avis')),
-      GoRoute(path: '/profil/connexions', builder: (_, _) => page('Page Connexions')),
       GoRoute(path: '/profil/social/edition', builder: (_, _) => page('Page Modifier')),
       GoRoute(path: '/profil/social/:section', builder: (_, state) => page('Page ${state.pathParameters['section']}')),
     ],
@@ -109,7 +101,7 @@ Future<void> _pump(WidgetTester tester, {bool linked = true}) async {
       overrides: <Override>[
         sessionProvider.overrideWith(_Signed.new),
         libraryProvider.overrideWith(_Library.new),
-        tmdbRepositoryProvider.overrideWithValue(_Tmdb(linked: linked)),
+        tmdbRepositoryProvider.overrideWithValue(_Tmdb()),
         socialProfileProvider.overrideWith((ref, username) async => _social),
         titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
       ],
@@ -297,8 +289,8 @@ void main() {
     expect(find.text('Aucun résultat'), findsOneWidget);
   });
 
-  testWidgets('without a TMDb account: my reviews all the same (Vixeo owns them)', (tester) async {
-    await _pump(tester, linked: false);
+  testWidgets('my reviews, with no TMDb account to link', (tester) async {
+    await _pump(tester);
     expect(find.text('Lier mon compte TMDb'), findsNothing);
     expect(find.text('Film noté 1'), findsOneWidget);
     expect(find.bySemanticsLabel('Avis : 5'), findsOneWidget);

@@ -15,7 +15,6 @@ import 'package:vixeo/features/catalog/details_screen.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
-import 'package:vixeo/features/tmdb/connections_screen.dart';
 import 'package:vixeo/features/tmdb/rating_dialog.dart';
 import 'package:vixeo/features/tmdb/review_screen.dart';
 import 'package:vixeo/features/tmdb/reviews_screen.dart';
@@ -38,53 +37,15 @@ class EmptyLibrary extends LibraryController {
   Future<LibraryState> build() async => const LibraryState({});
 }
 
-final linkedAccount = TmdbAccount(
-  linked: true,
-  accountId: 42,
-  username: 'davy',
-  name: 'Davy B.',
-  linkedAt: DateTime(2026, 11, 9),
-);
-
-/// The Vixeo API's TMDb routes, in memory.
+/// The Vixeo API's review routes, in memory.
 class FakeTmdb extends TmdbRepository {
-  FakeTmdb({this.current = TmdbAccount.none}) : super(ApiClient(token: () => null, profileId: () => null));
+  FakeTmdb() : super(ApiClient(token: () => null, profileId: () => null));
 
-  TmdbAccount current;
   final calls = <String>[];
 
   /// Rating path → rating and comment.
   final ratings = <String, MyRating>{};
   var ratedItems = <RatedItem>[];
-
-  /// Polls answered "pending" before the approval.
-  int pendingPolls = 1;
-
-  @override
-  Future<TmdbAccount> account(int profileId) async => current;
-
-  @override
-  Future<TmdbLinkStart> startLink(int profileId) async {
-    calls.add('start');
-    return const TmdbLinkStart(
-      authorizeUrl: 'https://www.themoviedb.org/authenticate/tok',
-      expiresIn: Duration(hours: 1),
-      interval: Duration(seconds: 5),
-    );
-  }
-
-  @override
-  Future<TmdbAccount?> completeLink(int profileId) async {
-    calls.add('poll');
-    if (pendingPolls-- > 0) return null;
-    return current = linkedAccount;
-  }
-
-  @override
-  Future<void> unlink(int profileId) async {
-    calls.add('unlink');
-    current = TmdbAccount.none;
-  }
 
   @override
   Future<MyRating?> rating(int profileId, RatingTarget target) async => ratings[target.path];
@@ -125,10 +86,6 @@ Future<void> pumpPage(
     routes: [
       GoRoute(path: '/', builder: (_, _) => page),
       GoRoute(
-        path: '/profil/connexions',
-        builder: (_, _) => const Scaffold(body: Text('Page Connexions')),
-      ),
-      GoRoute(
         path: '/avis/:type/:id',
         builder: (_, state) =>
             ReviewScreen(target: ReviewScreen.targetOf(state.pathParameters, state.uri.queryParameters)),
@@ -167,19 +124,7 @@ Future<void> tapStar(WidgetTester tester, int n) async {
 }
 
 void main() {
-  test('reads the TMDb account, the ratings and the comments of the API', () {
-    final account = TmdbAccount.fromJson({
-      'linked': true,
-      'account_id': 42,
-      'username': 'davy',
-      'name': null,
-      'avatar_url': 'https://image.tmdb.org/t/p/w185/me.png',
-      'linked_at': '2026-11-09T08:00:00+00:00',
-    });
-    expect(account.linked, isTrue);
-    expect(account.displayName, 'davy');
-    expect(TmdbAccount.fromJson({'linked': false}).linked, isFalse);
-
+  test('reads the ratings and the comments of the API', () {
     final episode = RatedItem.fromJson({
       'type': 'episode',
       'id': 1399,
@@ -303,7 +248,7 @@ void main() {
       if (season != null) seasonProvider.overrideWith((ref, key) async => season),
     ];
 
-    testWidgets('« Noter » even without a TMDb account; the TMDb logo next to the rating', (tester) async {
+    testWidgets('« Noter » for every profile; the TMDb logo next to the rating', (tester) async {
       await pumpPage(
         tester,
         const DetailsScreen(type: MediaType.movie, id: 3),
@@ -311,7 +256,6 @@ void main() {
         overrides: details(movie),
       );
 
-      // Vixeo owns the reviews: a TMDb account only syncs them.
       expect(find.bySemanticsLabel('Noter'), findsOneWidget);
       expect(find.byType(TmdbLogo), findsOneWidget);
       // No other site's rating here: TMDb's, which opens « Notes ».
@@ -319,7 +263,7 @@ void main() {
     });
 
     testWidgets('rates a movie, then changes and removes the rating', (tester) async {
-      final tmdb = FakeTmdb(current: linkedAccount);
+      final tmdb = FakeTmdb();
       await pumpPage(
         tester,
         const DetailsScreen(type: MediaType.movie, id: 3),
@@ -346,7 +290,7 @@ void main() {
     });
 
     testWidgets('rates an episode from the episode list', (tester) async {
-      final tmdb = FakeTmdb(current: linkedAccount)..ratings['tv/9/season/1/episode/2'] = const MyRating(8);
+      final tmdb = FakeTmdb()..ratings['tv/9/season/1/episode/2'] = const MyRating(8);
       const show = TitleDetails(
         id: 9,
         type: MediaType.tv,
@@ -386,64 +330,6 @@ void main() {
     });
   });
 
-  group('Connexions', () {
-    testWidgets('large screen: QR code, then linked once approved on TMDb', (tester) async {
-      final tmdb = FakeTmdb();
-      await pumpPage(tester, const ConnectionsScreen(), tmdb: tmdb, size: const Size(1600, 900));
-      expect(find.text('Connexions'), findsOneWidget);
-
-      await tester.tap(find.text('Lier mon compte TMDb'));
-      await tester.pump();
-      await tester.pump();
-      expect(find.bySemanticsLabel('QR code de la page d’autorisation TMDb'), findsOneWidget);
-      expect(find.text('En attente de votre autorisation…'), findsOneWidget);
-
-      await tester.pump(const Duration(seconds: 5));
-      expect(tmdb.calls, ['start', 'poll'], reason: 'not approved yet');
-      await tester.pump(const Duration(seconds: 5));
-      await tester.pumpAndSettle();
-      expect(tmdb.calls, ['start', 'poll', 'poll']);
-
-      expect(find.text('Davy B.'), findsOneWidget);
-      expect(find.text('@davy'), findsOneWidget);
-      expect(find.text('Compte TMDb lié : Davy B.'), findsOneWidget);
-      expect(find.text('Changer de compte'), findsOneWidget);
-    });
-
-    testWidgets('linked account on a phone: name on one line, buttons as wide as the card, no long text', (
-      tester,
-    ) async {
-      await pumpPage(tester, const ConnectionsScreen(), tmdb: FakeTmdb(current: linkedAccount));
-
-      // The name has the width of the card (the TMDb logo is above it).
-      expect(tester.getTopLeft(find.byType(TmdbLogo)).dy, lessThan(tester.getTopLeft(find.text('Davy B.')).dy));
-      expect(tester.getSize(find.text('Davy B.')).height, lessThan(30));
-      // Developer's request: no paragraph on the synchronisation.
-      expect(find.textContaining('Vos avis sont gardés'), findsNothing);
-      expect(find.textContaining('themoviedb.org'), findsNothing);
-      // Buttons one under the other, same width.
-      final relink = tester.getRect(find.widgetWithText(VxButton, 'Changer de compte'));
-      final unlink = tester.getRect(find.widgetWithText(VxButton, 'Déconnecter'));
-      expect(unlink.top, greaterThan(relink.bottom));
-      expect(unlink.width, relink.width);
-    });
-
-    testWidgets('disconnects after a confirmation that the reviews stay in Vixeo', (tester) async {
-      final tmdb = FakeTmdb(current: linkedAccount);
-      await pumpPage(tester, const ConnectionsScreen(), tmdb: tmdb);
-
-      await tester.tap(find.text('Déconnecter'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Vos avis restent dans Vixeo'), findsOneWidget);
-      await tester.tap(find.text('Déconnecter').last);
-      await tester.pumpAndSettle();
-
-      expect(tmdb.calls, ['unlink']);
-      expect(find.text('Lier mon compte TMDb'), findsOneWidget);
-      expect(find.text('Compte TMDb déconnecté'), findsOneWidget);
-    });
-  });
-
   group('Mes avis', () {
     final dune = RatedItem(
       type: RatedType.movie,
@@ -465,7 +351,7 @@ void main() {
     final show = RatedItem(type: RatedType.tv, id: 1400, title: 'Orbite 9', value: 6, year: 2019);
 
     testWidgets('everything at first (Tout), then by type and by search', (tester) async {
-      final tmdb = FakeTmdb(current: linkedAccount)..ratedItems = [dune, episode, show];
+      final tmdb = FakeTmdb()..ratedItems = [dune, episode, show];
       await pumpPage(tester, const Scaffold(body: ReviewsScreen()), tmdb: tmdb);
 
       expect(find.text('Mes avis'), findsOneWidget);
@@ -506,7 +392,7 @@ void main() {
     });
 
     testWidgets('a review opens its page, where it is changed or removed', (tester) async {
-      final tmdb = FakeTmdb(current: linkedAccount)..ratedItems = [episode, dune];
+      final tmdb = FakeTmdb()..ratedItems = [episode, dune];
       await pumpPage(tester, const Scaffold(body: ReviewsScreen()), tmdb: tmdb);
 
       await tester.tap(find.text('Dune'));
@@ -550,7 +436,7 @@ void main() {
     });
 
     testWidgets('TV: on the page of a review, the stars have the focus', (tester) async {
-      final tmdb = FakeTmdb(current: linkedAccount)..ratedItems = [dune];
+      final tmdb = FakeTmdb()..ratedItems = [dune];
       await pumpPage(
         tester,
         const Scaffold(body: ReviewsScreen()),
@@ -572,14 +458,6 @@ void main() {
       expect(ReviewScreen.location(episode.target), '/avis/tv/1399?saison=1&episode=2');
       expect(ReviewScreen.targetOf({'type': 'tv', 'id': '1399'}, {'saison': '1', 'episode': '2'}), episode.target);
       expect(ReviewScreen.targetOf({'type': 'movie', 'id': '438631'}, {}), dune.target);
-    });
-
-    testWidgets('without a TMDb account: my reviews all the same (Vixeo owns them)', (tester) async {
-      final tmdb = FakeTmdb()..ratedItems = [dune];
-      await pumpPage(tester, const Scaffold(body: ReviewsScreen()), tmdb: tmdb);
-
-      expect(find.text('Aucun compte TMDb lié'), findsNothing);
-      expect(find.text('Dune'), findsOneWidget);
     });
 
     test('searches ignore case and accents', () {

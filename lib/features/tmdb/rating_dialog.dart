@@ -11,9 +11,8 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import 'tmdb.dart';
 
-/// Rates [target] (or changes / removes its rating and comment) in a dialog, saves the rating on
-/// TMDb and the comment at Vixeo through the API, then confirms with an alert ("Note enregistrée :
-/// 8/10", "Note supprimée").
+/// Rates [target] (or changes / removes its rating and comment) in a dialog, saves them through
+/// the API, then confirms with an alert ("Note enregistrée : 8/10", "Note supprimée").
 Future<void> editRating(
   BuildContext context, {
   required RatingTarget target,
@@ -39,8 +38,7 @@ Future<void> editRating(
   }
 }
 
-/// Rating dialog: 10 stars, by half points (TMDb scale, 0.5 to 10), and an optional comment kept by
-/// Vixeo. Returns `(rating,)` to save, `(null,)` to remove the current rating, null when closed. TV:
+/// Rating dialog: 10 stars, by half points (0.5 to 10), and an optional comment. Returns `(rating,)` to save, `(null,)` to remove the current rating, null when closed. TV:
 /// the stars have the focus, ← → change the rating, OK saves.
 Future<(MyRating?,)?> showRatingDialog(
   BuildContext context, {

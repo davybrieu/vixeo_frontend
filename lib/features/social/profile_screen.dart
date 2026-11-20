@@ -67,7 +67,7 @@ class ProfileScreen extends ConsumerWidget {
               ),
           ]);
     }
-    // « Mes avis »: with or without a TMDb account (Vixeo owns the reviews).
+    // « Mes avis ».
     final reviews = ref.watch(reviewsProvider);
 
     return ProfileView(

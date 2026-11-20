@@ -93,7 +93,7 @@ class _BackButton extends StatelessWidget {
 }
 
 /// Ma liste / Vu / Noter / Bande-annonce: the same round icon-only button for each action.
-/// Each click confirms with an alert ("Supprimé de votre liste"…). "Noter" needs a TMDb account.
+/// Each click confirms with an alert ("Supprimé de votre liste"…).
 class _Actions extends ConsumerWidget {
   const _Actions({required this.title});
 
@@ -252,7 +252,7 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                     noSpoiler: noSpoiler,
                     rating: ratings[e.number],
                     onPressed: () => _play(context, widget.title, season: _season, episode: e.number),
-                    // On the image, top right: the star that rates the episode (TMDb account).
+                    // On the image, top right: the star that rates the episode.
                     rateButton: canRate
                         ? RateEpisodeButton(
                             target: RatingTarget.episode(widget.title.id, _season, e.number),

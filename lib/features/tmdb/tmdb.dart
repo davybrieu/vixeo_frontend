@@ -2,56 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
-import '../../core/api/api_exception.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
 
-// TMDb account of the active profile and its ratings (vixeo_backend/docs/compte-tmdb.md). The
-// ratings live on TMDb: the same on every device, every profile linked to that account and
-// themoviedb.org. The app only talks to the Vixeo API.
-
-/// TMDb account linked to the profile (API `TmdbAccountResource`).
-@immutable
-class TmdbAccount {
-  const TmdbAccount({required this.linked, this.accountId, this.username, this.name, this.avatarUrl, this.linkedAt});
-
-  factory TmdbAccount.fromJson(Map<String, dynamic> json) => TmdbAccount(
-    linked: json['linked'] as bool? ?? false,
-    accountId: json['account_id'] as int?,
-    username: json['username'] as String?,
-    name: json['name'] as String?,
-    avatarUrl: json['avatar_url'] as String?,
-    linkedAt: DateTime.tryParse(json['linked_at'] as String? ?? '')?.toLocal(),
-  );
-
-  static const none = TmdbAccount(linked: false);
-
-  final bool linked;
-  final int? accountId;
-  final String? username;
-  final String? name;
-  final String? avatarUrl;
-  final DateTime? linkedAt;
-
-  /// Name shown on TMDb, else the username.
-  String get displayName => (name?.trim().isNotEmpty ?? false) ? name!.trim() : (username ?? '');
-}
-
-/// TMDb page where the person approves Vixeo, and how often to ask whether they did.
-@immutable
-class TmdbLinkStart {
-  const TmdbLinkStart({required this.authorizeUrl, required this.expiresIn, required this.interval});
-
-  factory TmdbLinkStart.fromJson(Map<String, dynamic> json) => TmdbLinkStart(
-    authorizeUrl: json['authorize_url'] as String,
-    expiresIn: Duration(seconds: json['expires_in'] as int? ?? 3600),
-    interval: Duration(seconds: json['interval'] as int? ?? 5),
-  );
-
-  final String authorizeUrl;
-  final Duration expiresIn;
-  final Duration interval;
-}
+// The active profile's reviews: a rating and an optional comment per movie, TV show or episode
+// (vixeo_backend/docs/avis.md). Kept by Vixeo only: no TMDb account is linked any more.
 
 /// What a profile rates: tabs of "Mes notes".
 enum RatedType {
@@ -64,7 +19,7 @@ enum RatedType {
   final String label;
 }
 
-/// A movie, a TV show or an episode, as TMDb rates it.
+/// A reviewed movie, TV show or episode.
 @immutable
 class RatingTarget {
   const RatingTarget.title(this.type, this.id) : season = null, episode = null;
@@ -92,7 +47,7 @@ class RatingTarget {
   int get hashCode => path.hashCode;
 }
 
-/// The profile's rating of a title and its comment (kept by Vixeo only, never sent to TMDb).
+/// The profile's rating of a title and its comment.
 @immutable
 class MyRating {
   const MyRating(this.value, {this.comment});
@@ -159,10 +114,10 @@ class RatedItem {
   /// The profile's rating, 0.5 to 10.
   final double value;
 
-  /// The profile's comment (Vixeo only).
+  /// The profile's comment.
   final String? comment;
 
-  /// When it was rated (first seen by Vixeo for a rating given on themoviedb.org).
+  /// When it was rated.
   final DateTime? ratedAt;
   final int? year;
   final int? seasonNumber;
@@ -235,26 +190,11 @@ String foldForSearch(String text) {
 String formatScore(double value) =>
     value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(1).replaceAll('.', ',');
 
-/// `/profiles/{id}/tmdb…` of the Vixeo API.
+/// `/profiles/{id}/tmdb/ratings…` of the Vixeo API (historical name: the reviews are Vixeo's).
 class TmdbRepository {
   TmdbRepository(this._api);
 
   final ApiClient _api;
-
-  Future<TmdbAccount> account(int profileId) async =>
-      TmdbAccount.fromJson((await _api.get('/profiles/$profileId/tmdb'))['data'] as Map<String, dynamic>);
-
-  Future<TmdbLinkStart> startLink(int profileId) async =>
-      TmdbLinkStart.fromJson(await _api.post('/profiles/$profileId/tmdb/link'));
-
-  /// The account once the person approved Vixeo on TMDb, null until then. Throws an
-  /// [ApiException] with status 410 when the approval page expired.
-  Future<TmdbAccount?> completeLink(int profileId) async {
-    final json = await _api.post('/profiles/$profileId/tmdb/link/complete');
-    return json['status'] == 'linked' ? TmdbAccount.fromJson(json['data'] as Map<String, dynamic>) : null;
-  }
-
-  Future<void> unlink(int profileId) => _api.delete('/profiles/$profileId/tmdb');
 
   /// Rating and comment of a movie or TV show, null when not rated.
   Future<MyRating?> rating(int profileId, RatingTarget target) async {
@@ -271,7 +211,7 @@ class TmdbRepository {
     };
   }
 
-  /// Saves the rating on TMDb and the comment at Vixeo (null removes it).
+  /// Saves the rating and the comment (null removes it).
   Future<void> rate(int profileId, RatingTarget target, MyRating rating) => _api.put(
     '/profiles/$profileId/tmdb/ratings/${target.path}',
     body: {'value': rating.value, 'comment': rating.comment},
@@ -300,44 +240,13 @@ final tmdbRepositoryProvider = Provider<TmdbRepository>((ref) => TmdbRepository(
 
 int? _profileId(Ref ref) => ref.read(sessionProvider).profile?.id;
 
-/// TMDb account of the active profile (changing profile reloads it).
-final tmdbAccountProvider = AsyncNotifierProvider<TmdbAccountController, TmdbAccount>(TmdbAccountController.new);
-
-class TmdbAccountController extends AsyncNotifier<TmdbAccount> {
-  @override
-  Future<TmdbAccount> build() async {
-    final profileId = ref.watch(sessionProvider.select((s) => s.profile?.id));
-    if (profileId == null) return TmdbAccount.none;
-    return ref.read(tmdbRepositoryProvider).account(profileId);
-  }
-
-  /// Linked from the "Connexions" page.
-  void linked(TmdbAccount account) {
-    state = AsyncData(account);
-    ref.invalidate(reviewsProvider);
-  }
-
-  Future<void> unlink() async {
-    final profileId = _profileId(ref);
-    if (profileId == null) return;
-    await ref.read(tmdbRepositoryProvider).unlink(profileId);
-    state = const AsyncData(TmdbAccount.none);
-    ref.invalidate(reviewsProvider);
-  }
-
-  /// The API answered 409: no account linked any more (access removed on TMDb…).
-  void lost() => state = const AsyncData(TmdbAccount.none);
-}
-
-/// The profile can rate: signed in, with a profile (no TMDb account needed).
+/// The profile can rate: signed in, with a profile.
 final canRateProvider = Provider<bool>((ref) {
-  // Vixeo owns the reviews (vixeo_backend/docs/compte-tmdb.md): every signed-in profile rates,
-  // with or without a TMDb account; a linked account only syncs them.
   final session = ref.watch(sessionProvider);
   return session.isSignedIn && session.profile != null;
 });
 
-/// The profile's rating and comment of a movie or TV show (null: not rated, or no account).
+/// The profile's rating and comment of a movie or TV show (null: not rated).
 final titleRatingProvider = FutureProvider.autoDispose.family<MyRating?, RatingTarget>((ref, target) async {
   final profileId = _profileId(ref);
   if (!ref.watch(canRateProvider) || profileId == null) return null;
@@ -368,12 +277,7 @@ class TmdbRatings {
     final profileId = _profileId(_ref);
     if (profileId == null) return;
     final repository = _ref.read(tmdbRepositoryProvider);
-    try {
-      rating == null ? await repository.unrate(profileId, target) : await repository.rate(profileId, target, rating);
-    } on ApiException catch (e) {
-      if (e.status == 409) _ref.read(tmdbAccountProvider.notifier).lost();
-      rethrow;
-    }
+    rating == null ? await repository.unrate(profileId, target) : await repository.rate(profileId, target, rating);
     if (target.isEpisode) {
       _ref.invalidate(seasonRatingsProvider((target.id, target.season!)));
     } else {

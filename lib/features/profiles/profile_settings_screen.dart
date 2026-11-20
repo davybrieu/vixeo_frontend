@@ -89,14 +89,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       subtitle: 'Voir et déconnecter les appareils liés à ce compte.',
                       onPressed: () => context.push('/profil/appareils'),
                     ),
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.link_rounded,
-                      title: 'Connexions',
-                      // Only this sentence, whatever is linked (developer's request).
-                      subtitle: 'Lier ou déconnecter un service.',
-                      onPressed: () => context.push('/profil/connexions'),
-                    ),
                     if (!DeviceInfo.isTv)
                       _SettingsTile(
                         scale: s,
