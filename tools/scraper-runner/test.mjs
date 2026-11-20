@@ -183,6 +183,9 @@ test('requests to local, private or non-web addresses are refused before the net
   assert.equal(checkUrl('https://[2606:4700:4700::1111]/x'), null);
   assert.equal(checkUrl('https://[::ffff:8.8.8.8]/x'), null);
   assert.equal(checkUrl('https://[64:ff9b::808:808]/x'), null);
+  assert.equal(checkUrl('https://192.0.78.9/x'), null);
+  assert.notEqual(checkUrl('https://192.0.2.1/x'), null);
+  assert.notEqual(checkUrl('https://192.0.0.8/x'), null);
 });
 
 test('a request in http:// is made in https://, and so is a redirect to http://', async () => {

@@ -417,7 +417,8 @@ lib/
   **Sources** : `sourceProvidersProvider` liste les scrapers des dépôts **activés** qui gèrent le
   type du titre, dans l'ordre des dépôts (un fournisseur chacun, `scraper:{dépôt}:{id}`) ;
   `providerSourcesProvider` les exécute (rien pour un dépôt désactivé ; un échec affiche sa raison
-  sous « Échec – appuyer pour réessayer », `scraperFailureReason` ; **appui long sur une source :
+  sous « Échec – appuyer pour réessayer », `scraperFailureReason` ; « Aucune source – appuyer pour
+  réessayer » se relance aussi ; **appui long sur une source :
   son journal** (`ScraperJournal`, `scraperJournalProvider` : requêtes avec statut, durée et taille,
   console du scraper, fin ; dernier passage seulement, en mémoire ; bouton « Copier »), pour savoir
   sur un téléphone pourquoi une source ne trouve rien) ; leurs flux sont **déjà

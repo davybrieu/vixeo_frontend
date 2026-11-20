@@ -52,10 +52,12 @@ export function checkUrl(raw) {
   return null;
 }
 
-export function isPrivateV4([a, b]) {
+// Of 192.0/16, only 192.0.0/24 (IETF) and 192.0.2/24 (documentation) are reserved (Dart: isPrivateV4).
+export function isPrivateV4([a, b, c]) {
   return (
     a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 192 && b === 0) || a >= 224
+    (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 192 && b === 0 && (c === 0 || c === 2)) ||
+    a >= 224
   );
 }
 

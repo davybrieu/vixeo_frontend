@@ -140,7 +140,9 @@ class DirectScraperHttp implements ScraperHttp {
           ? ScraperGuard.isPrivateV4(address.rawAddress)
           : ScraperGuard.isPrivateV6(address.address);
       if (private || address.isLoopback || address.isLinkLocal || address.isMulticast) {
-        throw const ScraperException('adresse privée interdite');
+        // The address is said (journal of the source): 127.0.0.1 or 0.0.0.0 for a public site is
+        // usually the network's DNS blocking the name, not the site.
+        throw ScraperException('adresse privée interdite ($host → ${address.address})');
       }
     }
   }

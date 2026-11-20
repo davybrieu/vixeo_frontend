@@ -203,7 +203,10 @@ l'ancienne limite de 30 s et 40 requêtes en coupait plusieurs) :
 Le jeton Vixeo n'est **jamais** envoyé à un scraper ni à un site tiers (client HTTP séparé de
 `ApiClient`). Sur l'appareil, le nom d'hôte est aussi résolu avant la requête et refusé s'il
 mène à une adresse privée (la résolution peut encore changer entre le contrôle et la requête :
-le serveur, lui, doit **fixer l'adresse résolue**, voir §6).
+le serveur, lui, doit **fixer l'adresse résolue**, voir §6). Le refus donne l'adresse obtenue
+(« adresse privée interdite (api.exemple.fr → 127.0.0.1) ») : `127.0.0.1` ou `0.0.0.0` pour un site
+public, c'est en général le DNS du réseau (fournisseur d'accès, filtre) qui bloque ce nom, pas le site.
+De `192.0.0.0/16`, seuls `192.0.0.0/24` et `192.0.2.0/24` sont réservés : le reste est public.
 
 ## 6. API du serveur (à implémenter dans `vixeo_backend`)
 
@@ -266,7 +269,8 @@ Dans le panneau des sources du lecteur, un **appui long** sur une source ouvre s
 ce que le scraper écrit dans sa console (`[log]`, `[warn]`, `[error]`), les requêtes refusées par la
 garde (`[garde]`) et la fin (« fin : N flux » ou l'erreur). Seul le dernier passage de chaque source
 est gardé, en mémoire (400 lignes au plus) ; « Copier » le met dans le presse-papiers. C'est la façon
-de savoir, sur un téléphone, pourquoi une source ne trouve rien. Les corps se lisent dans le
+de savoir, sur un téléphone, pourquoi une source ne trouve rien. Un appui simple relance une source en
+« Échec » comme une source à « Aucune source » (un site en panne un instant plus tôt peut répondre). Les corps se lisent dans le
 `charset` de leur `Content-Type` (Latin-1 pour `iso-8859-1` / `windows-1252`, UTF-8 sinon), comme
 Nuvio.
 

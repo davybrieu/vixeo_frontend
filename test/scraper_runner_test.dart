@@ -76,6 +76,20 @@ Future<List<ScraperStream>> run(
 );
 
 void main() {
+  test('a name the network resolves to a local address is refused, and the address is said', () async {
+    final http = DirectScraperHttp(lookup: (_) async => [InternetAddress('127.0.0.1')]);
+    await expectLater(
+      http.send(const ScraperHttpRequest(url: 'https://blocked.example.org/api')),
+      throwsA(
+        isA<ScraperException>().having(
+          (e) => e.message,
+          'message',
+          'adresse privée interdite (blocked.example.org → 127.0.0.1)',
+        ),
+      ),
+    );
+  });
+
   test('reads a body in the charset of its Content-Type, UTF-8 by default (as Nuvio)', () {
     expect(decodeScraperBody(utf8.encode('Odyssée'), 'text/html; charset=UTF-8'), 'Odyssée');
     expect(decodeScraperBody(utf8.encode('Odyssée'), null), 'Odyssée');

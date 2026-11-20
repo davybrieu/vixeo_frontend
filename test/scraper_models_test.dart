@@ -33,6 +33,9 @@ void main() {
         'https://[2002:7f00:1::]/x',
         'https://127.1/x',
         'https://[::ffff:10.0.0.1]/x',
+        'https://192.0.0.8/x',
+        'https://192.0.2.1/x',
+        'https://0.0.0.0/x',
         'pas une adresse',
       ];
       for (final url in refused) {
@@ -48,6 +51,9 @@ void main() {
         'https://[2606:4700:4700::1111]/x',
         'https://[::ffff:8.8.8.8]/x',
         'https://[64:ff9b::808:808]/x',
+        // 192.0/16 is public apart from 192.0.0/24 and 192.0.2/24 (WordPress.com is in 192.0.78/24).
+        'https://192.0.78.9/x',
+        'https://172.67.1.1/x',
       ];
       for (final url in allowed) {
         expect(ScraperGuard.check(url), isNull, reason: url);

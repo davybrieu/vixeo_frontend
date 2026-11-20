@@ -83,9 +83,10 @@ abstract final class ScraperGuard {
     return null;
   }
 
-  /// Loopback, private, link-local, shared (CGNAT), reserved and multicast addresses.
+  /// Loopback, private, link-local, shared (CGNAT), reserved and multicast addresses. Of 192.0/16,
+  /// only 192.0.0/24 (IETF) and 192.0.2/24 (documentation) are reserved: the rest is public.
   static bool isPrivateV4(List<int> o) {
-    final [a, b, ...] = o;
+    final [a, b, c, ...] = o;
     return a == 0 ||
         a == 10 ||
         a == 127 ||
@@ -93,7 +94,7 @@ abstract final class ScraperGuard {
         (a == 169 && b == 254) ||
         (a == 172 && b >= 16 && b <= 31) ||
         (a == 192 && b == 168) ||
-        (a == 192 && b == 0) ||
+        (a == 192 && b == 0 && (c == 0 || c == 2)) ||
         a >= 224;
   }
 

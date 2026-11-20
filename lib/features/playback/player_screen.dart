@@ -1875,7 +1875,8 @@ class _SourcesPanelState extends State<_SourcesPanel> {
             borderRadius: BorderRadius.circular(12),
             onTap: status == _ProviderStatus.links
                 ? () => setState(() => _selectedProvider = selected ? null : provider.id)
-                : status == _ProviderStatus.failed
+                // A site that was down a moment ago may answer now: « Aucune source » runs again too.
+                : status == _ProviderStatus.failed || status == _ProviderStatus.empty
                     ? () => widget.onRetry(provider.id)
                     : null,
             onLongPress: widget.journalOf == null ? null : () => _showJournal(provider),
@@ -1893,7 +1894,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                           switch (status) {
                             _ProviderStatus.loading => 'Recherche...',
                             _ProviderStatus.failed => 'Échec – appuyer pour réessayer',
-                            _ProviderStatus.empty => 'Aucune source',
+                            _ProviderStatus.empty => 'Aucune source – appuyer pour réessayer',
                             _ProviderStatus.links => '${links.length} source${links.length > 1 ? 's' : ''}',
                           },
                           style: VxText.body(12, color: VxColors.textMuted),
