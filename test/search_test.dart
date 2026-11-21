@@ -359,7 +359,7 @@ void main() {
     // Opened again: where it was; « Réinitialiser » then « Appliquer »: no limit.
     await tapChip(tester, 'Votants');
     expect(find.text('Votants ≥ ${formatCount(10000)}'), findsNWidgets(2));
-    await tester.tap(find.text('Réinitialiser'));
+    await tester.tap(find.text('Réinitialiser').last); // The window's, not the bar's chip.
     await tester.pump();
     expect(find.text('Sans limite de votants'), findsOneWidget);
     await tester.tap(find.text('Appliquer'));
