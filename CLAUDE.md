@@ -90,7 +90,7 @@ lib/
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
     library/     synchro par profil (Ma liste, favoris ❤, personnes suivies, vus, « Continuer à
                  regarder »), page Ma liste (aussi « Favoris »)
-    search/      recherche : « Explorer » sans texte, filtres (type, genre, années, note) et tri,
+    search/      recherche (avec un texte seulement), filtres (type, genre, années) et tri,
                  recherches récentes synchronisées (search_history.dart)
     playback/    lecteur (PlayerScreen, commun à toutes les plateformes), moteurs de lecture
                  (engine/ : natif Android / iOS, media_kit sur Windows), sous-titres WebVTT,
@@ -109,6 +109,10 @@ lib/
 
 ## Conventions
 
+- **Material** : `import 'package:material_ui/material_ui.dart'` (paquet `material_ui`), **jamais
+  `package:flutter/material.dart`** (déprécié depuis Flutter 3.47, migré le 21/11/2026, demande du
+  développeur) ; les traductions (`GlobalMaterialLocalizations`) viennent aussi de `material_ui`.
+  go_router cherche le `MaterialApp` de `material_ui` pour bâtir ses pages.
 - **État** : Riverpod 3 (`Provider`, `FutureProvider.family`, `Notifier`, `AsyncNotifier`), sans
   génération de code. Les providers du catalogue surveillent le profil actif : changer de profil
   recharge les données (l'API filtre selon l'âge du profil).
@@ -406,6 +410,9 @@ lib/
   quatre, la CI nomme ceux qui manquent) ; sans eux, pas de jeton : la page dit « Cette version de
   l'appli ne reçoit pas encore les notifications… » ; serveur sans `FCM_CREDENTIALS` : « Le
   serveur n'envoie pas encore de notifications. ».
+  Jeton FCM par `getToken` / `onTokenRefresh` (dépréciés par firebase_messaging 17 au profit des
+  identifiants d'installation, `register()` / `onRegistered` : changement à suivre aussi par le
+  serveur et à tester sur un appareil ; marqués `ignore`, ils marchent encore).
   `PushRegistration` donne le jeton à l'API (`PUT /push/device` : profil actif, réglage
   « Nouveaux épisodes », `utc_offset`) au lancement, au retour au premier plan (6 h au plus entre
   deux envois identiques), quand la session, le profil, le réglage ou le jeton change
@@ -693,6 +700,9 @@ lib/
   icônes iOS (`AppIcon.appiconset`), site et favicon de `vixeo_backend`. Tout est généré par `brand/tools` : changer le logo là, puis recopier.
 - **Images** : `NetImage` (cache, couleur de remplacement). Tailles TMDb via
   `MediaItem.poster('w780')` / `backdrop('original')`, dérivées des URL renvoyées par l'API.
+  **Décodées à la taille affichée** (`NetImage.decodeWidth` : largeur de la place × densité,
+  arrondie à 128, assez large pour une image qui couvre une place haute) et non à celle du
+  fichier (une image de fond TMDb fait jusqu'à 3840 pixels : mémoire et lenteur sur TV).
 - Tests : `flutter test` ne charge pas les polices (texte de remplacement), sans réseau.
 - **CI** (`.github/workflows/build.yml`) : `flutter analyze` (les erreurs bloquent) et
   `flutter test` d'abord ; puis, sur `main`, APK signé publié en release GitHub `android-<n>` et
