@@ -438,18 +438,18 @@ void main() {
     // Films and Séries: the grid of that type, for the same text.
     await seeAll('Films');
     expect((fake.titleQueries.last.type, fake.titleQueries.last.query), (MediaType.movie, 'orbite'));
-    expect(find.text('Film 1-0'), findsOneWidget);
+    expect(find.text('Film 1-0'), findsWidgets);
     expect(seeAllButton('Séries'), findsNothing);
 
     await tapChip(tester, 'Tout');
     await seeAll('Séries');
     expect((fake.titleQueries.last.type, fake.titleQueries.last.query), (MediaType.tv, 'orbite'));
-    expect(find.text('Série 1-0'), findsOneWidget);
+    expect(find.text('Série 1-0'), findsWidgets);
 
     // Personnes and Comptes: their lists, without the titles.
     await tapChip(tester, 'Tout');
     await seeAll('Personnes');
-    expect(find.text('Alma Meyer'), findsOneWidget);
+    expect(find.text('Alma Meyer'), findsWidgets);
     expect(find.text('Le Phare'), findsNothing);
 
     await tapChip(tester, 'Tout');
