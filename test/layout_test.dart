@@ -108,7 +108,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(hasFocusedElement(), isFalse);
+    // Nothing focused yet (at most a screen's scope).
+    final primary = FocusManager.instance.primaryFocus;
+    expect(primary == null || primary is FocusScopeNode, isTrue);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();

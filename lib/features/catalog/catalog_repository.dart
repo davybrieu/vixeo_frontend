@@ -92,7 +92,6 @@ class CatalogRepository {
     return {for (final type in MediaType.values) type: of(type)};
   }
 
-  Future<List<Genre>> genres(MediaType type) async => (await allGenres())[type] ?? const [];
 }
 
 final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => CatalogRepository(ref.read(apiClientProvider)));
@@ -184,8 +183,4 @@ final peopleProvider = FutureProvider.autoDispose.family<Paged<Person>, (String,
 /// Movie and TV genres (one request for both).
 final allGenresProvider = FutureProvider.autoDispose<Map<MediaType, List<Genre>>>(
   (ref) => ref.read(catalogRepositoryProvider).allGenres(),
-);
-
-final genresProvider = FutureProvider.autoDispose.family<List<Genre>, MediaType>(
-  (ref, type) async => (await ref.watch(allGenresProvider.future))[type] ?? const [],
 );

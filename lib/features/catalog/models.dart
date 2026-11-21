@@ -31,8 +31,6 @@ class MediaItem {
     this.backdropPath,
     this.logoUrl,
     this.logoAspectRatio,
-    this.textlessPosterUrl,
-    this.textlessPosterPath,
     this.summary,
     this.genreIds = const [],
   });
@@ -50,8 +48,6 @@ class MediaItem {
     backdropPath: json['backdrop_path'] as String?,
     logoUrl: json['logo_url'] as String?,
     logoAspectRatio: (json['logo_aspect_ratio'] as num?)?.toDouble(),
-    textlessPosterUrl: json['textless_poster_url'] as String?,
-    textlessPosterPath: json['textless_poster_path'] as String?,
     summary: json['summary'] is Map<String, dynamic>
         ? TitleSummary.fromJson(json['summary'] as Map<String, dynamic>)
         : null,
@@ -75,8 +71,6 @@ class MediaItem {
           backdropPath: backdropPath ?? details.backdropPath,
           logoUrl: logoUrl ?? details.logoUrl,
           logoAspectRatio: logoUrl != null ? logoAspectRatio : details.logoAspectRatio,
-          textlessPosterUrl: textlessPosterUrl ?? details.textlessPosterUrl,
-          textlessPosterPath: textlessPosterPath ?? details.textlessPosterPath,
           summary: summary ?? details.summary,
           genreIds: genreIds.isNotEmpty ? genreIds : details.genreIds,
         );
@@ -96,9 +90,6 @@ class MediaItem {
   final String? logoUrl;
   final double? logoAspectRatio;
 
-  /// Poster without text, to show under the logo (phone carousel). Home rows only.
-  final String? textlessPosterUrl;
-  final String? textlessPosterPath;
 
   /// Length, genres and age rating, given with home and search items: the hero shows them at once.
   final TitleSummary? summary;
@@ -114,9 +105,6 @@ class MediaItem {
 
   /// Poster at another TMDb size ("w500", "w780"…), falls back to [posterUrl].
   String? poster(String size) => resizeImage(posterUrl, posterPath, size);
-
-  /// Poster without the title printed on it if TMDb has one (home rows), else the usual poster.
-  String? cleanPoster(String size) => resizeImage(textlessPosterUrl, textlessPosterPath, size) ?? poster(size);
 
   /// Backdrop at another TMDb size ("w780", "original"…), falls back to [backdropUrl].
   String? backdrop(String size) => resizeImage(backdropUrl, backdropPath, size);

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,13 +104,31 @@ class NetImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final placeholder = ColoredBox(color: VxColors.tone(seed), child: fallback ?? const SizedBox.expand());
     if (url == null || url!.isEmpty) return placeholder;
-    return CachedNetworkImage(
-      imageUrl: url!,
-      fit: fit,
-      fadeInDuration: const Duration(milliseconds: 200),
-      placeholder: (_, _) => ColoredBox(color: VxColors.tone(seed)),
-      errorWidget: (_, _, _) => placeholder,
+    return LayoutBuilder(
+      builder: (context, constraints) => CachedNetworkImage(
+        imageUrl: url!,
+        fit: fit,
+        memCacheWidth: decodeWidth(constraints, MediaQuery.devicePixelRatioOf(context), fit),
+        fadeInDuration: const Duration(milliseconds: 200),
+        placeholder: (_, _) => ColoredBox(color: VxColors.tone(seed)),
+        errorWidget: (_, _, _) => placeholder,
+      ),
     );
+  }
+
+  /// Width the image is decoded at: the size it is shown, not the file's (a TMDb backdrop is up to
+  /// 3840 pixels wide, decoded for a 300-pixel card on a TV it filled the memory and slowed the
+  /// rows down). Rounded up to 128 pixels, so close sizes share one decoded copy. A covering
+  /// image may be wider than its box (a 16:9 backdrop in a tall box): wide enough for that too.
+  /// Null when the box has no width (the file's size).
+  @visibleForTesting
+  static int? decodeWidth(BoxConstraints constraints, double pixelRatio, BoxFit fit) {
+    var width = constraints.maxWidth;
+    if (fit == BoxFit.cover && constraints.maxHeight.isFinite) {
+      width = width.isFinite ? math.max(width, constraints.maxHeight * 16 / 9) : constraints.maxHeight * 16 / 9;
+    }
+    if (!width.isFinite || width <= 0) return null;
+    return ((width * pixelRatio) / 128).ceil() * 128;
   }
 }
 

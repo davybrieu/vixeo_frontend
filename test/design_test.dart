@@ -282,4 +282,15 @@ void main() {
     expect(size.width, closeTo(360 * 40 / 76.1, 0.01));
     expect(size.height, closeTo(80 * 40 / 76.1, 0.01));
   });
+
+  test('network images are decoded at the size they are shown, not the file\'s', () {
+    // A 300-wide poster card on a TV (pixel ratio 1): about 300 pixels, rounded up to 128.
+    expect(NetImage.decodeWidth(const BoxConstraints.tightFor(width: 300, height: 450), 1, BoxFit.contain), 384);
+    // A covering image may be wider than its box: a 16:9 backdrop in a tall box (phone hero).
+    expect(NetImage.decodeWidth(const BoxConstraints.tightFor(width: 400, height: 800), 2, BoxFit.cover), 2944);
+    // Twice the pixels on a phone.
+    expect(NetImage.decodeWidth(const BoxConstraints.tightFor(width: 1000, height: 100), 2, BoxFit.cover), 2048);
+    // No width to go by: the file's size.
+    expect(NetImage.decodeWidth(const BoxConstraints(), 1, BoxFit.cover), isNull);
+  });
 }

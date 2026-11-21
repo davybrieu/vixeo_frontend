@@ -156,12 +156,6 @@ class _VxFocusableState extends State<VxFocusable> {
   }
 }
 
-/// True when an actual element (not just a screen's focus scope) has the focus.
-bool hasFocusedElement() {
-  final primary = FocusManager.instance.primaryFocus;
-  return primary != null && primary is! FocusScopeNode;
-}
-
 /// Arrow keys: move the focus; when nothing has it yet (screen just opened),
 /// give it to the first element of the screen instead of doing nothing.
 class DirectionalFocusOrFirstAction extends Action<DirectionalFocusIntent> {

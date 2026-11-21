@@ -134,9 +134,6 @@ class LibraryState {
 
   ProfileItem? forItem(MediaItem item) => items['tmdb|${item.syncId}'];
 
-  ProfileItem? forEpisode(int showId, int season, int episode) =>
-      items['tmdb|${LibraryController.episodeSyncId(showId, season, episode)}'];
-
   List<ProfileItem> get favorites =>
       items.values.where((i) => i.isFavorite).toList()
         ..sort((a, b) => (b.favoritedAt ?? DateTime(0)).compareTo(a.favoritedAt ?? DateTime(0)));
@@ -205,9 +202,6 @@ class LibraryController extends AsyncNotifier<LibraryState> {
     'poster_url': person.profileUrl,
     'followed': {'value': value, 'at': _now()},
   });
-
-  /// `episode:1399:1:3` (show, season, episode), as in vixeo_backend/docs/synchronisation.md.
-  static String episodeSyncId(int showId, int season, int episode) => 'episode:$showId:$season:$episode';
 
   Future<void> setWatched(MediaItem item, bool value) => _push(item, {
     'watched': {'value': value, 'at': _now()},

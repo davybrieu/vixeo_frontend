@@ -150,8 +150,6 @@ class AuthRepository {
 
   // ── Parental control (vixeo_backend/docs/controle-parental.md) ──
 
-  Future<bool> parentalControlEnabled() async => (await _api.get('/parental-control'))['enabled'] as bool? ?? false;
-
   /// Sets (or changes, with [currentPin] or [password]) the parental PIN.
   Future<void> setParentalPin(String pin, {String? currentPin, String? password}) =>
       _api.put('/parental-control/pin', body: {'pin': pin, 'current_pin': ?currentPin, 'password': ?password});
