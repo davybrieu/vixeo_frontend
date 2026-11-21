@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/choice.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
+import '../../core/widgets/range_slider.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
 import '../tv/models.dart';
@@ -108,40 +109,19 @@ class SearchFilterBar extends ConsumerWidget {
       if (choice != null) onChanged(filters.copyWith(genre: () => choice.$1));
     }
 
-    Future<void> pickDecade() async {
-      final choice = await showVxChoice<Decade>(
-        context,
-        title: 'Années',
-        selected: filters.decade,
-        options: [(null, 'Toutes les années'), for (final d in Decade.values) (d, d.label)],
-      );
-      if (choice != null) onChanged(filters.copyWith(decade: () => choice.$1));
+    Future<void> pickYears() async {
+      final range = await pickYearRange(context, from: filters.yearFrom, to: filters.yearTo);
+      if (range != null) onChanged(filters.copyWith(yearFrom: () => range.$1, yearTo: () => range.$2));
     }
 
     Future<void> pickRating() async {
-      final choice = await showVxChoice<int>(
-        context,
-        title: 'Note minimale',
-        selected: filters.minRating,
-        options: [
-          (null, 'Toutes les notes'),
-          for (final r in SearchFilters.ratings) (r, '$r et plus'),
-        ],
-      );
-      if (choice != null) onChanged(filters.copyWith(minRating: () => choice.$1));
+      final range = await pickRatingRange(context, title: 'Note', min: filters.minRating, max: filters.maxRating);
+      if (range != null) onChanged(filters.copyWith(minRating: () => range.$1, maxRating: () => range.$2));
     }
 
     Future<void> pickVotes() async {
-      final choice = await showVxChoice<int>(
-        context,
-        title: 'Nombre de votants',
-        selected: filters.minVotes,
-        options: [
-          (null, 'Tous les titres'),
-          for (final v in SearchFilters.votes) (v, '${formatVotes(v)} et plus'),
-        ],
-      );
-      if (choice != null) onChanged(filters.copyWith(minVotes: () => choice.$1));
+      final range = await pickVotesRange(context, min: filters.minVotes, max: filters.maxVotes);
+      if (range != null) onChanged(filters.copyWith(minVotes: () => range.$1, maxVotes: () => range.$2));
     }
 
     Future<void> pickSort() async {
@@ -181,28 +161,26 @@ class SearchFilterBar extends ConsumerWidget {
             ),
             SizedBox(width: gap),
             FilterChipButton(
-              label: filters.decade?.label ?? 'Années',
-              semanticLabel: 'Années : ${filters.decade?.label ?? 'toutes'}',
-              selected: filters.decade != null,
+              label: yearRangeLabel(filters.yearFrom, filters.yearTo) ?? 'Années',
+              semanticLabel: 'Années : ${yearRangeLabel(filters.yearFrom, filters.yearTo) ?? 'toutes'}',
+              selected: filters.hasYears,
               dropdown: true,
-              onPressed: pickDecade,
+              onPressed: pickYears,
             ),
             SizedBox(width: gap),
             if (withRating) ...[
               FilterChipButton(
-                label: filters.minRating == null ? 'Note' : 'Note ≥ ${filters.minRating}',
-                semanticLabel:
-                    'Note minimale : ${filters.minRating == null ? 'toutes' : '${filters.minRating} et plus'}',
-                selected: filters.minRating != null,
+                label: ratingRangeLabel(filters.minRating, filters.maxRating) ?? 'Note',
+                semanticLabel: ratingRangeLabel(filters.minRating, filters.maxRating) ?? 'Note : toutes',
+                selected: filters.minRating != null || filters.maxRating != null,
                 dropdown: true,
                 onPressed: pickRating,
               ),
               SizedBox(width: gap),
               FilterChipButton(
-                label: filters.minVotes == null ? 'Votants' : 'Votants ≥ ${formatCount(filters.minVotes!)}',
-                semanticLabel:
-                    'Nombre de votants : ${filters.minVotes == null ? 'tous' : '${formatVotes(filters.minVotes!)} et plus'}',
-                selected: filters.minVotes != null,
+                label: votesRangeLabel(filters.minVotes, filters.maxVotes) ?? 'Votants',
+                semanticLabel: votesRangeLabel(filters.minVotes, filters.maxVotes) ?? 'Votants : tous',
+                selected: filters.minVotes != null || filters.maxVotes != null,
                 dropdown: true,
                 onPressed: pickVotes,
               ),
@@ -245,6 +223,65 @@ class SearchFilterBar extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// « Années » with a two-thumb slider (1900 to this year, developer's request, 21/11/2026): the
+/// first and last years chosen (null: no limit), or null when closed without applying.
+Future<(int?, int?)?> pickYearRange(BuildContext context, {required int? from, required int? to}) async {
+  final stops = RangeStops.years();
+  final picked = await showVxRange(
+    context,
+    title: 'Années',
+    count: stops.count,
+    selected: stops.indexesOf(from, to),
+    valueLabel: (i) => '${stops.values[i]}',
+    summary: (start, end) {
+      final (from, to) = stops.valuesAt((start, end));
+      return yearRangeLabel(from, to) ?? 'Toutes les années';
+    },
+  );
+  return picked == null ? null : stops.valuesAt(picked);
+}
+
+/// A rating range with a two-thumb slider (0 to 10 by half points): « Note » of the search and of
+/// « Mes avis ». Null when closed without applying.
+Future<(double?, double?)?> pickRatingRange(
+  BuildContext context, {
+  required String title,
+  required double? min,
+  required double? max,
+}) async {
+  const stops = RangeStops.ratings;
+  final picked = await showVxRange(
+    context,
+    title: title,
+    count: stops.count,
+    selected: stops.indexesOf(min, max),
+    valueLabel: (i) => formatRatingBound(stops.values[i]),
+    summary: (start, end) {
+      final (min, max) = stops.valuesAt((start, end));
+      return ratingRangeLabel(min, max) ?? 'Toutes les notes';
+    },
+  );
+  return picked == null ? null : stops.valuesAt(picked);
+}
+
+/// « Votants » with a two-thumb slider (0 to 1 000 000 and more): voters of the rating shown
+/// (IMDb's, else TMDb's). Null when closed without applying.
+Future<(int?, int?)?> pickVotesRange(BuildContext context, {required int? min, required int? max}) async {
+  const stops = RangeStops.votes;
+  final picked = await showVxRange(
+    context,
+    title: 'Votants',
+    count: stops.count,
+    selected: stops.indexesOf(min, max),
+    valueLabel: (i) => '${formatCount(stops.values[i])}${i == stops.count - 1 ? '+' : ''}',
+    summary: (start, end) {
+      final (min, max) = stops.valuesAt((start, end));
+      return votesRangeLabel(min, max) ?? 'Sans limite de votants';
+    },
+  );
+  return picked == null ? null : stops.valuesAt(picked);
 }
 
 /// Row of filter chips under a page header (Recherche, Ma liste, Avis): scrolls sideways, with the

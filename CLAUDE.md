@@ -540,7 +540,7 @@ lib/
   `ReviewsScreen`, ouverte depuis la page « Profil » ; « Ses avis » pour un membre,
   `ReviewsScreen(username:)`) : en-tête commun avec recherche (titre, commentaire, sans
   accents ni casse) et, comme la recherche (demande du développeur), filtres Tout (par défaut) /
-  Films / Séries, « Années », « Note » (note de l'avis) et « Tri » (`ReviewSort` : plus
+  Films / Séries, « Années », « Note » (note de l'avis ; tous deux au curseur à deux poignées) et « Tri » (`ReviewSort` : plus
   récents par défaut, plus anciens, meilleures / moins bonnes notes, titre), « Réinitialiser ». Chaque avis montre ses étoiles (`StarRow`) et **aucun bouton** (demande
   du développeur) : un appui ouvre « Mon avis » (`ReviewScreen`, `/avis/movie/550`,
   `/avis/tv/1399`), où l'on change les étoiles et le commentaire (`RatingForm`,
@@ -579,14 +579,21 @@ lib/
 - **Recherche** (`features/search`, API : filtres de `/catalog/{type}/discover` et `/catalog/search`) :
   barre de filtres `SearchFilterBar` (Tout / Films / Séries / Chaînes TV / Personnes, genre,
   années, tri ; « Catégorie » pour les chaînes) ; `SearchFilters` donne les paramètres de l'API.
-  **Filtre « Note » (1 à 9, « Note ≥ 3 ») et tri « Mieux notés »** (retirés le 20/11/2026,
-  **rétablis le 21/11/2026**, demande du développeur ; `SearchFilterBar(withRating: true)`,
-  `SearchFilters.ratings`), sur **la note que montre chaque carte : IMDb, sinon TMDb** (demande du
-  développeur) : la recherche les demande à l'API (`min_rating`, `sort=rating`,
-  `vixeo_backend/docs/notes.md`) ; « Ma liste », qui filtre et trie elle-même, les applique à la
-  même note. **Filtre « Votants »** (100 à 500 000, « Votants ≥ 10 000 », demande du développeur,
-  21/11/2026 ; `SearchFilters.minVotes`, API `min_votes`) : les votants de cette même note (IMDb,
-  sinon TMDb) ; « Ma liste » l'applique elle-même. **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
+  **« Années », « Note » et « Votants » : des intervalles choisis avec un curseur à deux poignées**
+  (demande du développeur, 21/11/2026 ; `VxRangeSlider` / `showVxRange`, `core/widgets/range_slider.dart` :
+  feuille du bas sur téléphone, fenêtre ailleurs, « Réinitialiser » et « Appliquer » ; télécommande :
+  Gauche / Droite déplacent la poignée active, OK passe à l'autre ; positions de `RangeStops` :
+  années de 1900 à cette année, notes de 0 à 10 par demi-points, votants de 0 à 1 000 000 et plus ;
+  une poignée au bout de la piste = pas de limite ; puces « Depuis 2010 », « 2010–2019 »,
+  « Note 6–8,5 », « Votants ≥ 10 000 » : `yearRangeLabel`, `ratingRangeLabel`, `votesRangeLabel` ;
+  `pickYearRange`, `pickRatingRange`, `pickVotesRange` dans `filter_bar.dart`, aussi pour « Années »
+  et « Note » de « Mes avis »). **« Note » et tri « Mieux notés »** (rétablis le 21/11/2026,
+  `SearchFilterBar(withRating: true)`) et **« Votants »** portent sur **la note que montre chaque
+  carte : IMDb, sinon TMDb**, et ses votants : la recherche les demande à l'API (`year_from` /
+  `year_to`, `min_rating` / `max_rating`, `min_votes` / `max_votes`, `sort=rating`,
+  `vixeo_backend/docs/notes.md`) ; « Ma liste », qui filtre et trie elle-même, les applique de la
+  même façon (`SearchFilters.yearWithin`, `ratingWithin` : un titre sans note est écarté par une
+  borne). **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
   (demande du développeur) : dans « Tout », après Films et Séries, une section « Chaînes TV » et
   une section « Personnes » toujours affichées (une ligne « Aucune … » si vide ; masquées avec un
   filtre genre / années, qui ne s'applique qu'aux titres). **Sans texte** : champ vide → les
@@ -594,8 +601,8 @@ lib/
   séries qui y répondent** (demande du développeur, 21/11/2026 : « les films d'horreur depuis
   2010 notés 8 et plus » ; `SearchFilters.canBrowse`, API `/catalog/discover` et
   `/catalog/discover/{type}` via `searchProvider` / `titlesProvider` avec un texte vide ; ni
-  chaînes, ni personnes, ni comptes ; pas de « Pertinence » ; « Années » propose aussi « Depuis
-  2010 » et « Depuis 2000 », `Decade.contains`). Avec une note minimale, une page de l'API peut
+  chaînes, ni personnes, ni comptes ; pas de « Pertinence »). Avec une borne de note ou de
+  votants, une page de l'API peut
   être courte ou vide : `PagedGrid` lit les suivantes (10 pages vides au plus) avant « Aucun
   résultat ». Un texte en cours de saisie (ou d'une seule lettre) → rien, ni récentes ni « Aucun
   résultat » ; « Aucun résultat » uniquement quand une recherche ne trouve rien (dans « Tout » :

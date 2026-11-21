@@ -11,7 +11,7 @@ import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../catalog/widgets.dart' show titlePath;
 import '../search/filter_bar.dart';
-import '../search/search_filters.dart' show Decade;
+import '../search/search_filters.dart' show ratingRangeLabel, yearRangeLabel;
 import '../social/social_repository.dart' show socialReviewsProvider;
 import 'rating_dialog.dart';
 import 'review_screen.dart';
@@ -51,13 +51,17 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
 
   /// Null: every type ("Tout").
   RatedType? _type;
-  Decade? _decade;
 
-  /// The review's rating, at least.
-  int? _minRating;
+  /// « Années » and « Note » (of the review): ranges chosen with two-thumb sliders, like the search.
+  int? _yearFrom;
+  int? _yearTo;
+  double? _minRating;
+  double? _maxRating;
   ReviewSort _sort = ReviewSort.recent;
 
-  bool get _filtered => _type != null || _decade != null || _minRating != null || _sort != ReviewSort.recent;
+  bool get _hasYears => _yearFrom != null || _yearTo != null;
+  bool get _hasRating => _minRating != null || _maxRating != null;
+  bool get _filtered => _type != null || _hasYears || _hasRating || _sort != ReviewSort.recent;
 
   @override
   void dispose() {
@@ -65,24 +69,22 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
     super.dispose();
   }
 
-  Future<void> _pickDecade() async {
-    final choice = await showVxChoice<Decade>(
-      context,
-      title: 'Années',
-      selected: _decade,
-      options: [(null, 'Toutes les années'), for (final d in Decade.values) (d, d.label)],
-    );
-    if (choice != null) setState(() => _decade = choice.$1);
+  Future<void> _pickYears() async {
+    final range = await pickYearRange(context, from: _yearFrom, to: _yearTo);
+    if (range == null) return;
+    setState(() {
+      _yearFrom = range.$1;
+      _yearTo = range.$2;
+    });
   }
 
   Future<void> _pickRating() async {
-    final choice = await showVxChoice<int>(
-      context,
-      title: 'Note de l’avis',
-      selected: _minRating,
-      options: [(null, 'Toutes les notes'), for (final r in const [5, 6, 7, 8, 9]) (r, '$r et plus')],
-    );
-    if (choice != null) setState(() => _minRating = choice.$1);
+    final range = await pickRatingRange(context, title: 'Note de l’avis', min: _minRating, max: _maxRating);
+    if (range == null) return;
+    setState(() {
+      _minRating = range.$1;
+      _maxRating = range.$2;
+    });
   }
 
   Future<void> _pickSort() async {
@@ -102,8 +104,10 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
     final filters = _ReviewFilters(
       type: _type,
       query: _query,
-      decade: _decade,
+      yearFrom: _yearFrom,
+      yearTo: _yearTo,
       minRating: _minRating,
+      maxRating: _maxRating,
       sort: _sort,
     );
 
@@ -172,17 +176,17 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
                   ],
                   divider,
                   FilterChipButton(
-                    label: _decade?.label ?? 'Années',
-                    semanticLabel: 'Années : ${_decade?.label ?? 'toutes'}',
-                    selected: _decade != null,
+                    label: yearRangeLabel(_yearFrom, _yearTo) ?? 'Années',
+                    semanticLabel: 'Années : ${yearRangeLabel(_yearFrom, _yearTo) ?? 'toutes'}',
+                    selected: _hasYears,
                     dropdown: true,
-                    onPressed: _pickDecade,
+                    onPressed: _pickYears,
                   ),
                   SizedBox(width: gap),
                   FilterChipButton(
-                    label: _minRating == null ? 'Note' : 'Note $_minRating+',
-                    semanticLabel: 'Note de l’avis : ${_minRating == null ? 'toutes' : '$_minRating et plus'}',
-                    selected: _minRating != null,
+                    label: ratingRangeLabel(_minRating, _maxRating) ?? 'Note',
+                    semanticLabel: 'Note de l’avis : ${ratingRangeLabel(_minRating, _maxRating) ?? 'toutes'}',
+                    selected: _hasRating,
                     dropdown: true,
                     onPressed: _pickRating,
                   ),
@@ -202,8 +206,10 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
                       icon: Icons.close_rounded,
                       onPressed: () => setState(() {
                         _type = null;
-                        _decade = null;
+                        _yearFrom = null;
+                        _yearTo = null;
                         _minRating = null;
+                        _maxRating = null;
                         _sort = ReviewSort.recent;
                       }),
                     ),
@@ -224,23 +230,30 @@ class _ReviewFilters {
   const _ReviewFilters({
     required this.type,
     required this.query,
-    required this.decade,
+    required this.yearFrom,
+    required this.yearTo,
     required this.minRating,
+    required this.maxRating,
     required this.sort,
   });
 
   final RatedType? type;
   final String query;
-  final Decade? decade;
-  final int? minRating;
+  final int? yearFrom;
+  final int? yearTo;
+  final double? minRating;
+  final double? maxRating;
   final ReviewSort sort;
 
   bool matches(RatedItem item) {
     if (type != null && item.type != type) return false;
     if (!item.matches(query)) return false;
     final year = item.year;
-    if (decade != null && (year == null || !decade!.contains(year))) return false;
+    if (yearFrom != null || yearTo != null) {
+      if (year == null || year < (yearFrom ?? year) || year > (yearTo ?? year)) return false;
+    }
     if (minRating != null && item.value < minRating!) return false;
+    if (maxRating != null && item.value > maxRating!) return false;
     return true;
   }
 

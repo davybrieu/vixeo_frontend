@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -148,6 +149,28 @@ Future<void> choose(WidgetTester tester, String chip, String option) async {
   await tester.pumpAndSettle();
 }
 
+/// Opens the two-thumb slider of [chip] and moves its thumbs with the arrow keys, like a remote:
+/// [start] steps for the start thumb (it has the focus first), then OK and [end] steps for the end
+/// one (negative: to the left); then « Appliquer ».
+Future<void> slide(WidgetTester tester, String chip, {int start = 0, int end = 0}) async {
+  await tapChip(tester, chip);
+  Future<void> press(int steps) async {
+    for (var i = 0; i < steps.abs(); i++) {
+      await tester.sendKeyEvent(steps > 0 ? LogicalKeyboardKey.arrowRight : LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+    }
+  }
+
+  await press(start);
+  if (end != 0) {
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await press(end);
+  }
+  await tester.tap(find.text('Appliquer'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   group('SearchFilters', () {
     test('sends only what differs from the default order', () {
@@ -158,23 +181,35 @@ void main() {
 
       final query = const SearchFilters(
         genre: drama,
-        decade: Decade.before1980,
+        yearTo: 1979,
         minRating: 7,
+        maxRating: 8.5,
         sort: SearchSort.oldest,
       ).query(withText: false);
-      // The minimum rating and « Mieux notés » are asked to the API (IMDb's rating, else TMDb's).
+      // Ranges (two-thumb sliders): the rating and « Mieux notés » are asked to the API (IMDb's
+      // rating, else TMDb's).
       expect(query, {
         'genre': 18,
         'year_from': null,
         'year_to': 1979,
         'min_rating': 7,
+        'max_rating': 8.5,
         'min_votes': null,
+        'max_votes': null,
         'sort': 'oldest',
       });
       // The voters of that rating too; a filter: browsing without a text.
-      const voters = SearchFilters(minVotes: 10000);
-      expect(voters.query(withText: false)['min_votes'], 10000);
+      const voters = SearchFilters(minVotes: 1000, maxVotes: 50000);
+      expect(voters.query(withText: false)['min_votes'], 1000);
+      expect(voters.query(withText: false)['max_votes'], 50000);
       expect((voters.hasTitleFilters, voters.canBrowse, voters.isDefault), (true, true, false));
+      // « Ma liste » checks them like the API: both ends included, an unrated title left out.
+      expect(voters.ratingWithin(7, 1000), isTrue);
+      expect(voters.ratingWithin(7, 50001), isFalse);
+      expect(voters.ratingWithin(null, 5000), isFalse);
+      expect(const SearchFilters().ratingWithin(null, 0), isTrue);
+      const years = SearchFilters(yearFrom: 2010, yearTo: 2019);
+      expect([2009, 2010, 2019, 2020, null].map(years.yearWithin), [false, true, true, false, true]);
       expect(const SearchFilters(sort: SearchSort.rating).query(withText: true)['sort'], 'rating');
     });
 
@@ -239,17 +274,20 @@ void main() {
   testWidgets('no text, but filters: the movies and TV shows that match them', (tester) async {
     final fake = await pumpSearch(tester);
 
-    // « Les films d'horreur depuis 2010 notés 8 et plus ».
+    // « Les films d'horreur depuis 2010 notés 8 et plus »: the sliders' start thumbs, from 1900 and 0.
     await tapChip(tester, 'Films');
     await choose(tester, 'Genre', 'Horreur');
-    await choose(tester, 'Années', 'Depuis 2010');
-    await choose(tester, 'Note', '8 et plus');
+    await slide(tester, 'Années', start: 110);
+    expect(find.text('Depuis 2010'), findsOneWidget);
+    await slide(tester, 'Note', start: 16);
+    expect(find.text('Note ≥ 8'), findsOneWidget);
     final q = fake.titleQueries.last;
-    expect((q.type, q.query, q.filters.genre, q.filters.decade, q.filters.minRating), (
+    expect((q.type, q.query, q.filters.genre, q.filters.yearFrom, q.filters.yearTo, q.filters.minRating), (
       MediaType.movie,
       '',
       horror,
-      Decade.since2010,
+      2010,
+      null,
       8,
     ));
     expect(q.filters.query(withText: false), {
@@ -257,7 +295,9 @@ void main() {
       'year_from': 2010,
       'year_to': null,
       'min_rating': 8,
+      'max_rating': null,
       'min_votes': null,
+      'max_votes': null,
       'sort': null,
     });
     expect(find.byType(PosterCard), findsWidgets);
@@ -308,14 +348,24 @@ void main() {
     expect(fake.titleQueries.last.query, 'film');
     expect(find.text('Drame'), findsOneWidget);
 
-    // « Note » (1 to 9) and « Mieux notés », asked to the API.
-    await choose(tester, 'Note', '3 et plus');
-    expect(fake.titleQueries.last.filters.minRating, 3);
-    expect(find.text('Note ≥ 3'), findsOneWidget);
-    // « Votants », asked to the API too.
-    await choose(tester, 'Votants', '${formatVotes(10000)} et plus');
-    expect(fake.titleQueries.last.filters.minVotes, 10000);
+    // « Note » (0 to 10 by half points) and « Mieux notés », asked to the API.
+    await slide(tester, 'Note', start: 6, end: -3);
+    expect((fake.titleQueries.last.filters.minRating, fake.titleQueries.last.filters.maxRating), (3, 8.5));
+    expect(find.text('Note 3–8,5'), findsOneWidget);
+    // « Votants », asked to the API too: 0, 100, 500, 1 000, 2 500, 5 000, 10 000…
+    await slide(tester, 'Votants', start: 6);
+    expect((fake.titleQueries.last.filters.minVotes, fake.titleQueries.last.filters.maxVotes), (10000, null));
     expect(find.text('Votants ≥ ${formatCount(10000)}'), findsOneWidget);
+    // Opened again: where it was; « Réinitialiser » then « Appliquer »: no limit.
+    await tapChip(tester, 'Votants');
+    expect(find.text('Votants ≥ ${formatCount(10000)}'), findsNWidgets(2));
+    await tester.tap(find.text('Réinitialiser'));
+    await tester.pump();
+    expect(find.text('Sans limite de votants'), findsOneWidget);
+    await tester.tap(find.text('Appliquer'));
+    await tester.pumpAndSettle();
+    expect(fake.titleQueries.last.filters.minVotes, isNull);
+    expect(find.text('Votants'), findsOneWidget);
     await choose(tester, 'Tri :', 'Mieux notés');
     expect(fake.titleQueries.last.filters.sort, SearchSort.rating);
     expect(find.text('Tri : Mieux notés'), findsOneWidget);
@@ -350,8 +400,10 @@ void main() {
     expect(find.text('Tendance tout'), findsNothing);
     expect(find.text('Alma Meyer'), findsOneWidget);
 
-    await choose(tester, 'Années', 'Années 2010');
-    expect(fake.searches.last.$2.decade, Decade.y2010s);
+    // Both thumbs: 1900 → 2010, OK, this year → 2019.
+    await slide(tester, 'Années', start: 110, end: -(DateTime.now().year - 2019));
+    expect((fake.searches.last.$2.yearFrom, fake.searches.last.$2.yearTo), (2010, 2019));
+    expect(find.text('2010–2019'), findsOneWidget);
     // A filtered search has no people.
     expect(find.text('Alma Meyer'), findsNothing);
 

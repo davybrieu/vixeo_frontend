@@ -190,6 +190,7 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
 | Bouton rond `VxIconAction` | 52 (TV 76) ; dense 40 (TV 56) | cercle | icône seule, libellé pour les lecteurs d'écran ; vert quand actif (Ma liste, Vu, Noter) |
 | Puce `FilterChipButton` | haut. 36 (TV 60) | pilule | contour `lineStrong` ; choisie : fond vert 14 %, texte vert ; flèche si elle ouvre une liste |
 | Barre de filtres `FilterBar` | — | — | puces espacées de 8 (TV 14), défile à l'horizontale |
+| Curseur à deux poignées `VxRangeSlider` | haut. 48, poignées de 22, piste de 4 (TV × 1,6) | cercles | piste `lineStrong`, intervalle et poignées verts ; ouvert par `showVxRange` (feuille du bas / fenêtre : titre, intervalle choisi en vert, bornes de la piste, « Réinitialiser » et « Appliquer ») ; télécommande : un seul arrêt du focus, Gauche / Droite déplacent la poignée active (anneau blanc), OK passe à l'autre |
 | Champ de recherche `VxSearchField` | texte 16 (TV 24) | pilule (rayon 28) | loupe à gauche, croix pour effacer |
 | Champ de saisie | haut. 52 | rayon 12 | fond `field`, bordure `line`, verte au focus, rouge en erreur |
 | Carte `VxCard` | marge intérieure 20 (TV 30) | rayon 20 (TV 28) | fond `surface`, bordure `surfaceHigh` |

@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/auth/models.dart';
@@ -301,6 +302,21 @@ void main() {
         await tester.pumpAndSettle();
       }
 
+      // The two-thumb slider: the start thumb moved with the arrow keys, like a remote.
+      Future<void> slide(String chip, int steps) async {
+        final button = find.ancestor(of: find.textContaining(chip), matching: find.byType(FilterChipButton)).first;
+        await tester.ensureVisible(button);
+        await tester.pumpAndSettle();
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        for (var i = 0; i < steps; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pump();
+        }
+        await tester.tap(find.text('Appliquer'));
+        await tester.pumpAndSettle();
+      }
+
       List<String> order() {
         final names = ['Arrakis', 'Bene', 'Caladan'].where((n) => find.text(n).evaluate().isNotEmpty).toList();
         // The card's place (its name may wrap on the image: not the same height from one to another).
@@ -315,12 +331,12 @@ void main() {
       await choose('Tri :', 'Mieux notés');
       expect(order(), ['Bene', 'Caladan', 'Arrakis']);
 
-      await choose('Note', '7 et plus');
+      await slide('Note', 14);
       expect(find.text('Note ≥ 7'), findsOneWidget);
       expect(order(), ['Bene', 'Caladan']);
 
       // « Votants »: those of the rating shown (IMDb's 5 000 for Bene, TMDb's 300 for Caladan).
-      await choose('Votants', '${formatVotes(1000)} et plus');
+      await slide('Votants', 3);
       expect(find.text('Votants ≥ ${formatCount(1000)}'), findsOneWidget);
       expect(order(), ['Bene']);
     });
