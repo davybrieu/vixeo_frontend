@@ -163,7 +163,18 @@ void main() {
         sort: SearchSort.oldest,
       ).query(withText: false);
       // The minimum rating and « Mieux notés » are asked to the API (IMDb's rating, else TMDb's).
-      expect(query, {'genre': 18, 'year_from': null, 'year_to': 1979, 'min_rating': 7, 'sort': 'oldest'});
+      expect(query, {
+        'genre': 18,
+        'year_from': null,
+        'year_to': 1979,
+        'min_rating': 7,
+        'min_votes': null,
+        'sort': 'oldest',
+      });
+      // The voters of that rating too; a filter: browsing without a text.
+      const voters = SearchFilters(minVotes: 10000);
+      expect(voters.query(withText: false)['min_votes'], 10000);
+      expect((voters.hasTitleFilters, voters.canBrowse, voters.isDefault), (true, true, false));
       expect(const SearchFilters(sort: SearchSort.rating).query(withText: true)['sort'], 'rating');
     });
 
@@ -300,6 +311,10 @@ void main() {
     await choose(tester, 'Note', '3 et plus');
     expect(fake.titleQueries.last.filters.minRating, 3);
     expect(find.text('Note ≥ 3'), findsOneWidget);
+    // « Votants », asked to the API too.
+    await choose(tester, 'Votants', '${formatVotes(10000)} et plus');
+    expect(fake.titleQueries.last.filters.minVotes, 10000);
+    expect(find.text('Votants ≥ ${formatCount(10000)}'), findsOneWidget);
     await choose(tester, 'Tri :', 'Mieux notés');
     expect(fake.titleQueries.last.filters.sort, SearchSort.rating);
     expect(find.text('Tri : Mieux notés'), findsOneWidget);

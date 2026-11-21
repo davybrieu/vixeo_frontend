@@ -582,7 +582,9 @@ lib/
   `SearchFilters.ratings`), sur **la note que montre chaque carte : IMDb, sinon TMDb** (demande du
   développeur) : la recherche les demande à l'API (`min_rating`, `sort=rating`,
   `vixeo_backend/docs/notes.md`) ; « Ma liste », qui filtre et trie elle-même, les applique à la
-  même note. **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
+  même note. **Filtre « Votants »** (100 à 500 000, « Votants ≥ 10 000 », demande du développeur,
+  21/11/2026 ; `SearchFilters.minVotes`, API `min_votes`) : les votants de cette même note (IMDb,
+  sinon TMDb) ; « Ma liste » l'applique elle-même. **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
   (demande du développeur) : dans « Tout », après Films et Séries, une section « Chaînes TV » et
   une section « Personnes » toujours affichées (une ligne « Aucune … » si vide ; masquées avec un
   filtre genre / années, qui ne s'applique qu'aux titres). **Sans texte** : champ vide → les

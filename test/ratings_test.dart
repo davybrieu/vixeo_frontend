@@ -137,6 +137,7 @@ void main() {
       expect(formatVotes(30000), '30 000 votants');
       expect(formatVotes(999), '999 votants');
       expect(formatVotes(1), '1 votant');
+      expect(formatCount(100000), '100\u202F000');
     });
   });
 
@@ -247,7 +248,7 @@ void main() {
           id: 2,
           type: MediaType.movie,
           title: 'Bene',
-          ratings: TitleRatings(imdb: SiteRating(8.5, 10), tmdb: SiteRating(5, 10)),
+          ratings: TitleRatings(imdb: SiteRating(8.5, 5000), tmdb: SiteRating(5, 10)),
         ),
       };
       await tester.pumpWidget(
@@ -291,6 +292,11 @@ void main() {
       await choose('Note', '7 et plus');
       expect(find.text('Note ≥ 7'), findsOneWidget);
       expect(order(), ['Bene', 'Caladan']);
+
+      // « Votants »: those of the rating shown (IMDb's 5 000 for Bene; Caladan's unknown).
+      await choose('Votants', '${formatVotes(1000)} et plus');
+      expect(find.text('Votants ≥ ${formatCount(1000)}'), findsOneWidget);
+      expect(order(), ['Bene']);
     });
   });
 }

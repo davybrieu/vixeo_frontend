@@ -80,10 +80,19 @@ enum Decade {
 /// Filters and order of the search page. Genre, years and rating apply to movies and TV shows
 /// only, [category] to live channels only; [sort] null = the default order (relevance with a
 /// text, popularity without). The rating ([minRating], [SearchSort.rating]) is the one each card
-/// shows (IMDb's, else TMDb's): the search page asks the API, « Ma liste » applies it itself.
+/// shows (IMDb's, else TMDb's), and [minVotes] counts its voters: the search page asks the API,
+/// « Ma liste » applies them itself.
 @immutable
 class SearchFilters {
-  const SearchFilters({this.kind = SearchKind.all, this.genre, this.decade, this.minRating, this.sort, this.category});
+  const SearchFilters({
+    this.kind = SearchKind.all,
+    this.genre,
+    this.decade,
+    this.minRating,
+    this.minVotes,
+    this.sort,
+    this.category,
+  });
 
   final SearchKind kind;
 
@@ -94,16 +103,23 @@ class SearchFilters {
 
   /// Minimum rating out of 10 (« Note ≥ 7 »).
   final int? minRating;
+
+  /// Minimum number of voters of the rating shown (« 10 000 votants et plus », developer's
+  /// request, 21/11/2026): IMDb's when the title has an IMDb rating, else TMDb's.
+  final int? minVotes;
   final SearchSort? sort;
 
   /// Thresholds of the « Note » filter: 1 to 9.
   static const ratings = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-  bool get hasTitleFilters => genre != null || decade != null || minRating != null;
+  /// Thresholds of the « Votants » filter.
+  static const votes = [100, 1000, 10000, 50000, 100000, 500000];
+
+  bool get hasTitleFilters => genre != null || decade != null || minRating != null || minVotes != null;
 
   bool get isDefault => kind == SearchKind.all && !hasTitleFilters && sort == null && category == null;
 
-  /// Without a text, movies and TV shows are browsed when a filter (genre, years, rating) or an
+  /// Without a text, movies and TV shows are browsed when a filter (genre, years, rating, voters) or an
   /// order is chosen (developer's request, 21/11/2026: « les films d'horreur depuis 2010 notés 8 et
   /// plus »); otherwise the empty field shows the recent searches.
   bool get canBrowse => (hasTitleFilters || sort != null) && (kind == SearchKind.all || kind.mediaType != null);
@@ -123,6 +139,7 @@ class SearchFilters {
       'year_from': decade?.from,
       'year_to': decade?.to,
       'min_rating': minRating,
+      'min_votes': minVotes,
       'sort': byDefault ? null : order.name,
     };
   }
@@ -132,6 +149,7 @@ class SearchFilters {
     Genre? Function()? genre,
     Decade? Function()? decade,
     int? Function()? minRating,
+    int? Function()? minVotes,
     SearchSort? Function()? sort,
     TvCategory? Function()? category,
   }) => SearchFilters(
@@ -139,6 +157,7 @@ class SearchFilters {
     genre: genre == null ? this.genre : genre(),
     decade: decade == null ? this.decade : decade(),
     minRating: minRating == null ? this.minRating : minRating(),
+    minVotes: minVotes == null ? this.minVotes : minVotes(),
     sort: sort == null ? this.sort : sort(),
     category: category == null ? this.category : category(),
   );
@@ -150,11 +169,12 @@ class SearchFilters {
       other.genre == genre &&
       other.decade == decade &&
       other.minRating == minRating &&
+      other.minVotes == minVotes &&
       other.sort == sort &&
       other.category == category;
 
   @override
-  int get hashCode => Object.hash(kind, genre, decade, minRating, sort, category);
+  int get hashCode => Object.hash(kind, genre, decade, minRating, minVotes, sort, category);
 }
 
 /// One search of titles of one type (the search page shows nothing without a text).

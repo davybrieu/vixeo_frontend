@@ -33,9 +33,9 @@ String _fold(String s) => s
 
 /// Type, genre, years and order of the search page, in one scrollable row of chips. Genre, years
 /// and order don't apply to people or live channels: hidden for those kinds. Live channels have
-/// their « Catégorie » instead, the same kind of chip as « Genre ». [withRating] adds « Note » and
-/// « Mieux notés », on the rating each card shows (IMDb's, else TMDb's): the search page asks the
-/// API, « Ma liste » applies them itself.
+/// their « Catégorie » instead, the same kind of chip as « Genre ». [withRating] adds « Note »,
+/// « Votants » and « Mieux notés », on the rating each card shows (IMDb's, else TMDb's) and its
+/// voters: the search page asks the API, « Ma liste » applies them itself.
 class SearchFilterBar extends ConsumerWidget {
   const SearchFilterBar({
     super.key,
@@ -53,7 +53,7 @@ class SearchFilterBar extends ConsumerWidget {
   /// « Catégorie » for live channels (the search page; not « Ma liste »).
   final bool channelCategories;
 
-  /// « Note » filter and « Mieux notés » order (search page, « Ma liste »).
+  /// « Note » and « Votants » filters, « Mieux notés » order (search page, « Ma liste »).
   final bool withRating;
 
   final SearchFilters filters;
@@ -131,6 +131,19 @@ class SearchFilterBar extends ConsumerWidget {
       if (choice != null) onChanged(filters.copyWith(minRating: () => choice.$1));
     }
 
+    Future<void> pickVotes() async {
+      final choice = await showVxChoice<int>(
+        context,
+        title: 'Nombre de votants',
+        selected: filters.minVotes,
+        options: [
+          (null, 'Tous les titres'),
+          for (final v in SearchFilters.votes) (v, '${formatVotes(v)} et plus'),
+        ],
+      );
+      if (choice != null) onChanged(filters.copyWith(minVotes: () => choice.$1));
+    }
+
     Future<void> pickSort() async {
       final choice = await showVxChoice<SearchSort>(
         context,
@@ -183,6 +196,15 @@ class SearchFilterBar extends ConsumerWidget {
                 selected: filters.minRating != null,
                 dropdown: true,
                 onPressed: pickRating,
+              ),
+              SizedBox(width: gap),
+              FilterChipButton(
+                label: filters.minVotes == null ? 'Votants' : 'Votants ≥ ${formatCount(filters.minVotes!)}',
+                semanticLabel:
+                    'Nombre de votants : ${filters.minVotes == null ? 'tous' : '${formatVotes(filters.minVotes!)} et plus'}',
+                selected: filters.minVotes != null,
+                dropdown: true,
+                onPressed: pickVotes,
               ),
               SizedBox(width: gap),
             ],

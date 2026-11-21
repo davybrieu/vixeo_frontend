@@ -259,9 +259,10 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // « Note » and « Mieux notés »: the rating each card shows (IMDb's, given with the titles of
-    // the batch, else TMDb's).
+    // « Note », « Votants » and « Mieux notés »: the rating each card shows (IMDb's, given with the
+    // titles of the batch, else TMDb's) and its voters.
     double? ratingOf(MediaItem item) => item.shownRating?.$2.value;
+    int votesOf(MediaItem item) => item.shownRating?.$2.votes ?? 0;
 
     final matching = <MediaItem>[];
     final seen = <TitleRef>{};
@@ -279,6 +280,8 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
       if (decade != null && year != null && !decade.contains(year)) continue;
       final minRating = _filters.minRating;
       if (minRating != null && (ratingOf(item) ?? 0) < minRating) continue;
+      final minVotes = _filters.minVotes;
+      if (minVotes != null && votesOf(item) < minVotes) continue;
       if (_filters.genre != null && details != null && !details.genreIds.contains(_filters.genre!.id)) continue;
       matching.add(item);
     }

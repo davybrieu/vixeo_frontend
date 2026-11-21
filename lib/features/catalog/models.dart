@@ -686,8 +686,8 @@ String formatRuntime(int? minutes) {
 String formatRating(double value) => value.toStringAsFixed(1).replaceAll('.', ',');
 
 /// "2 400 000 votants", "1 votant" (thousands separated by a narrow no-break space).
-String formatVotes(int votes) {
-  final digits = '$votes';
-  final grouped = digits.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '\u202F');
-  return '$grouped ${votes > 1 ? 'votants' : 'votant'}';
-}
+String formatVotes(int votes) => '${formatCount(votes)} ${votes > 1 ? 'votants' : 'votant'}';
+
+/// "2 400 000" (thousands separated by a narrow no-break space, as in French).
+String formatCount(int count) =>
+    '$count'.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '\u202F');
