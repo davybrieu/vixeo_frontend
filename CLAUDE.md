@@ -665,7 +665,9 @@ lib/
   `ProfileHeader`, `ProfileCounters`, `ProfileTitlesSection`, `ProfileReviewsSection`,
   `ProfileSectionMessage` / `ProfileSectionLoading`. **Modifier la page = modifier ce fichier**
   (pas de copie dans les écrans) ; chaque écran ne donne que ses données et son bouton. En haut,
-  avatar, nom, @pseudo, « 12 abonnés » et « 3 abonnements » (ouvrent la liste), biographie, puis
+  avatar, nom, @pseudo, « 12 abonnés » et « 3 abonnements » (ouvrent la liste), biographie
+  (**160 caractères au plus**, demande du développeur, 21/11/2026 : `SocialProfileEditScreen.bioMaxLength`,
+  même limite dans l'API), puis
   le bouton (focus à l'arrivée) : « Modifier le profil » (le mien), « Suivre » / « Ne plus
   suivre » (un membre ; invité : « Se connecter pour suivre ») ; puis une carte de compteurs
   (Avis, Vus, Ma liste / Sa liste) ; puis la liste (rangée `PosterRow`, 20 titres au plus, une

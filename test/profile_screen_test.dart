@@ -333,6 +333,26 @@ void main() {
     expect(find.bySemanticsLabel('Avis : 5'), findsOneWidget);
   });
 
+  testWidgets('a biography of 160 characters at most', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionProvider.overrideWith(_Signed.new),
+          socialRepositoryProvider.overrideWithValue(_SearchSocial([_social])),
+        ],
+        child: MaterialApp(theme: buildVixeoTheme(), home: const SocialProfileEditScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final bio = find.widgetWithText(TextField, 'Biographie');
+    expect(tester.widget<TextField>(bio).maxLength, 160);
+    await tester.enterText(bio, 'a' * 200);
+    await tester.pump();
+    expect(tester.widget<TextField>(bio).controller!.text.length, 160);
+    expect(find.text('160/160'), findsOneWidget);
+  });
+
   test('the member search never shows the active profile itself (reached from « Profil »)', () async {
     final container = ProviderContainer(
       overrides: [
@@ -425,4 +445,7 @@ class _SearchSocial extends SocialRepository {
 
   @override
   Future<List<SocialProfile>> search(String query) async => found;
+
+  @override
+  Future<SocialProfile> profile(String username) async => found.firstWhere((p) => p.username == username);
 }

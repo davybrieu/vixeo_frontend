@@ -349,6 +349,9 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
 
 class SocialProfileEditScreen extends ConsumerStatefulWidget {
   const SocialProfileEditScreen({super.key});
+
+  /// Longest biography, in characters (the API's limit too; developer's request, 21/11/2026).
+  static const bioMaxLength = 160;
   @override
   ConsumerState<SocialProfileEditScreen> createState() => _SocialProfileEditScreenState();
 }
@@ -377,7 +380,12 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
           return ListView(padding: const EdgeInsets.all(20), children: [
             TextField(controller: _username, decoration: const InputDecoration(labelText: 'Pseudo', prefixText: '@')),
             const SizedBox(height: 16),
-            TextField(controller: _bio, maxLength: 500, maxLines: 5, decoration: const InputDecoration(labelText: 'Biographie')),
+            TextField(
+              controller: _bio,
+              maxLength: SocialProfileEditScreen.bioMaxLength,
+              maxLines: 4,
+              decoration: const InputDecoration(labelText: 'Biographie'),
+            ),
             if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 20),
             FilledButton(
