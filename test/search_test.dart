@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/app.dart';
 import 'package:vixeo/core/features.dart';
 import 'package:vixeo/core/theme.dart';
+import 'package:vixeo/core/widgets/focusable.dart';
 import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
@@ -425,8 +426,10 @@ void main() {
     final fake = await pumpSearch(tester, accounts: const [SocialProfile(id: 4, username: 'maxime', name: 'Maxime')]);
     await typeQuery(tester, 'orbite');
 
+    Finder seeAllButton(String section) =>
+        find.byWidgetPredicate((w) => w is VxFocusable && w.semanticLabel == 'Voir tout : $section');
     Future<void> seeAll(String section) async {
-      final button = find.bySemanticsLabel('Voir tout : $section');
+      final button = seeAllButton(section);
       await tester.scrollUntilVisible(button, 200, scrollable: pageScroll);
       await tester.tap(button);
       await tester.pumpAndSettle();
@@ -436,7 +439,7 @@ void main() {
     await seeAll('Films');
     expect((fake.titleQueries.last.type, fake.titleQueries.last.query), (MediaType.movie, 'orbite'));
     expect(find.text('Film 1-0'), findsOneWidget);
-    expect(find.bySemanticsLabel('Voir tout : Séries'), findsNothing);
+    expect(seeAllButton('Séries'), findsNothing);
 
     await tapChip(tester, 'Tout');
     await seeAll('Séries');
