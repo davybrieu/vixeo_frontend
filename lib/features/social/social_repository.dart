@@ -10,7 +10,7 @@ class SocialProfile {
     required this.id, required this.username, required this.name,
     this.avatar, this.bio, this.followersCount = 0, this.followingCount = 0,
     this.isFollowing = false, this.isSelf = false,
-    this.reviewsCount = 0, this.watchedCount = 0, this.listCount = 0,
+    this.reviewsCount = 0, this.watchedCount = 0, this.listCount = 0, this.shareUrl,
   });
 
   factory SocialProfile.fromJson(Map<String, dynamic> json) => SocialProfile(
@@ -26,6 +26,7 @@ class SocialProfile {
     reviewsCount: json['reviews_count'] as int? ?? 0,
     watchedCount: json['watched_count'] as int? ?? 0,
     listCount: json['list_count'] as int? ?? 0,
+    shareUrl: json['share_url'] as String?,
   );
 
   final int id;
@@ -40,6 +41,9 @@ class SocialProfile {
   final int reviewsCount;
   final int watchedCount;
   final int listCount;
+
+  /// The profile's page on the site (`www.vixeo.app/@pseudo`), sent by « Partager ».
+  final String? shareUrl;
 }
 
 class SocialRepository {

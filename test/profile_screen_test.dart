@@ -1,4 +1,8 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
+import 'package:vixeo/core/share.dart';
+import 'package:vixeo/features/auth/auth_repository.dart';
+import 'package:vixeo/router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -353,6 +357,104 @@ void main() {
     expect(find.text('160/160'), findsOneWidget);
   });
 
+  testWidgets('« Modifier mon profil » changes the name too', (tester) async {
+    final auth = _FakeAuth();
+    final container = ProviderContainer(
+      overrides: [
+        sessionProvider.overrideWith(_Signed.new),
+        socialRepositoryProvider.overrideWithValue(_SearchSocial([_social])),
+        authRepositoryProvider.overrideWithValue(auth),
+      ],
+    );
+    addTearDown(container.dispose);
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const Text('Page Profil')),
+        GoRoute(path: '/edition', builder: (_, _) => const SocialProfileEditScreen()),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
+      ),
+    );
+    router.push('/edition');
+    await tester.pumpAndSettle();
+
+    // Filled with the profile: name, @username, biography.
+    expect(find.widgetWithText(TextField, 'Léa'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'lea'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Fan de science-fiction.'), findsOneWidget);
+
+    // An empty name is refused before the API.
+    await tester.enterText(find.widgetWithText(TextField, 'Nom'), '  ');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Le nom du profil est obligatoire.'), findsOneWidget);
+    expect(auth.saved, isEmpty);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Nom'), ' Léa B. ');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(auth.saved.single, {'name': 'Léa B.', 'username': 'lea', 'bio': 'Fan de science-fiction.'});
+    expect(container.read(sessionProvider).profile?.name, 'Léa B.');
+    expect(find.text('Page Profil'), findsOneWidget);
+  });
+
+  testWidgets('« Partager » sends the profile\'s page, or copies it', (tester) async {
+    final sharer = _FakeSharer();
+    const shared = SocialProfile(
+      id: 7,
+      username: 'max',
+      name: 'Max',
+      shareUrl: 'https://www.vixeo.app/@max',
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionProvider.overrideWith(_Signed.new),
+          linkSharerProvider.overrideWithValue(sharer),
+          socialProfileProvider.overrideWith((ref, username) async => shared),
+          socialTitlesProvider.overrideWith((ref, username) async => const <MediaItem>[]),
+          socialLikedProvider.overrideWith((ref, username) async => const <MediaItem>[]),
+          socialPeopleProvider.overrideWith((ref, username) async => const <Person>[]),
+          socialReviewsProvider.overrideWith((ref, username) async => const <RatedItem>[]),
+          titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
+        ],
+        child: MaterialApp(theme: buildVixeoTheme(), home: const PublicProfileScreen(username: 'max')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Partager le profil'));
+    await tester.pumpAndSettle();
+    expect(sharer.texts.single, 'Le profil de Max (@max) sur Vixeo\nhttps://www.vixeo.app/@max');
+
+    // No share sheet (Windows): the link is copied.
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied.add((call.arguments as Map)['text'] as String);
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    sharer.opens = false;
+    await tester.tap(find.bySemanticsLabel('Partager le profil'));
+    await tester.pumpAndSettle();
+    expect(copied, ['https://www.vixeo.app/@max']);
+    expect(find.text('Lien copié'), findsOneWidget);
+  });
+
+  test('a profile\'s link opens the profile', () {
+    expect(memberOfLink('/@lea'), 'lea');
+    expect(memberOfLink('/%40Max_9'), 'Max_9');
+    expect(memberOfLink('/@lea/autre'), 'lea');
+    expect(memberOfLink('/@a'), isNull);
+    expect(memberOfLink('/membre/lea'), isNull);
+    expect(memberOfLink('/accueil'), isNull);
+  });
+
   test('the member search never shows the active profile itself (reached from « Profil »)', () async {
     final container = ProviderContainer(
       overrides: [
@@ -438,6 +540,29 @@ Future<_FakeSocial> _pumpMember(WidgetTester tester) async {
 }
 
 /// Answers every search with [found].
+class _FakeAuth extends AuthRepository {
+  _FakeAuth() : super(ApiClient(token: () => null, profileId: () => null));
+
+  final saved = <Map<String, Object?>>[];
+
+  @override
+  Future<Profile> updateProfile(int profileId, Map<String, Object?> fields) async {
+    saved.add(fields);
+    return Profile.fromJson({'id': profileId, 'name': fields['name'], 'username': fields['username'], 'bio': fields['bio']});
+  }
+}
+
+class _FakeSharer extends LinkSharer {
+  bool opens = true;
+  final texts = <String>[];
+
+  @override
+  Future<bool> share({required String text, String? subject}) async {
+    if (opens) texts.add(text);
+    return opens;
+  }
+}
+
 class _SearchSocial extends SocialRepository {
   _SearchSocial(this.found) : super(ApiClient(token: () => null, profileId: () => null));
 

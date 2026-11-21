@@ -62,6 +62,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
+      // A profile's link (www.vixeo.app/@pseudo, « Partager »), opened by Android in the app.
+      final member = memberOfLink(state.uri.path);
+      if (member != null) {
+        final mine = member.toLowerCase() == session.profile?.username?.toLowerCase();
+        return mine ? '/profil' : '/membre/${Uri.encodeComponent(member)}';
+      }
       final location = state.matchedLocation;
       const authPages = {'/connexion', '/inscription', '/mot-de-passe-oublie'};
       const guestAllowed = {
@@ -134,6 +140,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      // A profile's link (www.vixeo.app/@pseudo): the redirect above opens the profile.
+      GoRoute(path: '/@:username', redirect: (_, state) => '/membre/${state.pathParameters['username']}'),
       GoRoute(path: '/demarrage', builder: (_, state) => guarded(state.uri.path, const SplashScreen())),
       GoRoute(path: '/connexion', builder: (_, state) => guarded(state.uri.path, const LoginScreen())),
       GoRoute(path: '/inscription', builder: (_, state) => guarded(state.uri.path, const RegisterScreen())),
@@ -348,4 +356,12 @@ class SplashScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The username of a profile's link (`/@lea` → `lea`); null for any other path.
+String? memberOfLink(String path) {
+  final decoded = Uri.decodeComponent(path);
+  if (!decoded.startsWith('/@')) return null;
+  final username = decoded.substring(2).split('/').first;
+  return RegExp(r'^[A-Za-z0-9_]{3,30}$').hasMatch(username) ? username : null;
 }

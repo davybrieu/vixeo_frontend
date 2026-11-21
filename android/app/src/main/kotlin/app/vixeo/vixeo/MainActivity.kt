@@ -42,6 +42,31 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // « Partager » (lib/core/share.dart): Android's share sheet.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.vixeo/share")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "share" -> {
+                        val text = call.argument<String>("text")
+                        if (text == null) result.error("bad_args", "text missing", null)
+                        else result.success(share(text, call.argument<String>("subject")))
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    /** Opens Android's share sheet with a text (a profile's link). */
+    private fun share(text: String, subject: String?): Boolean {
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+        if (subject != null) send.putExtra(Intent.EXTRA_SUBJECT, subject)
+        return try {
+            startActivity(Intent.createChooser(send, null))
+            true
+        } catch (e: ActivityNotFoundException) {
+            false
+        }
     }
 
     private fun isTv(): Boolean {

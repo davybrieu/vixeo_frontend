@@ -38,6 +38,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
+            <!-- A profile's page (www.vixeo.app/@pseudo, « Partager »): opened in the app. Android
+                 App Links, verified with the site's /.well-known/assetlinks.json (release key). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="www.vixeo.app" android:pathPrefix="/@"/>
+            </intent-filter>
+            <!-- The link's path goes to go_router (router.dart: /@pseudo → /membre/pseudo). -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
         </activity>
         <!-- Shares the downloaded update (cache/updates) with Android's package installer. -->
         <provider

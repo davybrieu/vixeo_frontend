@@ -2,8 +2,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
+import '../../core/share.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/page_header.dart';
@@ -13,6 +15,7 @@ import '../catalog/models.dart';
 import '../catalog/widgets.dart';
 import '../library/library.dart';
 import '../library/my_list_screen.dart';
+import '../profiles/profiles_screen.dart';
 import '../tmdb/reviews_screen.dart';
 import '../tmdb/tmdb.dart';
 import 'profile_view.dart';
@@ -120,6 +123,16 @@ class ProfileScreen extends ConsumerWidget {
           autofocus: true,
           onPressed: () => context.push('/profil/social/edition'),
         ),
+        onShare: switch (social?.shareUrl) {
+          final url? when canShareLinks => () => shareLink(
+            ref,
+            context,
+            url: url,
+            message: 'Retrouve-moi sur Vixeo : ${profile.name} (@$username)',
+            subject: 'Vixeo',
+          ),
+          _ => null,
+        },
       ),
       counters: ProfileCounters(
         reviews: reviews.value?.length ?? social?.reviewsCount,
@@ -237,6 +250,16 @@ class PublicProfileScreen extends ConsumerWidget {
                   onPressed: () => context.push('/profil/social/edition'),
                 )
               : _FollowButton(profile: social),
+          onShare: switch (social.shareUrl) {
+            final url? when canShareLinks => () => shareLink(
+              ref,
+              context,
+              url: url,
+              message: 'Le profil de ${social.name} (@${social.username}) sur Vixeo',
+              subject: 'Vixeo',
+            ),
+            _ => null,
+          },
         ),
         counters: ProfileCounters(
           reviews: social.reviewsCount,
@@ -352,57 +375,125 @@ class SocialProfileEditScreen extends ConsumerStatefulWidget {
 
   /// Longest biography, in characters (the API's limit too; developer's request, 21/11/2026).
   static const bioMaxLength = 160;
+
+  /// Longest profile name (the API's limit).
+  static const nameMaxLength = 50;
+
   @override
   ConsumerState<SocialProfileEditScreen> createState() => _SocialProfileEditScreenState();
 }
 
+/// « Modifier mon profil » (button of the « Profil » page): the profile's name, its @username and
+/// its biography (developer's request, 21/11/2026: the name too). Saved by `PUT /profiles/{id}`.
 class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScreen> {
+  final _name = TextEditingController();
   final _username = TextEditingController();
   final _bio = TextEditingController();
+  late final Future<SocialProfile?> _social = _load();
   bool _loading = false;
   String? _error;
 
   @override
-  void dispose() { _username.dispose(); _bio.dispose(); super.dispose(); }
+  void initState() {
+    super.initState();
+    // Filled once (not at each build: an emptied field stayed empty).
+    final profile = ref.read(sessionProvider).profile;
+    _name.text = profile?.name ?? '';
+    _username.text = profile?.username ?? '';
+    _bio.text = profile?.bio ?? '';
+  }
+
+  /// The public profile, for a biography the session doesn't have yet.
+  Future<SocialProfile?> _load() async {
+    final username = ref.read(sessionProvider).profile?.username ?? '';
+    if (username.isEmpty) return null;
+    final social = await ref.read(socialRepositoryProvider).profile(username);
+    if (mounted && _bio.text.isEmpty) _bio.text = social.bio ?? '';
+    return social;
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _username.dispose();
+    _bio.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final active = ref.read(sessionProvider).profile;
+    if (active == null) return;
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'Le nom du profil est obligatoire.');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final updated = await ref.read(authRepositoryProvider).updateProfile(active.id, {
+        'name': name,
+        'username': _username.text.trim(),
+        'bio': _bio.text.trim(),
+      });
+      ref.read(sessionProvider.notifier).updateProfile(updated);
+      // The « Profil » page reads its followers and counters again (new username…), and
+      // « Qui regarde ? » shows the new name.
+      ref.invalidate(socialProfileProvider);
+      ref.invalidate(profilesProvider);
+      if (mounted) context.pop();
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final active = ref.watch(sessionProvider).profile;
     return Scaffold(
       appBar: AppBar(title: const Text('Modifier mon profil')),
-      body: FutureBuilder<SocialProfile>(
-        future: active == null ? null : ref.read(socialRepositoryProvider).profile(active.username ?? ''),
+      body: FutureBuilder<SocialProfile?>(
+        future: _social,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final social = snapshot.data!;
-          if (_username.text.isEmpty) _username.text = social.username;
-          if (_bio.text.isEmpty) _bio.text = social.bio ?? '';
-          return ListView(padding: const EdgeInsets.all(20), children: [
-            TextField(controller: _username, decoration: const InputDecoration(labelText: 'Pseudo', prefixText: '@')),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _bio,
-              maxLength: SocialProfileEditScreen.bioMaxLength,
-              maxLines: 4,
-              decoration: const InputDecoration(labelText: 'Biographie'),
-            ),
-            if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: _loading ? null : () async {
-                setState(() { _loading = true; _error = null; });
-                try {
-                  final updated = await ref.read(authRepositoryProvider).updateProfile(active!.id, {'username': _username.text.trim(), 'bio': _bio.text.trim()});
-                  ref.read(sessionProvider.notifier).updateProfile(updated);
-                  // The « Profil » page reads its followers and counters again (new username…).
-                  ref.invalidate(socialProfileProvider);
-                  if (context.mounted) context.pop();
-                } catch (e) { if (mounted) setState(() => _error = e.toString()); }
-                finally { if (mounted) setState(() => _loading = false); }
-              },
-              child: Text(_loading ? 'Enregistrement…' : 'Enregistrer'),
-            ),
-          ]);
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              TextField(
+                controller: _name,
+                autofocus: !DeviceInfo.isTv,
+                maxLength: SocialProfileEditScreen.nameMaxLength,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'Nom', counterText: ''),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _username,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'Pseudo', prefixText: '@'),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _bio,
+                maxLength: SocialProfileEditScreen.bioMaxLength,
+                maxLines: 4,
+                decoration: const InputDecoration(labelText: 'Biographie'),
+              ),
+              if (_error != null) Text(_error!, style: const TextStyle(color: VxColors.dangerText)),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: _loading ? null : _save,
+                child: Text(_loading ? 'Enregistrement…' : 'Enregistrer'),
+              ),
+            ],
+          );
         },
       ),
     );

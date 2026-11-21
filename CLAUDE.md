@@ -686,7 +686,18 @@ lib/
   de page. **Comptes** (recherche, abonnés) : `AccountTile` = avatar, nom, @pseudo, **sans le
   nombre d'abonnés** (demande du développeur). **La recherche ne montre jamais le profil actif
   lui-même** (demande du développeur, 20/11/2026 : on ouvre son profil par la navigation,
-  « Profil ») : l'API le retire et `socialSearchProvider` aussi. Test : `test/profile_screen_test.dart`.
+  « Profil ») : l'API le retire et `socialSearchProvider` aussi. **« Modifier mon profil »**
+  (`SocialProfileEditScreen`, `/profil/social/edition`) : **nom** (demande du développeur,
+  21/11/2026), pseudo et biographie, enregistrés par `PUT /profiles/{id}`. **« Partager »**
+  (demande du développeur, 21/11/2026) : bouton rond à côté du bouton principal
+  (`ProfileHeader(onShare:)`, mon profil et celui d'un membre ; **pas sur TV**, `canShareLinks`),
+  qui envoie la page du profil sur le site (`share_url` de l'API, `www.vixeo.app/@pseudo`) :
+  feuille de partage d'Android (`LinkSharer`, `core/share.dart`, canal `app.vixeo/share` de
+  `MainActivity.kt`), sinon (Windows) lien copié et « Lien copié ». **Lien d'un profil** :
+  Android ouvre `https://www.vixeo.app/@pseudo` dans l'appli (Android App Links : filtre
+  `autoVerify` du manifeste, `assetlinks.json` du site avec l'empreinte du certificat de release,
+  `flutter_deeplinking_enabled`) ; le routeur en fait `/membre/pseudo` (`memberOfLink`), ou
+  `/profil` pour mon propre profil. Test : `test/profile_screen_test.dart`.
 - **Espacements** (charte, § 5) : les écarts d'une page ont un nom dans `core/design.dart`
   (`layout.sectionGap`, `titleGap`, `introGap`, `listGap`, `cardGap`) et le bas d'une page qui
   défile passe par `pageBottomPadding(context)` (place de la barre d'onglets comprise). Pages

@@ -116,6 +116,7 @@ class ProfileHeader extends StatelessWidget {
     this.onFollowers,
     this.onFollowing,
     this.action,
+    this.onShare,
   });
 
   final String name;
@@ -134,6 +135,9 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback? onFollowers;
   final VoidCallback? onFollowing;
   final Widget? action;
+
+  /// « Partager » (a round button beside [action]); none when null (TV, profile without page).
+  final VoidCallback? onShare;
 
   /// "L" for "Léa", as `Profile.initial`.
   static String initialOf(String name) => name.isEmpty ? '?' : String.fromCharCode(name.runes.first).toUpperCase();
@@ -198,7 +202,17 @@ class ProfileHeader extends StatelessWidget {
             style: VxText.body(layout.bodySize, color: text.isEmpty ? VxColors.textMuted : VxColors.textSoft),
           ),
         ],
-        if (action != null) ...[SizedBox(height: layout.space(VxSpace.m)), action!],
+        if (action != null || onShare != null) ...[
+          SizedBox(height: layout.space(VxSpace.m)),
+          Row(
+            children: [
+              if (action != null) Flexible(child: action!),
+              if (action != null && onShare != null) SizedBox(width: layout.space(VxSpace.s)),
+              if (onShare != null)
+                VxIconAction(icon: Icons.share_outlined, label: 'Partager le profil', dense: true, onPressed: onShare),
+            ],
+          ),
+        ],
       ],
     );
   }
