@@ -154,6 +154,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         onChanged: _setFilters,
         // No « Chaînes TV » while live TV is hidden (core/features.dart).
         kinds: [for (final kind in SearchKind.values) if (liveTv || !kind.isChannels) kind],
+        // « Note ≥ 7 » and « Mieux notés »: the API's, TMDb's rating first (else IMDb's).
+        withRating: true,
       ),
     );
     final results = _Results(

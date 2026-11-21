@@ -38,8 +38,9 @@ enum SearchSort {
   relevance('Pertinence'),
   popularity('Popularité'),
 
-  /// The rating each card shows (IMDb's, else TMDb's): « Ma liste » only, which sorts itself. Never
-  /// asked to the search API (developer's choice).
+  /// Best rated first. The search page asks the API (`sort=rating`: TMDb's rating first, IMDb's when
+  /// TMDb has too few votes, developer's request, 21/11/2026); « Ma liste » sorts itself on the
+  /// rating each card shows.
   rating('Mieux notés'),
   recent('Plus récents'),
   oldest('Plus anciens');
@@ -73,8 +74,8 @@ enum Decade {
 
 /// Filters and order of the search page. Genre, years and rating apply to movies and TV shows
 /// only, [category] to live channels only; [sort] null = the default order (relevance with a
-/// text, popularity without). The rating ([minRating], [SearchSort.rating]) is « Ma liste »'s
-/// only, on the rating each card shows: the search page doesn't offer it.
+/// text, popularity without). The rating ([minRating], [SearchSort.rating]): the search page asks
+/// the API (TMDb's rating first, else IMDb's); « Ma liste » applies it itself.
 @immutable
 class SearchFilters {
   const SearchFilters({this.kind = SearchKind.all, this.genre, this.decade, this.minRating, this.sort, this.category});
@@ -86,11 +87,12 @@ class SearchFilters {
   final Genre? genre;
   final Decade? decade;
 
-  /// Minimum rating out of 10, « Ma liste » only.
+  /// Minimum rating out of 10 (« Note ≥ 7 »).
   final int? minRating;
   final SearchSort? sort;
 
-  static const ratings = [6, 7, 8];
+  /// Thresholds of the « Note » filter: 1 to 9.
+  static const ratings = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   bool get hasTitleFilters => genre != null || decade != null || minRating != null;
 
@@ -102,8 +104,7 @@ class SearchFilters {
     return !withText && value == SearchSort.relevance ? SearchSort.popularity : value;
   }
 
-  /// Query parameters of the API (discover and search), the default ones left out. Never the
-  /// rating (« Ma liste » only).
+  /// Query parameters of the API (search), the default ones left out.
   Map<String, Object?> query({required bool withText}) {
     final order = sortFor(withText: withText);
     final byDefault = order == (withText ? SearchSort.relevance : SearchSort.popularity);
@@ -111,7 +112,8 @@ class SearchFilters {
       'genre': genre?.id,
       'year_from': decade?.from,
       'year_to': decade?.to,
-      'sort': byDefault || order == SearchSort.rating ? null : order.name,
+      'min_rating': minRating,
+      'sort': byDefault ? null : order.name,
     };
   }
 
