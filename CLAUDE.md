@@ -528,10 +528,11 @@ lib/
   **gardés par Vixeo seulement**. **Plus de liaison d'un compte TMDb ni de synchronisation**
   (supprimées, demande du développeur, 20/11/2026 : ni page ni tuile « Connexions » ;
   `/profil/connexions` et `/profil/tmdb` mènent à « Paramètres » ; ne pas les réintroduire).
-  **Films et séries seulement : plus d'avis sur les épisodes** (supprimés, demande du
-  développeur, 20/11/2026 : ni « Noter » ni « Ma note » sur les cartes d'épisodes, ni filtre
-  « Épisodes », ni adresse d'épisode ; l'API ne les accepte plus ; ne pas les réintroduire ; la
-  note IMDb / TMDb d'un épisode, elle, est affichée : voir « Notes des titres »). Bouton
+  **Films, séries et épisodes** (avis d'épisodes supprimés le 20/11/2026 puis **rétablis le
+  21/11/2026**, demande du développeur) : étoile `RateEpisodeButton` en haut à droite de chaque
+  carte d'épisode (rond sombre, « Noter l’épisode 3 »), badge « Ma note : 8/10 » après
+  « Épisode 3 » (`seasonRatingsProvider`, une requête par saison), filtre « Épisodes » de
+  « Mes avis », adresse `/avis/tv/1399?saison=1&episode=2` (« Voir la série »). Bouton
   « Noter » sur la fiche (film, série) ;
   fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK ;
   **commentaire facultatif**). La fenêtre et « Mon avis »
@@ -566,8 +567,9 @@ lib/
   ouvre **« Notes »** (`showAllRatings`, `ratings_sheet.dart` : feuille du bas sur téléphone,
   fenêtre avec « Fermer » ailleurs) : IMDb puis TMDb, logo, nom, **nombre de votants**
   (`formatVotes` : « 2 400 000 votants ») et note « 8,8 / 10 », ou « Pas de note ». **Épisode** :
-  sa note en haut à droite de l'image (`_RatingBadge`) ; un appui dessus (ou appui long / touche
-  menu sur la carte, à la télécommande) ouvre « Notes » ; rien en No spoil. « Vider le cache »
+  sa note **juste à droite de la durée**, avec le logo du site (demande du développeur,
+  21/11/2026) ; un appui dessus (ou appui long / touche menu sur la carte, à la télécommande)
+  ouvre « Notes » ; rien en No spoil. « Vider le cache »
   efface l'ancien cache des notes MDBList (`vixeo.ratings`). Logo TMDb :
   `assets/images/tmdb_short.png` (« Primary short » de themoviedb.org converti en PNG sans
   modification). Pas de page de confidentialité ni de mention TMDb dans l'appli (décision du
@@ -627,9 +629,10 @@ lib/
   (largeur 300 téléphone, 340 tablette, 520 TV) qui défile de gauche à droite. Carte : image 16:9
   avec le badge « Épisode 3 » en haut à gauche ; **le texte est sur l'image, en bas**, sur un
   dégradé sombre (demande du développeur) : le titre (1 ligne), le résumé (**2 lignes au plus**,
-  pour laisser voir l'image) et, sur la dernière ligne, la durée à gauche et la
-  date de diffusion à droite ; la note (IMDb, sinon TMDb) en haut à droite de l'image, qui ouvre
-  « Notes » (voir « Notes des titres ») ; ni durée, ni date, ni note en No spoil. Hauteur de carte fixe (`_EpisodeCard.heightOf` : 16:9, plus haute
+  pour laisser voir l'image) et, sur la dernière ligne, la durée puis juste à sa droite la note
+  (IMDb, sinon TMDb, avec le logo du site, qui ouvre « Notes » : voir « Notes des titres ») à
+  gauche, la date de diffusion à droite ; ni durée, ni date, ni note en No spoil. En haut à
+  droite, l'étoile pour noter l'épisode et, après « Épisode 3 », « Ma note : 8/10 » (voir « Avis »). Hauteur de carte fixe (`_EpisodeCard.heightOf` : 16:9, plus haute
   seulement si le texte du système est très grand). Changer de saison revient au premier épisode. Test :
   `test/details_people_test.dart`.
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou

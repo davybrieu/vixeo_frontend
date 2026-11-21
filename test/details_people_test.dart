@@ -260,15 +260,17 @@ void main() {
       final name = tester.getRect(find.text('Le départ'));
       expect(name.top, greaterThan(badge.bottom));
       expect(name.bottom, lessThan(still.bottom));
-      // Its IMDb rating at the top right of the image, read with the card.
+      // Its IMDb rating, read with the card.
       expect(find.bySemanticsLabel(RegExp('^Épisode 1, Le départ, note IMDb 8,1 sur 10')), findsOneWidget);
-      final rating = tester.getRect(find.text('8,1'));
-      expect(rating.top, lessThan(name.top));
-      expect(rating.right, lessThanOrEqualTo(still.right));
-      expect(rating.left, greaterThan(badge.right));
-      // Runtime on the left, air date on the right of the same line, at the bottom of the image.
+      // Runtime on the left, then just to its right the rating with IMDb's logo; the air date on the
+      // right of the same line, at the bottom of the image.
       final runtime = tester.getCenter(find.text('52 min').first);
       final date = tester.getRect(find.text('1er mars 2024'));
+      final rating = tester.getCenter(find.text('8,1'));
+      expect(rating.dy, closeTo(runtime.dy, 2));
+      expect(rating.dx, greaterThan(runtime.dx));
+      expect(rating.dx, lessThan(date.left));
+      expect(find.descendant(of: find.byType(RatingLabel).first, matching: find.byType(RatingLogo)), findsOneWidget);
       expect(date.center.dy, closeTo(runtime.dy, 1));
       expect(date.center.dx, greaterThan(runtime.dx));
       expect(date.bottom, lessThanOrEqualTo(still.bottom));

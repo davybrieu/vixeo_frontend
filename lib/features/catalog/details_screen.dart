@@ -189,6 +189,11 @@ class _EpisodesState extends ConsumerState<_Episodes> {
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     final season = ref.watch(seasonProvider((widget.title.id, _season)));
     final noSpoiler = ref.watch(noSpoilerProvider);
+    // The profile's reviews of the season's episodes (« Ma note »), for a signed-in profile.
+    final canRate = ref.watch(canRateProvider);
+    final myRatings = canRate
+        ? ref.watch(seasonRatingsProvider((widget.title.id, _season))).value ?? const <int, MyRating>{}
+        : const <int, MyRating>{};
     // Room for the focus zoom on TV.
     final vPad = layout.isLarge ? layout.tv(16) : 0.0;
     final rowHeight = _EpisodeCard.heightOf(context) + vPad * 2;
@@ -259,7 +264,17 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                   return _EpisodeCard(
                     episode: e,
                     noSpoiler: noSpoiler,
+                    myRating: myRatings[e.number],
                     onPressed: () => _play(context, widget.title, season: _season, episode: e.number),
+                    // On the image, top right: the star that rates the episode.
+                    rateButton: canRate
+                        ? RateEpisodeButton(
+                            target: RatingTarget.episode(widget.title.id, _season, e.number),
+                            showName: widget.title.title,
+                            episode: e,
+                            value: myRatings[e.number],
+                          )
+                        : null,
                   );
                 },
               ),
@@ -271,17 +286,29 @@ class _EpisodesState extends ConsumerState<_Episodes> {
   }
 }
 
-/// An episode in the row: a large 16:9 image with the "Épisode 3" badge at the top left and, at the
-/// bottom of the image over a dark gradient, the name, the overview (2 lines at most) and, on the
-/// last line, the runtime on the left and the air date on the right. Its rating (IMDb's, else
-/// TMDb's) at the top right: a tap on it, or a long press / the menu key on the card, shows both
-/// with their votes (« Notes »). Pressing the card plays the episode. No spoil: no rating.
+/// An episode in the row: a large 16:9 image with the "Épisode 3" badge (then « Ma note : 8/10 »)
+/// at the top left, the star that rates it at the top right ([rateButton]) and, at the bottom of
+/// the image over a dark gradient, the name, the overview (2 lines at most) and, on the last line,
+/// the runtime and just to its right the episode's rating with its site's logo (IMDb's, else
+/// TMDb's) on the left, the air date on the right. A tap on the rating, or a long press / the menu
+/// key on the card, shows both ratings with their votes (« Notes »). Pressing the card plays the
+/// episode. No spoil: no runtime, date nor rating.
 class _EpisodeCard extends StatelessWidget {
-  const _EpisodeCard({required this.episode, required this.noSpoiler, required this.onPressed});
+  const _EpisodeCard({
+    required this.episode,
+    required this.noSpoiler,
+    required this.onPressed,
+    this.myRating,
+    this.rateButton,
+  });
 
   final Episode episode;
   final bool noSpoiler;
   final VoidCallback onPressed;
+
+  /// The profile's review (« Ma note : 8/10 » next to the badge), null when not rated.
+  final MyRating? myRating;
+  final Widget? rateButton;
 
   /// Lines of the overview, at most: the image stays visible above the texts.
   static const overviewLines = 2;
@@ -306,8 +333,8 @@ class _EpisodeCard extends StatelessWidget {
     final layout = Layout.of(context);
     final s = _scaleOf(layout);
     final inset = _insetOf(s);
-    // Top: the badge; bottom: the texts.
-    final top = inset + _badgeHeight(context, s) + 8 * s;
+    // Top: the badge and the rating star; bottom: the texts.
+    final top = inset + max(_badgeHeight(context, s), VxIconAction.sizeOf(layout, dense: true)) + 8 * s;
     final texts =
         _titleHeight(context, s) + 4 * s + _overviewHeight(context, s) + 6 * s + _factsHeight(context, s) + 10 * s;
     return max(widthOf(layout) * 9 / 16, top + texts);
@@ -324,8 +351,8 @@ class _EpisodeCard extends StatelessWidget {
     final caption = VxText.body(12 * s, color: VxColors.textSoft, height: 1.2);
     final image = NetImage(url: e.stillUrl, seed: e.id);
     final overview = e.overview?.trim() ?? '';
-    final showFacts = !noSpoiler && (e.runtime != null || e.airDate != null);
     final rating = noSpoiler ? null : e.ratings.shown;
+    final showFacts = !noSpoiler && (e.runtime != null || rating != null || e.airDate != null);
     void showRatings() => showAllRatings(context, ratings: e.ratings, name: 'Épisode ${e.number} · ${e.name}');
 
     return SizedBox(
@@ -354,23 +381,21 @@ class _EpisodeCard extends StatelessWidget {
                     noSpoiler
                         ? ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), child: image)
                         : image,
-                    // Top left: "Épisode 3".
-                    Positioned(left: inset, top: inset, child: _ImageBadge('Épisode ${e.number}', scale: s)),
-                    // Top right: its rating; a tap shows IMDb's and TMDb's with their votes.
-                    if (rating != null)
-                      Positioned(
-                        right: inset - 6 * s,
-                        top: inset - 6 * s,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: showRatings,
-                          child: Padding(
-                            // A larger target than the badge.
-                            padding: EdgeInsets.all(6 * s),
-                            child: ExcludeSemantics(child: _RatingBadge(rating, scale: s)),
-                          ),
-                        ),
+                    // Top left: "Épisode 3", then « Ma note : 8/10 » (the star is on the right).
+                    Positioned(
+                      left: inset,
+                      top: inset,
+                      right: inset + VxIconAction.sizeOf(layout, dense: true) + 6 * s,
+                      child: Wrap(
+                        spacing: 6 * s,
+                        runSpacing: 4 * s,
+                        children: [
+                          _ImageBadge('Épisode ${e.number}', scale: s),
+                          if (myRating != null)
+                            _ImageBadge('Ma note : ${formatScore(myRating!.value)}/10', scale: s, accent: true),
+                        ],
                       ),
+                    ),
                     // Bottom: the texts, over a gradient that darkens the image under them.
                     Positioned(
                       left: 0,
@@ -420,14 +445,32 @@ class _EpisodeCard extends StatelessWidget {
                                   height: _factsHeight(context, s),
                                   child: Row(
                                     children: [
-                                      // Left: runtime (shrunk rather than cut).
+                                      // Left: runtime, then just to its right the episode's rating with its
+                                      // site's logo (shrunk rather than cut). A tap on the rating: « Notes ».
                                       Expanded(
                                         child: FittedBox(
                                           fit: BoxFit.scaleDown,
                                           alignment: Alignment.centerLeft,
-                                          child: e.runtime == null
-                                              ? const SizedBox.shrink()
-                                              : Text(formatRuntime(e.runtime), style: caption),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (e.runtime != null) Text(formatRuntime(e.runtime), style: caption),
+                                              if (e.runtime != null && rating != null) SizedBox(width: 10 * s),
+                                              if (rating != null)
+                                                GestureDetector(
+                                                  behavior: HitTestBehavior.opaque,
+                                                  onTap: showRatings,
+                                                  child: ExcludeSemantics(
+                                                    child: RatingLabel(
+                                                      site: rating.$1,
+                                                      value: rating.$2.value,
+                                                      fontSize: 12 * s,
+                                                      color: VxColors.textSoft,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                       // Right: first broadcast.
@@ -449,33 +492,29 @@ class _EpisodeCard extends StatelessWidget {
               ),
             ),
           ),
+          if (rateButton != null)
+            Positioned(
+              right: inset,
+              top: inset,
+              // Dark disc: the star stays readable on a bright image.
+              child: DecoratedBox(
+                decoration: const BoxDecoration(color: Color(0xB3070A08), shape: BoxShape.circle),
+                child: rateButton,
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-/// The rating on an episode image, dark like [_ImageBadge]: star, value and the site's logo.
-class _RatingBadge extends StatelessWidget {
-  const _RatingBadge(this.rating, {required this.scale});
-
-  final (RatingSite, SiteRating) rating;
-  final double scale;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.symmetric(horizontal: 7 * scale, vertical: 3 * scale),
-    decoration: BoxDecoration(color: const Color(0xCC070A08), borderRadius: BorderRadius.circular(6 * scale)),
-    child: RatingLabel(site: rating.$1, value: rating.$2.value, fontSize: 12 * scale),
-  );
-}
-
-/// Label on an episode image ("Épisode 3"): dark, readable on any image.
+/// Label on an episode image ("Épisode 3", « Ma note : 8/10 »): dark, readable on any image.
 class _ImageBadge extends StatelessWidget {
-  const _ImageBadge(this.label, {required this.scale});
+  const _ImageBadge(this.label, {required this.scale, this.accent = false});
 
   final String label;
   final double scale;
+  final bool accent;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -486,7 +525,7 @@ class _ImageBadge extends StatelessWidget {
       style: VxText.body(
         12 * scale,
         weight: FontWeight.w600,
-        color: VxColors.text,
+        color: accent ? VxColors.accent : VxColors.text,
         height: 1.3,
       ),
     ),

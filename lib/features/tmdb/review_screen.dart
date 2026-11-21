@@ -13,7 +13,7 @@ import '../catalog/models.dart';
 import 'rating_dialog.dart';
 import 'tmdb.dart';
 
-/// « Mon avis » (`/avis/movie/550`, `/avis/tv/1399`), opened from a review of
+/// « Mon avis » (`/avis/movie/550`, `/avis/tv/1399?saison=1&episode=2`), opened from a review of
 /// « Mes avis »: the title, then its stars and comment to change, and « Supprimer ». Saving
 /// or removing goes back to the list; « Voir la fiche » opens the movie or the TV show.
 class ReviewScreen extends ConsumerStatefulWidget {
@@ -22,11 +22,19 @@ class ReviewScreen extends ConsumerStatefulWidget {
   final RatingTarget target;
 
   /// Where the review of [target] opens.
-  static String location(RatingTarget target) => '/avis/${target.type.name}/${target.id}';
+  static String location(RatingTarget target) => target.isEpisode
+      ? '/avis/tv/${target.id}?saison=${target.season}&episode=${target.episode}'
+      : '/avis/${target.type.name}/${target.id}';
 
   /// The review a location names (route parameters).
-  static RatingTarget targetOf(Map<String, String> path, Map<String, String> query) =>
-      RatingTarget.title(MediaType.parse(path['type']), int.tryParse(path['id'] ?? '') ?? 0);
+  static RatingTarget targetOf(Map<String, String> path, Map<String, String> query) {
+    final id = int.tryParse(path['id'] ?? '') ?? 0;
+    final season = int.tryParse(query['saison'] ?? '');
+    final episode = int.tryParse(query['episode'] ?? '');
+    return season != null && episode != null
+        ? RatingTarget.episode(id, season, episode)
+        : RatingTarget.title(MediaType.parse(path['type']), id);
+  }
 
   @override
   ConsumerState<ReviewScreen> createState() => _ReviewScreenState();
@@ -139,7 +147,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   }
 }
 
-/// Poster, title, "Film · 2021", the day it was rated, and « Voir la fiche ».
+/// Image, title, "Film · 2021" or the episode, the day it was rated, and « Voir la fiche ».
 class _ReviewTitle extends StatelessWidget {
   const _ReviewTitle({required this.item});
 
@@ -148,7 +156,8 @@ class _ReviewTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = uiScale(context);
-    final imageWidth = 72 * s;
+    final episode = item.type == RatedType.episode;
+    final imageWidth = (episode ? 128 : 72) * s;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,8 +168,8 @@ class _ReviewTitle extends StatelessWidget {
               borderRadius: BorderRadius.circular(8 * s),
               child: SizedBox(
                 width: imageWidth,
-                height: imageWidth * 1.5,
-                child: NetImage(url: item.posterUrl, seed: item.id),
+                height: episode ? imageWidth * 9 / 16 : imageWidth * 1.5,
+                child: NetImage(url: episode ? (item.stillUrl ?? item.backdropUrl) : item.posterUrl, seed: item.id),
               ),
             ),
             // Between an image and its text.
@@ -186,7 +195,7 @@ class _ReviewTitle extends StatelessWidget {
         ),
         SizedBox(height: 16 * s),
         VxButton(
-          label: 'Voir la fiche',
+          label: episode ? 'Voir la série' : 'Voir la fiche',
           icon: Icons.info_outline_rounded,
           kind: VxButtonKind.secondary,
           dense: true,

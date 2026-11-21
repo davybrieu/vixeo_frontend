@@ -51,6 +51,12 @@ class FakeTmdb extends TmdbRepository {
   Future<MyRating?> rating(int profileId, RatingTarget target) async => ratings[target.path];
 
   @override
+  Future<Map<int, MyRating>> seasonRatings(int profileId, int showId, int season) async => {
+    for (final e in ratings.entries)
+      if (e.key.startsWith('tv/$showId/season/$season/episode/')) int.parse(e.key.split('/').last): e.value,
+  };
+
+  @override
   Future<void> rate(int profileId, RatingTarget target, MyRating rating) async {
     calls.add('rate ${target.path} ${rating.value}${rating.comment == null ? '' : ' « ${rating.comment} »'}');
     ratings[target.path] = rating;
@@ -119,14 +125,20 @@ Future<void> tapStar(WidgetTester tester, int n) async {
 
 void main() {
   test('reads the ratings and the comments of the API', () {
-    final series = RatedItem.fromJson({'type': 'tv', 'id': 1399, 'title': 'Les Hautes Terres', 'value': 7.5});
-    expect(series.target.path, 'tv/1399');
-    expect(series.target, const RatingTarget.title(MediaType.tv, 1399));
-    expect(series.label, 'Les Hautes Terres');
-    expect(series.mediaType, MediaType.tv);
+    final episode = RatedItem.fromJson({
+      'type': 'episode',
+      'id': 1399,
+      'title': 'Les Hautes Terres',
+      'season_number': 1,
+      'episode_number': 2,
+      'episode_name': 'La route',
+      'value': 7.5,
+    });
+    expect(episode.target.path, 'tv/1399/season/1/episode/2');
+    expect(episode.target, const RatingTarget.episode(1399, 1, 2));
+    expect(episode.label, 'Les Hautes Terres · S1 · É2');
+    expect(episode.mediaType, MediaType.tv);
     expect(const RatingTarget.title(MediaType.movie, 550).path, 'movie/550');
-    // Episodes are not rated any more: only movies and TV shows.
-    expect(RatedType.values, [RatedType.movie, RatedType.tv]);
     final review = RatedItem.fromJson({
       'type': 'movie',
       'id': 550,
@@ -283,8 +295,8 @@ void main() {
       expect(find.bySemanticsLabel('Noter'), findsOneWidget);
     });
 
-    testWidgets('episodes are not rated by the profile: no « Noter », no « Ma note »', (tester) async {
-      final tmdb = FakeTmdb();
+    testWidgets('rates an episode from the episode list', (tester) async {
+      final tmdb = FakeTmdb()..ratings['tv/9/season/1/episode/2'] = const MyRating(8);
       const show = TitleDetails(
         id: 9,
         type: MediaType.tv,
@@ -296,8 +308,8 @@ void main() {
         number: 1,
         name: 'Saison 1',
         episodes: [
-          Episode(id: 1, seasonNumber: 1, number: 1, name: 'Le départ', runtime: 50, voteAverage: 7.4),
-          Episode(id: 2, seasonNumber: 1, number: 2, name: 'La route', runtime: 48, voteAverage: 8.1),
+          Episode(id: 1, seasonNumber: 1, number: 1, name: 'Le départ'),
+          Episode(id: 2, seasonNumber: 1, number: 2, name: 'La route'),
         ],
       );
       await pumpPage(
@@ -306,15 +318,21 @@ void main() {
         tmdb: tmdb,
         overrides: details(show, season: season),
       );
-      await tester.scrollUntilVisible(find.text('Épisode 1'), 300, scrollable: find.byType(Scrollable).first);
+      final rateFirst = find.bySemanticsLabel('Noter l’épisode 1');
+      await tester.scrollUntilVisible(rateFirst, 300, scrollable: find.byType(Scrollable).first);
+
+      expect(find.text('Ma note : 8/10'), findsOneWidget);
+      expect(find.bySemanticsLabel('Ma note de l’épisode 2 : 8 sur 10, modifier'), findsOneWidget);
+
+      await tester.tap(rateFirst);
+      await tester.pumpAndSettle();
+      expect(find.text('Les Hautes Terres · Saison 1, épisode 1'), findsOneWidget);
+      await tapStar(tester, 6);
+      await tester.tap(find.text('Enregistrer'));
       await tester.pumpAndSettle();
 
-      expect(find.text('50 min'), findsOneWidget);
-      expect(find.bySemanticsLabel(RegExp('Noter l’épisode')), findsNothing);
-      expect(find.textContaining('Ma note'), findsNothing);
-      // The show itself is still rated (« Noter » on the page).
-      expect(find.bySemanticsLabel('Noter'), findsOneWidget);
-      expect(tmdb.calls, isEmpty);
+      expect(tmdb.calls, ['rate tv/9/season/1/episode/1 6.0']);
+      expect(find.text('Ma note : 6/10'), findsOneWidget);
     });
   });
 
@@ -327,11 +345,19 @@ void main() {
       year: 2021,
       comment: 'Une claque visuelle.',
     );
-    final hautes = RatedItem(type: RatedType.tv, id: 1399, title: 'Les Hautes Terres', value: 9.5, year: 2011);
+    final episode = RatedItem(
+      type: RatedType.episode,
+      id: 1399,
+      title: 'Les Hautes Terres',
+      value: 9.5,
+      seasonNumber: 1,
+      episodeNumber: 2,
+      episodeName: 'La route',
+    );
     final show = RatedItem(type: RatedType.tv, id: 1400, title: 'Orbite 9', value: 6, year: 2019);
 
     testWidgets('everything at first (Tout), then by type and by search', (tester) async {
-      final tmdb = FakeTmdb()..ratedItems = [dune, hautes, show];
+      final tmdb = FakeTmdb()..ratedItems = [dune, episode, show];
       await pumpPage(tester, const Scaffold(body: ReviewsScreen()), tmdb: tmdb);
 
       expect(find.text('Mes avis'), findsOneWidget);
@@ -341,16 +367,10 @@ void main() {
       expect(find.text('Orbite 9'), findsOneWidget);
       expect(find.text('« Une claque visuelle. »'), findsOneWidget);
 
-      // No « Épisodes » filter any more: Tout, Films, Séries.
-      expect(find.text('Épisodes'), findsNothing);
-      await tester.tap(find.text('Séries'));
+      await tester.tap(find.text('Épisodes'));
       await tester.pumpAndSettle();
       expect(find.text('Dune'), findsNothing);
-      expect(find.text('Orbite 9'), findsOneWidget);
-      expect(find.text('Série · 2011'), findsOneWidget);
-      await tester.enterText(find.byType(TextField), 'hautes');
-      await tester.pumpAndSettle();
-      expect(find.text('Orbite 9'), findsNothing);
+      expect(find.text('Saison 1, épisode 2 · La route'), findsOneWidget);
       // The rating as stars (9 and a half), no button to change or remove it on the list.
       expect(find.text('9,5/10'), findsOneWidget);
       final stars = find.descendant(of: find.byType(StarRow), matching: find.byType(Icon));
@@ -364,7 +384,7 @@ void main() {
 
       await tester.tap(find.text('Tout'));
       await tester.pumpAndSettle();
-      // Title or comment, without accents or case.
+      // Title, episode or comment, without accents or case.
       await tester.enterText(find.byType(TextField), 'CLAQUE');
       await tester.pumpAndSettle();
       expect(find.text('Dune'), findsOneWidget);
@@ -378,7 +398,7 @@ void main() {
     });
 
     testWidgets('a review opens its page, where it is changed or removed', (tester) async {
-      final tmdb = FakeTmdb()..ratedItems = [hautes, dune];
+      final tmdb = FakeTmdb()..ratedItems = [episode, dune];
       await pumpPage(tester, const Scaffold(body: ReviewsScreen()), tmdb: tmdb);
 
       await tester.tap(find.text('Dune'));
@@ -412,11 +432,11 @@ void main() {
       expect(find.text('Dune'), findsNothing);
       expect(find.text('Avis supprimé'), findsOneWidget);
 
-      // A TV show's page opens the show.
+      // An episode's page opens the TV show.
       await tester.tap(find.text('Les Hautes Terres'));
       await tester.pumpAndSettle();
-      expect(find.text('Série · 2011'), findsOneWidget);
-      await tester.tap(find.text('Voir la fiche'));
+      expect(find.text('Saison 1, épisode 2 · La route'), findsOneWidget);
+      await tester.tap(find.text('Voir la série'));
       await tester.pumpAndSettle();
       expect(find.text('Fiche 1399'), findsOneWidget);
     });
@@ -441,15 +461,15 @@ void main() {
 
     test('a review has an address', () {
       expect(ReviewScreen.location(dune.target), '/avis/movie/438631');
-      expect(ReviewScreen.location(hautes.target), '/avis/tv/1399');
-      expect(ReviewScreen.targetOf({'type': 'tv', 'id': '1399'}, {}), hautes.target);
+      expect(ReviewScreen.location(episode.target), '/avis/tv/1399?saison=1&episode=2');
+      expect(ReviewScreen.targetOf({'type': 'tv', 'id': '1399'}, {'saison': '1', 'episode': '2'}), episode.target);
       expect(ReviewScreen.targetOf({'type': 'movie', 'id': '438631'}, {}), dune.target);
     });
 
     test('searches ignore case and accents', () {
       expect(foldForSearch('Épisode Œuvre'), 'episode oeuvre');
       expect(dune.matches('VISUELLE'), isTrue);
-      expect(hautes.matches('hautes'), isTrue);
+      expect(episode.matches('route'), isTrue);
       expect(show.matches('dune'), isFalse);
       expect(show.matches('  '), isTrue);
     });

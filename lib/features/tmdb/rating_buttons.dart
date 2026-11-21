@@ -27,3 +27,32 @@ class RateTitleButton extends ConsumerWidget {
     );
   }
 }
+
+/// "Noter l'épisode", at the end of an episode row.
+class RateEpisodeButton extends StatelessWidget {
+  const RateEpisodeButton({super.key, required this.target, required this.showName, required this.episode, this.value});
+
+  final RatingTarget target;
+  final String showName;
+  final Episode episode;
+
+  /// The profile's rating and comment, null when not rated.
+  final MyRating? value;
+
+  @override
+  Widget build(BuildContext context) => VxIconAction(
+    dense: true,
+    icon: value == null ? Icons.star_outline_rounded : Icons.star_rounded,
+    label: value == null
+        ? 'Noter l’épisode ${episode.number}'
+        : 'Ma note de l’épisode ${episode.number} : ${formatScore(value!.value)} sur 10, modifier',
+    active: value != null,
+    onPressed: () => editRating(
+      context,
+      target: target,
+      name: episode.name,
+      subtitle: '$showName · Saison ${episode.seasonNumber}, épisode ${episode.number}',
+      current: value,
+    ),
+  );
+}

@@ -31,8 +31,8 @@ enum ReviewSort {
 }
 
 /// "Mes avis" (`/avis`, opened from the profile page): the profile's ratings and comments. With [username], « Ses avis »: another member's reviews (their profile page,
-/// `/membre/:username/reviews`), read only. A search field (title, comment) and, as on the
-/// search page, filters (Tout by default, Films, Séries, years, rating) and an order (the
+/// `/membre/:username/reviews`), read only. A search field (title, episode, comment) and, as on the
+/// search page, filters (Tout by default, Films, Séries, Épisodes, years, rating) and an order (the
 /// most recent first by default). Each of my reviews opens « Mon avis » (`ReviewScreen`), where it
 /// is changed or removed: no button on the list; a member's opens the title.
 class ReviewsScreen extends ConsumerStatefulWidget {
@@ -324,9 +324,10 @@ class ReviewRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
+    final episode = item.type == RatedType.episode;
     final caption = layout.captionSize;
-    final imageWidth = layout.size(64, tv: 112);
-    final imageHeight = imageWidth * 1.5;
+    final imageWidth = layout.size(episode ? 112 : 64, tv: episode ? 200 : 112);
+    final imageHeight = episode ? imageWidth * 9 / 16 : imageWidth * 1.5;
 
     return VxFocusable(
       borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
@@ -343,7 +344,7 @@ class ReviewRow extends StatelessWidget {
               child: SizedBox(
                 width: imageWidth,
                 height: imageHeight,
-                child: NetImage(url: item.posterUrl, seed: item.id),
+                child: NetImage(url: episode ? (item.stillUrl ?? item.backdropUrl) : item.posterUrl, seed: item.id),
               ),
             ),
             SizedBox(width: layout.space(VxSpace.s)),
