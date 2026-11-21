@@ -239,7 +239,7 @@ class _ReviewFilters {
     if (type != null && item.type != type) return false;
     if (!item.matches(query)) return false;
     final year = item.year;
-    if (decade != null && (year == null || year < (decade!.from ?? 0) || year > decade!.to)) return false;
+    if (decade != null && (year == null || !decade!.contains(year))) return false;
     if (minRating != null && item.value < minRating!) return false;
     return true;
   }

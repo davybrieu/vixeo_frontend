@@ -225,6 +225,45 @@ void main() {
     expect(fake.searches, isEmpty);
   });
 
+  testWidgets('no text, but filters: the movies and TV shows that match them', (tester) async {
+    final fake = await pumpSearch(tester);
+
+    // « Les films d'horreur depuis 2010 notés 8 et plus ».
+    await tapChip(tester, 'Films');
+    await choose(tester, 'Genre', 'Horreur');
+    await choose(tester, 'Années', 'Depuis 2010');
+    await choose(tester, 'Note', '8 et plus');
+    final q = fake.titleQueries.last;
+    expect((q.type, q.query, q.filters.genre, q.filters.decade, q.filters.minRating), (
+      MediaType.movie,
+      '',
+      horror,
+      Decade.since2010,
+      8,
+    ));
+    expect(q.filters.query(withText: false), {
+      'genre': 27,
+      'year_from': 2010,
+      'year_to': null,
+      'min_rating': 8,
+      'sort': null,
+    });
+    expect(find.byType(PosterCard), findsWidgets);
+    // No relevance without a text.
+    expect(find.text('Tri : Popularité'), findsOneWidget);
+
+    // "Tout": the movies and the TV shows, without people.
+    await tapChip(tester, 'Tout');
+    expect(fake.searches.last.$1, '');
+    expect(find.text('Alma Meyer'), findsNothing);
+
+    // Back to no filter: the empty page again, nothing more asked.
+    await tapChip(tester, 'Réinitialiser');
+    final asked = fake.searches.length;
+    expect(find.byType(PosterCard), findsNothing);
+    expect(fake.searches.length, asked);
+  });
+
   testWidgets('"Aucun résultat" only when a text finds nothing; emptying the field removes it', (tester) async {
     final fake = await pumpSearch(tester);
 

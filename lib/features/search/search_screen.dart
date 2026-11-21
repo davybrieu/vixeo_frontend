@@ -25,9 +25,10 @@ import 'filter_bar.dart';
 import 'search_filters.dart';
 import 'search_history.dart';
 
-/// Search page. Empty field: the recent searches, and nothing else (no results before a search).
+/// Search page. Empty field: the recent searches; with a filter or an order chosen, the movies and
+/// TV shows that match them, without a text ([SearchFilters.canBrowse], `/catalog/discover`).
 /// With a text: the results, by type and filtered (genre, years, rating) and sorted; "Aucun
-/// résultat" only when a text finds nothing. On larger screens, the hero
+/// résultat" only when a search finds nothing. On larger screens, the hero
 /// (backdrop and information) follows the selected or hovered result, as on the home page; a
 /// phone has no hero nor carousel here.
 class SearchScreen extends ConsumerStatefulWidget {
@@ -62,6 +63,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   bool get _withText => _query.isNotEmpty;
+
+  /// No text, but filters or an order: movies and TV shows are browsed.
+  bool get _browsing => !_withText && !_typing && _filters.canBrowse;
 
   @override
   void dispose() {
@@ -118,8 +122,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   /// First result, shown in the hero until a card is selected or hovered.
   MediaItem? _firstResult() {
-    // Nothing searched: no results, so no hero.
-    if (!_withText) return null;
+    // Nothing searched nor browsed: no results, so no hero.
+    if (!_withText && !_browsing) return null;
     final type = _filters.kind.mediaType;
     if (_filters.kind == SearchKind.person || _filters.kind.isChannels) return null;
     if (type != null) {
@@ -161,6 +165,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final results = _Results(
       query: _query,
       typing: _typing,
+      browsing: _browsing,
       filters: _filters,
       onFocused: layout.isPhone ? null : _hero.select,
       onHovered: layout.isPhone ? null : _hero.hover,
@@ -229,11 +234,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 }
 
 /// What is under the filters: the recent searches (empty field), nothing (a text not searched
-/// yet) or the results for the chosen type.
+/// yet) or the results for the chosen type (with a text, or browsed with filters only).
 class _Results extends ConsumerWidget {
   const _Results({
     required this.query,
     required this.typing,
+    required this.browsing,
     required this.filters,
     required this.onFocused,
     required this.onHovered,
@@ -246,6 +252,9 @@ class _Results extends ConsumerWidget {
 
   /// Something is written in the field, searched or not.
   final bool typing;
+
+  /// No text, but filters or an order: movies and TV shows matching them.
+  final bool browsing;
   final SearchFilters filters;
   final void Function(MediaItem item)? onFocused;
   final void Function(MediaItem item)? onHovered;
@@ -258,9 +267,9 @@ class _Results extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
 
-    // Nothing searched: no results and no "Aucun résultat" (developer's request). The recent
-    // searches show with an empty field only, not while a text is being written.
-    if (!_withText) {
+    // Nothing searched nor browsed: no results and no "Aucun résultat" (developer's request). The
+    // recent searches show with an empty field only, not while a text is being written.
+    if (!_withText && !browsing) {
       return CustomScrollView(
         slivers: [
           if (!typing) _RecentSearches(onPick: onPickRecent),
@@ -270,7 +279,9 @@ class _Results extends ConsumerWidget {
     }
 
     final type = filters.kind.mediaType;
-    final emptyMessage = 'Rien ne correspond à « $query »${filters.hasTitleFilters ? ' avec ces filtres' : ''}.';
+    final emptyMessage = !_withText
+        ? 'Aucun titre ne correspond à ces filtres.'
+        : 'Rien ne correspond à « $query »${filters.hasTitleFilters ? ' avec ces filtres' : ''}.';
 
     final List<Widget> content;
     if (filters.kind.isChannels) {
@@ -426,13 +437,14 @@ class _SearchRows extends ConsumerWidget {
     final results = ref.watch(searchProvider(key));
     final gap = SizedBox(height: layout.sectionGap);
 
-    final others = !filters.hasTitleFilters;
+    // Channels, people and accounts: with a text and no title filter (browsing gives titles only).
+    final others = query.isNotEmpty && !filters.hasTitleFilters;
     // Live TV is hidden for now (core/features.dart): no channels searched nor shown.
     final liveTv = ref.watch(liveTvProvider);
     // No title, no person and (when they are searched too) no channel: nothing matches.
     final channels = others && liveTv ? ref.watch(channelSearchProvider((query, null))) : null;
     final noChannel = channels == null || channels.hasError || (channels.value?.isEmpty ?? false);
-    final accounts = ref.watch(socialSearchProvider(query));
+    final accounts = others ? ref.watch(socialSearchProvider(query)) : const AsyncData(<SocialProfile>[]);
     final noAccounts = accounts.hasError || (accounts.value?.isEmpty ?? false);
 
     return switch (results) {
@@ -626,6 +638,9 @@ class PagedGrid<T> extends ConsumerStatefulWidget {
 }
 
 class _PagedGridState<T> extends ConsumerState<PagedGrid<T>> {
+  /// Pages read in a row without any title before « Aucun résultat ».
+  static const _maxEmptyPages = 10;
+
   int _pages = 1;
   bool _scheduled = false;
 
@@ -662,10 +677,16 @@ class _PagedGridState<T> extends ConsumerState<PagedGrid<T>> {
         for (final item in page.value?.items ?? <T>[])
           if (seen.add(widget.idOf(item))) item,
     ];
-    if (items.isEmpty && !(last.value?.hasMore ?? false)) {
+    final next = last.value?.hasMore ?? false ? _pages + 1 : null;
+    // Pages without any title yet (browsing with a minimum rating: a page may hold none): the
+    // next ones are read, up to _maxEmptyPages, before saying there is nothing.
+    if (items.isEmpty && next != null && _pages < _maxEmptyPages) {
+      if (!last.isLoading) _loadMore(next);
+      return const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator()));
+    }
+    if (items.isEmpty) {
       return SliverFillRemaining(hasScrollBody: false, child: widget.empty);
     }
-    final next = last.value?.hasMore ?? false ? _pages + 1 : null;
 
     return SliverMainAxisGroup(
       slivers: [

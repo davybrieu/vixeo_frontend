@@ -90,7 +90,7 @@ lib/
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
     library/     synchro par profil (Ma liste, favoris ❤, personnes suivies, vus, « Continuer à
                  regarder »), page Ma liste (aussi « Favoris »)
-    search/      recherche (avec un texte seulement), filtres (type, genre, années) et tri,
+    search/      recherche (par texte, ou par filtres seuls), filtres (type, genre, années, note) et tri,
                  recherches récentes synchronisées (search_history.dart)
     playback/    lecteur (PlayerScreen, commun à toutes les plateformes), moteurs de lecture
                  (engine/ : natif Android / iOS, media_kit sur Windows), sous-titres WebVTT,
@@ -585,11 +585,17 @@ lib/
   même note. **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
   (demande du développeur) : dans « Tout », après Films et Séries, une section « Chaînes TV » et
   une section « Personnes » toujours affichées (une ligne « Aucune … » si vide ; masquées avec un
-  filtre genre / années, qui ne s'applique qu'aux titres). **Sans recherche, aucun
-  résultat** (demande du développeur ; plus d'« Explorer », ni chaînes ni personnes populaires) :
-  champ vide → les recherches récentes seulement ; un texte en cours de saisie (ou d'une seule
-  lettre) → rien, ni récentes ni « Aucun résultat » ; « Aucun résultat » uniquement quand un
-  texte cherché ne trouve rien (dans « Tout » : ni titre, ni personne, ni chaîne). Sur TV, le
+  filtre genre / années, qui ne s'applique qu'aux titres). **Sans texte** : champ vide → les
+  recherches récentes ; **avec un filtre (genre, années, note) ou un tri choisi, les films et
+  séries qui y répondent** (demande du développeur, 21/11/2026 : « les films d'horreur depuis
+  2010 notés 8 et plus » ; `SearchFilters.canBrowse`, API `/catalog/discover` et
+  `/catalog/discover/{type}` via `searchProvider` / `titlesProvider` avec un texte vide ; ni
+  chaînes, ni personnes, ni comptes ; pas de « Pertinence » ; « Années » propose aussi « Depuis
+  2010 » et « Depuis 2000 », `Decade.contains`). Avec une note minimale, une page de l'API peut
+  être courte ou vide : `PagedGrid` lit les suivantes (10 pages vides au plus) avant « Aucun
+  résultat ». Un texte en cours de saisie (ou d'une seule lettre) → rien, ni récentes ni « Aucun
+  résultat » ; « Aucun résultat » uniquement quand une recherche ne trouve rien (dans « Tout » :
+  ni titre, ni personne, ni chaîne). Sur TV, le
   champ ne prend pas le focus à l'arrivée (il ouvrirait le clavier).
   « Ma liste » reprend la barre sans « Personnes » ni « Catégorie » (`kinds`, `channelCategories`). Avec un texte : l'API filtre et trie les premiers résultats (une
   recherche filtrée ne renvoie pas de personnes). « Tout » = une rangée Films et une rangée

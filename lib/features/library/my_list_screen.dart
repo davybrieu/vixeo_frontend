@@ -276,7 +276,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
       final item = title.withDetails(details);
       final year = item.year;
       final decade = _filters.decade;
-      if (decade != null && year != null && (year < (decade.from ?? 0) || year > decade.to)) continue;
+      if (decade != null && year != null && !decade.contains(year)) continue;
       final minRating = _filters.minRating;
       if (minRating != null && (ratingOf(item) ?? 0) < minRating) continue;
       if (_filters.genre != null && details != null && !details.genreIds.contains(_filters.genre!.id)) continue;

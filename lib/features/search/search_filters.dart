@@ -57,6 +57,9 @@ enum SearchSort {
 
 /// "Années" filter.
 enum Decade {
+  // From a year on (« les films depuis 2010 », developer's request, 21/11/2026).
+  since2010(2010, null, 'Depuis 2010'),
+  since2000(2000, null, 'Depuis 2000'),
   y2020s(2020, 2029, 'Années 2020'),
   y2010s(2010, 2019, 'Années 2010'),
   y2000s(2000, 2009, 'Années 2000'),
@@ -66,9 +69,12 @@ enum Decade {
 
   const Decade(this.from, this.to, this.label);
 
+  /// First and last years (null: no limit).
   final int? from;
-  final int to;
+  final int? to;
   final String label;
+
+  bool contains(int year) => year >= (from ?? 0) && year <= (to ?? 9999);
 }
 
 /// Filters and order of the search page. Genre, years and rating apply to movies and TV shows
@@ -97,13 +103,18 @@ class SearchFilters {
 
   bool get isDefault => kind == SearchKind.all && !hasTitleFilters && sort == null && category == null;
 
+  /// Without a text, movies and TV shows are browsed when a filter (genre, years, rating) or an
+  /// order is chosen (developer's request, 21/11/2026: « les films d'horreur depuis 2010 notés 8 et
+  /// plus »); otherwise the empty field shows the recent searches.
+  bool get canBrowse => (hasTitleFilters || sort != null) && (kind == SearchKind.all || kind.mediaType != null);
+
   /// The order really used: relevance needs a text.
   SearchSort sortFor({required bool withText}) {
     final value = sort ?? (withText ? SearchSort.relevance : SearchSort.popularity);
     return !withText && value == SearchSort.relevance ? SearchSort.popularity : value;
   }
 
-  /// Query parameters of the API (search), the default ones left out.
+  /// Query parameters of the API (search, or browsing without a text), the default ones left out.
   Map<String, Object?> query({required bool withText}) {
     final order = sortFor(withText: withText);
     final byDefault = order == (withText ? SearchSort.relevance : SearchSort.popularity);

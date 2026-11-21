@@ -62,17 +62,27 @@ class CatalogRepository {
 
   /// Movies, TV shows and people at once. With filters or another order than relevance, the
   /// API filters and sorts the first results (and leaves people out when a filter is set).
+  /// An empty [query]: movies and TV shows matching the filters, without a text
+  /// (`/catalog/discover`, no people).
   Future<SearchResults> search(String query, {SearchFilters filters = const SearchFilters()}) async =>
       SearchResults.fromJson(
-        await _api.get('/catalog/search', query: {'query': query, ...filters.query(withText: true)}),
+        query.isEmpty
+            ? await _api.get('/catalog/discover', query: filters.query(withText: false))
+            : await _api.get('/catalog/search', query: {'query': query, ...filters.query(withText: true)}),
       );
 
-  /// Movies or TV shows of one type matching a text.
+  /// Movies or TV shows of one type matching a text, or only the filters when the text is empty
+  /// (`/catalog/discover/{type}`: with a minimum rating, a page may be short or empty).
   Future<Paged<MediaItem>> titles(TitleQuery q) async => Paged.fromJson(
-    await _api.get(
-      '/catalog/search/${q.type.name}',
-      query: {'query': q.query, ...q.filters.query(withText: true), 'page': q.page},
-    ),
+    q.query.isEmpty
+        ? await _api.get(
+            '/catalog/discover/${q.type.name}',
+            query: {...q.filters.query(withText: false), 'page': q.page},
+          )
+        : await _api.get(
+            '/catalog/search/${q.type.name}',
+            query: {'query': q.query, ...q.filters.query(withText: true), 'page': q.page},
+          ),
     MediaItem.fromJson,
   );
 
