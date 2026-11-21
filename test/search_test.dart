@@ -257,6 +257,7 @@ void main() {
       'year_from': 2010,
       'year_to': null,
       'min_rating': 8,
+      'min_votes': null,
       'sort': null,
     });
     expect(find.byType(PosterCard), findsWidgets);
