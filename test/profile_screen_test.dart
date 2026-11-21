@@ -547,7 +547,7 @@ void main() {
     final social = await _pumpMember(tester, member: private, followAnswer: FollowStatus.requested);
 
     expect(find.text('Max'), findsOneWidget);
-    expect(find.bySemanticsLabel('Compte privé'), findsOneWidget);
+    expect(find.byWidgetPredicate((w) => w is Icon && w.semanticLabel == 'Compte privé'), findsOneWidget);
     expect(find.text('Ce compte est privé'), findsOneWidget);
     // Its list, favorites and reviews are not asked for.
     expect(find.text('Ses favoris'), findsNothing);

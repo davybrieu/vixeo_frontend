@@ -86,7 +86,6 @@ class PushApi extends ApiClient {
   final registrations = <Map<String, dynamic>>[];
   int tests = 0;
 
-  @override
   int counts = 0;
 
   @override

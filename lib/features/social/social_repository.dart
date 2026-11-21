@@ -30,7 +30,7 @@ class SocialProfile {
     this.reviewsCount = 0, this.watchedCount = 0, this.listCount = 0, this.shareUrl,
     this.isPrivate = false, FollowStatus? followStatus, this.canView = true, this.socialLinks = const [],
     this.requestedAt,
-  }) : _followStatus = followStatus;
+  }) : _followStatus = followStatus; // ignore: prefer_initializing_formals (a named parameter can't be private)
 
   factory SocialProfile.fromJson(Map<String, dynamic> json) => SocialProfile(
     id: json['id'] as int,
