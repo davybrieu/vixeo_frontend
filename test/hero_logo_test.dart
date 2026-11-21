@@ -31,8 +31,6 @@ final home = Home(
       posterUrl: 'https://image.tmdb.org/t/p/w342/orbite.jpg',
       backdropPath: '/orbite-wide.jpg',
       backdropUrl: 'https://image.tmdb.org/t/p/w780/orbite-wide.jpg',
-      textlessPosterPath: '/orbite-clean.jpg',
-      textlessPosterUrl: 'https://image.tmdb.org/t/p/w500/orbite-clean.jpg',
     ),
     MediaItem(id: 3, type: MediaType.movie, title: 'Le Phare'),
   ],

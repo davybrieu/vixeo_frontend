@@ -55,7 +55,7 @@ class MediaItem {
   );
 
   /// This title completed by its catalog entry ([details], `GET /catalog/titles`): the logo, the
-  /// textless poster, the summary, the overview, the rating… it lacks. What it has stays.
+  /// summary, the overview, the rating… it lacks. What it has stays.
   MediaItem withDetails(MediaItem? details) => details == null
       ? this
       : MediaItem(
