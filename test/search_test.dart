@@ -162,7 +162,7 @@ void main() {
         minRating: 7,
         sort: SearchSort.oldest,
       ).query(withText: false);
-      // The minimum rating and « Mieux notés » are asked to the API (TMDb's rating first).
+      // The minimum rating and « Mieux notés » are asked to the API (IMDb's rating, else TMDb's).
       expect(query, {'genre': 18, 'year_from': null, 'year_to': 1979, 'min_rating': 7, 'sort': 'oldest'});
       expect(const SearchFilters(sort: SearchSort.rating).query(withText: true)['sort'], 'rating');
     });

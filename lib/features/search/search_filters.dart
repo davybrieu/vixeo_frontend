@@ -38,9 +38,8 @@ enum SearchSort {
   relevance('Pertinence'),
   popularity('Popularité'),
 
-  /// Best rated first. The search page asks the API (`sort=rating`: TMDb's rating first, IMDb's when
-  /// TMDb has too few votes, developer's request, 21/11/2026); « Ma liste » sorts itself on the
-  /// rating each card shows.
+  /// Best rated first, on the rating each card shows (IMDb's, else TMDb's; developer's request,
+  /// 21/11/2026): the search page asks the API (`sort=rating`), « Ma liste » sorts itself.
   rating('Mieux notés'),
   recent('Plus récents'),
   oldest('Plus anciens');
@@ -74,8 +73,8 @@ enum Decade {
 
 /// Filters and order of the search page. Genre, years and rating apply to movies and TV shows
 /// only, [category] to live channels only; [sort] null = the default order (relevance with a
-/// text, popularity without). The rating ([minRating], [SearchSort.rating]): the search page asks
-/// the API (TMDb's rating first, else IMDb's); « Ma liste » applies it itself.
+/// text, popularity without). The rating ([minRating], [SearchSort.rating]) is the one each card
+/// shows (IMDb's, else TMDb's): the search page asks the API, « Ma liste » applies it itself.
 @immutable
 class SearchFilters {
   const SearchFilters({this.kind = SearchKind.all, this.genre, this.decade, this.minRating, this.sort, this.category});

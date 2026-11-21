@@ -579,11 +579,10 @@ lib/
   années, tri ; « Catégorie » pour les chaînes) ; `SearchFilters` donne les paramètres de l'API.
   **Filtre « Note » (1 à 9, « Note ≥ 3 ») et tri « Mieux notés »** (retirés le 20/11/2026,
   **rétablis le 21/11/2026**, demande du développeur ; `SearchFilterBar(withRating: true)`,
-  `SearchFilters.ratings`) : la recherche les demande à l'API (`min_rating`, `sort=rating`), qui
-  prend **la note de TMDb en priorité**, celle d'IMDb quand TMDb a moins de 20 votes
-  (`vixeo_backend/docs/notes.md`). « Ma liste », qui filtre et trie elle-même, les applique à la
-  note que montre chaque carte (IMDb, sinon TMDb). Les cartes de la recherche montrent toujours
-  IMDb d'abord : un tri par TMDb peut donc y paraître désordonné. **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
+  `SearchFilters.ratings`), sur **la note que montre chaque carte : IMDb, sinon TMDb** (demande du
+  développeur) : la recherche les demande à l'API (`min_rating`, `sort=rating`,
+  `vixeo_backend/docs/notes.md`) ; « Ma liste », qui filtre et trie elle-même, les applique à la
+  même note. **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
   (demande du développeur) : dans « Tout », après Films et Séries, une section « Chaînes TV » et
   une section « Personnes » toujours affichées (une ligne « Aucune … » si vide ; masquées avec un
   filtre genre / années, qui ne s'applique qu'aux titres). **Sans recherche, aucun

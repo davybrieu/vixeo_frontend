@@ -34,8 +34,8 @@ String _fold(String s) => s
 /// Type, genre, years and order of the search page, in one scrollable row of chips. Genre, years
 /// and order don't apply to people or live channels: hidden for those kinds. Live channels have
 /// their « Catégorie » instead, the same kind of chip as « Genre ». [withRating] adds « Note » and
-/// « Mieux notés »: the search page asks the API (TMDb's rating first, else IMDb's), « Ma liste »
-/// applies them itself to the rating each card shows.
+/// « Mieux notés », on the rating each card shows (IMDb's, else TMDb's): the search page asks the
+/// API, « Ma liste » applies them itself.
 class SearchFilterBar extends ConsumerWidget {
   const SearchFilterBar({
     super.key,
