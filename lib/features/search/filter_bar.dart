@@ -14,6 +14,18 @@ import '../tv/models.dart';
 import '../tv/tv_repository.dart';
 import 'search_filters.dart';
 
+/// [filters] with another type: a genre the type doesn't have (e.g. "Horreur" for TV shows) is
+/// dropped, and the channel category only stays for channels. The type chips and the « Voir tout »
+/// buttons of the search's "Tout" both go through it.
+SearchFilters filtersOfKind(SearchFilters filters, SearchKind kind, Map<MediaType, List<Genre>>? genres) {
+  final keepGenre = filters.genre == null || genres == null || genresFor(kind, genres).contains(filters.genre);
+  return filters.copyWith(
+    kind: kind,
+    genre: keepGenre ? null : () => null,
+    category: kind.isChannels ? null : () => null,
+  );
+}
+
 /// Genres offered for a type filter: movie or TV genres, or both for "Tout" (TMDb ids differ
 /// between the two lists for some genres, e.g. "Action" and "Action & Adventure").
 List<Genre> genresFor(SearchKind kind, Map<MediaType, List<Genre>> all) {
@@ -74,18 +86,7 @@ class SearchFilterBar extends ConsumerWidget {
     final categories = withCategory ? ref.watch(tvCategoriesProvider).value : null;
     final order = filters.sortFor(withText: withText);
 
-    void setKind(SearchKind kind) {
-      // A genre the new type doesn't have (e.g. "Horreur" for TV shows) is dropped.
-      final keepGenre = filters.genre == null || genres == null || genresFor(kind, genres).contains(filters.genre);
-      onChanged(
-        filters.copyWith(
-          kind: kind,
-          genre: keepGenre ? null : () => null,
-          // The channel category only means something for channels.
-          category: kind.isChannels ? null : () => null,
-        ),
-      );
-    }
+    void setKind(SearchKind kind) => onChanged(filtersOfKind(filters, kind, genres));
 
     Future<void> pickCategory() async {
       if (categories == null) return;

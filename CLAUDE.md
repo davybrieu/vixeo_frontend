@@ -610,7 +610,9 @@ lib/
   champ ne prend pas le focus à l'arrivée (il ouvrirait le clavier).
   « Ma liste » reprend la barre sans « Personnes » ni « Catégorie » (`kinds`, `channelCategories`). Avec un texte : l'API filtre et trie les premiers résultats (une
   recherche filtrée ne renvoie pas de personnes). « Tout » = une rangée Films et une rangée
-  Séries ; un type choisi = une grille qui charge la page suivante en arrivant à la fin
+  Séries, puis Personnes et Comptes, chacune avec le **bouton rond « Voir tout »** à droite de son
+  titre (demande du développeur, 21/11/2026 ; `SectionHeader(onSeeAll:)`) : il choisit ce type,
+  comme sa puce (`filtersOfKind`, même texte et mêmes filtres, page remise en haut) ; un type choisi = une grille qui charge la page suivante en arrivant à la fin
   (`_PagedGrid`). Téléphone : pas de carrousel ni de grande image (demande du développeur) ;
   grand écran : la grande image (`catalog/hero.dart`, partagée avec l'accueil) montre le premier
   résultat, puis suit la carte sélectionnée ou survolée. Un genre absent du type choisi est

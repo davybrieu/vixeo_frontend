@@ -171,6 +171,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       onHovered: layout.isPhone ? null : _hero.hover,
       onPickRecent: _use,
       onResetFilters: () => _setFilters(const SearchFilters()),
+      // « Voir tout » of a section of "Tout": that type, as its chip does.
+      onSeeAll: (kind) => _setFilters(filtersOfKind(_filters, kind, ref.read(allGenresProvider).value)),
     );
 
     if (layout.isPhone) {
@@ -245,6 +247,7 @@ class _Results extends ConsumerWidget {
     required this.onHovered,
     required this.onPickRecent,
     required this.onResetFilters,
+    required this.onSeeAll,
   });
 
   /// The text searched (at least 2 letters, after a short pause); empty: nothing searched.
@@ -260,6 +263,9 @@ class _Results extends ConsumerWidget {
   final void Function(MediaItem item)? onHovered;
   final ValueChanged<String> onPickRecent;
   final VoidCallback onResetFilters;
+
+  /// « Voir tout » of a section of "Tout" (Films, Séries, Personnes, Comptes): every result of that type.
+  final ValueChanged<SearchKind> onSeeAll;
 
   bool get _withText => query.isNotEmpty;
 
@@ -339,11 +345,14 @@ class _Results extends ConsumerWidget {
           onHovered: onHovered,
           empty: emptyMessage,
           onReset: filters.isDefault ? null : onResetFilters,
+          onSeeAll: onSeeAll,
         ),
       ];
     }
 
     return CustomScrollView(
+      // Another type (a chip, « Voir tout »): from the top.
+      key: ValueKey(filters.kind),
       slivers: [
         ...content,
         // The end of the page clear of the tab bar.
@@ -421,6 +430,7 @@ class _SearchRows extends ConsumerWidget {
     required this.onHovered,
     required this.empty,
     required this.onReset,
+    required this.onSeeAll,
   });
 
   final String query;
@@ -429,6 +439,7 @@ class _SearchRows extends ConsumerWidget {
   final void Function(MediaItem item)? onHovered;
   final String empty;
   final VoidCallback? onReset;
+  final ValueChanged<SearchKind> onSeeAll;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -455,17 +466,33 @@ class _SearchRows extends ConsumerWidget {
       AsyncData(:final value) => SliverList.list(
         children: [
           if (value.movies.isNotEmpty)
-            PosterRow(title: 'Films', items: value.movies, onFocused: onFocused, onHovered: onHovered),
+            PosterRow(
+              title: 'Films',
+              items: value.movies,
+              onFocused: onFocused,
+              onHovered: onHovered,
+              onSeeAll: () => onSeeAll(SearchKind.movie),
+            ),
           if (value.shows.isNotEmpty) ...[
             if (value.movies.isNotEmpty) gap,
-            PosterRow(title: 'Séries', items: value.shows, onFocused: onFocused, onHovered: onHovered),
+            PosterRow(
+              title: 'Séries',
+              items: value.shows,
+              onFocused: onFocused,
+              onHovered: onHovered,
+              onSeeAll: () => onSeeAll(SearchKind.tv),
+            ),
           ],
           if (others) ...[
             if (value.movies.isNotEmpty || value.shows.isNotEmpty) gap,
             if (liveTv) ...[_ChannelsSection(query: query), gap],
-            _PeopleSection(people: AsyncData(value.people), query: query),
+            _PeopleSection(
+              people: AsyncData(value.people),
+              query: query,
+              onSeeAll: () => onSeeAll(SearchKind.person),
+            ),
             gap,
-            _AccountsSection(accounts: accounts),
+            _AccountsSection(accounts: accounts, onSeeAll: () => onSeeAll(SearchKind.accounts)),
           ],
         ],
       ),
@@ -508,10 +535,13 @@ class _ChannelsSection extends ConsumerWidget {
 /// « Personnes » of "Tout": the people matching the text, or the popular ones without a text.
 /// Always there, with a short line when there is none.
 class _PeopleSection extends StatelessWidget {
-  const _PeopleSection({required this.people, required this.query});
+  const _PeopleSection({required this.people, required this.query, required this.onSeeAll});
 
   final AsyncValue<List<Person>> people;
   final String query;
+
+  /// Every person found: the « Personnes » type.
+  final VoidCallback onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -520,7 +550,7 @@ class _PeopleSection extends StatelessWidget {
       AsyncData(:final value) when value.isNotEmpty => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader('Personnes'),
+          SectionHeader('Personnes', onSeeAll: onSeeAll),
           FocusTraversalGroup(
             policy: vxTraversalPolicy,
             child: SizedBox(
@@ -549,15 +579,18 @@ class _PeopleSection extends StatelessWidget {
 
 
 class _AccountsSection extends StatelessWidget {
-  const _AccountsSection({required this.accounts});
+  const _AccountsSection({required this.accounts, required this.onSeeAll});
   final AsyncValue<List<SocialProfile>> accounts;
+
+  /// Every account found: the « Comptes » type.
+  final VoidCallback onSeeAll;
 
   @override
   Widget build(BuildContext context) => switch (accounts) {
     AsyncData(:final value) when value.isNotEmpty => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader('Comptes'),
+        SectionHeader('Comptes', onSeeAll: onSeeAll),
         // Avatar, name and @username (no follower count, developer's request).
         for (final (i, profile) in value.take(8).indexed) ...[
           if (i > 0) SizedBox(height: Layout.of(context).listGap),

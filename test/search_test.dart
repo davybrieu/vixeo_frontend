@@ -75,6 +75,7 @@ Future<FakeCatalog> pumpSearch(
   Size size = const Size(390, 844),
   int totalPages = 1,
   bool liveTv = false,
+  List<SocialProfile> accounts = const [],
 }) async {
   final fake = FakeCatalog()..totalPages = totalPages;
   tester.view.physicalSize = size;
@@ -87,7 +88,7 @@ Future<FakeCatalog> pumpSearch(
         allGenresProvider.overrideWith((ref) async => genres),
         titlesProvider.overrideWith((ref, q) async => fake.titles(q)),
         searchProvider.overrideWith((ref, key) async => fake.search(key)),
-        socialSearchProvider.overrideWith((ref, query) async => const <SocialProfile>[]),
+        socialSearchProvider.overrideWith((ref, query) async => accounts),
         peopleProvider.overrideWith((ref, key) async => const Paged(items: [Person(id: 9, name: 'Alma Meyer')])),
         channelSearchProvider.overrideWith((ref, key) async {
           fake.channelQueries.add(key);
@@ -418,6 +419,41 @@ void main() {
     expect(find.text('Personnes'), findsOneWidget);
     expect(find.text('Alma Meyer'), findsNothing);
     expect(find.text('Aucun résultat'), findsNothing);
+  });
+
+  testWidgets('« Voir tout » of a section of "Tout": every result of that type', (tester) async {
+    final fake = await pumpSearch(tester, accounts: const [SocialProfile(id: 4, username: 'maxime', name: 'Maxime')]);
+    await typeQuery(tester, 'orbite');
+
+    Future<void> seeAll(String section) async {
+      final button = find.bySemanticsLabel('Voir tout : $section');
+      await tester.scrollUntilVisible(button, 200, scrollable: pageScroll);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    // Films and Séries: the grid of that type, for the same text.
+    await seeAll('Films');
+    expect((fake.titleQueries.last.type, fake.titleQueries.last.query), (MediaType.movie, 'orbite'));
+    expect(find.text('Film 1-0'), findsOneWidget);
+    expect(find.bySemanticsLabel('Voir tout : Séries'), findsNothing);
+
+    await tapChip(tester, 'Tout');
+    await seeAll('Séries');
+    expect((fake.titleQueries.last.type, fake.titleQueries.last.query), (MediaType.tv, 'orbite'));
+    expect(find.text('Série 1-0'), findsOneWidget);
+
+    // Personnes and Comptes: their lists, without the titles.
+    await tapChip(tester, 'Tout');
+    await seeAll('Personnes');
+    expect(find.text('Alma Meyer'), findsOneWidget);
+    expect(find.text('Le Phare'), findsNothing);
+
+    await tapChip(tester, 'Tout');
+    await seeAll('Comptes');
+    expect(find.text('Maxime'), findsWidgets);
+    expect(find.text('Le Phare'), findsNothing);
+    expect(find.text('Alma Meyer'), findsNothing);
   });
 
   testWidgets('« Chaînes TV »: a grid, the text and the category filter it, same chips as the filters', (tester) async {
