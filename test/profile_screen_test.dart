@@ -409,7 +409,7 @@ void main() {
       id: 7,
       username: 'max',
       name: 'Max',
-      shareUrl: 'https://www.vixeo.app/@max',
+      shareUrl: 'https://www.vixeo.app/max',
     );
     await tester.pumpWidget(
       ProviderScope(
@@ -430,7 +430,7 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Partager le profil'));
     await tester.pumpAndSettle();
-    expect(sharer.texts.single, 'Le profil de Max (@max) sur Vixeo\nhttps://www.vixeo.app/@max');
+    expect(sharer.texts.single, 'Le profil de Max (@max) sur Vixeo\nhttps://www.vixeo.app/max');
 
     // No share sheet (Windows): the link is copied.
     final copied = <String>[];
@@ -442,17 +442,57 @@ void main() {
     sharer.opens = false;
     await tester.tap(find.bySemanticsLabel('Partager le profil'));
     await tester.pumpAndSettle();
-    expect(copied, ['https://www.vixeo.app/@max']);
+    expect(copied, ['https://www.vixeo.app/max']);
     expect(find.text('Lien copié'), findsOneWidget);
   });
 
   test('a profile\'s link opens the profile', () {
+    // www.vixeo.app/lea (like Twitter): a path no page of the app has.
+    expect(memberOfLink('/lea', unknownPage: true), 'lea');
+    expect(memberOfLink('/lea'), isNull);
+    expect(memberOfLink('/a', unknownPage: true), isNull);
+    // The old /@lea.
     expect(memberOfLink('/@lea'), 'lea');
     expect(memberOfLink('/%40Max_9'), 'Max_9');
     expect(memberOfLink('/@lea/autre'), 'lea');
     expect(memberOfLink('/@a'), isNull);
     expect(memberOfLink('/membre/lea'), isNull);
     expect(memberOfLink('/accueil'), isNull);
+  });
+
+  testWidgets('www.vixeo.app/lea opens the profile; the app\'s own pages stay theirs', (tester) async {
+    // The same redirect and last route as the app's router (router.dart).
+    final router = GoRouter(
+      initialLocation: '/recherche',
+      redirect: (_, state) {
+        final member = memberOfLink(state.uri.path, unknownPage: state.fullPath == profileLinkPath);
+        return member == null ? null : '/membre/$member';
+      },
+      routes: [
+        GoRoute(path: '/accueil', builder: (_, _) => const Text('Accueil')),
+        GoRoute(path: '/recherche', builder: (_, _) => const Text('Recherche')),
+        GoRoute(path: '/membre/:username', builder: (_, state) => Text('Membre ${state.pathParameters['username']}')),
+        profileLinkRoute(),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('Recherche'), findsOneWidget);
+
+    router.go('/lea');
+    await tester.pumpAndSettle();
+    expect(find.text('Membre lea'), findsOneWidget);
+    router.go('/@max');
+    await tester.pumpAndSettle();
+    expect(find.text('Membre max'), findsOneWidget);
+    router.go('/recherche');
+    await tester.pumpAndSettle();
+    expect(find.text('Recherche'), findsOneWidget);
+    // Not a username: home.
+    router.go('/a');
+    await tester.pumpAndSettle();
+    expect(find.text('Accueil'), findsOneWidget);
   });
 
   test('the member search never shows the active profile itself (reached from « Profil »)', () async {

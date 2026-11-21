@@ -62,8 +62,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
-      // A profile's link (www.vixeo.app/@pseudo, « Partager »), opened by Android in the app.
-      final member = memberOfLink(state.uri.path);
+      // A profile's link (www.vixeo.app/pseudo, « Partager »; old /@pseudo), opened by Android in
+      // the app: a path no page of the app has (the last route, profileLinkPath).
+      final member = memberOfLink(state.uri.path, unknownPage: state.fullPath == profileLinkPath);
       if (member != null) {
         final mine = member.toLowerCase() == session.profile?.username?.toLowerCase();
         return mine ? '/profil' : '/membre/${Uri.encodeComponent(member)}';
@@ -311,6 +312,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ),
       ),
+      // Last: www.vixeo.app/pseudo (like Twitter), see profileLinkRoute.
+      profileLinkRoute(),
     ],
     errorBuilder: (context, state) => guarded(
       state.uri.path,
@@ -358,10 +361,26 @@ class SplashScreen extends ConsumerWidget {
   }
 }
 
-/// The username of a profile's link (`/@lea` → `lea`); null for any other path.
-String? memberOfLink(String path) {
+/// Path of the last route of the app: one word that no page of the app is, `/lea`.
+const profileLinkPath = '/:username';
+
+/// The last route of the app: a profile's link without @ (www.vixeo.app/lea, like Twitter,
+/// developer's request, 21/11/2026), opened by Android in the app. The top-level redirect sends a
+/// username to the profile ([memberOfLink]); anything else that lands here goes home. Usernames are
+/// never a page of the app (the API reserves them: vixeo_backend `Usernames::RESERVED`).
+GoRoute profileLinkRoute() => GoRoute(path: profileLinkPath, redirect: (_, _) => '/accueil');
+
+/// The username of a profile's link: `/lea` when [unknownPage] (the path matched
+/// [profileLinkRoute], no page of the app), or the old `/@lea`; null for any other path.
+String? memberOfLink(String path, {bool unknownPage = false}) {
   final decoded = Uri.decodeComponent(path);
-  if (!decoded.startsWith('/@')) return null;
-  final username = decoded.substring(2).split('/').first;
+  final String username;
+  if (decoded.startsWith('/@')) {
+    username = decoded.substring(2).split('/').first;
+  } else if (unknownPage) {
+    username = decoded.substring(1);
+  } else {
+    return null;
+  }
   return RegExp(r'^[A-Za-z0-9_]{3,30}$').hasMatch(username) ? username : null;
 }

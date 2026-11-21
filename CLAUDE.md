@@ -712,13 +712,20 @@ lib/
   21/11/2026), pseudo et biographie, enregistrés par `PUT /profiles/{id}`. **« Partager »**
   (demande du développeur, 21/11/2026) : bouton rond à côté du bouton principal
   (`ProfileHeader(onShare:)`, mon profil et celui d'un membre ; **pas sur TV**, `canShareLinks`),
-  qui envoie la page du profil sur le site (`share_url` de l'API, `www.vixeo.app/@pseudo`) :
+  qui envoie la page du profil sur le site (`share_url` de l'API, `www.vixeo.app/pseudo`, **sans @,
+  comme Twitter**, demande du développeur, 21/11/2026) :
   feuille de partage d'Android (`LinkSharer`, `core/share.dart`, canal `app.vixeo/share` de
   `MainActivity.kt`), sinon (Windows) lien copié et « Lien copié ». **Lien d'un profil** :
-  Android ouvre `https://www.vixeo.app/@pseudo` dans l'appli (Android App Links : filtre
-  `autoVerify` du manifeste, `assetlinks.json` du site avec l'empreinte du certificat de release,
-  `flutter_deeplinking_enabled`) ; le routeur en fait `/membre/pseudo` (`memberOfLink`), ou
-  `/profil` pour mon propre profil. Test : `test/profile_screen_test.dart`.
+  Android ouvre `https://www.vixeo.app/pseudo` dans l'appli (Android App Links, `assetlinks.json` du
+  site avec l'empreinte du certificat de release, `flutter_deeplinking_enabled`) : alias
+  `.ProfileLinkActivity` du manifeste (`pathAdvancedPattern="/[A-Za-z0-9_]+"`, **Android 12 et
+  plus** seulement, `values-v31/bools.xml` : avant, l'attribut serait ignoré et toutes les pages du
+  site s'ouvriraient dans l'appli ; ces versions ouvrent la page du site), plus l'ancienne adresse
+  `/@pseudo` (filtre `pathPrefix`, toutes versions, utilisée par « Ouvrir dans Vixeo » du site).
+  Le routeur en fait `/membre/pseudo` (`memberOfLink`), ou `/profil` pour mon propre profil :
+  `/pseudo` est **la dernière route** (`profileLinkRoute`, `profileLinkPath`), donc seulement un
+  mot qui n'est aucune page de l'appli (l'API réserve ces mots : `Usernames::RESERVED`, à compléter
+  pour toute nouvelle page d'un seul mot). Test : `test/profile_screen_test.dart`.
 - **Espacements** (charte, § 5) : les écarts d'une page ont un nom dans `core/design.dart`
   (`layout.sectionGap`, `titleGap`, `introGap`, `listGap`, `cardGap`) et le bas d'une page qui
   défile passe par `pageBottomPadding(context)` (place de la barre d'onglets comprise). Pages

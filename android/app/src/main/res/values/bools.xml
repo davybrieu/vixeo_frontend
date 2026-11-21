@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- www.vixeo.app/pseudo opened in the app (AndroidManifest.xml, .ProfileLinkActivity): from
+         Android 12 only (values-v31), where pathAdvancedPattern exists. -->
+    <bool name="profile_links_without_at">false</bool>
+</resources>
