@@ -13,7 +13,6 @@ import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/person_screen.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
-import 'package:vixeo/features/ratings/ratings.dart';
 
 // « Voir tout » of the title and person pages (developer's request): « Vous pourriez aussi
 // aimer », « Créateur et distribution », « Connu pour » and « Filmographie » open their whole list.
@@ -100,8 +99,6 @@ Future<void> _pump(WidgetTester tester, String start, {List<Override> overrides 
       overrides: [
         sessionProvider.overrideWith(_Guest.new),
         libraryProvider.overrideWith(_EmptyLibrary.new),
-        // TMDb's rating: nothing to ask the API.
-        ratingSourceProvider.overrideWithValue(RatingSource.tmdb),
         titleProvider.overrideWith((ref, key) async => _title),
         personProvider.overrideWith((ref, id) async => _person),
         ...overrides,

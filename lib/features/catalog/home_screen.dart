@@ -12,7 +12,6 @@ import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../library/library.dart';
 import '../profiles/row_preferences.dart';
-import '../ratings/rating_view.dart';
 import 'catalog_repository.dart';
 import 'hero.dart';
 import 'list_screen.dart';
@@ -170,29 +169,22 @@ class _LargeHomeState extends State<_LargeHome> {
                 children: [
                   if (widget.resume.isNotEmpty) ...[
                     const SectionHeader('Continuer à regarder'),
-                    // The hero shows their rating: asked for the whole row at once.
-                    Consumer(
-                      builder: (context, ref, child) {
-                        prefetchRatings(ref, [for (final r in widget.resume) ?r.asMediaItem]);
-                        return child!;
-                      },
-                      child: FocusTraversalGroup(
-                        policy: vxTraversalPolicy,
-                        child: SizedBox(
-                          height: layout.tv(216 + 32),
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            clipBehavior: Clip.none,
-                            padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.tv(16)),
-                            itemCount: widget.resume.length,
-                            separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
-                            itemBuilder: (_, i) => ResumeCard(
-                              item: widget.resume[i],
-                              width: layout.tv(384),
-                              autofocus: i == 0,
-                              onFocused: () => _hero.select(widget.resume[i].asMediaItem),
-                              onHovered: () => _hero.hover(widget.resume[i].asMediaItem),
-                            ),
+                    FocusTraversalGroup(
+                      policy: vxTraversalPolicy,
+                      child: SizedBox(
+                        height: layout.tv(216 + 32),
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          clipBehavior: Clip.none,
+                          padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.tv(16)),
+                          itemCount: widget.resume.length,
+                          separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
+                          itemBuilder: (_, i) => ResumeCard(
+                            item: widget.resume[i],
+                            width: layout.tv(384),
+                            autofocus: i == 0,
+                            onFocused: () => _hero.select(widget.resume[i].asMediaItem),
+                            onHovered: () => _hero.hover(widget.resume[i].asMediaItem),
                           ),
                         ),
                       ),

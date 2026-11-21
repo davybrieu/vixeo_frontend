@@ -273,9 +273,9 @@ class _EpisodesState extends ConsumerState<_Episodes> {
 
 /// An episode in the row: a large 16:9 image with the "Épisode 3" badge at the top left and, at the
 /// bottom of the image over a dark gradient, the name, the overview (2 lines at most) and, on the
-/// last line, the runtime on the left and the air date on the right. No rating at all on an episode
-/// (developer's request, 20/11/2026): episodes are neither rated nor shown with a rating. Pressing
-/// the card plays the episode.
+/// last line, the runtime on the left and the air date on the right. Its rating (IMDb's, else
+/// TMDb's) at the top right: a tap on it, or a long press / the menu key on the card, shows both
+/// with their votes (« Notes »). Pressing the card plays the episode. No spoil: no rating.
 class _EpisodeCard extends StatelessWidget {
   const _EpisodeCard({required this.episode, required this.noSpoiler, required this.onPressed});
 
@@ -325,6 +325,8 @@ class _EpisodeCard extends StatelessWidget {
     final image = NetImage(url: e.stillUrl, seed: e.id);
     final overview = e.overview?.trim() ?? '';
     final showFacts = !noSpoiler && (e.runtime != null || e.airDate != null);
+    final rating = noSpoiler ? null : e.ratings.shown;
+    void showRatings() => showAllRatings(context, ratings: e.ratings, name: 'Épisode ${e.number} · ${e.name}');
 
     return SizedBox(
       width: width,
@@ -335,8 +337,12 @@ class _EpisodeCard extends StatelessWidget {
           VxFocusable(
             borderRadius: radius,
             focusScale: 1.03,
-            semanticLabel: 'Épisode ${e.number}, ${e.name}',
+            semanticLabel: [
+              'Épisode ${e.number}, ${e.name}',
+              if (rating != null) 'note ${rating.$1.label} ${formatRating(rating.$2.value)} sur 10',
+            ].join(', '),
             onPressed: onPressed,
+            onLongPress: rating == null ? null : showRatings,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(radius),
               child: SizedBox(
@@ -350,6 +356,21 @@ class _EpisodeCard extends StatelessWidget {
                         : image,
                     // Top left: "Épisode 3".
                     Positioned(left: inset, top: inset, child: _ImageBadge('Épisode ${e.number}', scale: s)),
+                    // Top right: its rating; a tap shows IMDb's and TMDb's with their votes.
+                    if (rating != null)
+                      Positioned(
+                        right: inset - 6 * s,
+                        top: inset - 6 * s,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: showRatings,
+                          child: Padding(
+                            // A larger target than the badge.
+                            padding: EdgeInsets.all(6 * s),
+                            child: ExcludeSemantics(child: _RatingBadge(rating, scale: s)),
+                          ),
+                        ),
+                      ),
                     // Bottom: the texts, over a gradient that darkens the image under them.
                     Positioned(
                       left: 0,
@@ -432,6 +453,21 @@ class _EpisodeCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The rating on an episode image, dark like [_ImageBadge]: star, value and the site's logo.
+class _RatingBadge extends StatelessWidget {
+  const _RatingBadge(this.rating, {required this.scale});
+
+  final (RatingSite, SiteRating) rating;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: EdgeInsets.symmetric(horizontal: 7 * scale, vertical: 3 * scale),
+    decoration: BoxDecoration(color: const Color(0xCC070A08), borderRadius: BorderRadius.circular(6 * scale)),
+    child: RatingLabel(site: rating.$1, value: rating.$2.value, fontSize: 12 * scale),
+  );
 }
 
 /// Label on an episode image ("Épisode 3"): dark, readable on any image.
@@ -517,28 +553,16 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                     style: VxText.title(32, weight: FontWeight.w800),
                   ),
                   const SizedBox(height: 10),
-                  // The rating of the profile's site (« Source des notes »), else TMDb's.
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final rating = watchShownRating(ref, (type: t.type, id: t.id), t.voteAverage);
-                      return Wrap(
-                        spacing: 10,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          // A press: every site's rating.
-                          if (!rating.isNone)
-                            RatingButton(
-                              rating: rating,
-                              title: (type: t.type, id: t.id),
-                              name: t.title,
-                              tmdb: t.voteAverage,
-                            ),
-                          for (final m in _meta(t)) Text(m, style: VxText.body(14, color: VxColors.textSoft)),
-                          if (t.ageRating != null) VxBadge(_ageLabel(t.ageRating!), outlined: true),
-                        ],
-                      );
-                    },
+                  // IMDb's rating, else TMDb's: a press shows both with their votes.
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (!t.ratings.isEmpty) RatingButton(ratings: t.ratings, name: t.title),
+                      for (final m in _meta(t)) Text(m, style: VxText.body(14, color: VxColors.textSoft)),
+                      if (t.ageRating != null) VxBadge(_ageLabel(t.ageRating!), outlined: true),
+                    ],
                   ),
                   if (t.genres.isNotEmpty) ...[
                     const SizedBox(height: 6),
@@ -685,34 +709,22 @@ class _LargeDetails extends StatelessWidget {
                       style: VxText.title(layout.tv(100), weight: FontWeight.w800),
                     ),
                     SizedBox(height: layout.tv(22)),
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final rating = watchShownRating(ref, (type: t.type, id: t.id), t.voteAverage);
-                        return Wrap(
-                          spacing: layout.tv(18),
-                          runSpacing: 8,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            if (!rating.isNone)
-                              RatingButton(
-                                rating: rating,
-                                title: (type: t.type, id: t.id),
-                                name: t.title,
-                                tmdb: t.voteAverage,
-                                fontSize: layout.tv(22),
-                              ),
-                            for (final m in _meta(t))
-                              Text(m, style: VxText.body(layout.tv(22), color: VxColors.textSoft)),
-                            if (t.genres.isNotEmpty)
-                              Text(
-                                t.genres.map((g) => g.name).join(' · '),
-                                style: VxText.body(layout.tv(22), color: VxColors.textSoft),
-                              ),
-                            if (t.ageRating != null)
-                              VxBadge(_ageLabel(t.ageRating!), outlined: true, fontSize: layout.tv(18)),
-                          ],
-                        );
-                      },
+                    Wrap(
+                      spacing: layout.tv(18),
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (!t.ratings.isEmpty)
+                          RatingButton(ratings: t.ratings, name: t.title, fontSize: layout.tv(22)),
+                        for (final m in _meta(t)) Text(m, style: VxText.body(layout.tv(22), color: VxColors.textSoft)),
+                        if (t.genres.isNotEmpty)
+                          Text(
+                            t.genres.map((g) => g.name).join(' · '),
+                            style: VxText.body(layout.tv(22), color: VxColors.textSoft),
+                          ),
+                        if (t.ageRating != null)
+                          VxBadge(_ageLabel(t.ageRating!), outlined: true, fontSize: layout.tv(18)),
+                      ],
                     ),
                     if (t.overview != null) ...[
                       SizedBox(height: layout.tv(22)),

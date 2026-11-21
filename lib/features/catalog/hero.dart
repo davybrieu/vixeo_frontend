@@ -171,8 +171,7 @@ class _FeaturedCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 TitleFacts(
-                  title: (type: item.type, id: item.id),
-                  tmdbRating: details?.voteAverage ?? item.voteAverage,
+                  rating: details?.ratings.shown ?? item.shownRating,
                   year: details?.year ?? item.year,
                   summary: summary,
                   fontSize: 14,
@@ -341,8 +340,7 @@ class _HeroTextState extends ConsumerState<HeroText> {
               ),
               SizedBox(height: layout.tv(20)),
               TitleFacts(
-                title: (type: item.type, id: item.id),
-                tmdbRating: details?.voteAverage ?? item.voteAverage,
+                rating: details?.ratings.shown ?? item.shownRating,
                 year: details?.year ?? item.year,
                 summary: summary,
                 fontSize: layout.tv(22),
@@ -369,15 +367,13 @@ class _HeroTextState extends ConsumerState<HeroText> {
   }
 }
 
-/// Rating, year, length and age rating, then the genres, shown together once the [summary] is
-/// known (with the list item, or from the title page) and the rating of the profile's site is
-/// (« Source des notes », usually asked with the row): nothing appears piece by piece. Until then,
-/// an empty space of the same height keeps the lines below in place.
-class TitleFacts extends ConsumerWidget {
+/// Rating (IMDb's, else TMDb's), year, length and age rating, then the genres, shown together once
+/// the [summary] is known (with the list item, or from the title page): nothing appears piece by
+/// piece. Until then, an empty space of the same height keeps the lines below in place.
+class TitleFacts extends StatelessWidget {
   const TitleFacts({
     super.key,
-    required this.title,
-    required this.tmdbRating,
+    required this.rating,
     required this.year,
     required this.summary,
     required this.fontSize,
@@ -388,10 +384,8 @@ class TitleFacts extends ConsumerWidget {
     this.maxGenres,
   });
 
-  final TitleRef title;
-
-  /// TMDb's average: shown when the profile chose TMDb, or when no other site rates the title.
-  final double tmdbRating;
+  /// IMDb's rating, else TMDb's ([MediaItem.shownRating]); null: none.
+  final (RatingSite, SiteRating)? rating;
   final int? year;
   final TitleSummary? summary;
   final double fontSize;
@@ -406,15 +400,15 @@ class TitleFacts extends ConsumerWidget {
   final int? maxGenres;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final summary = this.summary;
     final meta = VxText.body(fontSize, color: VxColors.textSoft);
-    final rating = watchShownRating(ref, title, tmdbRating);
+    final rating = this.rating;
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 200),
       layoutBuilder: (current, previous) => Stack(alignment: Alignment.topLeft, children: [...previous, ?current]),
-      child: summary == null || rating.loading
+      child: summary == null
           ? SizedBox(key: const ValueKey('waiting'), height: fontSize * 1.6 + gap + genreFontSize * 1.45)
           : Column(
               key: const ValueKey('facts'),
@@ -426,7 +420,7 @@ class TitleFacts extends ConsumerWidget {
                   runSpacing: fontSize * 0.4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (!rating.isNone) RatingLabel(source: rating.source!, value: rating.value!, fontSize: fontSize),
+                    if (rating != null) RatingLabel(site: rating.$1, value: rating.$2.value, fontSize: fontSize),
                     if (year != null) Text('$year', style: meta),
                     if (summary.length != null) Text(summary.length!, style: meta),
                     if (summary.ageLabel != null) VxBadge(summary.ageLabel!, outlined: true, fontSize: badgeFontSize),

@@ -229,7 +229,13 @@ void main() {
   });
 
   group('title page', () {
-    const movie = TitleDetails(id: 3, type: MediaType.movie, title: 'Le Phare', voteAverage: 7.1);
+    const movie = TitleDetails(
+      id: 3,
+      type: MediaType.movie,
+      title: 'Le Phare',
+      voteAverage: 7.1,
+      ratings: TitleRatings(tmdb: SiteRating(7.1, 120)),
+    );
 
     List<Override> details(TitleDetails title, {Season? season}) => [
       titleProvider.overrideWith((ref, key) async => title),
@@ -246,8 +252,8 @@ void main() {
 
       expect(find.bySemanticsLabel('Noter'), findsOneWidget);
       expect(find.byType(TmdbLogo), findsOneWidget);
-      // No other site's rating here: TMDb's, which opens « Notes ».
-      expect(find.bySemanticsLabel('Note TMDb : 7,1 sur 10. Voir toutes les notes'), findsOneWidget);
+      // No IMDb rating here: TMDb's, which opens « Notes ».
+      expect(find.bySemanticsLabel('Note TMDb : 7,1 sur 10. Voir les notes'), findsOneWidget);
     });
 
     testWidgets('rates a movie, then changes and removes the rating', (tester) async {
@@ -277,7 +283,7 @@ void main() {
       expect(find.bySemanticsLabel('Noter'), findsOneWidget);
     });
 
-    testWidgets('episodes have no rating: no star, no « Ma note », no TMDb rating', (tester) async {
+    testWidgets('episodes are not rated by the profile: no « Noter », no « Ma note »', (tester) async {
       final tmdb = FakeTmdb();
       const show = TitleDetails(
         id: 9,
@@ -306,8 +312,6 @@ void main() {
       expect(find.text('50 min'), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('Noter l’épisode')), findsNothing);
       expect(find.textContaining('Ma note'), findsNothing);
-      expect(find.text('7,4'), findsNothing);
-      expect(find.text('8,1'), findsNothing);
       // The show itself is still rated (« Noter » on the page).
       expect(find.bySemanticsLabel('Noter'), findsOneWidget);
       expect(tmdb.calls, isEmpty);

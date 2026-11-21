@@ -95,10 +95,8 @@ flutter:
     - assets/fonts/OFL-Inter.txt
     # Official TMDb logo ("Primary short", themoviedb.org/about/logos-attribution), as a PNG.
     - assets/images/tmdb_short.png
-    # Logos of the other rating sites (brand/ratings, brand/tools/rating_logos.py) and the licence
-    # of the Lucide icon used for Rotten Tomatoes' audience score.
-    - assets/images/ratings/
-    - assets/licenses/lucide-ISC.txt
+    # IMDb's logo next to its ratings (brand/ratings, brand/tools/rating_logos.py).
+    - assets/images/ratings/imdb.png
     # The sandbox every plug-in scraper runs on top of (same file on every platform).
     - assets/scrapers/sandbox.js
     # crypto-js 4.2.0, lent to the scrapers that use it, as Nuvio does (docs/scrapers.md), and its licence.

@@ -8,7 +8,6 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
-import '../ratings/rating_view.dart';
 import '../search/search_screen.dart';
 import 'catalog_repository.dart';
 import 'models.dart';
@@ -85,8 +84,6 @@ class PersonTitlesScreen extends ConsumerWidget {
               child: EmptyState(icon: Icons.movie_filter_outlined, title: 'Aucun titre disponible pour ce profil'),
             );
           }
-          // The ratings of the cards in batches of 100, not one request per card.
-          prefetchRatings(ref, titles);
           return _GridPadding(
             sliver: SliverGrid.builder(
               gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
@@ -230,7 +227,6 @@ class _PagedTitles extends ConsumerWidget {
     return PagedGrid<MediaItem>(
       page: page,
       idOf: (item) => (item.type, item.id),
-      prefetch: prefetchRatings,
       gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
       itemBuilder: (_, item) => LayoutBuilder(
         builder: (_, c) => PosterCard(item: item, width: c.maxWidth, format: format),

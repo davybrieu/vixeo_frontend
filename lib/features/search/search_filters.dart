@@ -38,8 +38,8 @@ enum SearchSort {
   relevance('Pertinence'),
   popularity('Popularité'),
 
-  /// The rating of the profile's site (« Source des notes »): « Ma liste » only, which sorts
-  /// itself. Never asked to the search API, whose rating is TMDb's (developer's choice).
+  /// The rating each card shows (IMDb's, else TMDb's): « Ma liste » only, which sorts itself. Never
+  /// asked to the search API (developer's choice).
   rating('Mieux notés'),
   recent('Plus récents'),
   oldest('Plus anciens');
@@ -74,7 +74,7 @@ enum Decade {
 /// Filters and order of the search page. Genre, years and rating apply to movies and TV shows
 /// only, [category] to live channels only; [sort] null = the default order (relevance with a
 /// text, popularity without). The rating ([minRating], [SearchSort.rating]) is « Ma liste »'s
-/// only, on the profile's site: the search page doesn't offer it (the API's is TMDb's).
+/// only, on the rating each card shows: the search page doesn't offer it.
 @immutable
 class SearchFilters {
   const SearchFilters({this.kind = SearchKind.all, this.genre, this.decade, this.minRating, this.sort, this.category});
@@ -86,7 +86,7 @@ class SearchFilters {
   final Genre? genre;
   final Decade? decade;
 
-  /// Minimum rating in tenths of the site's scale (6 = 6/10, 60 %, 3/5), « Ma liste » only.
+  /// Minimum rating out of 10, « Ma liste » only.
   final int? minRating;
   final SearchSort? sort;
 
@@ -103,7 +103,7 @@ class SearchFilters {
   }
 
   /// Query parameters of the API (discover and search), the default ones left out. Never the
-  /// rating: the API's is TMDb's, not the profile's site.
+  /// rating (« Ma liste » only).
   Map<String, Object?> query({required bool withText}) {
     final order = sortFor(withText: withText);
     final byDefault = order == (withText ? SearchSort.relevance : SearchSort.popularity);

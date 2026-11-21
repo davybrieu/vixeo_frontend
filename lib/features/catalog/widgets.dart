@@ -25,8 +25,8 @@ String titlePath(MediaType type, int id) => '/titre/${type.name}/$id';
 
 /// Title card: vertical poster (2:3) or horizontal image (16:9), following the profile's poster
 /// format. On phones, under the image: the name on one line, then the year on the left and the
-/// rating on the right (developer's choice), from the profile's site (« Source des notes »,
-/// [CardRating]). Elsewhere (tablet, TV) the image alone; the name is then written only for a
+/// rating on the right (developer's choice): IMDb's when given with the title, else TMDb's
+/// ([CardRating]). Elsewhere (tablet, TV) the image alone; the name is then written only for a
 /// title without any image. Screen readers get the name from the label.
 class PosterCard extends ConsumerWidget {
   const PosterCard({
@@ -250,8 +250,6 @@ class PosterRow extends ConsumerWidget {
     final gap = layout.cardGap;
     // Room for the focus zoom on TV.
     final vPad = layout.isLarge ? layout.tv(16) : 0.0;
-    // The ratings of the whole row in one request (phone captions, TV hero).
-    prefetchRatings(ref, items);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,7 +578,6 @@ class PosterGrid extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final format = posterFormatOf(ref);
-    prefetchRatings(ref, items);
     return GridView.builder(
       physics: alwaysScrollable ? const AlwaysScrollableScrollPhysics() : null,
       padding: padding ?? EdgeInsets.all(layout.gutter),
@@ -697,9 +694,8 @@ class _MenuTile extends StatelessWidget {
 }
 
 /// TMDb's average rating: star, "7,1" and the TMDb logo in small (the source of the rating).
-/// Read as "Note TMDb : 7,1 sur 10" by screen readers. Titles show the profile's site
-/// ([RatingLabel], `watchShownRating`), TMDb when chosen or as the last fallback; episodes always
-/// TMDb's (MDBList has no episode ratings).
+/// Read as "Note TMDb : 7,1 sur 10" by screen readers. Shown when IMDb doesn't rate the title or
+/// the episode ([RatingLabel]).
 class TmdbRating extends StatelessWidget {
   const TmdbRating(this.value, {super.key, this.fontSize = 14, this.color = VxColors.text});
 

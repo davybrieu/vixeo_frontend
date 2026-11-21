@@ -10,7 +10,7 @@ import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/profiles/no_spoiler.dart';
-import 'package:vixeo/features/ratings/ratings.dart';
+import 'package:vixeo/features/ratings/rating_view.dart';
 import 'package:vixeo/features/ratings/ratings_sheet.dart';
 
 class EmptyLibrary extends LibraryController {
@@ -75,28 +75,60 @@ void main() {
     expect(find.text('Le Phare'), findsOneWidget);
   });
 
-  testWidgets('a press on the rating opens « Notes », every site\'s rating', (tester) async {
-    final loader = RatingsLoader(
-      fetch: (titles) async => (
-        ratings: {for (final t in titles) t: const TitleRatings({RatingSource.imdb: 8.8, RatingSource.metacritic: 67})},
-        available: true,
-      ),
-    );
+  testWidgets('shows IMDb\'s rating; a press opens « Notes »: IMDb and TMDb with their votes', (tester) async {
     await pumpDetails(
       tester,
-      const TitleDetails(id: 550, type: MediaType.movie, title: 'Nord Sauvage', voteAverage: 8.4),
-      overrides: [ratingsLoaderProvider.overrideWithValue(loader)],
+      const TitleDetails(
+        id: 550,
+        type: MediaType.movie,
+        title: 'Nord Sauvage',
+        voteAverage: 8.4,
+        ratings: TitleRatings(imdb: SiteRating(8.8, 2400000), imdbId: 'tt0137523', tmdb: SiteRating(8.4, 30000)),
+      ),
     );
 
-    // The profile's site (IMDb by default), with an arrow: it opens something.
-    expect(find.bySemanticsLabel('Note IMDb : 8,8 sur 10. Voir toutes les notes'), findsOneWidget);
+    // IMDb's rating, with its logo and an arrow: it opens something.
+    expect(find.bySemanticsLabel('Note IMDb : 8,8 sur 10. Voir les notes'), findsOneWidget);
+    expect(find.byType(RatingLogo), findsOneWidget);
     await tester.tap(find.byType(RatingButton));
     await tester.pumpAndSettle();
 
     expect(find.text('Notes'), findsOneWidget);
-    expect(find.bySemanticsLabel('IMDb : 8,8 sur 10, votre source'), findsOneWidget);
-    expect(find.bySemanticsLabel('TMDb : 8,4 sur 10'), findsOneWidget);
-    expect(find.bySemanticsLabel('Metacritic : 67 sur 100'), findsOneWidget);
+    expect(find.bySemanticsLabel('IMDb : 8,8 sur 10, 2\u202F400\u202F000 votants'), findsOneWidget);
+    expect(find.bySemanticsLabel('TMDb : 8,4 sur 10, 30\u202F000 votants'), findsOneWidget);
+    expect(find.text('2\u202F400\u202F000 votants'), findsOneWidget);
+  });
+
+  testWidgets('shows TMDb\'s rating with its logo when IMDb has none', (tester) async {
+    await pumpDetails(
+      tester,
+      const TitleDetails(
+        id: 550,
+        type: MediaType.movie,
+        title: 'Nord Sauvage',
+        voteAverage: 7.2,
+        ratings: TitleRatings(tmdb: SiteRating(7.2, 12)),
+      ),
+      size: const Size(1920, 1080),
+    );
+
+    expect(find.bySemanticsLabel('Note TMDb : 7,2 sur 10. Voir les notes'), findsOneWidget);
+    expect(find.byType(TmdbLogo), findsOneWidget);
+    await tester.tap(find.byType(RatingButton));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('IMDb : pas de note'), findsOneWidget);
+    expect(find.bySemanticsLabel('TMDb : 7,2 sur 10, 12 votants'), findsOneWidget);
+    // A window on a large screen: « Fermer » has the focus.
+    await tester.tap(find.text('Fermer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Notes'), findsNothing);
+  });
+
+  testWidgets('no rating at all: nothing shown', (tester) async {
+    await pumpDetails(tester, const TitleDetails(id: 550, type: MediaType.movie, title: 'Nord Sauvage'));
+    expect(find.byType(RatingButton), findsNothing);
+    expect(find.byType(TmdbRating), findsNothing);
   });
 
   testWidgets('movie: "Créateur et distribution", the director first, then the cast', (tester) async {
@@ -202,6 +234,7 @@ void main() {
               overview: 'Un très long résumé. ' * 30,
               runtime: 52,
               voteAverage: 7.1,
+              ratings: TitleRatings(imdb: SiteRating(8 + n / 10, 1000 * n), tmdb: const SiteRating(7.1, 40)),
               airDate: DateTime(2024, 3, n),
             ),
         ],
@@ -227,9 +260,13 @@ void main() {
       final name = tester.getRect(find.text('Le départ'));
       expect(name.top, greaterThan(badge.bottom));
       expect(name.bottom, lessThan(still.bottom));
-      // Runtime on the left, air date on the right of the same line, at the bottom of the image. No
-      // rating on an episode (developer's request).
-      expect(find.text('7,1'), findsNothing);
+      // Its IMDb rating at the top right of the image, read with the card.
+      expect(find.bySemanticsLabel(RegExp('^Épisode 1, Le départ, note IMDb 8,1 sur 10')), findsOneWidget);
+      final rating = tester.getRect(find.text('8,1'));
+      expect(rating.top, lessThan(name.top));
+      expect(rating.right, lessThanOrEqualTo(still.right));
+      expect(rating.left, greaterThan(badge.right));
+      // Runtime on the left, air date on the right of the same line, at the bottom of the image.
       final runtime = tester.getCenter(find.text('52 min').first);
       final date = tester.getRect(find.text('1er mars 2024'));
       expect(date.center.dy, closeTo(runtime.dy, 1));
@@ -245,16 +282,67 @@ void main() {
       expect(find.text('Épisode 6'), findsOneWidget);
     });
 
-    testWidgets('hide the air date with No spoil', (tester) async {
+    testWidgets('a tap on the rating of an episode opens « Notes » with its votes', (tester) async {
+      final rated = Season(
+        showId: 1399,
+        number: 1,
+        name: 'Saison 1',
+        episodes: [
+          Episode(
+            id: 1,
+            seasonNumber: 1,
+            number: 1,
+            name: 'Le départ',
+            runtime: 52,
+            airDate: DateTime(2024, 3, 1),
+            ratings: const TitleRatings(tmdb: SiteRating(7.4, 25)),
+          ),
+        ],
+      );
+      await pumpDetails(tester, show, overrides: [seasonProvider.overrideWith((ref, key) async => rated)]);
+      await scrollToEpisodes(tester);
+      await tester.pumpAndSettle();
+
+      // No IMDb rating: TMDb's, with its logo.
+      expect(find.byType(TmdbLogo), findsOneWidget);
+      await tester.ensureVisible(find.text('7,4'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('7,4'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Notes'), findsOneWidget);
+      expect(find.text('Épisode 1 · Le départ'), findsOneWidget);
+      expect(find.bySemanticsLabel('IMDb : pas de note'), findsOneWidget);
+      expect(find.bySemanticsLabel('TMDb : 7,4 sur 10, 25 votants'), findsOneWidget);
+    });
+
+    testWidgets('hide the air date and the rating with No spoil', (tester) async {
+      final rated = Season(
+        showId: 1399,
+        number: 1,
+        name: 'Saison 1',
+        episodes: [
+          Episode(
+            id: 1,
+            seasonNumber: 1,
+            number: 1,
+            name: 'Le départ',
+            runtime: 52,
+            airDate: DateTime(2024, 3, 1),
+            ratings: const TitleRatings(imdb: SiteRating(8.9, 100)),
+          ),
+        ],
+      );
       await pumpDetails(
         tester,
         show,
-        overrides: [seasonProvider.overrideWith((ref, key) async => season), noSpoilerProvider.overrideWithValue(true)],
+        overrides: [seasonProvider.overrideWith((ref, key) async => rated), noSpoilerProvider.overrideWithValue(true)],
       );
       await scrollToEpisodes(tester);
 
       expect(find.text('1er mars 2024'), findsNothing);
       expect(find.text('52 min'), findsNothing);
+      expect(find.text('8,9'), findsNothing);
     });
   });
 }

@@ -1,10 +1,10 @@
-"""Renders the logos of the rating sites (brand/ratings/*.svg) to the PNGs the app shows
-(assets/images/ratings/*.png, 128 px high, transparent background).
+"""Renders IMDb's logo (brand/ratings/imdb.svg) to the PNG the app shows next to its ratings
+(assets/images/ratings/imdb.png, 128 px high, transparent background).
 
     pip install cairosvg
     python3 brand/tools/rating_logos.py
 
-Prints each logo's width / height: `RatingSource.logoAspect` (lib/features/ratings/rating_source.dart).
+Prints the logo's width / height: `RatingLogo.imdbAspectRatio` (lib/features/ratings/rating_view.dart).
 """
 
 import pathlib

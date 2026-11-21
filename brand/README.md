@@ -58,6 +58,5 @@ Puis copier `brand/vixeo-logo.svg` et les fichiers de `brand/icons/` dans le sit
 
 ## Logos des sites de notes
 
-Les logos d'IMDb, Rotten Tomatoes, Metacritic, Letterboxd, Trakt et MyAnimeList affichés à côté
-des notes sont dans `ratings/` (marques de leurs propriétaires ; origine et régénération :
-`ratings/README.md`).
+Le logo d'IMDb affiché à côté de ses notes est dans `ratings/` (marque de son propriétaire ;
+origine et régénération : `ratings/README.md`).

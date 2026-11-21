@@ -14,7 +14,6 @@ import 'package:vixeo/features/library/actions.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
-import 'package:vixeo/features/ratings/ratings.dart';
 import 'package:vixeo/features/shell/app_shell.dart';
 
 /// In-memory library: records favorites / watched like the sync API would.
@@ -82,7 +81,7 @@ Widget app(
   List<Override> overrides = const [],
 }) => ProviderScope(
   // A new scope per profile (overrides are read once per scope).
-  key: ValueKey((profile.id, profile.ratingSource, liveTv)),
+  key: ValueKey((profile.id, liveTv)),
   overrides: [
     libraryProvider.overrideWith(FakeLibrary.new),
     sessionProvider.overrideWith(() => FakeSession(profile)),
@@ -212,17 +211,9 @@ void main() {
       posterUrl: 'https://image.tmdb.org/t/p/w342/p.jpg',
       backdropUrl: 'https://image.tmdb.org/t/p/w780/b.jpg',
     );
-    // MDBList has nothing for this title: TMDb's rating, with its logo (also when the profile chose
-    // TMDb).
-    final noRatings = ratingsLoaderProvider.overrideWithValue(
-      RatingsLoader(
-        fetch: (titles) async => (ratings: {for (final t in titles) t: TitleRatings.empty}, available: true),
-      ),
-    );
+    // No IMDb rating given with this title: TMDb's, with its logo.
     for (final format in PosterFormat.values) {
-      await tester.pumpWidget(app(PosterCard(item: item, width: 116, format: format), overrides: [noRatings]));
-      // The ratings are asked after the frame, then shown.
-      await tester.pump();
+      await tester.pumpWidget(app(PosterCard(item: item, width: 116, format: format)));
       await tester.pump();
       final name = tester.widget<Text>(find.text('Nord Sauvage'));
       expect(name.maxLines, 1, reason: format.name);

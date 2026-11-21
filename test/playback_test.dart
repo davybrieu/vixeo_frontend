@@ -187,18 +187,6 @@ void main() {
       expect(find.text('Générique de fin : passé automatiquement'), findsOneWidget);
     });
 
-    testWidgets('picks the site whose rating the titles show, IMDb by default', (tester) async {
-      final auth = await pumpSettings(tester);
-
-      await tapRow(tester, 'Source des notes : IMDb');
-      await tester.tap(find.text('Rotten Tomatoes (critiques)').last);
-      await tester.pumpAndSettle();
-
-      expect(auth.updates.last, {'rating_source': 'tomatoes'});
-      expect(find.text('Notes : Rotten Tomatoes (critiques)'), findsOneWidget);
-      expect(find.bySemanticsLabel('Source des notes : Rotten Tomatoes (critiques)'), findsOneWidget);
-    });
-
     testWidgets('picks the subtitle and audio languages', (tester) async {
       final auth = await pumpSettings(tester);
 

@@ -100,8 +100,8 @@ lib/
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
     tmdb/        avis du profil (nom historique) : notes et commentaires (fenêtre,
                  boutons, onglet « Avis »)
-    ratings/     notes des autres sites (IMDb, Rotten Tomatoes, Letterboxd…) via l'API (MDBList),
-                 source choisie par le profil, chargeur groupé et cache de l'appareil
+    ratings/     notes IMDb (jeux de données importés par l'API) sinon TMDb : affichage avec le
+                 logo du site, fenêtre « Notes » (les deux notes et leurs votants)
     notifications/  notifications push (FCM) : page « Notifications », inscription auprès de
                  l'API (`PushRegistration`), affichage et appui (`NotificationsGate`)
     addons/      plug-ins : dépôts de scrapers JavaScript (façon Nuvio), page « Plug-ins » (`docs/scrapers.md`)
@@ -528,9 +528,10 @@ lib/
   **gardés par Vixeo seulement**. **Plus de liaison d'un compte TMDb ni de synchronisation**
   (supprimées, demande du développeur, 20/11/2026 : ni page ni tuile « Connexions » ;
   `/profil/connexions` et `/profil/tmdb` mènent à « Paramètres » ; ne pas les réintroduire).
-  **Films et séries seulement : plus aucune note sur les épisodes** (supprimées, demande du
-  développeur, 20/11/2026 : ni étoile ni « Ma note » sur les cartes d'épisodes, ni filtre
-  « Épisodes », ni adresse d'épisode ; l'API ne les accepte plus ; ne pas les réintroduire). Bouton
+  **Films et séries seulement : plus d'avis sur les épisodes** (supprimés, demande du
+  développeur, 20/11/2026 : ni « Noter » ni « Ma note » sur les cartes d'épisodes, ni filtre
+  « Épisodes », ni adresse d'épisode ; l'API ne les accepte plus ; ne pas les réintroduire ; la
+  note IMDb / TMDb d'un épisode, elle, est affichée : voir « Notes des titres »). Bouton
   « Noter » sur la fiche (film, série) ;
   fenêtre `showRatingDialog` (10 étoiles par demi-points ; télécommande : ← →, chiffres, OK ;
   **commentaire facultatif**). La fenêtre et « Mon avis »
@@ -546,43 +547,38 @@ lib/
   (confirmation) ramènent à la liste, « Voir la fiche » ouvre le titre. Toutes les notes sont chargées d'un coup
   (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche et
   « Avis ». Les notes vont de 0,5 à 10. Ancienne adresse `/profil/notes` redirigée.
-- **Notes des titres : source au choix** (`features/ratings`, demande du développeur, 20/11/2026 ;
-  API : `vixeo_backend/docs/notes.md`) : « Paramètres » → « Apparence » → **« Source des notes »**
-  (`RatingSource`, champ du profil `rating_source`, synchronisé ; **IMDb par défaut**) : IMDb, TMDb,
-  Rotten Tomatoes (critiques / public), Metacritic, Letterboxd, Trakt, MyAnimeList. Les notes
-  viennent de **MDBList par l'API** (`GET /catalog/ratings?ids=…`, clé de Vixeo ; l'appli ne parle
-  jamais à MDBList). Quota MDBList partagé par tous (gratuit : 1 000 requêtes / jour) : l'API garde
-  les notes 3 jours pour tous et demande 200 titres à la fois ; l'appli (`RatingsLoader`,
-  `ratingsLoaderProvider`) **regroupe les titres d'une image** (rangée, page de grille : une
-  requête de 100 titres au plus, `prefetchRatings` dans `PosterRow`, `PosterGrid`, `PagedGrid(prefetch:)`,
-  filmographie, « Continuer à regarder » TV ; jamais une requête par carte), garde les réponses
-  en mémoire et **un jour sur l'appareil** (`LocalStore`, `vixeo.ratings`, 1 500 titres), et
-  redemande après 2 min un titre sans réponse. Affichage (`watchShownRating`, `ShownRating.pick`) :
-  la note du site choisi, **sinon celle de TMDb** (`vote_average`, sans requête quand TMDb est
-  choisi ; jamais IMDb à la place d'un autre site, demande du développeur, 20/11/2026) ; étoile verte, valeur sur l'échelle du site (« 8,8 », « 79 % », « 4,3 ») et **logo du
-  site** (`RatingLabel`, `RatingLogo` : PNG de `assets/images/ratings`, tirés de
-  `brand/ratings/*.svg` par `brand/tools/rating_logos.py` ; Simple Icons CC0, pop-corn de Lucide
-  pour le public de Rotten Tomatoes, licence ISC dans « Licences » ; hauteur réglée par site,
-  `RatingSource.logoHeight` ; TMDb garde son logo officiel `TmdbRating`), lu « Note IMDb : 8,8 sur
-  10 ». Cartes du téléphone (`CardRating`), grande image et
-  carrousel (`TitleFacts` attend la note avec le reste : rien ne bouge), fiche. **Fiche : un appui
-  sur la note** (`RatingButton`, petite flèche, focalisable à la télécommande ; demande du
-  développeur) ouvre **« Notes »** (`showAllRatings`, `ratings_sheet.dart` : feuille du bas sur
-  téléphone, fenêtre avec « Fermer » ailleurs) : chaque site qui note le titre, dans l'ordre du
-  réglage, logo, nom, note sur son échelle (« 8,8 / 10 », « 79 % »), « Votre source » sous le
-  site choisi ; sans réponse de MDBList, TMDb seul et une phrase. **Épisodes : aucune
-  note** (ni celle de TMDb : voir « Avis »). « Vider le cache » efface aussi les notes. Logo TMDb :
+- **Notes des titres : IMDb, sinon TMDb** (`features/ratings`, demande du développeur,
+  21/11/2026 ; API : `vixeo_backend/docs/notes.md`). **Plus de « Source des notes » ni de MDBList**
+  (supprimés le 21/11/2026 : réglage `rating_source`, `RatingSource`, `RatingsLoader`,
+  `GET /catalog/ratings`, logos des autres sites ; ne pas les réintroduire). L'API importe chaque
+  jour les jeux de données d'IMDb et donne `ratings` = `{imdb: {id, rating, votes} | null, tmdb:
+  {rating, votes}}` avec la fiche (`TitleDetails.ratings`), chaque épisode d'une saison
+  (`Episode.ratings`) et les titres qui ont un `summary` (accueil, recherche, recommandations,
+  `catalog/titles` : `MediaItem.ratings`, complété par `withDetails` ; `null` ailleurs, par exemple
+  « Voir tout » : `vote_average` de TMDb). Modèles `TitleRatings`, `SiteRating`, `RatingSite`
+  (`catalog/models.dart`) ; aucune requête de note par carte. Affichage (`TitleRatings.shown`,
+  `MediaItem.shownRating`) : **la note d'IMDb, sinon celle de TMDb**, chacune avec son logo
+  (`RatingLabel` : étoile verte, « 8,8 », `RatingLogo` : `assets/images/ratings/imdb.png`, tiré de
+  `brand/ratings/imdb.svg` par `brand/tools/rating_logos.py`, Simple Icons CC0 ; TMDb : son logo
+  officiel, `TmdbRating`), lu « Note IMDb : 8,8 sur 10 ». Cartes du téléphone (`CardRating`),
+  grande image et carrousel (`TitleFacts`, avec le reste : rien ne bouge), fiche, épisodes.
+  **Fiche : un appui sur la note** (`RatingButton`, petite flèche, focalisable à la télécommande)
+  ouvre **« Notes »** (`showAllRatings`, `ratings_sheet.dart` : feuille du bas sur téléphone,
+  fenêtre avec « Fermer » ailleurs) : IMDb puis TMDb, logo, nom, **nombre de votants**
+  (`formatVotes` : « 2 400 000 votants ») et note « 8,8 / 10 », ou « Pas de note ». **Épisode** :
+  sa note en haut à droite de l'image (`_RatingBadge`) ; un appui dessus (ou appui long / touche
+  menu sur la carte, à la télécommande) ouvre « Notes » ; rien en No spoil. « Vider le cache »
+  efface l'ancien cache des notes MDBList (`vixeo.ratings`). Logo TMDb :
   `assets/images/tmdb_short.png` (« Primary short » de themoviedb.org converti en PNG sans
   modification). Pas de page de confidentialité ni de mention TMDb dans l'appli (décision du
-  développeur). Tests : `test/ratings_test.dart`.
+  développeur). Tests : `test/ratings_test.dart`, `test/details_people_test.dart`.
 - **Recherche** (`features/search`, API : filtres de `/catalog/{type}/discover` et `/catalog/search`) :
   barre de filtres `SearchFilterBar` (Tout / Films / Séries / Chaînes TV / Personnes, genre,
   années, tri ; « Catégorie » pour les chaînes) ; `SearchFilters` donne les paramètres de l'API.
   **Ni filtre « Note » ni tri « Mieux notés » dans la recherche** (demande du développeur,
-  20/11/2026 : l'API ne connaît que la note TMDb, pas la source choisie ; `min_rating` et
-  `sort=rating` ne sont plus envoyés). « Ma liste », qui filtre et trie elle-même, les garde, sur
-  la note de la source choisie (`SearchFilterBar(ratingSource:)`, seuils en dixièmes de l'échelle
-  du site : « Note ≥ 7 », « Note ≥ 70 % », « Note ≥ 3,5 »). **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
+  20/11/2026 ; `min_rating` et `sort=rating` ne sont plus envoyés). « Ma liste », qui filtre et
+  trie elle-même, les garde, sur la note que montre chaque carte (IMDb, sinon TMDb ;
+  `SearchFilterBar(withRating: true)` : « Note ≥ 7 »). **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
   (demande du développeur) : dans « Tout », après Films et Séries, une section « Chaînes TV » et
   une section « Personnes » toujours affichées (une ligne « Aucune … » si vide ; masquées avec un
   filtre genre / années, qui ne s'applique qu'aux titres). **Sans recherche, aucun
@@ -632,13 +628,14 @@ lib/
   avec le badge « Épisode 3 » en haut à gauche ; **le texte est sur l'image, en bas**, sur un
   dégradé sombre (demande du développeur) : le titre (1 ligne), le résumé (**2 lignes au plus**,
   pour laisser voir l'image) et, sur la dernière ligne, la durée à gauche et la
-  date de diffusion à droite (**aucune note**, ni étoile, demande du développeur, 20/11/2026). Hauteur de carte fixe (`_EpisodeCard.heightOf` : 16:9, plus haute
+  date de diffusion à droite ; la note (IMDb, sinon TMDb) en haut à droite de l'image, qui ouvre
+  « Notes » (voir « Notes des titres ») ; ni durée, ni date, ni note en No spoil. Hauteur de carte fixe (`_EpisodeCard.heightOf` : 16:9, plus haute
   seulement si le texte du système est très grand). Changer de saison revient au premier épisode. Test :
   `test/details_people_test.dart`.
 - **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
   horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Sur téléphone** (demande du
-  développeur), sous chaque affiche : le titre sur une ligne, puis l'année à gauche et la note de
-  la source choisie avec son badge à droite (`CardRating` ; `PosterCard`, hauteur `PosterCard.captionHeightOf(context)`, que
+  développeur), sous chaque affiche : le titre sur une ligne, puis l'année à gauche et la note
+  (IMDb, sinon TMDb) avec le logo du site à droite (`CardRating` ; `PosterCard`, hauteur `PosterCard.captionHeightOf(context)`, que
   les rangées et les grilles ajoutent à l'image ; grilles : `posterGridDelegate(…,
   captionHeight:)`). **Tablette et TV : pas de nom sur les affiches**, dans les deux formats
   (l'image suffit) ; le nom n'est écrit que pour un titre sans aucune image, et reste dans le
@@ -736,8 +733,8 @@ lib/
   fiche film et série (saisons, épisodes avec date de diffusion, distribution, recommandations,
   bande-annonce, Ma liste, Vu, avis sur le film et la série), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (filtres type / genre / années, tri, grande image
-  sur grand écran, résultats groupés, recherches récentes synchronisées), notes des titres sur le
-  site choisi par le profil (IMDb par défaut, MDBList par l'API),
+  sur grand écran, résultats groupés, recherches récentes synchronisées), notes IMDb (jeux de
+  données importés par l'API) sinon TMDb, avec leurs votants (« Notes »), sur les titres et les épisodes,
   Ma liste, « Avis » (notes et commentaires), « Mon profil » (paramètres
   d’apparence, No spoil, langues et lecture automatique, code PIN parental dans « Mon compte »,
   restrictions dans « Modifier le profil »,

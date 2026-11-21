@@ -5,7 +5,6 @@ import '../../core/widgets/choice.dart';
 import '../account/info_page.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
-import '../ratings/rating_source.dart';
 import 'languages.dart';
 import 'no_spoiler.dart';
 import 'profile_settings_screen.dart';
@@ -36,22 +35,6 @@ class ProfilePreferencesScreen extends ConsumerWidget {
         {'poster_format': choice.$1!.name},
         done: 'Affiches au format ${choice.$1!.label.toLowerCase()}',
         icon: Icons.palette_outlined,
-      );
-    }
-
-    Future<void> pickRatingSource() async {
-      final choice = await showVxChoice<RatingSource>(
-        context,
-        title: 'Source des notes',
-        selected: profile.ratingSource,
-        options: [for (final source in RatingSource.values) (source, source.label)],
-      );
-      if (choice == null || choice.$1 == null || !context.mounted || choice.$1 == profile.ratingSource) return;
-      await saveProfile(
-        context,
-        {'rating_source': choice.$1!.name},
-        done: 'Notes : ${choice.$1!.label}',
-        icon: Icons.star_outline_rounded,
       );
     }
 
@@ -111,13 +94,6 @@ class ProfilePreferencesScreen extends ConsumerWidget {
               value: profile.posterFormat.label,
               autofocus: true,
               onPressed: pickAppearance,
-            ),
-            // The site whose rating the titles show (MDBList through the API; IMDb by default).
-            SettingsChoiceRow(
-              icon: Icons.star_outline_rounded,
-              label: 'Source des notes',
-              value: profile.ratingSource.label,
-              onPressed: pickRatingSource,
             ),
           ],
         ),

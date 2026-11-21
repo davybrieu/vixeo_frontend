@@ -1,13 +1,6 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:typed_data';
-
-import 'package:dio/dio.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vixeo/core/api/api_client.dart';
-import 'package:vixeo/core/local_store.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
@@ -17,41 +10,14 @@ import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/library/my_list_screen.dart';
 import 'package:vixeo/features/ratings/rating_view.dart';
-import 'package:vixeo/features/ratings/ratings.dart';
 import 'package:vixeo/features/ratings/ratings_sheet.dart';
 import 'package:vixeo/features/search/filter_bar.dart';
 import 'package:vixeo/features/social/social_repository.dart';
 
-/// Answers every request with [body] and records the requests.
-class _Adapter implements HttpClientAdapter {
-  _Adapter(this.body);
-
-  final Object body;
-  final requests = <RequestOptions>[];
-
-  @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancel) async {
-    requests.add(options);
-    return ResponseBody.fromString(
-      jsonEncode(body),
-      200,
-      headers: {
-        Headers.contentTypeHeader: ['application/json'],
-      },
-    );
-  }
-
-  @override
-  void close({bool force = false}) {}
-}
-
 class _Session extends SessionController {
-  _Session(this.profile);
-
-  final Profile profile;
-
   @override
-  SessionState build() => SessionState(status: SessionStatus.signedIn, token: 't', profile: profile);
+  SessionState build() =>
+      const SessionState(status: SessionStatus.signedIn, token: 't', profile: Profile(id: 1, name: 'Léa'));
 }
 
 class _NoLibrary extends LibraryController {
@@ -59,378 +25,239 @@ class _NoLibrary extends LibraryController {
   Future<LibraryState> build() async => const LibraryState({});
 }
 
-/// A loader answering from [ratings] (nothing for the other titles), counting its requests.
-RatingsLoader fakeLoader(Map<TitleRef, TitleRatings> ratings, {List<List<TitleRef>>? asked}) => RatingsLoader(
-  fetch: (titles) async {
-    asked?.add(titles);
-    return (ratings: {for (final t in titles) t: ratings[t] ?? TitleRatings.empty}, available: true);
-  },
+/// IMDb's logo, drawn from its file.
+final imdbLogo = find.byWidgetPredicate(
+  (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/images/ratings/imdb.png',
 );
 
-const dune = (type: MediaType.movie, id: 438631);
-
-/// The logo of [source], drawn from its file (TMDb: [TmdbLogo]).
-Finder logo(RatingSource source) => find.byWidgetPredicate(
-  (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == source.logoAsset,
+Widget app(Widget child, {Key? key}) => ProviderScope(
+  // A new scope (and app) per key: a new page, not an update of the last one.
+  key: key,
+  overrides: [
+    sessionProvider.overrideWith(_Session.new),
+    libraryProvider.overrideWith(_NoLibrary.new),
+  ],
+  child: MaterialApp(
+    theme: buildVixeoTheme(),
+    home: Scaffold(body: Center(child: child)),
+  ),
 );
-const severance = (type: MediaType.tv, id: 95396);
 
 void main() {
-  group('RatingSource', () {
-    test('writes each site\'s rating on its scale', () {
-      expect(RatingSource.imdb.format(8.8), '8,8');
-      expect(RatingSource.tomatoes.format(79), '79 %');
-      expect(RatingSource.metacritic.format(67), '67');
-      expect(RatingSource.letterboxd.format(4.3), '4,3');
-      expect(RatingSource.letterboxd.spoken(4.3), '4,3 sur 5');
-      expect(RatingSource.audience.spoken(96), '96 %');
-      // The « Note » filter of « Ma liste »: tenths of the scale.
-      expect(RatingSource.imdb.threshold(7), '7');
-      expect(RatingSource.letterboxd.threshold(7), '3,5');
-      expect(RatingSource.trakt.threshold(6), '60 %');
-      expect(RatingSource.metacritic.threshold(8), '80');
+  group('TitleRatings', () {
+    test('reads IMDb\'s and TMDb\'s ratings with their votes', () {
+      final ratings = TitleRatings.fromJson({
+        'imdb': {'id': 'tt0137523', 'rating': 8.8, 'votes': 2400000},
+        'tmdb': {'rating': 8.4, 'votes': 30000},
+      });
+      expect(ratings.imdb, const SiteRating(8.8, 2400000));
+      expect(ratings.imdbId, 'tt0137523');
+      expect(ratings.tmdb, const SiteRating(8.4, 30000));
+      expect(ratings.shown, (RatingSite.imdb, const SiteRating(8.8, 2400000)));
     });
 
-    test('a profile reads its source, IMDb by default', () {
-      final profile = Profile.fromJson({'id': 1, 'name': 'Léa', 'rating_source': 'letterboxd'});
-      expect(profile.ratingSource, RatingSource.letterboxd);
-      expect(Profile.fromJson({'id': 1, 'name': 'Léa'}).ratingSource, RatingSource.imdb);
-      expect(Profile.fromJson({'id': 1, 'name': 'Léa', 'rating_source': 'allocine'}).ratingSource, RatingSource.imdb);
-    });
-  });
+    test('IMDb\'s rating, else TMDb\'s, else none', () {
+      final tmdbOnly = TitleRatings.fromJson({
+        'imdb': null,
+        'tmdb': {'rating': 7.2, 'votes': 12},
+      });
+      expect(tmdbOnly.imdb, isNull);
+      expect(tmdbOnly.shown, (RatingSite.tmdb, const SiteRating(7.2, 12)));
 
-  test('shows the profile\'s site, else TMDb (never IMDb in between)', () {
-    const ratings = TitleRatings({RatingSource.imdb: 8.1, RatingSource.tomatoes: 92});
-    final tomatoes = ShownRating.pick(RatingSource.tomatoes, ratings, 7.4);
-    expect((tomatoes.source, tomatoes.value), (RatingSource.tomatoes, 92));
-    // No Letterboxd rating for a TV show: TMDb's, even with an IMDb rating.
-    final letterboxd = ShownRating.pick(RatingSource.letterboxd, ratings, 7.4);
-    expect((letterboxd.source, letterboxd.value), (RatingSource.tmdb, 7.4));
-    // IMDb chosen: IMDb's.
-    expect(ShownRating.pick(RatingSource.imdb, ratings, 7.4).source, RatingSource.imdb);
-    // Nothing from MDBList: the title's TMDb average.
-    final none = ShownRating.pick(RatingSource.imdb, TitleRatings.empty, 7.4);
-    expect((none.source, none.value), (RatingSource.tmdb, 7.4));
-    // TMDb chosen: its average, even with an IMDb rating.
-    expect(ShownRating.pick(RatingSource.tmdb, ratings, 7.4).source, RatingSource.tmdb);
-    expect(ShownRating.pick(RatingSource.imdb, null, 0).isNone, isTrue);
-    expect(tomatoes.fraction, closeTo(0.92, 0.001));
-    expect(letterboxd.fraction, closeTo(0.74, 0.001));
-  });
-
-  test('reads the API\'s answer, one request for 100 titles', () async {
-    final adapter = _Adapter({
-      'data': [
-        {
-          'type': 'movie',
-          'id': 438631,
-          'imdb': 8.0,
-          'tmdb': 7.8,
-          'trakt': 82,
-          'letterboxd': 3.9,
-          'tomatoes': 83,
-          'audience': 90,
-          'metacritic': 74,
-          'mal': null,
-        },
-        {'type': 'tv', 'id': 95396, 'imdb': null, 'tmdb': null},
-      ],
-      'available': true,
-    });
-    final repository = RatingsRepository(
-      ApiClient(
-        token: () => null,
-        profileId: () => null,
-        dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
-      ),
-    );
-
-    final answer = await repository.ratings([dune, severance]);
-
-    expect(adapter.requests.single.path, '/catalog/ratings');
-    expect(adapter.requests.single.queryParameters, {'ids': 'movie:438631,tv:95396'});
-    expect(answer.available, isTrue);
-    expect(answer.ratings[dune]![RatingSource.letterboxd], 3.9);
-    expect(answer.ratings[dune]![RatingSource.audience], 90);
-    expect(answer.ratings[dune]![RatingSource.mal], isNull);
-    // Known by MDBList, no rating: empty (kept, not asked again).
-    expect(answer.ratings[severance]!.isEmpty, isTrue);
-  });
-
-  group('RatingsLoader', () {
-    test('asks the titles of a frame together, 100 per request, each once', () async {
-      final asked = <List<TitleRef>>[];
-      final titles = [for (var i = 1; i <= 150; i++) (type: MediaType.movie, id: i)];
-      final loader = fakeLoader({for (final t in titles) t: const TitleRatings({RatingSource.imdb: 7})}, asked: asked);
-
-      final results = await Future.wait([for (final t in titles) loader.get(t), loader.get(titles.first)]);
-
-      expect(asked.map((request) => request.length), [100, 50]);
-      expect(results.every((r) => r[RatingSource.imdb] == 7), isTrue);
-      // Known now: no request.
-      expect(loader.peek(titles.last)?[RatingSource.imdb], 7);
-      await loader.get(titles.last);
-      expect(asked, hasLength(2));
+      final none = TitleRatings.fromJson({
+        'imdb': null,
+        'tmdb': {'rating': null, 'votes': 0},
+      });
+      expect(none.isEmpty, isTrue);
+      expect(none.shown, isNull);
     });
 
-    test('without an answer, TMDb meanwhile and asked again 2 minutes later', () async {
-      var now = DateTime(2026, 11, 20, 12);
-      var calls = 0;
-      var fail = true;
-      final loader = RatingsLoader(
-        now: () => now,
-        fetch: (titles) async {
-          calls++;
-          if (fail) throw Exception('Pas de réseau.');
-          return (ratings: {for (final t in titles) t: const TitleRatings({RatingSource.imdb: 8})}, available: true);
-        },
-      );
-
-      expect((await loader.get(dune)).isEmpty, isTrue);
-      fail = false;
-      expect((await loader.get(dune)).isEmpty, isTrue);
-      expect(calls, 1);
-
-      now = now.add(const Duration(minutes: 3));
-      expect((await loader.get(dune))[RatingSource.imdb], 8);
-      expect(calls, 2);
+    test('without `ratings` (an older API): TMDb\'s average', () {
+      expect(TitleRatings.fromJson(null, voteAverage: 6.5, voteCount: 40).shown, (
+        RatingSite.tmdb,
+        const SiteRating(6.5, 40),
+      ));
+      expect(TitleRatings.fromJson(null).isEmpty, isTrue);
     });
 
-    test('a title the API could not ask MDBList for is asked again later', () async {
-      var now = DateTime(2026, 11, 20, 12);
-      final asked = <List<TitleRef>>[];
-      var available = false;
-      final loader = RatingsLoader(
-        now: () => now,
-        fetch: (titles) async {
-          asked.add(titles);
-          return (
-            ratings: {if (available) for (final t in titles) t: const TitleRatings({RatingSource.tomatoes: 95})},
-            available: available,
-          );
-        },
-      );
-
-      expect((await loader.get(severance)).isEmpty, isTrue);
-      available = true;
-      now = now.add(const Duration(minutes: 3));
-      expect((await loader.get(severance))[RatingSource.tomatoes], 95);
-      expect(asked, hasLength(2));
-    });
-
-    test('reads the ratings kept on the device for a day: no request for them', () async {
-      final now = DateTime(2026, 11, 20, 12);
-      int seconds(Duration ago) => now.subtract(ago).millisecondsSinceEpoch ~/ 1000;
-      final store = MemoryLocalStore();
-      store.values[RatingsLoader.storeKey] = jsonEncode({
-        'v': 1,
-        'sources': ['imdb', 'tmdb', 'a-site-removed-since'],
-        'items': {
-          'movie:438631': [seconds(const Duration(hours: 2)), 8.0, 7.8, 5],
-          // Older than a day: asked again.
-          'tv:95396': [seconds(const Duration(hours: 30)), 8.7, null, null],
+    test('title pages, episodes and list items read them', () {
+      final details = TitleDetails.fromJson({
+        'id': 550,
+        'type': 'movie',
+        'title': 'Fight Club',
+        'vote_average': 8.4,
+        'vote_count': 30000,
+        'ratings': {
+          'imdb': {'id': 'tt0137523', 'rating': 8.8, 'votes': 2400000},
+          'tmdb': {'rating': 8.4, 'votes': 30000},
         },
       });
-      final asked = <List<TitleRef>>[];
-      final loader = RatingsLoader(
-        store: store,
-        now: () => now,
-        fetch: (titles) async {
-          asked.add(titles);
-          return (ratings: {for (final t in titles) t: const TitleRatings({RatingSource.imdb: 8.6})}, available: true);
-        },
-      );
-      // The device is read at once, without waiting for a title.
-      await Future<void>.delayed(Duration.zero);
+      expect(details.ratings.shown?.$1, RatingSite.imdb);
 
-      expect((await loader.get(dune)).values, {RatingSource.imdb: 8.0, RatingSource.tmdb: 7.8});
-      expect((await loader.get(severance))[RatingSource.imdb], 8.6);
-      expect(asked, [
-        [severance],
-      ]);
+      final episode = Episode.fromJson({
+        'id': 1,
+        'episode_number': 1,
+        'name': 'Pilote',
+        'vote_average': 7.9,
+        'vote_count': 300,
+        'ratings': {
+          'imdb': {'id': 'tt1480055', 'rating': 8.9, 'votes': 50000},
+          'tmdb': {'rating': 7.9, 'votes': 300},
+        },
+      });
+      expect(episode.ratings.imdb, const SiteRating(8.9, 50000));
+
+      // A list item: its `ratings` when given (with its summary), else TMDb's average.
+      final item = MediaItem.fromJson({
+        'id': 550,
+        'type': 'movie',
+        'title': 'Fight Club',
+        'vote_average': 8.4,
+        'ratings': {
+          'imdb': {'id': 'tt0137523', 'rating': 8.8, 'votes': 2400000},
+          'tmdb': {'rating': 8.4, 'votes': 30000},
+        },
+      });
+      expect(item.shownRating, (RatingSite.imdb, const SiteRating(8.8, 2400000)));
+      final light = MediaItem.fromJson({
+        'id': 550,
+        'type': 'movie',
+        'title': 'Fight Club',
+        'vote_average': 8.4,
+        'ratings': null,
+      });
+      expect(light.ratings, isNull);
+      expect(light.shownRating?.$1, RatingSite.tmdb);
+      // Completed by its catalog entry: IMDb's then.
+      expect(light.withDetails(item).shownRating?.$1, RatingSite.imdb);
     });
 
-    testWidgets('keeps the answers on the device, read at the next launch', (tester) async {
-      final store = MemoryLocalStore();
-      final first = fakeLoader({dune: const TitleRatings({RatingSource.tomatoes: 79})});
-      final saving = RatingsLoader(fetch: first.fetch, store: store);
-      addTearDown(saving.dispose);
-      unawaited(saving.get(dune));
-      await tester.pump();
-      // Saved a few seconds after the answers.
-      await tester.pump(const Duration(seconds: 6));
-      expect(store.values[RatingsLoader.storeKey], contains('movie:438631'));
-
-      final next = RatingsLoader(fetch: (titles) async => throw Exception('not asked'), store: store);
-      addTearDown(next.dispose);
-      await tester.pump();
-      expect(next.peek(dune)?[RatingSource.tomatoes], 79);
-
-      // « Vider le cache »: gone, on the device too.
-      next.clear();
-      await tester.pump();
-      expect(next.peek(dune), isNull);
-      expect(store.values, isEmpty);
+    test('writes the votes in French', () {
+      expect(formatVotes(2400000), '2 400 000 votants');
+      expect(formatVotes(30000), '30 000 votants');
+      expect(formatVotes(999), '999 votants');
+      expect(formatVotes(1), '1 votant');
     });
   });
 
   group('display', () {
-    Widget app(Widget child, {RatingSource source = RatingSource.imdb, RatingsLoader? loader}) => ProviderScope(
-      // A new scope per source (overrides are read once per scope).
-      key: ValueKey(source),
-      overrides: [
-        sessionProvider.overrideWith(() => _Session(Profile(id: 1, name: 'Léa', ratingSource: source))),
-        libraryProvider.overrideWith(_NoLibrary.new),
-        ratingsLoaderProvider.overrideWithValue(loader ?? fakeLoader(const {})),
-      ],
-      child: MaterialApp(
-        theme: buildVixeoTheme(),
-        home: Scaffold(body: Center(child: child)),
-      ),
-    );
-
-    testWidgets('a rating with its site: value, tag, read with its scale', (tester) async {
+    testWidgets('a rating with its site\'s logo, read with its scale', (tester) async {
       await tester.pumpWidget(
         app(
           const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              RatingLabel(source: RatingSource.imdb, value: 8.8),
-              RatingLabel(source: RatingSource.tomatoes, value: 79),
-              RatingLabel(source: RatingSource.tmdb, value: 7.1),
+              RatingLabel(site: RatingSite.imdb, value: 8.8),
+              RatingLabel(site: RatingSite.tmdb, value: 7.1),
             ],
           ),
         ),
       );
 
       expect(find.text('8,8'), findsOneWidget);
-      expect(logo(RatingSource.imdb), findsOneWidget);
+      expect(imdbLogo, findsOneWidget);
       expect(find.bySemanticsLabel('Note IMDb : 8,8 sur 10'), findsOneWidget);
-      expect(find.text('79 %'), findsOneWidget);
-      expect(logo(RatingSource.tomatoes), findsOneWidget);
-      expect(find.bySemanticsLabel('Note Rotten Tomatoes (critiques) : 79 %'), findsOneWidget);
-      // TMDb keeps its logo.
+      // TMDb keeps its official logo.
+      expect(find.text('7,1'), findsOneWidget);
       expect(find.byType(TmdbLogo), findsOneWidget);
+      expect(find.bySemanticsLabel('Note TMDb : 7,1 sur 10'), findsOneWidget);
     });
 
-    testWidgets('phone card: the profile\'s site under the poster, else TMDb', (tester) async {
+    testWidgets('phone card: IMDb\'s rating given with the title, else TMDb\'s', (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      const card = MediaItem(id: 438631, type: MediaType.movie, title: 'Dune', year: 2021, voteAverage: 7.8);
-      final loader = fakeLoader({dune: const TitleRatings({RatingSource.imdb: 8.0, RatingSource.letterboxd: 3.9})});
-
-      await tester.pumpWidget(
-        app(const PosterCard(item: card, width: 116), source: RatingSource.letterboxd, loader: loader),
+      const rated = MediaItem(
+        id: 438631,
+        type: MediaType.movie,
+        title: 'Dune',
+        year: 2021,
+        voteAverage: 7.8,
+        ratings: TitleRatings(imdb: SiteRating(8.0, 900000), tmdb: SiteRating(7.8, 12000)),
       );
-      // Asked after the frame, then shown.
-      await tester.pump();
-      await tester.pump();
-      expect(find.text('3,9'), findsOneWidget);
-      expect(logo(RatingSource.letterboxd), findsOneWidget);
 
-      // Rotten Tomatoes chosen, none for this title: TMDb's, not IMDb's (known already: at once).
-      await tester.pumpWidget(
-        app(const PosterCard(item: card, width: 116), source: RatingSource.tomatoes, loader: loader),
-      );
-      await tester.pump();
-      expect(find.text('8,0'), findsNothing);
-      expect(logo(RatingSource.imdb), findsNothing);
-      expect(find.byType(TmdbRating), findsOneWidget);
-    });
+      await tester.pumpWidget(app(const PosterCard(item: rated, width: 116)));
+      expect(find.text('8,0'), findsOneWidget);
+      expect(imdbLogo, findsOneWidget);
 
-    testWidgets('a press on the title page\'s rating shows every site\'s rating', (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final loader = fakeLoader({
-        dune: const TitleRatings({
-          RatingSource.imdb: 8.0,
-          RatingSource.tmdb: 7.9,
-          RatingSource.tomatoes: 83,
-          RatingSource.audience: 90,
-          RatingSource.letterboxd: 3.9,
-        }),
-      });
-      final shown = ShownRating.pick(RatingSource.tomatoes, await loader.get(dune), 7.8);
-
+      // No ratings with the item (a « Voir tout » page): TMDb's average, at once.
       await tester.pumpWidget(
         app(
-          RatingButton(rating: shown, title: dune, name: 'Dune : Deuxième partie', tmdb: 7.8),
-          source: RatingSource.tomatoes,
-          loader: loader,
+          const PosterCard(item: MediaItem(id: 1, type: MediaType.movie, title: 'Dune', voteAverage: 7.8), width: 116),
+          key: const ValueKey(2),
         ),
       );
-      expect(
-        find.bySemanticsLabel('Note Rotten Tomatoes (critiques) : 83\u202f%. Voir toutes les notes'),
-        findsOneWidget,
-      );
+      expect(imdbLogo, findsNothing);
+      expect(find.byType(TmdbRating), findsOneWidget);
+      expect(find.text('7,8'), findsOneWidget);
+    });
 
+    testWidgets('« Notes »: both sites with their votes, « Pas de note » for a missing one', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        app(
+          const RatingButton(
+            ratings: TitleRatings(imdb: SiteRating(8.8, 2400000), tmdb: SiteRating(8.4, 30000)),
+            name: 'Fight Club',
+          ),
+        ),
+      );
       await tester.tap(find.byType(RatingButton));
       await tester.pumpAndSettle();
 
       expect(find.text('Notes'), findsOneWidget);
-      expect(find.text('Dune : Deuxième partie'), findsOneWidget);
-      // Every site that rates it, in the setting's order, each on its scale; TMDb's own average.
-      expect(find.bySemanticsLabel('IMDb : 8,0 sur 10'), findsOneWidget);
-      expect(find.bySemanticsLabel('TMDb : 7,8 sur 10'), findsOneWidget);
-      expect(find.bySemanticsLabel('Rotten Tomatoes (critiques) : 83\u202f%, votre source'), findsOneWidget);
-      expect(find.bySemanticsLabel('Rotten Tomatoes (public) : 90\u202f%'), findsOneWidget);
-      expect(find.bySemanticsLabel('Letterboxd : 3,9 sur 5'), findsOneWidget);
-      expect(find.text('Votre source'), findsOneWidget);
-      // Each with its logo, TMDb's official one included.
-      final sheet = find.byType(BottomSheet);
-      for (final site in [RatingSource.imdb, RatingSource.tomatoes, RatingSource.audience, RatingSource.letterboxd]) {
-        expect(find.descendant(of: sheet, matching: logo(site)), findsOneWidget, reason: site.name);
-      }
-      expect(find.descendant(of: sheet, matching: find.byType(TmdbLogo)), findsOneWidget);
-      // No rating there: not listed.
-      expect(find.text('Metacritic'), findsNothing);
-      expect(find.text('MyAnimeList'), findsNothing);
-      expect(
-        tester.getTopLeft(find.text('IMDb').last).dy,
-        lessThan(tester.getTopLeft(find.text('Letterboxd')).dy),
-      );
-    });
+      expect(find.text('Fight Club'), findsOneWidget);
+      expect(find.text('2 400 000 votants'), findsOneWidget);
+      expect(find.text('30 000 votants'), findsOneWidget);
+      expect(find.bySemanticsLabel('IMDb : 8,8 sur 10, 2 400 000 votants'), findsOneWidget);
+      expect(find.bySemanticsLabel('TMDb : 8,4 sur 10, 30 000 votants'), findsOneWidget);
 
-    testWidgets('all ratings: TMDb alone when MDBList has nothing, with a sentence', (tester) async {
+      Navigator.of(tester.element(find.text('Notes'))).pop();
+      await tester.pumpAndSettle();
       await tester.pumpWidget(
         app(
-          Builder(
-            builder: (context) => TextButton(
-              onPressed: () => showAllRatings(context, title: severance, name: 'Severance', tmdb: 8.4),
-              child: const Text('Ouvrir'),
-            ),
-          ),
+          const RatingButton(ratings: TitleRatings(imdb: SiteRating(6.1, 80)), name: 'Inédit'),
+          key: const ValueKey(2),
         ),
       );
-      await tester.tap(find.text('Ouvrir'));
+      await tester.tap(find.byType(RatingButton));
       await tester.pumpAndSettle();
-
-      expect(find.bySemanticsLabel('TMDb : 8,4 sur 10'), findsOneWidget);
-      expect(find.text('Les notes des autres sites ne sont pas disponibles pour le moment.'), findsOneWidget);
+      expect(find.text('Pas de note'), findsOneWidget);
+      expect(find.bySemanticsLabel('TMDb : pas de note'), findsOneWidget);
     });
 
-    testWidgets('« Ma liste » sorts and filters on the profile\'s site, not TMDb', (tester) async {
+    testWidgets('« Ma liste » sorts and filters on the rating each card shows', (tester) async {
       tester.view.physicalSize = const Size(430, 1400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       const a = MediaItem(id: 1, type: MediaType.movie, title: 'Arrakis', voteAverage: 9);
       const b = MediaItem(id: 2, type: MediaType.movie, title: 'Bene', voteAverage: 5);
       const c = MediaItem(id: 3, type: MediaType.tv, title: 'Caladan', voteAverage: 7);
-      final loader = fakeLoader({
-        (type: MediaType.movie, id: 1): const TitleRatings({RatingSource.imdb: 6}),
-        (type: MediaType.movie, id: 2): const TitleRatings({RatingSource.imdb: 8.5}),
-      });
+      // Their catalog entries (one request for the list) give IMDb's ratings, Caladan none.
+      final details = {
+        (type: MediaType.movie, id: 1): const MediaItem(
+          id: 1,
+          type: MediaType.movie,
+          title: 'Arrakis',
+          ratings: TitleRatings(imdb: SiteRating(6, 10), tmdb: SiteRating(9, 10)),
+        ),
+        (type: MediaType.movie, id: 2): const MediaItem(
+          id: 2,
+          type: MediaType.movie,
+          title: 'Bene',
+          ratings: TitleRatings(imdb: SiteRating(8.5, 10), tmdb: SiteRating(5, 10)),
+        ),
+      };
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            sessionProvider.overrideWith(() => _Session(const Profile(id: 1, name: 'Léa'))),
+            sessionProvider.overrideWith(_Session.new),
             libraryProvider.overrideWith(_NoLibrary.new),
-            ratingsLoaderProvider.overrideWithValue(loader),
             allGenresProvider.overrideWith((ref) async => const {MediaType.movie: <Genre>[], MediaType.tv: <Genre>[]}),
             socialTitlesProvider.overrideWith((ref, username) async => const [a, b, c]),
-            titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
+            titlesByIdProvider.overrideWith((ref, key) async => details),
           ],
           child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: MyListScreen(username: 'max'))),
         ),
@@ -461,7 +288,6 @@ void main() {
       await choose('Tri :', 'Mieux notés');
       expect(order(), ['Bene', 'Caladan', 'Arrakis']);
 
-      // « Note » on IMDb's scale.
       await choose('Note', '7 et plus');
       expect(find.text('Note ≥ 7'), findsOneWidget);
       expect(order(), ['Bene', 'Caladan']);

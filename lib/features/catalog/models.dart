@@ -25,6 +25,7 @@ class MediaItem {
     this.overview,
     this.year,
     this.voteAverage = 0,
+    this.ratings,
     this.posterUrl,
     this.backdropUrl,
     this.posterPath,
@@ -42,6 +43,7 @@ class MediaItem {
     overview: json['overview'] as String?,
     year: json['year'] as int?,
     voteAverage: _double(json['vote_average']),
+    ratings: json['ratings'] is Map<String, dynamic> ? TitleRatings.fromJson(json['ratings']) : null,
     posterUrl: json['poster_url'] as String?,
     backdropUrl: json['backdrop_url'] as String?,
     posterPath: json['poster_path'] as String?,
@@ -65,6 +67,7 @@ class MediaItem {
           overview: overview ?? details.overview,
           year: year ?? details.year,
           voteAverage: voteAverage > 0 ? voteAverage : details.voteAverage,
+          ratings: ratings ?? details.ratings,
           posterUrl: posterUrl ?? details.posterUrl,
           backdropUrl: backdropUrl ?? details.backdropUrl,
           posterPath: posterPath ?? details.posterPath,
@@ -81,6 +84,10 @@ class MediaItem {
   final String? overview;
   final int? year;
   final double voteAverage;
+
+  /// IMDb's and TMDb's ratings, given with the items that have a [summary] (home, search,
+  /// recommendations, `GET /catalog/titles`); null elsewhere: TMDb's [voteAverage] is shown.
+  final TitleRatings? ratings;
   final String? posterUrl;
   final String? backdropUrl;
   final String? posterPath;
@@ -96,6 +103,10 @@ class MediaItem {
 
   /// TMDb genre ids (filters of Ma liste).
   final List<int> genreIds;
+
+  /// The rating its card shows: IMDb's when given, else TMDb's average; null when neither rates it.
+  (RatingSite, SiteRating)? get shownRating =>
+      (ratings ?? TitleRatings.fromJson(null, voteAverage: voteAverage)).shown;
 
   /// Title logo at the size of a card (w300: lighter than the hero's w500, so it comes with the image).
   String? get cardLogoUrl => tmdbImageSize(logoUrl, 'w300');
@@ -303,6 +314,80 @@ class SeasonSummary {
   final int episodeCount;
 }
 
+/// A site whose rating the app shows: IMDb's (imported from IMDb's datasets by the API), else
+/// TMDb's (vixeo_backend/docs/notes.md).
+enum RatingSite {
+  imdb('IMDb'),
+  tmdb('TMDb');
+
+  const RatingSite(this.label);
+
+  /// Name shown in « Notes » and read by screen readers.
+  final String label;
+}
+
+/// A rating out of 10 and its number of votes.
+@immutable
+class SiteRating {
+  const SiteRating(this.value, this.votes);
+
+  final double value;
+  final int votes;
+
+  @override
+  bool operator ==(Object other) => other is SiteRating && other.value == value && other.votes == votes;
+
+  @override
+  int get hashCode => Object.hash(value, votes);
+}
+
+/// IMDb's and TMDb's ratings of a movie, a TV show or an episode, with their votes (`ratings` of the
+/// API, RatingsResource). [imdb] null: IMDb doesn't rate it (or the title has no IMDb id); [tmdb]
+/// null: nobody voted on TMDb yet.
+@immutable
+class TitleRatings {
+  const TitleRatings({this.imdb, this.imdbId, this.tmdb});
+
+  /// `ratings` of the API; without it (older API), TMDb's [voteAverage] / [voteCount] alone.
+  factory TitleRatings.fromJson(Object? json, {double voteAverage = 0, int voteCount = 0}) {
+    SiteRating? parse(Object? site) => switch (site) {
+      {'rating': final num value, 'votes': final num votes} when value > 0 => SiteRating(
+        value.toDouble(),
+        votes.toInt(),
+      ),
+      _ => null,
+    };
+    if (json is! Map<String, dynamic>) {
+      return TitleRatings(tmdb: voteAverage > 0 ? SiteRating(voteAverage, voteCount) : null);
+    }
+    final imdb = json['imdb'];
+    return TitleRatings(
+      imdb: parse(imdb),
+      imdbId: imdb is Map<String, dynamic> ? imdb['id'] as String? : null,
+      tmdb: parse(json['tmdb']),
+    );
+  }
+
+  static const none = TitleRatings();
+
+  final SiteRating? imdb;
+
+  /// IMDb id of the rated title (tt…).
+  final String? imdbId;
+  final SiteRating? tmdb;
+
+  SiteRating? operator [](RatingSite site) => site == RatingSite.imdb ? imdb : tmdb;
+
+  /// The rating shown next to the title: IMDb's, else TMDb's; null when neither rates it.
+  (RatingSite, SiteRating)? get shown => switch ((imdb, tmdb)) {
+    (final imdb?, _) => (RatingSite.imdb, imdb),
+    (null, final tmdb?) => (RatingSite.tmdb, tmdb),
+    _ => null,
+  };
+
+  bool get isEmpty => imdb == null && tmdb == null;
+}
+
 /// Movie page (MovieResource) or TV show page (ShowResource).
 class TitleDetails {
   const TitleDetails({
@@ -316,6 +401,7 @@ class TitleDetails {
     this.numberOfSeasons = 0,
     this.genres = const [],
     this.voteAverage = 0,
+    this.ratings = TitleRatings.none,
     this.ageRating,
     this.posterUrl,
     this.backdropUrl,
@@ -345,6 +431,11 @@ class TitleDetails {
       numberOfSeasons: json['number_of_seasons'] as int? ?? 0,
       genres: _list(json['genres'], Genre.fromJson),
       voteAverage: _double(json['vote_average']),
+      ratings: TitleRatings.fromJson(
+        json['ratings'],
+        voteAverage: _double(json['vote_average']),
+        voteCount: json['vote_count'] as int? ?? 0,
+      ),
       ageRating: json['age_rating'] as int?,
       posterUrl: json['poster_url'] as String?,
       backdropUrl: json['backdrop_url'] as String?,
@@ -378,6 +469,9 @@ class TitleDetails {
   final int numberOfSeasons;
   final List<Genre> genres;
   final double voteAverage;
+
+  /// IMDb's and TMDb's ratings: IMDb's shown, else TMDb's; both in « Notes ».
+  final TitleRatings ratings;
 
   /// Minimum age (0 = all audiences), null if unknown.
   final int? ageRating;
@@ -416,6 +510,7 @@ class TitleDetails {
     overview: overview,
     year: year,
     voteAverage: voteAverage,
+    ratings: ratings,
     posterUrl: posterUrl,
     backdropUrl: backdropUrl,
     posterPath: posterPath,
@@ -433,6 +528,7 @@ class Episode {
     this.runtime,
     this.stillUrl,
     this.voteAverage = 0,
+    this.ratings = TitleRatings.none,
     this.airDate,
   });
 
@@ -445,6 +541,11 @@ class Episode {
     runtime: json['runtime'] as int?,
     stillUrl: json['still_url'] as String?,
     voteAverage: _double(json['vote_average']),
+    ratings: TitleRatings.fromJson(
+      json['ratings'],
+      voteAverage: _double(json['vote_average']),
+      voteCount: json['vote_count'] as int? ?? 0,
+    ),
     airDate: DateTime.tryParse(json['air_date'] as String? ?? ''),
   );
 
@@ -456,6 +557,9 @@ class Episode {
   final int? runtime;
   final String? stillUrl;
   final double voteAverage;
+
+  /// IMDb's and TMDb's ratings of the episode.
+  final TitleRatings ratings;
 
   /// First broadcast (null when TMDb doesn't know it yet).
   final DateTime? airDate;
@@ -580,3 +684,10 @@ String formatRuntime(int? minutes) {
 
 /// "8,4" (French decimal comma).
 String formatRating(double value) => value.toStringAsFixed(1).replaceAll('.', ',');
+
+/// "2 400 000 votants", "1 votant" (thousands separated by a narrow no-break space).
+String formatVotes(int votes) {
+  final digits = '$votes';
+  final grouped = digits.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '\u202F');
+  return '$grouped ${votes > 1 ? 'votants' : 'votant'}';
+}
