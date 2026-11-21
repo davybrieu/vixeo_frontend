@@ -107,7 +107,7 @@ void main() {
       });
       expect(episode.ratings.imdb, const SiteRating(8.9, 50000));
 
-      // A list item: its `ratings` when given (with its summary), else TMDb's average.
+      // A list item: its `ratings`, IMDb's first; without them, no rating (not TMDb's average).
       final item = MediaItem.fromJson({
         'id': 550,
         'type': 'movie',
@@ -127,7 +127,7 @@ void main() {
         'ratings': null,
       });
       expect(light.ratings, isNull);
-      expect(light.shownRating?.$1, RatingSite.tmdb);
+      expect(light.shownRating, isNull);
       // Completed by its catalog entry: IMDb's then.
       expect(light.withDetails(item).shownRating?.$1, RatingSite.imdb);
     });
@@ -181,16 +181,36 @@ void main() {
       expect(find.text('8,0'), findsOneWidget);
       expect(imdbLogo, findsOneWidget);
 
-      // No ratings with the item (a « Voir tout » page): TMDb's average, at once.
+      // IMDb doesn't rate it: TMDb's, as a fallback.
       await tester.pumpWidget(
         app(
-          const PosterCard(item: MediaItem(id: 1, type: MediaType.movie, title: 'Dune', voteAverage: 7.8), width: 116),
+          const PosterCard(
+            item: MediaItem(
+              id: 1,
+              type: MediaType.movie,
+              title: 'Dune',
+              voteAverage: 7.8,
+              ratings: TitleRatings(tmdb: SiteRating(7.8, 12000)),
+            ),
+            width: 116,
+          ),
           key: const ValueKey(2),
         ),
       );
       expect(imdbLogo, findsNothing);
       expect(find.byType(TmdbRating), findsOneWidget);
       expect(find.text('7,8'), findsOneWidget);
+
+      // No ratings with the item (a light home row not completed yet): no rating, not TMDb's average.
+      await tester.pumpWidget(
+        app(
+          const PosterCard(item: MediaItem(id: 1, type: MediaType.movie, title: 'Dune', voteAverage: 7.8), width: 116),
+          key: const ValueKey(3),
+        ),
+      );
+      expect(imdbLogo, findsNothing);
+      expect(find.byType(TmdbRating), findsNothing);
+      expect(find.text('7,8'), findsNothing);
     });
 
     testWidgets('« Notes »: both sites with their votes, « Pas de note » for a missing one', (tester) async {
@@ -236,7 +256,7 @@ void main() {
       const a = MediaItem(id: 1, type: MediaType.movie, title: 'Arrakis', voteAverage: 9);
       const b = MediaItem(id: 2, type: MediaType.movie, title: 'Bene', voteAverage: 5);
       const c = MediaItem(id: 3, type: MediaType.tv, title: 'Caladan', voteAverage: 7);
-      // Their catalog entries (one request for the list) give IMDb's ratings, Caladan none.
+      // Their catalog entries (one request for the list) give IMDb's ratings, Caladan only TMDb's.
       final details = {
         (type: MediaType.movie, id: 1): const MediaItem(
           id: 1,
@@ -249,6 +269,12 @@ void main() {
           type: MediaType.movie,
           title: 'Bene',
           ratings: TitleRatings(imdb: SiteRating(8.5, 5000), tmdb: SiteRating(5, 10)),
+        ),
+        (type: MediaType.tv, id: 3): const MediaItem(
+          id: 3,
+          type: MediaType.tv,
+          title: 'Caladan',
+          ratings: TitleRatings(tmdb: SiteRating(7, 300)),
         ),
       };
       await tester.pumpWidget(
@@ -293,7 +319,7 @@ void main() {
       expect(find.text('Note ≥ 7'), findsOneWidget);
       expect(order(), ['Bene', 'Caladan']);
 
-      // « Votants »: those of the rating shown (IMDb's 5 000 for Bene; Caladan's unknown).
+      // « Votants »: those of the rating shown (IMDb's 5 000 for Bene, TMDb's 300 for Caladan).
       await choose('Votants', '${formatVotes(1000)} et plus');
       expect(find.text('Votants ≥ ${formatCount(1000)}'), findsOneWidget);
       expect(order(), ['Bene']);

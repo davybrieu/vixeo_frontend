@@ -208,10 +208,11 @@ void main() {
       title: 'Nord Sauvage',
       year: 2026,
       voteAverage: 8.4,
+      ratings: TitleRatings(tmdb: SiteRating(8.4, 900)),
       posterUrl: 'https://image.tmdb.org/t/p/w342/p.jpg',
       backdropUrl: 'https://image.tmdb.org/t/p/w780/b.jpg',
     );
-    // No IMDb rating given with this title: TMDb's, with its logo.
+    // IMDb doesn't rate this title: TMDb's, with its logo.
     for (final format in PosterFormat.values) {
       await tester.pumpWidget(app(PosterCard(item: item, width: 116, format: format)));
       await tester.pump();

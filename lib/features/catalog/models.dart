@@ -85,8 +85,8 @@ class MediaItem {
   final int? year;
   final double voteAverage;
 
-  /// IMDb's and TMDb's ratings, given with the items that have a [summary] (home, search,
-  /// recommendations, `GET /catalog/titles`); null elsewhere: TMDb's [voteAverage] is shown.
+  /// IMDb's and TMDb's ratings, given with every list of titles; null for the light home rows
+  /// (until completed by `GET /catalog/titles`) or a title TMDb could not give: no rating is shown.
   final TitleRatings? ratings;
   final String? posterUrl;
   final String? backdropUrl;
@@ -104,9 +104,10 @@ class MediaItem {
   /// TMDb genre ids (filters of Ma liste).
   final List<int> genreIds;
 
-  /// The rating its card shows: IMDb's when given, else TMDb's average; null when neither rates it.
-  (RatingSite, SiteRating)? get shownRating =>
-      (ratings ?? TitleRatings.fromJson(null, voteAverage: voteAverage)).shown;
+  /// The rating its card shows: IMDb's, else TMDb's (only a fallback, developer's request,
+  /// 21/11/2026); null when neither rates it, or without [ratings]: TMDb's [voteAverage] alone would
+  /// pass for the rating chosen while IMDb may have one.
+  (RatingSite, SiteRating)? get shownRating => ratings?.shown;
 
   /// Title logo at the size of a card (w300: lighter than the hero's w500, so it comes with the image).
   String? get cardLogoUrl => tmdbImageSize(logoUrl, 'w300');

@@ -554,9 +554,11 @@ lib/
   `GET /catalog/ratings`, logos des autres sites ; ne pas les réintroduire). L'API importe chaque
   jour les jeux de données d'IMDb et donne `ratings` = `{imdb: {id, rating, votes} | null, tmdb:
   {rating, votes}}` avec la fiche (`TitleDetails.ratings`), chaque épisode d'une saison
-  (`Episode.ratings`) et les titres qui ont un `summary` (accueil, recherche, recommandations,
-  `catalog/titles` : `MediaItem.ratings`, complété par `withDetails` ; `null` ailleurs, par exemple
-  « Voir tout » : `vote_average` de TMDb). Modèles `TitleRatings`, `SiteRating`, `RatingSite`
+  (`Episode.ratings`) et **toutes les listes de titres** (`MediaItem.ratings`, complété par
+  `withDetails` ; demande du développeur, 21/11/2026 : la note IMDb partout, TMDb seulement en
+  secours). Sans `ratings` (rangée légère de l'accueil pas encore complétée, titre que TMDb n'a pas
+  pu donner) : **aucune note** (`MediaItem.shownRating` null), jamais `vote_average` seul, qui
+  passerait pour la note choisie. Modèles `TitleRatings`, `SiteRating`, `RatingSite`
   (`catalog/models.dart`) ; aucune requête de note par carte. Affichage (`TitleRatings.shown`,
   `MediaItem.shownRating`) : **la note d'IMDb, sinon celle de TMDb**, chacune avec son logo
   (`RatingLabel` : étoile verte, « 8,8 », `RatingLogo` : `assets/images/ratings/imdb.png`, tiré de
