@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
@@ -16,6 +17,7 @@ import '../catalog/widgets.dart';
 import '../profiles/avatars.dart';
 import '../tmdb/reviews_screen.dart';
 import '../tmdb/tmdb.dart';
+import 'social_links.dart';
 import 'social_repository.dart';
 
 // The page of a profile, the same for mine (« Profil » tab, `ProfileScreen`) and for another
@@ -117,6 +119,8 @@ class ProfileHeader extends StatelessWidget {
     this.onFollowing,
     this.action,
     this.onShare,
+    this.isPrivate = false,
+    this.links = const [],
   });
 
   final String name;
@@ -139,6 +143,12 @@ class ProfileHeader extends StatelessWidget {
   /// « Partager » (a round button beside [action]); none when null (TV, profile without page).
   final VoidCallback? onShare;
 
+  /// A private account: a lock after the name.
+  final bool isPrivate;
+
+  /// Its accounts on social networks, under the bio (a press opens the page).
+  final List<SocialLink> links;
+
   /// "L" for "Léa", as `Profile.initial`.
   static String initialOf(String name) => name.isEmpty ? '?' : String.fromCharCode(name.runes.first).toUpperCase();
 
@@ -160,11 +170,26 @@ class ProfileHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: VxText.title(layout.size(24, tv: 48)),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: VxText.title(layout.size(24, tv: 48)),
+                        ),
+                      ),
+                      if (isPrivate) ...[
+                        SizedBox(width: layout.space(VxSpace.xs)),
+                        Icon(
+                          Icons.lock_outline_rounded,
+                          size: layout.size(20, tv: 36),
+                          color: VxColors.textSecondary,
+                          semanticLabel: 'Compte privé',
+                        ),
+                      ],
+                    ],
                   ),
                   if (handle.isNotEmpty) ...[
                     SizedBox(height: layout.space(VxSpace.xxs)),
@@ -202,6 +227,14 @@ class ProfileHeader extends StatelessWidget {
             style: VxText.body(layout.bodySize, color: text.isEmpty ? VxColors.textMuted : VxColors.textSoft),
           ),
         ],
+        if (links.isNotEmpty) ...[
+          SizedBox(height: layout.space(VxSpace.s)),
+          Wrap(
+            spacing: layout.space(VxSpace.xs),
+            runSpacing: layout.space(VxSpace.xs),
+            children: [for (final link in links) SocialLinkChip(link: link)],
+          ),
+        ],
         if (action != null || onShare != null) ...[
           SizedBox(height: layout.space(VxSpace.m)),
           Row(
@@ -214,6 +247,57 @@ class ProfileHeader extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// An account of the profile on a social network: its icon and `@lea` (or the website). A press
+/// opens the page in the browser; on a TV (often without a browser), it is only shown.
+class SocialLinkChip extends StatelessWidget {
+  const SocialLinkChip({super.key, required this.link});
+
+  final SocialLink link;
+
+  Future<void> _open(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final uri = Uri.tryParse(link.url);
+    final opened = uri != null && await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
+    if (!opened) showVxSnackOn(messenger, 'Impossible d’ouvrir ce lien.', icon: Icons.error_outline_rounded);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final size = layout.captionSize;
+    final radius = layout.size(VxRadius.button, tv: VxRadius.buttonTv);
+    return VxFocusable(
+      borderRadius: radius,
+      semanticLabel: '${link.network.label} : ${link.display}',
+      onPressed: DeviceInfo.isTv ? null : () => _open(context),
+      child: Container(
+        constraints: BoxConstraints(minHeight: layout.size(36, tv: 56)),
+        padding: EdgeInsets.symmetric(horizontal: layout.space(VxSpace.s)),
+        decoration: BoxDecoration(
+          color: VxColors.text.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(link.network.icon, size: size * 1.3, color: VxColors.textSoft),
+            SizedBox(width: layout.space(VxSpace.xxs) * 1.5),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: layout.size(220, tv: 400)),
+              child: Text(
+                link.display,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: VxText.body(size, color: VxColors.textSoft, weight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -550,11 +634,21 @@ class AccountTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: VxText.body(layout.size(16, tv: 24), weight: FontWeight.w600, height: 1.3),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: VxText.body(layout.size(16, tv: 24), weight: FontWeight.w600, height: 1.3),
+                        ),
+                      ),
+                      if (profile.isPrivate) ...[
+                        SizedBox(width: layout.space(VxSpace.xxs)),
+                        Icon(Icons.lock_outline_rounded, size: layout.size(15, tv: 24), color: VxColors.textSecondary),
+                      ],
+                    ],
                   ),
                   Text(
                     '@${profile.username}',

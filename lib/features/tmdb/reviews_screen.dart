@@ -12,6 +12,7 @@ import '../../core/widgets/page_header.dart';
 import '../catalog/widgets.dart' show titlePath;
 import '../search/filter_bar.dart';
 import '../search/search_filters.dart' show ratingRangeLabel, yearRangeLabel;
+import '../social/review_likes.dart';
 import '../social/social_repository.dart' show socialReviewsProvider;
 import 'rating_dialog.dart';
 import 'review_screen.dart';
@@ -342,11 +343,14 @@ class ReviewRow extends StatelessWidget {
     final imageWidth = layout.size(episode ? 112 : 64, tv: episode ? 200 : 112);
     final imageHeight = episode ? imageWidth * 9 / 16 : imageWidth * 1.5;
 
-    return VxFocusable(
+    // Mine: its number of likes (« J'aime » of other members); another member's: the heart.
+    final likes = mine ? item.likesCount : 0;
+    final row = VxFocusable(
       borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
       semanticLabel:
           '${item.label}, ${mine ? 'ma note' : 'note'} : ${formatScore(item.value)} sur 10'
-          '${item.comment == null ? '' : ', ${item.comment}'}',
+          '${item.comment == null ? '' : ', ${item.comment}'}'
+          '${likes > 0 ? ', ${likesLabel(likes)}' : ''}',
       onPressed: () => context.push(mine ? ReviewScreen.location(item.target) : titlePath(item.mediaType, item.id)),
       child: Padding(
         padding: EdgeInsets.all(layout.space(VxSpace.xxs)),
@@ -387,6 +391,15 @@ class ReviewRow extends StatelessWidget {
                         '${formatScore(item.value)}/10',
                         style: VxText.body(caption, color: VxColors.accent, weight: FontWeight.w600),
                       ),
+                      if (likes > 0)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.favorite_rounded, size: caption * 1.1, color: VxColors.textSecondary),
+                            SizedBox(width: layout.space(VxSpace.xxs)),
+                            Text('$likes', style: VxText.body(caption, color: VxColors.textSecondary)),
+                          ],
+                        ),
                     ],
                   ),
                   if (item.comment != null) ...[
@@ -406,6 +419,15 @@ class ReviewRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+    if (mine || item.reviewId == null) return row;
+    // Beside the row (its own focus: Right from the row with a remote).
+    return Row(
+      children: [
+        Expanded(child: row),
+        SizedBox(width: layout.space(VxSpace.xs)),
+        ReviewLikeButton(review: item),
+      ],
     );
   }
 }

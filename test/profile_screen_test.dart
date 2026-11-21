@@ -18,6 +18,8 @@ import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/library/my_list_screen.dart';
 import 'package:vixeo/features/social/profile_screen.dart';
+import 'package:vixeo/features/social/review_likes.dart';
+import 'package:vixeo/features/social/social_links.dart';
 import 'package:vixeo/features/social/social_search.dart';
 import 'package:vixeo/features/social/social_repository.dart';
 import 'package:vixeo/features/tmdb/reviews_screen.dart';
@@ -84,7 +86,15 @@ class _Tmdb extends TmdbRepository {
   @override
   Future<List<RatedItem>> reviews(int profileId) async => [
     for (var i = 1; i <= 5; i++)
-      RatedItem(type: RatedType.movie, id: i, title: 'Film noté $i', value: 7, comment: i == 1 ? 'Superbe.' : null),
+      RatedItem(
+        type: RatedType.movie,
+        id: i,
+        title: 'Film noté $i',
+        value: 7,
+        comment: i == 1 ? 'Superbe.' : null,
+        reviewId: 100 + i,
+        likesCount: i == 1 ? 4 : 0,
+      ),
   ];
 }
 
@@ -358,6 +368,9 @@ void main() {
   });
 
   testWidgets('« Modifier mon profil » changes the name too', (tester) async {
+    tester.view.physicalSize = const Size(600, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final auth = _FakeAuth();
     final container = ProviderContainer(
       overrides: [
@@ -398,7 +411,13 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Nom'), ' Léa B. ');
     await tester.tap(find.text('Enregistrer'));
     await tester.pumpAndSettle();
-    expect(auth.saved.single, {'name': 'Léa B.', 'username': 'lea', 'bio': 'Fan de science-fiction.'});
+    expect(auth.saved.single, {
+      'name': 'Léa B.',
+      'username': 'lea',
+      'bio': 'Fan de science-fiction.',
+      'is_private': false,
+      'social_links': {for (final network in SocialNetwork.values) network.key: null},
+    });
     expect(container.read(sessionProvider).profile?.name, 'Léa B.');
     expect(find.text('Page Profil'), findsOneWidget);
   });
@@ -514,18 +533,174 @@ void main() {
     expect(members.map((p) => p.username), ['max']);
   });
 
+
+  testWidgets('a private account: its header only, and « Suivre » sends a request', (tester) async {
+    const private = SocialProfile(
+      id: 7,
+      username: 'max',
+      name: 'Max',
+      followersCount: 3,
+      followingCount: 1,
+      isPrivate: true,
+      canView: false,
+    );
+    final social = await _pumpMember(tester, member: private, followAnswer: FollowStatus.requested);
+
+    expect(find.text('Max'), findsOneWidget);
+    expect(find.bySemanticsLabel('Compte privé'), findsOneWidget);
+    expect(find.text('Ce compte est privé'), findsOneWidget);
+    // Its list, favorites and reviews are not asked for.
+    expect(find.text('Ses favoris'), findsNothing);
+    expect(find.text('Ses avis'), findsNothing);
+    expect(find.text('Fight Club'), findsNothing);
+
+    await tester.tap(find.text('Suivre'));
+    await tester.pumpAndSettle();
+    expect(social.calls, ['follow max']);
+    expect(find.text('Demande d’abonnement envoyée à @max'), findsOneWidget);
+  });
+
+  testWidgets('a request waiting: « Demande envoyée » withdraws it', (tester) async {
+    const waiting = SocialProfile(
+      id: 7,
+      username: 'max',
+      name: 'Max',
+      isPrivate: true,
+      canView: false,
+      followStatus: FollowStatus.requested,
+    );
+    final social = await _pumpMember(tester, member: waiting);
+
+    expect(find.textContaining('Votre demande d’abonnement est envoyée'), findsOneWidget);
+    await tester.tap(find.text('Demande envoyée'));
+    await tester.pumpAndSettle();
+    expect(social.calls, ['unfollow max']);
+    expect(find.text('Demande d’abonnement annulée'), findsOneWidget);
+  });
+
+  testWidgets('unfollowing a private account is confirmed first', (tester) async {
+    const followed = SocialProfile(
+      id: 7,
+      username: 'max',
+      name: 'Max',
+      isPrivate: true,
+      followStatus: FollowStatus.following,
+    );
+    final social = await _pumpMember(tester, member: followed);
+
+    // Followed: its list is shown.
+    expect(find.text('Ses avis'), findsOneWidget);
+    await tester.tap(find.text('Ne plus suivre'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ne plus suivre @max ?'), findsOneWidget);
+    expect(social.calls, isEmpty);
+
+    await tester.tap(find.text('Ne plus suivre').last);
+    await tester.pumpAndSettle();
+    expect(social.calls, ['unfollow max']);
+  });
+
+  testWidgets('the social networks of a profile, under its bio', (tester) async {
+    const linked = SocialProfile(
+      id: 7,
+      username: 'max',
+      name: 'Max',
+      socialLinks: [
+        SocialLink(network: SocialNetwork.instagram, handle: 'max.films', url: 'https://www.instagram.com/max.films'),
+        SocialLink(network: SocialNetwork.website, handle: 'https://www.max.fr/', url: 'https://www.max.fr/'),
+      ],
+    );
+    await _pumpMember(tester, member: linked);
+
+    expect(find.text('@max.films'), findsOneWidget);
+    expect(find.text('max.fr'), findsOneWidget);
+    expect(_pressable('Instagram : @max.films'), findsOneWidget);
+    expect(_pressable('Site web : max.fr'), findsOneWidget);
+  });
+
+  testWidgets('« J’aime » on a member\'s review', (tester) async {
+    final social = await _pumpMember(tester);
+
+    expect(find.text('2'), findsOneWidget);
+    await tester.tap(_pressable('J’aime cet avis'));
+    await tester.pumpAndSettle();
+    expect(social.calls, ['like 31']);
+    expect(find.text('3'), findsOneWidget);
+    expect(_pressable('Je n’aime plus cet avis'), findsOneWidget);
+
+    await tester.tap(_pressable('Je n’aime plus cet avis'));
+    await tester.pumpAndSettle();
+    expect(social.calls, ['like 31', 'unlike 31']);
+    expect(find.text('2'), findsOneWidget);
+  });
+
+  testWidgets('my reviews: their number of likes, no heart to press', (tester) async {
+    await _pump(tester);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is VxFocusable && (widget.semanticLabel ?? '').startsWith('Film noté 1,') &&
+            widget.semanticLabel!.endsWith('4 J’aime'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(ReviewLikeButton), findsNothing);
+  });
+
+  testWidgets('« Modifier mon profil »: private account and social networks', (tester) async {
+    tester.view.physicalSize = const Size(600, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final auth = _FakeAuth();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionProvider.overrideWith(_Signed.new),
+          socialRepositoryProvider.overrideWithValue(_SearchSocial([_social])),
+          authRepositoryProvider.overrideWithValue(auth),
+        ],
+        child: MaterialApp(theme: buildVixeoTheme(), home: const SocialProfileEditScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Compte privé'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Instagram'), ' @lea.cine ');
+    await tester.enterText(find.widgetWithText(TextField, 'Site web'), 'lea.fr');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    final saved = auth.saved.single;
+    expect(saved['is_private'], isTrue);
+    final links = saved['social_links']! as Map<String, String?>;
+    expect(links['instagram'], '@lea.cine');
+    expect(links['website'], 'lea.fr');
+    expect(links['x'], isNull);
+  });
 }
 
 class _FakeSocial extends SocialRepository {
-  _FakeSocial() : super(ApiClient(token: () => null, profileId: () => null));
+  _FakeSocial({this.followAnswer = FollowStatus.following})
+    : super(ApiClient(token: () => null, profileId: () => null));
 
+  /// What following a member gives: at once (public account), or a request (private).
+  final FollowStatus followAnswer;
   final calls = <String>[];
 
   @override
-  Future<void> follow(String username) async => calls.add('follow $username');
+  Future<FollowStatus> follow(String username) async {
+    calls.add('follow $username');
+    return followAnswer;
+  }
 
   @override
   Future<void> unfollow(String username) async => calls.add('unfollow $username');
+
+  @override
+  Future<ReviewLikeState> likeReview(int reviewId, {required bool liked}) async {
+    calls.add('${liked ? 'like' : 'unlike'} $reviewId');
+    return (liked: liked, likesCount: liked ? 3 : 2);
+  }
 }
 
 const _member = SocialProfile(
@@ -540,11 +715,15 @@ const _member = SocialProfile(
   listCount: 1,
 );
 
-Future<_FakeSocial> _pumpMember(WidgetTester tester) async {
+Future<_FakeSocial> _pumpMember(
+  WidgetTester tester, {
+  SocialProfile member = _member,
+  FollowStatus followAnswer = FollowStatus.following,
+}) async {
   tester.view.physicalSize = const Size(430, 2000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final social = _FakeSocial();
+  final social = _FakeSocial(followAnswer: followAnswer);
   Widget page(String text) => Scaffold(body: Text(text));
   final router = GoRouter(
     routes: [
@@ -559,12 +738,14 @@ Future<_FakeSocial> _pumpMember(WidgetTester tester) async {
         sessionProvider.overrideWith(_Signed.new),
         libraryProvider.overrideWith(_Library.new),
         socialRepositoryProvider.overrideWithValue(social),
-        socialProfileProvider.overrideWith((ref, username) async => _member),
+        socialProfileProvider.overrideWith((ref, username) async => member),
         socialTitlesProvider.overrideWith(
           (ref, username) async => const [MediaItem(id: 438631, type: MediaType.movie, title: 'Dune', year: 2021)],
         ),
         socialReviewsProvider.overrideWith(
-          (ref, username) async => const [RatedItem(type: RatedType.movie, id: 550, title: 'Fight Club', value: 9)],
+          (ref, username) async => const [
+            RatedItem(type: RatedType.movie, id: 550, title: 'Fight Club', value: 9, reviewId: 31, likesCount: 2),
+          ],
         ),
         socialLikedProvider.overrideWith(
           (ref, username) async => const [MediaItem(id: 13, type: MediaType.movie, title: 'Forrest Gump', year: 1994)],

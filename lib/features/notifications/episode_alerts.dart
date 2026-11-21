@@ -33,3 +33,35 @@ class EpisodeAlertsSetting extends AsyncNotifier<bool> {
     }
   }
 }
+
+/// « Activité » of the active profile on this device (on by default; developer's request,
+/// 21/11/2026): a push when a member follows the profile, asks to follow it, accepts its request
+/// or likes one of its reviews. Kept on the device, sent with the registration (`social`).
+final socialAlertsSettingProvider = AsyncNotifierProvider<SocialAlertsSetting, bool>(SocialAlertsSetting.new);
+
+class SocialAlertsSetting extends AsyncNotifier<bool> {
+  static String keyFor(int profileId) => 'vixeo.notifications.social.$profileId';
+
+  @override
+  Future<bool> build() async {
+    final profileId = ref.watch(sessionProvider.select((s) => s.profile?.id));
+    if (profileId == null) return true;
+    try {
+      return await ref.read(localStoreProvider).read(keyFor(profileId)) != '0';
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> set(bool value) async {
+    final profileId = ref.read(sessionProvider).profile?.id;
+    if (profileId == null) return;
+    state = AsyncData(value);
+    try {
+      // Off is kept; on is the default.
+      await ref.read(localStoreProvider).write(keyFor(profileId), value ? null : '0');
+    } catch (_) {
+      // Not kept: for this launch only.
+    }
+  }
+}

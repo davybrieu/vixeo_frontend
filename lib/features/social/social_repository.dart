@@ -4,6 +4,23 @@ import '../../core/api/api_client.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
 import '../tmdb/tmdb.dart';
+import 'social_links.dart';
+
+/// Where the active profile stands with a member: not following, a request waiting for a private
+/// account to accept it, or following (`follow_status`, vixeo_backend/docs/social.md).
+enum FollowStatus {
+  none,
+  requested,
+  following;
+
+  static FollowStatus parse(Object? value, {bool following = false}) => switch (value) {
+    'requested' => requested,
+    'following' => FollowStatus.following,
+    'none' => none,
+    // An older API: only `is_following`.
+    _ => following ? FollowStatus.following : none,
+  };
+}
 
 class SocialProfile {
   const SocialProfile({
@@ -11,7 +28,9 @@ class SocialProfile {
     this.avatar, this.bio, this.followersCount = 0, this.followingCount = 0,
     this.isFollowing = false, this.isSelf = false,
     this.reviewsCount = 0, this.watchedCount = 0, this.listCount = 0, this.shareUrl,
-  });
+    this.isPrivate = false, FollowStatus? followStatus, this.canView = true, this.socialLinks = const [],
+    this.requestedAt,
+  }) : _followStatus = followStatus;
 
   factory SocialProfile.fromJson(Map<String, dynamic> json) => SocialProfile(
     id: json['id'] as int,
@@ -27,6 +46,11 @@ class SocialProfile {
     watchedCount: json['watched_count'] as int? ?? 0,
     listCount: json['list_count'] as int? ?? 0,
     shareUrl: json['share_url'] as String?,
+    isPrivate: json['is_private'] as bool? ?? false,
+    followStatus: FollowStatus.parse(json['follow_status'], following: json['is_following'] as bool? ?? false),
+    canView: json['can_view'] as bool? ?? true,
+    socialLinks: SocialLink.listOf(json['social_links']),
+    requestedAt: DateTime.tryParse(json['requested_at'] as String? ?? '')?.toLocal(),
   );
 
   final int id;
@@ -42,9 +66,31 @@ class SocialProfile {
   final int watchedCount;
   final int listCount;
 
-  /// The profile's page on the site (`www.vixeo.app/@pseudo`), sent by « Partager ».
+  /// The profile's page on the site (`www.vixeo.app/pseudo`), sent by « Partager ».
   final String? shareUrl;
+
+  /// A private account (like Twitter): its lists, reviews, followers and followings are seen by
+  /// its accepted followers only ([canView]).
+  final bool isPrivate;
+
+  final FollowStatus? _followStatus;
+
+  /// Following, a request waiting, or neither.
+  FollowStatus get followStatus => _followStatus ?? (isFollowing ? FollowStatus.following : FollowStatus.none);
+
+  /// The active profile sees the lists and the reviews: a public account, itself, or an accepted
+  /// follower.
+  final bool canView;
+
+  /// Its accounts on social networks, in the order of the page.
+  final List<SocialLink> socialLinks;
+
+  /// When a follow request was sent (`GET /social/requests`).
+  final DateTime? requestedAt;
 }
+
+/// What a like of a review leaves: liked or not, and its number of likes.
+typedef ReviewLikeState = ({bool liked, int likesCount});
 
 class SocialRepository {
   SocialRepository(this._api);
@@ -112,8 +158,32 @@ class SocialRepository {
     return (json['data'] as List).whereType<Map<String, dynamic>>().map(SocialProfile.fromJson).toList();
   }
 
-  Future<void> follow(String username) => _api.post('/social/profiles/${Uri.encodeComponent(username)}/follow');
+  /// Follows a member: at once for a public account, a request for a private one.
+  Future<FollowStatus> follow(String username) async {
+    final json = await _api.post('/social/profiles/${Uri.encodeComponent(username)}/follow');
+    return FollowStatus.parse(json['follow_status'], following: json['following'] as bool? ?? true);
+  }
+
+  /// Unfollows a member, or withdraws a request.
   Future<void> unfollow(String username) => _api.delete('/social/profiles/${Uri.encodeComponent(username)}/follow');
+
+  /// The follow requests waiting for the active profile (a private account), the most recent first.
+  Future<List<SocialProfile>> requests() async {
+    final json = await _api.get('/social/requests');
+    return (json['data'] as List).whereType<Map<String, dynamic>>().map(SocialProfile.fromJson).toList();
+  }
+
+  Future<void> acceptRequest(String username) =>
+      _api.post('/social/requests/${Uri.encodeComponent(username)}/accept');
+
+  Future<void> declineRequest(String username) => _api.delete('/social/requests/${Uri.encodeComponent(username)}');
+
+  /// Likes ([liked]) or unlikes another member's review.
+  Future<ReviewLikeState> likeReview(int reviewId, {required bool liked}) async {
+    final path = '/social/reviews/$reviewId/like';
+    final json = liked ? await _api.put(path) : await _api.delete(path);
+    return (liked: json['liked'] as bool? ?? liked, likesCount: json['likes_count'] as int? ?? 0);
+  }
 }
 
 final socialRepositoryProvider = Provider<SocialRepository>((ref) => SocialRepository(ref.read(apiClientProvider)));

@@ -86,6 +86,9 @@ class RatedItem {
     this.backdropUrl,
     this.stillUrl,
     this.voteAverage = 0,
+    this.reviewId,
+    this.likesCount = 0,
+    this.liked = false,
   });
 
   factory RatedItem.fromJson(Map<String, dynamic> json) => RatedItem(
@@ -103,6 +106,9 @@ class RatedItem {
     backdropUrl: json['backdrop_url'] as String?,
     stillUrl: json['still_url'] as String?,
     voteAverage: (json['vote_average'] as num?)?.toDouble() ?? 0,
+    reviewId: json['review_id'] as int?,
+    likesCount: json['likes_count'] as int? ?? 0,
+    liked: json['liked'] as bool? ?? false,
   );
 
   final RatedType type;
@@ -127,6 +133,15 @@ class RatedItem {
   final String? backdropUrl;
   final String? stillUrl;
   final double voteAverage;
+
+  /// The review's id, for « J'aime » (`PUT /social/reviews/{review_id}/like`); null from an older API.
+  final int? reviewId;
+
+  /// How many members like this review.
+  final int likesCount;
+
+  /// The active profile likes this review (another member's).
+  final bool liked;
 
   MediaType get mediaType => type == RatedType.movie ? MediaType.movie : MediaType.tv;
 
@@ -167,6 +182,9 @@ class RatedItem {
     backdropUrl: backdropUrl,
     stillUrl: stillUrl,
     voteAverage: voteAverage,
+    reviewId: reviewId,
+    likesCount: likesCount,
+    liked: liked,
   );
 }
 

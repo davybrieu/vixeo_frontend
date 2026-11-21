@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/local_store.dart';
 import 'package:vixeo/core/theme.dart';
+import 'package:vixeo/core/widgets/focusable.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/notifications/episode_alerts.dart';
@@ -86,7 +87,14 @@ class PushApi extends ApiClient {
   int tests = 0;
 
   @override
+  int counts = 0;
+
+  @override
   Future<Map<String, dynamic>> get(String path, {Map<String, dynamic>? query, Duration? receiveTimeout}) async {
+    if (path == '/notifications/count') {
+      counts++;
+      return {'unread_count': 2};
+    }
     expect(path, '/push/device');
     return {'data': null, 'available': available};
   }
@@ -156,6 +164,7 @@ void main() {
         'token': 'fcm-token',
         'platform': 'android',
         'new_episodes': true,
+        'social': true,
         'utc_offset': DateTime.now().timeZoneOffset.inMinutes,
       });
 
@@ -172,6 +181,17 @@ void main() {
 
       await c.read(pushRegistrationProvider).sync();
       expect(api.registrations.single['new_episodes'], isFalse);
+    });
+
+    test('« Activité » turned off on this device: the server sends no social push', () async {
+      final api = PushApi();
+      final c = container(push: FakePush(), api: api);
+      await c.read(socialAlertsSettingProvider.future);
+      await c.read(socialAlertsSettingProvider.notifier).set(false);
+
+      await c.read(pushRegistrationProvider).sync();
+      expect(api.registrations.single['social'], isFalse);
+      expect(api.registrations.single['new_episodes'], isTrue);
     });
 
     test('nothing without a token, a profile or a session', () async {
@@ -291,6 +311,36 @@ void main() {
 
       expect(api.tests, 1);
       expect(find.text('Notification de test envoyée.'), findsOneWidget);
+    });
+
+    testWidgets('« Activité »: on by default, turned off here and on the server', (tester) async {
+      await pump(tester, FakeNotifications(isAllowed: true));
+      expect(api.registrations.last['social'], isTrue);
+      expect(
+        find.byWidgetPredicate((w) => w is VxFocusable && w.semanticLabel == 'Activité, activé'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Activité'));
+      await tester.pumpAndSettle();
+      expect(store.values[SocialAlertsSetting.keyFor(1)], '0');
+      expect(find.text('Alertes d’activité désactivées'), findsOneWidget);
+      expect(api.registrations.last['social'], isFalse);
+    });
+
+    testWidgets('a push of the activity reads the badge again', (tester) async {
+      final notifications = FakeNotifications(isAllowed: true);
+      final push = FakePush();
+      await pump(tester, notifications, push: push);
+      expect(api.counts, 0);
+
+      push.receivedController.add(
+        const PushNotification(title: 'Nouvel abonné', body: 'Max (@max) vous suit.', path: '/membre/max', channel: 'social'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(notifications.shown.single.channel, NotificationChannel.social);
+      expect(api.counts, 1);
     });
 
     testWidgets('a push received while the app is open is shown by the app', (tester) async {

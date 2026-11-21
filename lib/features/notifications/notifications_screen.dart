@@ -11,8 +11,8 @@ import 'episode_alerts.dart';
 import 'push_registration.dart';
 import 'system_notifications.dart';
 
-/// « Notifications » (Paramètres): the new-episode alerts of the profile's « Ma liste » shows on
-/// this device, and a test notification. The server sends them (push, docs:
+/// « Notifications » (Paramètres): the new-episode alerts of the profile's « Ma liste » shows and
+/// those of its activity (followers, requests, likes) on this device, and a test notification. The server sends them (push, docs:
 /// vixeo_backend/docs/notifications.md); Windows can't receive them (no Firebase Messaging there).
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -79,6 +79,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
+  Future<void> _toggleSocial(bool value) async {
+    if (value && !await _permission()) return;
+    // NotificationsGate sends the new setting to the server.
+    await ref.read(socialAlertsSettingProvider.notifier).set(value);
+    if (!mounted) return;
+    showVxSnack(
+      context,
+      value ? 'Alertes d’activité activées' : 'Alertes d’activité désactivées',
+      icon: value ? Icons.notifications_active_outlined : Icons.notifications_off_outlined,
+    );
+  }
+
   Future<void> _sendTest() async {
     if (!await _permission()) return;
     setState(() => _sending = true);
@@ -113,6 +125,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
     final ready = availability.value == PushAvailability.ready;
     final enabled = ref.watch(episodeAlertsSettingProvider).value ?? false;
+    final social = ref.watch(socialAlertsSettingProvider).value ?? true;
 
     return InfoPage(
       title: 'Notifications',
@@ -158,6 +171,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               value: enabled,
               autofocus: true,
               onChanged: ready ? _toggle : null,
+            ),
+            SettingsSwitchRow(
+              label: 'Activité',
+              detail: 'Quand un membre vous suit, demande à vous suivre, accepte votre demande ou aime un de vos avis.',
+              value: social,
+              onChanged: ready ? _toggleSocial : null,
             ),
           ],
         ),

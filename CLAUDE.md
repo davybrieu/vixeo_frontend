@@ -102,8 +102,12 @@ lib/
                  boutons, onglet « Avis »)
     ratings/     notes IMDb (jeux de données importés par l'API) sinon TMDb : affichage avec le
                  logo du site, fenêtre « Notes » (les deux notes et leurs votants)
-    notifications/  notifications push (FCM) : page « Notifications », inscription auprès de
-                 l'API (`PushRegistration`), affichage et appui (`NotificationsGate`)
+    notifications/  page « Notifications » de la navigation (`InboxScreen`, `inbox.dart` : demandes
+                 d'abonnement, prochains épisodes, activité, pastille), notifications push (FCM) :
+                 réglages (`NotificationsScreen`), inscription auprès de l'API (`PushRegistration`),
+                 affichage et appui (`NotificationsGate`)
+    social/      pages de profil (`ProfileView`), réseaux sociaux (`social_links.dart`), compte
+                 privé et demandes d'abonnement, J'aime sur les avis (`review_likes.dart`)
     addons/      plug-ins : dépôts de scrapers JavaScript (façon Nuvio), page « Plug-ins » (`docs/scrapers.md`)
 ```
 
@@ -401,6 +405,42 @@ lib/
   liste, nouvelle catégorie) vient après les autres, affichée. Appliqué par `HomeScreen` et
   `TvChannelsScreen` (`visible`). « Continuer à regarder » et le carrousel ne sont pas concernés.
   Test : `test/row_preferences_test.dart`.
+- **Page « Notifications »** (`/notifications`, `InboxScreen`, `features/notifications/inbox_screen.dart`
+  et `inbox.dart` ; demande du développeur, 21/11/2026 ; API : `vixeo_backend/docs/social.md`) :
+  **dans la navigation**, entre « Recherche » et « Profil » (onglet du téléphone et rail ; pas pour
+  un invité ni un profil enfant : `socialAvailable`, la route mène alors à l'accueil), avec une
+  **pastille** du nombre de non lues (`NavigationBadge`, « 9+ » au-delà ; lue « Notifications,
+  3 notifications non lues »). Pastille : `unreadNotificationsProvider` (`GET /notifications/count`),
+  relue à l'arrivée de la navigation, à chaque changement de page (30 s au plus entre deux,
+  `_UnreadWatcher` d'`AppShell`), au retour au premier plan et à l'arrivée d'un push du canal
+  `social` ; **pas de minuterie**. La page : « Demandes d'abonnement » (compte privé : `AccountTile`,
+  « Accepter » ✓ et « Refuser » ✕, `followRequestsProvider`), « Prochains épisodes » des séries de
+  « Ma liste » (rangée horizontale : image, série, « Saison 2, épisode 5 · Titre », « Demain à
+  21:00 » ; `episodeCalendarProvider`, `GET /notifications/episodes`) et « Sortis cette semaine »,
+  puis « Activité » (`activityFeedProvider`, 30 par page, « Afficher plus » : avatar, « **Max** vous
+  suit. », « … aime votre avis sur Dune. », « il y a 5 min », point vert tant que non lue ; les
+  demandes n'y sont pas, elles ont leur section). Un appui ouvre la page du membre, mon avis
+  (`ReviewScreen`) ou la série. **Ouvrir la page lit tout** (`POST /notifications/read`, après le
+  premier chargement ; les points restent jusqu'à la visite suivante). Dates en français :
+  `episodeWhen`, `timeAgo`, `dayLabel`. Test : `test/inbox_test.dart`.
+- **Compte privé, réseaux sociaux, J'aime** (`features/social`, demande du développeur,
+  21/11/2026, comme Twitter ; API : `vixeo_backend/docs/social.md`) : « Modifier mon profil »
+  (`SocialProfileEditScreen`) a l'interrupteur « Compte privé » et un champ par réseau
+  (`SocialNetwork` : Instagram, X, TikTok, YouTube, Letterboxd, Threads, Bluesky, site web ; le
+  pseudo ou l'adresse, l'API garde le pseudo ; champ vidé = retiré), envoyés par
+  `PUT /profiles/{id}` (`is_private`, `social_links`). En-tête du profil (`ProfileHeader`) : cadenas
+  après le nom d'un compte privé, puis les réseaux sous la biographie (`SocialLinkChip` : icône et
+  « @pseudo », ouvre la page dans le navigateur ; sur TV, affichés seulement). Page d'un membre
+  privé qu'on ne suit pas (`can_view` faux) : en-tête et compteurs seulement, carte « Ce compte est
+  privé », abonnés / abonnements non cliquables, aucune liste demandée. Bouton (`_FollowButton`,
+  `FollowStatus`) : « Suivre » → abonné tout de suite (compte public) ou **demande** (« Demande
+  d'abonnement envoyée à @max ») ; « Demande envoyée » (un appui la retire) ; « Ne plus suivre »
+  (confirmation pour un compte privé). **J'aime** : cœur à droite de l'avis d'un autre membre
+  (`ReviewLikeButton`, `reviewLikesProvider` : affiché tout de suite, gardé par id d'avis, remis
+  en cas d'échec ; invité : « Connectez-vous… »), avec le nombre ; mes avis montrent leur nombre
+  de J'aime (pas de cœur). Push : réglage « Activité » (`SocialAlertsSetting`, activé par défaut,
+  par profil sur l'appareil, `social` de `PUT /push/device`), canal Android `social`. Tests :
+  `test/profile_screen_test.dart`, `test/notifications_test.dart`, `test/inbox_test.dart`.
 - **Notifications** (`features/notifications`, « Paramètres » → « Notifications »,
   `/profil/notifications` ; API : `vixeo_backend/docs/notifications.md` ; demande du développeur :
   **un serveur de push**, l'appli ne programme rien) : **Firebase Cloud Messaging**
@@ -769,7 +809,7 @@ lib/
   Ma liste, « Avis » (notes et commentaires), « Mon profil » (paramètres
   d’apparence, No spoil, langues et lecture automatique, code PIN parental dans « Mon compte »,
   restrictions dans « Modifier le profil »,
-  connecter une TV, changer de profil, Notifications (nouveaux épisodes),
+  connecter une TV, changer de profil, Notifications (nouveaux épisodes, activité),
   Avancé (dernier profil, cache),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
@@ -778,6 +818,9 @@ lib/
   moteurs par plateforme (natif sur Android / iOS, media_kit sur Windows : `docs/lecteur.md`),
   appli Windows (fenêtre, plein écran, installateur), mises en page téléphone et TV / grand
   écran, navigation à la télécommande.
+- Fait aussi : page « Notifications » de la navigation (demandes d'abonnement, prochains épisodes
+  de « Ma liste », activité, pastille des non lues), compte privé et demandes d'abonnement,
+  réseaux sociaux du profil, J'aime sur les avis des autres membres, push « Activité ».
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
 - Vérifié de bout en bout (ancienne version web) contre l'API Laravel locale avec un faux TMDb.
 - Pas encore vérifié sur un vrai PC Windows : lecture (media_kit), plug-ins (QuickJS de

@@ -6,8 +6,8 @@ import 'episode_alerts.dart';
 import 'push_messaging.dart';
 
 /// Gives this app's push token to the server (`PUT /push/device`, vixeo_backend/docs/notifications.md)
-/// with the active profile (`X-Profile-Id`), its « Nouveaux épisodes » setting and the device's
-/// time zone. The server then sends the notifications: nothing is programmed on the device.
+/// with the active profile (`X-Profile-Id`), its « Nouveaux épisodes » and « Activité » settings and
+/// the device's time zone. The server then sends the notifications: nothing is programmed on the device.
 /// Signing out removes the registration on the server (it belongs to the session's token).
 class PushRegistration {
   PushRegistration(this._ref);
@@ -38,8 +38,9 @@ class PushRegistration {
       final token = await messaging.token();
       if (token == null) return false;
       final newEpisodes = await _ref.read(episodeAlertsSettingProvider.future);
+      final social = await _ref.read(socialAlertsSettingProvider.future);
       final offset = DateTime.now().timeZoneOffset.inMinutes;
-      final key = '${session.token}|$token|${profile.id}|$newEpisodes|$offset';
+      final key = '${session.token}|$token|${profile.id}|$newEpisodes|$social|$offset';
       final last = _lastAt;
       if (!force && key == _lastKey && last != null && DateTime.now().difference(last) < refresh) return true;
 
@@ -49,6 +50,8 @@ class PushRegistration {
           'token': token,
           'platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
           'new_episodes': newEpisodes,
+          // Followers, follow requests, likes of reviews (vixeo_backend/docs/social.md).
+          'social': social,
           'utc_offset': offset,
         },
       );

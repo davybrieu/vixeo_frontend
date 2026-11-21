@@ -12,6 +12,7 @@ import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/actions.dart';
 import 'package:vixeo/features/library/library.dart';
+import 'package:vixeo/features/notifications/inbox.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
 import 'package:vixeo/features/shell/app_shell.dart';
@@ -74,6 +75,12 @@ class FakeSession extends SessionController {
 
 const movie = MediaItem(id: 550, type: MediaType.movie, title: 'Nord Sauvage');
 
+/// No unread notification, nothing asked to the server (the navigation's badge).
+class _NoUnread extends UnreadNotifications {
+  @override
+  Future<void> refresh({bool force = false}) async {}
+}
+
 Widget app(
   Widget child, {
   Profile profile = const Profile(id: 1, name: 'Davy'),
@@ -86,6 +93,7 @@ Widget app(
     libraryProvider.overrideWith(FakeLibrary.new),
     sessionProvider.overrideWith(() => FakeSession(profile)),
     liveTvProvider.overrideWithValue(liveTv),
+    unreadNotificationsProvider.overrideWith(_NoUnread.new),
     ...overrides,
   ],
   child: MaterialApp(
@@ -255,16 +263,16 @@ void main() {
   testWidgets('the side rail fits a low screen (smaller icons), then scrolls', (tester) async {
     addTearDown(tester.view.reset);
     tester.view.devicePixelRatio = 1;
-    const labels = ['Accueil', 'Chaînes TV', 'Recherche', 'Profil', 'Paramètres'];
+    const labels = ['Accueil', 'Chaînes TV', 'Recherche', 'Notifications', 'Profil', 'Paramètres'];
 
     // A phone held sideways: everything is visible, with smaller icons than the usual 52.
-    tester.view.physicalSize = const Size(700, 340);
+    tester.view.physicalSize = const Size(700, 380);
     await tester.pumpWidget(app(const AppShell(location: '/recherche', child: SizedBox()), liveTv: true));
     await tester.pump();
     expect(tester.takeException(), isNull);
     for (final label in labels) {
       final item = tester.getRect(find.byTooltip(label));
-      expect(item.bottom, lessThanOrEqualTo(340), reason: label);
+      expect(item.bottom, lessThanOrEqualTo(380), reason: label);
       expect(item.height, lessThan(52), reason: label);
     }
 
@@ -287,7 +295,7 @@ void main() {
     await tester.pump();
 
     expect(find.byTooltip('Chaînes TV'), findsNothing);
-    for (final label in ['Accueil', 'Recherche', 'Profil', 'Paramètres']) {
+    for (final label in ['Accueil', 'Recherche', 'Notifications', 'Profil', 'Paramètres']) {
       expect(find.byTooltip(label), findsOneWidget, reason: label);
     }
   });

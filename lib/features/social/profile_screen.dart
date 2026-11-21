@@ -7,6 +7,7 @@ import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/share.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
@@ -15,10 +16,13 @@ import '../catalog/models.dart';
 import '../catalog/widgets.dart';
 import '../library/library.dart';
 import '../library/my_list_screen.dart';
+import '../notifications/inbox.dart';
 import '../profiles/profiles_screen.dart';
+import '../profiles/settings_rows.dart';
 import '../tmdb/reviews_screen.dart';
 import '../tmdb/tmdb.dart';
 import 'profile_view.dart';
+import 'social_links.dart';
 import 'social_repository.dart';
 
 /// « Profil » (tab): the active profile's page (`ProfileView`). At the top, its avatar, name,
@@ -108,6 +112,8 @@ class ProfileScreen extends ConsumerWidget {
         name: profile.name,
         avatarId: profile.avatar,
         username: username,
+        isPrivate: profile.isPrivate,
+        links: profile.socialLinks.isNotEmpty ? profile.socialLinks : social?.socialLinks ?? const [],
         bio: profile.bio ?? social?.bio,
         emptyBio: 'Ajoutez une biographie pour vous présenter.',
         followers: social?.followersCount,
@@ -215,10 +221,8 @@ class PublicProfileScreen extends ConsumerWidget {
       );
     }
 
-    final titles = ref.watch(socialTitlesProvider(username));
-    final liked = ref.watch(socialLikedProvider(username));
-    final people = ref.watch(socialPeopleProvider(username));
-    final reviews = ref.watch(socialReviewsProvider(username));
+    // A private account the active profile doesn't follow: only its header (like Twitter).
+    final canView = social.canView || social.isSelf;
 
     return Scaffold(
       body: ProfileView(
@@ -235,11 +239,13 @@ class PublicProfileScreen extends ConsumerWidget {
           name: social.name,
           avatarId: social.avatar,
           username: social.username,
+          isPrivate: social.isPrivate,
+          links: social.socialLinks,
           bio: social.bio,
           followers: social.followersCount,
           following: social.followingCount,
-          onFollowers: () => context.push(_section('followers')),
-          onFollowing: () => context.push(_section('following')),
+          onFollowers: canView ? () => context.push(_section('followers')) : null,
+          onFollowing: canView ? () => context.push(_section('following')) : null,
           action: social.isSelf
               ? VxButton(
                   label: 'Modifier le profil',
@@ -267,47 +273,98 @@ class PublicProfileScreen extends ConsumerWidget {
           titles: social.listCount,
           titlesLabel: 'Sa liste',
         ),
-        sections: [
-          ProfileTitlesSection(
-            title: 'Sa liste',
-            titles: switch (titles.value) {
-              final list? => withCatalogDetails(ref, list.take(profileTitlesShown).toList()),
-              null when titles.hasError => AsyncError<List<MediaItem>>(titles.error!, StackTrace.empty),
-              null => const AsyncLoading<List<MediaItem>>(),
-            },
-            emptyMessage: 'Sa liste est vide pour l’instant.',
-            onSeeAll: () => context.push(_section('list')),
-          ),
-          ProfileTitlesSection(
-            title: 'Ses favoris',
-            titles: switch (liked.value) {
-              final list? => withCatalogDetails(ref, list.take(profileTitlesShown).toList()),
-              null when liked.hasError => AsyncError<List<MediaItem>>(liked.error!, StackTrace.empty),
-              null => const AsyncLoading<List<MediaItem>>(),
-            },
-            emptyMessage: 'Aucun favori pour l’instant.',
-            onSeeAll: () => context.push(_section('liked')),
-          ),
-          ProfilePeopleSection(
-            title: 'Personnes suivies',
-            people: people,
-            emptyMessage: 'Aucune personne suivie pour l’instant.',
-            onSeeAll: () => context.push(_section('people')),
-          ),
-          ProfileReviewsSection(
-            title: 'Ses avis',
-            reviews: reviews,
-            mine: false,
-            emptyMessage: 'Aucun avis pour l’instant.',
-            onSeeAll: () => context.push(_section('reviews')),
-          ),
-        ],
+        sections: canView ? _sections(context, ref) : [_PrivateAccount(profile: social)],
+      ),
+    );
+  }
+
+  /// Their list, favorites, followed people and reviews.
+  List<Widget> _sections(BuildContext context, WidgetRef ref) {
+    final titles = ref.watch(socialTitlesProvider(username));
+    final liked = ref.watch(socialLikedProvider(username));
+    final people = ref.watch(socialPeopleProvider(username));
+    final reviews = ref.watch(socialReviewsProvider(username));
+    return [
+      ProfileTitlesSection(
+        title: 'Sa liste',
+        titles: switch (titles.value) {
+          final list? => withCatalogDetails(ref, list.take(profileTitlesShown).toList()),
+          null when titles.hasError => AsyncError<List<MediaItem>>(titles.error!, StackTrace.empty),
+          null => const AsyncLoading<List<MediaItem>>(),
+        },
+        emptyMessage: 'Sa liste est vide pour l’instant.',
+        onSeeAll: () => context.push(_section('list')),
+      ),
+      ProfileTitlesSection(
+        title: 'Ses favoris',
+        titles: switch (liked.value) {
+          final list? => withCatalogDetails(ref, list.take(profileTitlesShown).toList()),
+          null when liked.hasError => AsyncError<List<MediaItem>>(liked.error!, StackTrace.empty),
+          null => const AsyncLoading<List<MediaItem>>(),
+        },
+        emptyMessage: 'Aucun favori pour l’instant.',
+        onSeeAll: () => context.push(_section('liked')),
+      ),
+      ProfilePeopleSection(
+        title: 'Personnes suivies',
+        people: people,
+        emptyMessage: 'Aucune personne suivie pour l’instant.',
+        onSeeAll: () => context.push(_section('people')),
+      ),
+      ProfileReviewsSection(
+        title: 'Ses avis',
+        reviews: reviews,
+        mine: false,
+        emptyMessage: 'Aucun avis pour l’instant.',
+        onSeeAll: () => context.push(_section('reviews')),
+      ),
+    ];
+  }
+}
+
+/// In place of the sections of a private account the active profile doesn't follow (yet).
+class _PrivateAccount extends StatelessWidget {
+  const _PrivateAccount({required this.profile});
+
+  final SocialProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final requested = profile.followStatus == FollowStatus.requested;
+    return ProfileColumn(
+      child: VxCard(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.lock_outline_rounded, size: layout.size(28, tv: 44), color: VxColors.textSoft),
+            SizedBox(width: layout.space(VxSpace.s)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ce compte est privé', style: VxText.title(layout.size(17, tv: 28))),
+                  SizedBox(height: layout.space(VxSpace.xxs)),
+                  Text(
+                    requested
+                        ? 'Votre demande d’abonnement est envoyée : sa liste, ses favoris et ses avis '
+                              's’afficheront quand @${profile.username} l’aura acceptée.'
+                        : 'Suivez @${profile.username} pour voir sa liste, ses favoris, les personnes '
+                              'suivies et ses avis.',
+                    style: VxText.body(layout.bodySize, color: VxColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// « Suivre » / « Ne plus suivre » (signed in), or « Se connecter pour suivre » (guest).
+/// « Suivre », « Demande envoyée » (a private account hasn't accepted yet: a press withdraws the
+/// request) or « Ne plus suivre » (signed in); « Se connecter pour suivre » (guest).
 class _FollowButton extends ConsumerStatefulWidget {
   const _FollowButton({required this.profile});
 
@@ -320,23 +377,58 @@ class _FollowButton extends ConsumerStatefulWidget {
 class _FollowButtonState extends ConsumerState<_FollowButton> {
   bool _busy = false;
 
+  /// Unfollowing a private account hides its lists again: asked first (like Twitter).
+  Future<bool> _confirmUnfollow() async {
+    final username = widget.profile.username;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Ne plus suivre @$username ?'),
+        content: Text(
+          'Ce compte est privé : pour revoir sa liste et ses avis, il faudra de nouveau demander à le suivre.',
+          style: VxText.body(15, color: VxColors.textSoft),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          VxButton(label: 'Ne plus suivre', autofocus: true, onPressed: () => Navigator.pop(context, true)),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   Future<void> _toggle() async {
     final profile = widget.profile;
+    final status = profile.followStatus;
+    if (status == FollowStatus.following && profile.isPrivate && !await _confirmUnfollow()) return;
+    if (!mounted) return;
     final repository = ref.read(socialRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
     try {
-      if (profile.isFollowing) {
-        await repository.unfollow(profile.username);
+      final String message;
+      if (status == FollowStatus.none) {
+        final now = await repository.follow(profile.username);
+        message = now == FollowStatus.requested
+            ? 'Demande d’abonnement envoyée à @${profile.username}'
+            : 'Vous suivez @${profile.username}';
       } else {
-        await repository.follow(profile.username);
+        await repository.unfollow(profile.username);
+        message = status == FollowStatus.requested
+            ? 'Demande d’abonnement annulée'
+            : 'Vous ne suivez plus @${profile.username}';
       }
       if (!mounted) return;
+      // Its counters, and its lists (shown or hidden for a private account).
+      ref
+        ..invalidate(socialTitlesProvider(profile.username))
+        ..invalidate(socialLikedProvider(profile.username))
+        ..invalidate(socialPeopleProvider(profile.username))
+        ..invalidate(socialReviewsProvider(profile.username));
       ref.invalidate(socialProfileProvider(profile.username));
-      showVxSnackOn(
-        messenger,
-        profile.isFollowing ? 'Vous ne suivez plus @${profile.username}' : 'Vous suivez @${profile.username}',
-      );
+      showVxSnackOn(messenger, message);
+    } on ApiException catch (e) {
+      showVxSnackOn(messenger, e.message, icon: Icons.error_outline_rounded);
     } catch (_) {
       showVxSnackOn(messenger, 'Impossible de modifier l’abonnement.', icon: Icons.error_outline_rounded);
     } finally {
@@ -347,7 +439,6 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
   @override
   Widget build(BuildContext context) {
     final signedIn = ref.watch(sessionProvider.select((s) => s.isSignedIn));
-    final following = widget.profile.isFollowing;
     if (!signedIn) {
       return VxButton(
         label: 'Se connecter pour suivre',
@@ -358,15 +449,12 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
         ),
       );
     }
-    return VxButton(
-      label: following ? 'Ne plus suivre' : 'Suivre',
-      icon: following ? Icons.person_remove_outlined : Icons.person_add_alt_1_rounded,
-      kind: following ? VxButtonKind.secondary : VxButtonKind.primary,
-      dense: true,
-      autofocus: true,
-      loading: _busy,
-      onPressed: _toggle,
-    );
+    final (label, icon, kind) = switch (widget.profile.followStatus) {
+      FollowStatus.following => ('Ne plus suivre', Icons.person_remove_outlined, VxButtonKind.secondary),
+      FollowStatus.requested => ('Demande envoyée', Icons.schedule_rounded, VxButtonKind.secondary),
+      FollowStatus.none => ('Suivre', Icons.person_add_alt_1_rounded, VxButtonKind.primary),
+    };
+    return VxButton(label: label, icon: icon, kind: kind, dense: true, autofocus: true, loading: _busy, onPressed: _toggle);
   }
 }
 
@@ -383,12 +471,15 @@ class SocialProfileEditScreen extends ConsumerStatefulWidget {
   ConsumerState<SocialProfileEditScreen> createState() => _SocialProfileEditScreenState();
 }
 
-/// « Modifier mon profil » (button of the « Profil » page): the profile's name, its @username and
-/// its biography (developer's request, 21/11/2026: the name too). Saved by `PUT /profiles/{id}`.
+/// « Modifier mon profil » (button of the « Profil » page): the profile's name, its @username, its
+/// biography, « Compte privé » and its social networks (developer's requests, 21/11/2026). Saved by
+/// `PUT /profiles/{id}` (vixeo_backend/docs/social.md).
 class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScreen> {
   final _name = TextEditingController();
   final _username = TextEditingController();
   final _bio = TextEditingController();
+  final _links = {for (final network in SocialNetwork.values) network: TextEditingController()};
+  bool _private = false;
   late final Future<SocialProfile?> _social = _load();
   bool _loading = false;
   String? _error;
@@ -401,15 +492,32 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
     _name.text = profile?.name ?? '';
     _username.text = profile?.username ?? '';
     _bio.text = profile?.bio ?? '';
+    _private = profile?.isPrivate ?? false;
+    _fillLinks(profile?.socialLinks ?? const []);
   }
 
-  /// The public profile, for a biography the session doesn't have yet.
+  void _fillLinks(List<SocialLink> links) {
+    for (final link in links) {
+      final field = _links[link.network]!;
+      if (field.text.isEmpty) field.text = link.handle;
+    }
+  }
+
+  /// The public profile, for a biography or networks the session doesn't have yet.
   Future<SocialProfile?> _load() async {
     final username = ref.read(sessionProvider).profile?.username ?? '';
     if (username.isEmpty) return null;
-    final social = await ref.read(socialRepositoryProvider).profile(username);
-    if (mounted && _bio.text.isEmpty) _bio.text = social.bio ?? '';
-    return social;
+    try {
+      final social = await ref.read(socialRepositoryProvider).profile(username);
+      if (mounted) {
+        if (_bio.text.isEmpty) _bio.text = social.bio ?? '';
+        _fillLinks(social.socialLinks);
+      }
+      return social;
+    } catch (_) {
+      // The form still opens with what the session knows.
+      return null;
+    }
   }
 
   @override
@@ -417,6 +525,9 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
     _name.dispose();
     _username.dispose();
     _bio.dispose();
+    for (final field in _links.values) {
+      field.dispose();
+    }
     super.dispose();
   }
 
@@ -437,12 +548,19 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
         'name': name,
         'username': _username.text.trim(),
         'bio': _bio.text.trim(),
+        'is_private': _private,
+        // Every network: an emptied field removes its account (null).
+        'social_links': {
+          for (final MapEntry(key: network, value: field) in _links.entries)
+            network.key: field.text.trim().isEmpty ? null : field.text.trim(),
+        },
       });
       ref.read(sessionProvider.notifier).updateProfile(updated);
       // The « Profil » page reads its followers and counters again (new username…), and
-      // « Qui regarde ? » shows the new name.
+      // « Qui regarde ? » shows the new name. Made public: the waiting requests were accepted.
       ref.invalidate(socialProfileProvider);
       ref.invalidate(profilesProvider);
+      if (active.isPrivate && !_private) ref.invalidate(followRequestsProvider);
       if (mounted) context.pop();
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -486,6 +604,37 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
                 maxLines: 4,
                 decoration: const InputDecoration(labelText: 'Biographie'),
               ),
+              const SizedBox(height: 8),
+              SettingsSwitchRow(
+                label: 'Compte privé',
+                detail:
+                    'Seuls les abonnés que vous acceptez voient votre liste, vos favoris, les personnes suivies, '
+                    'vos avis, vos abonnés et vos abonnements.',
+                value: _private,
+                onChanged: (value) => setState(() => _private = value),
+              ),
+              const SizedBox(height: 24),
+              Text('Réseaux sociaux', style: VxText.title(18)),
+              const SizedBox(height: 4),
+              Text(
+                'Le pseudo ou l’adresse de votre page : ils s’affichent sur votre profil.',
+                style: VxText.body(14, color: VxColors.textSecondary),
+              ),
+              for (final MapEntry(key: network, value: field) in _links.entries) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: field,
+                  keyboardType: TextInputType.url,
+                  autocorrect: false,
+                  textInputAction: TextInputAction.next,
+                  decoration: InputDecoration(
+                    labelText: network.label,
+                    hintText: network.isWebsite ? 'https://…' : 'pseudo',
+                    prefixIcon: Icon(network.icon),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
               if (_error != null) Text(_error!, style: const TextStyle(color: VxColors.dangerText)),
               const SizedBox(height: 20),
               FilledButton(

@@ -6,13 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../router.dart';
 import '../auth/session.dart';
 import 'episode_alerts.dart';
+import 'inbox.dart';
 import 'push_messaging.dart';
 import 'push_registration.dart';
 import 'system_notifications.dart';
 
 /// Around the app (`MaterialApp.builder`), like UpdateGate: prepares the notification channels,
 /// registers the app with the server (at launch, back in the foreground, when the session, the
-/// profile, the « Nouveaux épisodes » setting or the push token changes), shows a push received
+/// profile, the « Nouveaux épisodes » or « Activité » setting or the push token changes), shows a push received
 /// while the app is open, and opens the page of a tapped notification (also one that launched
 /// the app). Nothing on Windows.
 class NotificationsGate extends ConsumerStatefulWidget {
@@ -63,8 +64,15 @@ class _NotificationsGateState extends ConsumerState<NotificationsGate> {
 
   void _register() => ref.read(pushRegistrationProvider).sync();
 
-  /// Android only shows the push of a closed app: the app shows the others itself.
+  /// Android only shows the push of a closed app: the app shows the others itself. One of the
+  /// `social` channel also updates the badge and the « Notifications » page.
   void _show(PushNotification notification) {
+    if (notification.channel == NotificationChannel.social.id) {
+      ref.read(unreadNotificationsProvider.notifier).refresh(force: true);
+      ref
+        ..invalidate(activityFeedProvider)
+        ..invalidate(followRequestsProvider);
+    }
     ref
         .read(systemNotificationsProvider)
         .show(
@@ -99,11 +107,14 @@ class _NotificationsGateState extends ConsumerState<NotificationsGate> {
         if (previous != next) _register();
       });
       // Turned on or off (not its first reading: the launch registers already).
-      ref.listen(episodeAlertsSettingProvider, (previous, next) {
+      void changed(AsyncValue<bool>? previous, AsyncValue<bool> next) {
         if (previous != null && previous.hasValue && next.hasValue && previous.value != next.value) {
           ref.read(pushRegistrationProvider).sync(force: true);
         }
-      });
+      }
+
+      ref.listen(episodeAlertsSettingProvider, changed);
+      ref.listen(socialAlertsSettingProvider, changed);
     }
     return widget.child;
   }

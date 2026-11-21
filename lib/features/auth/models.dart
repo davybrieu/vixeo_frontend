@@ -1,3 +1,4 @@
+import '../social/social_links.dart';
 
 /// Account returned by `GET /me` (UserResource).
 class User {
@@ -85,6 +86,8 @@ class Profile {
     this.skipRecap = false,
     this.skipCredits = false,
     this.skipPreview = false,
+    this.isPrivate = false,
+    this.socialLinks = const [],
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
@@ -107,6 +110,8 @@ class Profile {
     skipRecap: json['skip_recap'] as bool? ?? false,
     skipCredits: json['skip_credits'] as bool? ?? false,
     skipPreview: json['skip_preview'] as bool? ?? false,
+    isPrivate: json['is_private'] as bool? ?? false,
+    socialLinks: SocialLink.listOf(json['social_links']),
   );
 
   final int id;
@@ -143,6 +148,13 @@ class Profile {
   final bool skipRecap;
   final bool skipCredits;
   final bool skipPreview;
+
+  /// A private account (like Twitter): only its accepted followers see its lists and reviews
+  /// (vixeo_backend/docs/social.md).
+  final bool isPrivate;
+
+  /// Its accounts on social networks (« Modifier mon profil »), shown on its page.
+  final List<SocialLink> socialLinks;
 
   /// First letter, shown on the avatar tile.
   String get initial => name.isEmpty ? '?' : String.fromCharCode(name.runes.first).toUpperCase();

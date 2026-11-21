@@ -12,6 +12,7 @@ import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/hero.dart';
 import 'package:vixeo/features/catalog/models.dart';
+import 'package:vixeo/features/notifications/inbox.dart';
 import 'package:vixeo/features/shell/app_shell.dart';
 
 // Navigation with the arrows of a TV remote (D-pad) or a keyboard: core/widgets/focus_navigation.dart
@@ -23,9 +24,19 @@ class _Session extends SessionController {
       SessionState(status: SessionStatus.signedIn, token: 't', profile: const Profile(id: 1, name: 'Davy'));
 }
 
+/// No unread notification, nothing asked to the server.
+class _NoUnread extends UnreadNotifications {
+  @override
+  Future<void> refresh({bool force = false}) async {}
+}
+
 /// The app's keys and navigation around [home].
 Widget _app(Widget home) => ProviderScope(
-  overrides: [sessionProvider.overrideWith(_Session.new), liveTvProvider.overrideWithValue(false)],
+  overrides: [
+    sessionProvider.overrideWith(_Session.new),
+    liveTvProvider.overrideWithValue(false),
+    unreadNotificationsProvider.overrideWith(_NoUnread.new),
+  ],
   child: MaterialApp(
     theme: buildVixeoTheme(),
     shortcuts: remoteShortcuts,

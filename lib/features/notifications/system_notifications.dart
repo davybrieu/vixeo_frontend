@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// each one can be turned off in the app's notification settings of the device.
 enum NotificationChannel {
   episodes('episodes', 'Nouveaux épisodes', 'Un nouvel épisode d’une série de Ma liste est sorti.'),
+  social('social', 'Activité', 'Nouveaux abonnés, demandes d’abonnement et J’aime sur vos avis.'),
   general('general', 'Informations', 'Les messages de Vixeo.');
 
   const NotificationChannel(this.id, this.label, this.description);
