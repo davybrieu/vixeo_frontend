@@ -319,15 +319,20 @@ class SeasonSummary {
 /// TMDb's (vixeo_backend/docs/notes.md).
 enum RatingSite {
   imdb('IMDb'),
-  tmdb('TMDb');
+  tmdb('TMDb'),
+  trakt('Trakt'),
+  letterboxd('Letterboxd'),
+  tomatoes('Rotten Tomatoes'),
+  audience('Rotten Tomatoes — public'),
+  metacritic('Metacritic'),
+  mal('MyAnimeList');
 
   const RatingSite(this.label);
 
-  /// Name shown in « Notes » and read by screen readers.
   final String label;
 }
 
-/// A rating out of 10 and its number of votes.
+/// A rating and its number of votes. MDBList does not expose vote counts in this endpoint.
 @immutable
 class SiteRating {
   const SiteRating(this.value, this.votes);
@@ -342,20 +347,14 @@ class SiteRating {
   int get hashCode => Object.hash(value, votes);
 }
 
-/// IMDb's and TMDb's ratings of a movie, a TV show or an episode, with their votes (`ratings` of the
-/// API, RatingsResource). [imdb] null: IMDb doesn't rate it (or the title has no IMDb id); [tmdb]
-/// null: nobody voted on TMDb yet.
+/// IMDb/TMDb ratings from the title response, plus external ratings loaded on demand in the modal.
 @immutable
 class TitleRatings {
   const TitleRatings({this.imdb, this.imdbId, this.tmdb});
 
-  /// `ratings` of the API; without it (older API), TMDb's [voteAverage] / [voteCount] alone.
   factory TitleRatings.fromJson(Object? json, {double voteAverage = 0, int voteCount = 0}) {
     SiteRating? parse(Object? site) => switch (site) {
-      {'rating': final num value, 'votes': final num votes} when value > 0 => SiteRating(
-        value.toDouble(),
-        votes.toInt(),
-      ),
+      {'rating': final num value, 'votes': final num votes} when value > 0 => SiteRating(value.toDouble(), votes.toInt()),
       _ => null,
     };
     if (json is! Map<String, dynamic>) {
@@ -370,16 +369,16 @@ class TitleRatings {
   }
 
   static const none = TitleRatings();
-
   final SiteRating? imdb;
-
-  /// IMDb id of the rated title (tt…).
   final String? imdbId;
   final SiteRating? tmdb;
 
-  SiteRating? operator [](RatingSite site) => site == RatingSite.imdb ? imdb : tmdb;
+  SiteRating? operator [](RatingSite site) => switch (site) {
+    RatingSite.imdb => imdb,
+    RatingSite.tmdb => tmdb,
+    _ => null,
+  };
 
-  /// The rating shown next to the title: IMDb's, else TMDb's; null when neither rates it.
   (RatingSite, SiteRating)? get shown => switch ((imdb, tmdb)) {
     (final imdb?, _) => (RatingSite.imdb, imdb),
     (null, final tmdb?) => (RatingSite.tmdb, tmdb),
