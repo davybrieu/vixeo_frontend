@@ -15,6 +15,7 @@ import 'features/auth/password_reset_screen.dart';
 import 'features/auth/register_screen.dart' show RegisterScreen;
 import 'features/auth/session.dart';
 import 'features/catalog/details_screen.dart';
+import 'features/catalog/description_screen.dart';
 import 'features/catalog/home_screen.dart';
 import 'features/catalog/list_screen.dart';
 import 'features/catalog/models.dart';
@@ -288,6 +289,16 @@ final routerProvider = Provider<GoRouter>((ref) {
               list: state.pathParameters['list'] ?? '',
               title: state.uri.queryParameters['titre'],
             ),
+          ),
+          GoRoute(
+            path: '/description',
+            builder: (_, state) {
+              final data = state.extra as Map<String, String>?;
+              return DescriptionScreen(
+                title: data?['title'] ?? 'Description',
+                description: data?['description'] ?? '',
+              );
+            },
           ),
           GoRoute(
             path: '/titre/:type/:id',
