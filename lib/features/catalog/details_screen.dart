@@ -769,7 +769,7 @@ class _LargeDetails extends StatelessWidget {
                       SizedBox(height: layout.tv(22)),
                       SizedBox(
                         width: layout.tv(820),
-                        child: ExpandableText(text: t.overview!, maxLines: 5),
+                        child: DescriptionLink(title: t.title, description: t.overview!),
                       ),
                     ],
                     SizedBox(height: layout.sectionGap),
