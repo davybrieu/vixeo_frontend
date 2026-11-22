@@ -16,6 +16,10 @@ env:
   # Added to github.run_number to make the build number (see "Read app version").
   BUILD_OFFSET: 400
   API_URL: https://api.vixeo.app
+  REVERB_HOST: api.vixeo.app
+  REVERB_PORT: 443
+  REVERB_SCHEME: https
+  REVERB_APP_KEY: ${{ vars.REVERB_APP_KEY }}
   PUBLISHER_NAME: Vixeo
   SUPPORT_EMAIL: support@vixeo.app
 
@@ -148,6 +152,10 @@ jobs:
           flutter build apk --release \
             --build-number="${{ steps.app-version.outputs.build }}" \
             --dart-define=API_URL="${{ env.API_URL }}" \
+            --dart-define=REVERB_HOST="${{ env.REVERB_HOST }}" \
+            --dart-define=REVERB_PORT="${{ env.REVERB_PORT }}" \
+            --dart-define=REVERB_SCHEME="${{ env.REVERB_SCHEME }}" \
+            --dart-define=REVERB_APP_KEY="${{ env.REVERB_APP_KEY }}" \
             --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}" \
             --dart-define=SUPPORT_EMAIL="${{ env.SUPPORT_EMAIL }}"
           mkdir -p release
@@ -207,6 +215,10 @@ jobs:
           flutter build windows --release \
             --build-number="${{ steps.app-version.outputs.build }}" \
             --dart-define=API_URL="${{ env.API_URL }}" \
+            --dart-define=REVERB_HOST="${{ env.REVERB_HOST }}" \
+            --dart-define=REVERB_PORT="${{ env.REVERB_PORT }}" \
+            --dart-define=REVERB_SCHEME="${{ env.REVERB_SCHEME }}" \
+            --dart-define=REVERB_APP_KEY="${{ env.REVERB_APP_KEY }}" \
             --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}" \
             --dart-define=SUPPORT_EMAIL="${{ env.SUPPORT_EMAIL }}"
 

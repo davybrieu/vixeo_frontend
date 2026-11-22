@@ -14,7 +14,7 @@ class AppConfig {
 
   // Public Reverb application settings. The secret remains server-side only.
   static const String reverbAppKey = String.fromEnvironment('REVERB_APP_KEY');
-  static const String reverbHost = String.fromEnvironment('REVERB_HOST', defaultValue: 'ws.vixeo.app');
+  static const String reverbHost = String.fromEnvironment('REVERB_HOST', defaultValue: 'api.vixeo.app');
   static const int reverbPort = int.fromEnvironment('REVERB_PORT', defaultValue: 443);
   static const String reverbScheme = String.fromEnvironment('REVERB_SCHEME', defaultValue: 'https');
 

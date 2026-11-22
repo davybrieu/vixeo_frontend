@@ -152,7 +152,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
     _socketSubscription = null;
     if (_reconnectTimer?.isActive == true) return;
     _reconnectAttempts++;
-    final seconds = _reconnectAttempts.clamp(1, 30);
+    final seconds = _reconnectAttempts.clamp(1, 30).toInt();
     _reconnectTimer = Timer(Duration(seconds: seconds), () {
       unawaited(_connectRealtime());
     });
