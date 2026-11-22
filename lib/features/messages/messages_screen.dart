@@ -245,6 +245,16 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
     }
   }
 
+
+  Future<void> _declineRequest(int id) async {
+    try {
+      await _api.delete('/messages/$id/request');
+      await _loadConversations();
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
+
   Future<void> _deleteMessage(int id) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -369,7 +379,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
               leading: _avatar(sender['name']?.toString() ?? ''),
               title: Text('Demande de ${sender['name'] ?? 'membre'}'),
               subtitle: Text(request['preview']?.toString() ?? 'Souhaite vous envoyer un message'),
-              trailing: TextButton(onPressed: () => _acceptRequest(request['conversation_id'] as int), child: const Text('Accepter')),
+              trailing: Wrap(mainAxisSize: MainAxisSize.min, children: [
+                TextButton(onPressed: () => _declineRequest(request['conversation_id'] as int), child: const Text('Refuser')),
+                TextButton(onPressed: () => _acceptRequest(request['conversation_id'] as int), child: const Text('Accepter')),
+              ]),
             );
           }),
         Expanded(
