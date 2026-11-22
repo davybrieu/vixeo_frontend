@@ -303,7 +303,7 @@ void main() {
 
     expect(find.text('Alma Meyer'), findsOneWidget);
     expect(find.text('Interprétation'), findsOneWidget);
-    expect(find.text('Actrice française.'), findsOneWidget);
+    expect(find.text('Lire la suite'), findsOneWidget);
     expect(find.text('Connu pour'), findsOneWidget);
     expect(find.text('Filmographie'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Les Veilleurs, série')), findsOneWidget);
