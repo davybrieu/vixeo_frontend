@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -115,6 +116,68 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
       if (!mounted || silent) return;
       setState(() { _loading = false; _error = error.toString(); });
     }
+  }
+
+
+  Future<void> _attach() async {
+    final id = _conversationId;
+    if (id == null || _sending) return;
+    try {
+      final file = await FilePicker.pickFile(type: FileType.media);
+      if (file == null) return;
+      final length = file.lengthSync() ?? await file.length();
+      if (length == null || length <= 0 || length > 100 * 1024 * 1024) {
+        throw Exception('Le fichier doit faire moins de 100 Mo.');
+      }
+      setState(() => _sending = true);
+      await _api.upload(
+        '/messages/$id/attachments',
+        stream: file.readAsByteStream,
+        length: length,
+        filename: file.name,
+      );
+      await _loadMessages();
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Widget _attachment(Map<String, dynamic> attachment) {
+    final mime = attachment['mime_type']?.toString() ?? '';
+    final url = attachment['url']?.toString() ?? '';
+    if (mime.startsWith('image/')) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: FutureBuilder(
+            future: _api.getBytes(url),
+            builder: (context, snapshot) => snapshot.hasData
+                ? Image.memory(snapshot.data!, width: 220, fit: BoxFit.cover)
+                : Container(
+                    width: 220, height: 120, color: VxColors.surfaceHigh,
+                    alignment: Alignment.center,
+                    child: snapshot.hasError ? const Icon(Icons.broken_image_outlined) : const CircularProgressIndicator(),
+                  ),
+          ),
+        ),
+      );
+    }
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: VxColors.surfaceHigh, borderRadius: BorderRadius.circular(10)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.play_circle_outline_rounded),
+          const SizedBox(width: 8),
+          Flexible(child: Text(attachment['name']?.toString() ?? 'Vidéo', maxLines: 1, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+    );
   }
 
   Future<void> _send() async {
@@ -387,7 +450,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text(message['body']?.toString() ?? '', style: TextStyle(color: mine ? Colors.white : VxColors.text)),
+                                if ((message['body']?.toString() ?? '').isNotEmpty) Text(message['body']?.toString() ?? '', style: TextStyle(color: mine ? Colors.white : VxColors.text)),
+                                ...((message['attachments'] as List? ?? []).whereType<Map<String, dynamic>>().map(_attachment)),
                                 const SizedBox(height: 4),
                                 Row(mainAxisSize: MainAxisSize.min, children: [
                                   Text(_time(message['created_at']), style: TextStyle(fontSize: 10, color: mine ? Colors.white70 : VxColors.textSecondary)),
@@ -407,6 +471,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
             child: Row(
               children: [
+                IconButton(onPressed: _sending ? null : _attach, tooltip: 'Joindre une photo ou vidéo', icon: const Icon(Icons.attach_file_rounded)),
                 Expanded(
                   child: TextField(
                     controller: _composer,

@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../config.dart';
@@ -88,6 +91,36 @@ class ApiClient {
 
   Future<Map<String, dynamic>> delete(String path, {Map<String, String>? headers}) =>
       _send(() => _dio.delete<dynamic>(path, options: Options(headers: headers)));
+
+
+  Future<Map<String, dynamic>> upload(
+    String path, {
+    required Stream<List<int>> Function() stream,
+    required int length,
+    required String filename,
+  }) => _send(
+    () => _dio.post<dynamic>(
+      path,
+      data: FormData.fromMap({
+        'file': MultipartFile.fromStream(stream, length, filename: filename),
+      }),
+      options: Options(contentType: Headers.multipartFormDataContentType),
+    ),
+  );
+
+  Future<Uint8List> getBytes(String path) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        path,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return Uint8List.fromList(response.data ?? const <int>[]);
+    } on DioException catch (error) {
+      final exception = ApiException.fromDio(error);
+      if (exception.isUnauthorized) _onUnauthorized?.call();
+      throw exception;
+    }
+  }
 
   Future<Map<String, dynamic>> _send(Future<Response<dynamic>> Function() request) async {
     try {
