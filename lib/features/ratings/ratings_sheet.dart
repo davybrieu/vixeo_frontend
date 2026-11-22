@@ -102,7 +102,7 @@ class _AllRatings extends ConsumerWidget {
     final external = id > 0
         ? ref.watch(externalRatingsProvider((type, id)))
         : const AsyncValue<Map<String, SiteRating>>.data({});
-    final extra = external.valueOrNull ?? const <String, SiteRating>{};
+    final extra = external.asData?.value ?? const <String, SiteRating>{};
     final sites = <RatingSite>[
       RatingSite.imdb,
       RatingSite.tmdb,
