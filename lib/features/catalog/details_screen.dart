@@ -12,7 +12,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
-import '../../core/widgets/expandable_text.dart';
+import '../../core/widgets/description_link.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
@@ -621,7 +621,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                   _Actions(title: t),
                   if (t.overview != null) ...[
                     const SizedBox(height: 16),
-                    ExpandableText(text: t.overview!, maxLines: 5),
+                    DescriptionLink(title: t.title, description: t.overview!),
                   ],
                 ],
               ),
