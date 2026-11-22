@@ -85,6 +85,77 @@ class ApiClient {
     ),
   );
 
+
+  Future<Map<String, dynamic>> authorizeBroadcasting({
+    required String socketId,
+    required String channelName,
+  }) => _send(
+    () => _dio.postUri<Map<String, dynamic>>(
+      Uri.parse('${AppConfig.apiUrl.replaceAll(RegExp(r'/+ => _send(() => _dio.put<dynamic>(path, data: body));
+
+  Future<Map<String, dynamic>> patch(String path, {Object? body}) => _send(() => _dio.patch<dynamic>(path, data: body));
+
+  Future<Map<String, dynamic>> delete(String path, {Map<String, String>? headers}) =>
+      _send(() => _dio.delete<dynamic>(path, options: Options(headers: headers)));
+
+
+  Future<Map<String, dynamic>> upload(
+    String path, {
+    required Stream<List<int>> Function() stream,
+    required int length,
+    required String filename,
+  }) => _send(
+    () => _dio.post<dynamic>(
+      path,
+      data: FormData.fromMap({
+        'file': MultipartFile.fromStream(stream, length, filename: filename),
+      }),
+      options: Options(contentType: Headers.multipartFormDataContentType),
+    ),
+  );
+
+  Future<Uint8List> getBytes(String path) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        path,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return Uint8List.fromList(response.data ?? const <int>[]);
+    } on DioException catch (error) {
+      final exception = ApiException.fromDio(error);
+      if (exception.isUnauthorized) _onUnauthorized?.call();
+      throw exception;
+    }
+  }
+
+  Future<Map<String, dynamic>> _send(Future<Response<dynamic>> Function() request) async {
+    try {
+      final response = await request();
+      final data = response.data;
+      return data is Map<String, dynamic> ? data : <String, dynamic>{};
+    } on DioException catch (error) {
+      final exception = ApiException.fromDio(error);
+      final isLogin = error.requestOptions.path.contains('/auth/');
+      if (exception.isUnauthorized && !isLogin) {
+        _onUnauthorized?.call();
+      }
+      throw exception;
+    }
+  }
+
+  static Map<String, dynamic>? _clean(Map<String, dynamic>? query) {
+    if (query == null) return null;
+    return {
+      for (final entry in query.entries)
+        if (entry.value != null) entry.key: entry.value is bool ? ((entry.value as bool) ? 1 : 0) : entry.value,
+    };
+  }
+}
+), '')}/api/broadcasting/auth'),
+      data: {'socket_id': socketId, 'channel_name': channelName},
+    ),
+  );
+
   Future<Map<String, dynamic>> put(String path, {Object? body}) => _send(() => _dio.put<dynamic>(path, data: body));
 
   Future<Map<String, dynamic>> patch(String path, {Object? body}) => _send(() => _dio.patch<dynamic>(path, data: body));

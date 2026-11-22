@@ -12,6 +12,12 @@ class AppConfig {
 
   static const String apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:8000');
 
+  // Public Reverb application settings. The secret remains server-side only.
+  static const String reverbAppKey = String.fromEnvironment('REVERB_APP_KEY');
+  static const String reverbHost = String.fromEnvironment('REVERB_HOST', defaultValue: 'ws.vixeo.app');
+  static const int reverbPort = int.fromEnvironment('REVERB_PORT', defaultValue: 443);
+  static const String reverbScheme = String.fromEnvironment('REVERB_SCHEME', defaultValue: 'https');
+
   static const bool _apiUrlGiven = bool.hasEnvironment('API_URL');
 
   /// Why this build must not start, or null. A release build needs an explicit `https://` API

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:file_picker/file_picker.dart';
@@ -6,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/config.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../auth/session.dart';
@@ -24,7 +27,11 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
   final _composer = TextEditingController();
   final _search = TextEditingController();
   final _scroll = ScrollController();
-  Timer? _poll;
+  WebSocket? _socket;
+  StreamSubscription<dynamic>? _socketSubscription;
+  Timer? _reconnectTimer;
+  bool _realtimeConnecting = false;
+  int _reconnectAttempts = 0;
   bool _loading = true;
   bool _sending = false;
   String? _error;
@@ -49,7 +56,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
       _startConversation(widget.username!);
     } else if (_conversationId != null) {
       _loadMessages();
-      _poll = Timer.periodic(const Duration(seconds: 5), (_) => _loadMessages(silent: true));
+      unawaited(_connectRealtime());
     } else {
       _loadConversations();
     }
@@ -58,11 +65,97 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
 
   @override
   void dispose() {
-    _poll?.cancel();
+    _reconnectTimer?.cancel();
+    unawaited(_socketSubscription?.cancel());
+    unawaited(_socket?.close() ?? Future<void>.value());
     _composer.dispose();
     _search.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+
+  Future<void> _connectRealtime() async {
+    final conversationId = _conversationId;
+    if (conversationId == null || AppConfig.reverbAppKey.isEmpty || _realtimeConnecting || !mounted) return;
+    _realtimeConnecting = true;
+    try {
+      final secure = AppConfig.reverbScheme == 'https';
+      final uri = Uri(
+        scheme: secure ? 'wss' : 'ws',
+        host: AppConfig.reverbHost,
+        port: AppConfig.reverbPort,
+        path: '/app/${AppConfig.reverbAppKey}',
+        queryParameters: {
+          'protocol': '7',
+          'client': 'flutter',
+          'version': '1.0.0',
+          'flash': 'false',
+        },
+      );
+      final socket = await WebSocket.connect(uri.toString());
+      if (!mounted || conversationId != _conversationId) {
+        await socket.close();
+        return;
+      }
+      _socket = socket;
+      _reconnectAttempts = 0;
+      _socketSubscription = socket.listen(
+        (message) => _handleRealtimeMessage(socket, message),
+        onDone: () => _scheduleRealtimeReconnect(socket),
+        onError: (Object error) => _scheduleRealtimeReconnect(socket),
+        cancelOnError: true,
+      );
+    } catch (_) {
+      _scheduleRealtimeReconnect(null);
+    } finally {
+      _realtimeConnecting = false;
+    }
+  }
+
+  Future<void> _handleRealtimeMessage(WebSocket socket, dynamic raw) async {
+    if (!mounted || !identical(socket, _socket)) return;
+    try {
+      final envelope = jsonDecode(raw as String) as Map<String, dynamic>;
+      final event = envelope['event'] as String?;
+      final rawData = envelope['data'];
+      final data = rawData is String
+          ? jsonDecode(rawData) as Map<String, dynamic>
+          : rawData is Map<String, dynamic> ? rawData : <String, dynamic>{};
+
+      if (event == 'pusher:connection_established') {
+        final socketId = data['socket_id'] as String?;
+        final id = _conversationId;
+        if (socketId == null || id == null) return;
+        final channel = 'private-messages.$id';
+        final authorization = await _api.authorizeBroadcasting(socketId: socketId, channelName: channel);
+        if (!identical(socket, _socket)) return;
+        socket.add(jsonEncode({
+          'event': 'pusher:subscribe',
+          'data': {'auth': authorization['auth'], 'channel': channel},
+        }));
+      } else if (event == 'pusher:ping') {
+        socket.add(jsonEncode({'event': 'pusher:pong', 'data': {}}));
+      } else if (event == 'message.sent') {
+        if (data['conversation_id'] == _conversationId) {
+          await _loadMessages(silent: true);
+        }
+      }
+    } catch (_) {
+      // A malformed or unrelated WebSocket frame must not break the conversation screen.
+    }
+  }
+
+  void _scheduleRealtimeReconnect(WebSocket? socket) {
+    if (!mounted || (_socket != null && socket != null && !identical(socket, _socket))) return;
+    _socket = null;
+    _socketSubscription = null;
+    if (_reconnectTimer?.isActive == true) return;
+    _reconnectAttempts++;
+    final seconds = _reconnectAttempts.clamp(1, 30);
+    _reconnectTimer = Timer(Duration(seconds: seconds), () {
+      unawaited(_connectRealtime());
+    });
   }
 
   Future<void> _loadConversations() async {
