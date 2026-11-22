@@ -377,7 +377,7 @@ class _RailState extends State<_Rail> {
       builder: (context, constraints) {
         // Height of the content, in item sizes: the profile (0.78), a gap (0.8), then each
         // destination and the gap under it (1.16).
-        final units = 1.58 + 1.16 * widget.items.length;
+        final units = 1.33 + 1.08 * widget.items.length;
         var size = widget.itemSize;
         var padding = widget.padding;
         final height = constraints.maxHeight;
@@ -416,10 +416,10 @@ class _RailState extends State<_Rail> {
                     semanticLabel: 'Mon profil (${widget.profile?.name ?? ''})',
                     child: ProfileAvatar(profile: widget.profile, size: size * 0.78, radius: size * 0.2),
                   ),
-                SizedBox(height: size * 0.8),
+                SizedBox(height: size * 0.55),
                 for (final d in widget.items)
                   Padding(
-                    padding: EdgeInsets.only(bottom: size * 0.16),
+                    padding: EdgeInsets.only(bottom: size * 0.08),
                     child: _RailItem(
                       destination: d,
                       selected: widget.isSelected(d.path),
