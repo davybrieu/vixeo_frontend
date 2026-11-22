@@ -34,6 +34,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
   List<Map<String, dynamic>> _suggestions = [];
   Map<String, dynamic>? _participant;
   String? _conversationName;
+  bool _isGroup = false;
+  bool _isGroupAdmin = false;
+  List<Map<String, dynamic>> _participants = [];
   List<Map<String, dynamic>> _requests = [];
 
   ApiClient get _api => ref.read(apiClientProvider);
@@ -102,6 +105,9 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
       setState(() {
         _participant = json['participant'] as Map<String, dynamic>?;
         _conversationName = (json['conversation'] as Map<String, dynamic>?)?['name'] as String?;
+        _isGroup = (json['conversation'] as Map<String, dynamic>?)?['type'] == 'group';
+        _isGroupAdmin = json['is_admin'] == true;
+        _participants = (json['participants'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
         _messages = data;
         _loading = false;
         _error = null;
@@ -276,6 +282,104 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
     }
   }
 
+
+  Future<void> _manageGroup() async {
+    final id = _conversationId;
+    if (id == null || !_isGroup) return;
+    final name = TextEditingController(text: _conversationName ?? '');
+    final usernames = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Gestion du groupe'),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_isGroupAdmin) TextField(controller: name, decoration: const InputDecoration(labelText: 'Nom du groupe')),
+                if (_isGroupAdmin) TextButton(
+                  onPressed: () async {
+                    try {
+                      await _api.put('/messages/' + id.toString() + '/group', body: {'name': name.text.trim()});
+                      if (mounted) setState(() => _conversationName = name.text.trim());
+                    } catch (error) {
+                      if (mounted) setState(() => _error = error.toString());
+                    }
+                  },
+                  child: const Text('Enregistrer le nom'),
+                ),
+                const Text('Membres', style: TextStyle(fontWeight: FontWeight.w600)),
+                ..._participants.map((member) {
+                  final username = member['username']?.toString() ?? '';
+                  final isAdmin = member['role'] == 'admin';
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(member['name']?.toString() ?? username),
+                    subtitle: Text('@' + username + (isAdmin ? ' · Administrateur' : '')),
+                    trailing: _isGroupAdmin ? PopupMenuButton<String>(
+                      onSelected: (action) async {
+                        try {
+                          final encoded = Uri.encodeComponent(username);
+                          if (action == 'transfer') {
+                            await _api.post('/messages/' + id.toString() + '/group/admin/' + encoded);
+                          } else if (action == 'remove') {
+                            await _api.delete('/messages/' + id.toString() + '/group/members/' + encoded);
+                          }
+                          await _loadMessages(silent: true);
+                        } catch (error) {
+                          if (mounted) setState(() => _error = error.toString());
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        if (!isAdmin) const PopupMenuItem(value: 'transfer', child: Text('Nommer administrateur')),
+                        const PopupMenuItem(value: 'remove', child: Text('Retirer du groupe')),
+                      ],
+                    ) : null,
+                  );
+                }),
+                if (_isGroupAdmin) TextField(controller: usernames, decoration: const InputDecoration(labelText: 'Ajouter des membres', hintText: 'pseudo1, pseudo2')),
+                if (_isGroupAdmin) TextButton(
+                  onPressed: () async {
+                    final values = usernames.text.split(',').map((v) => v.trim().replaceFirst(RegExp(r'^@'), '')).where((v) => v.isNotEmpty).toSet().toList();
+                    if (values.isEmpty) return;
+                    try {
+                      await _api.post('/messages/' + id.toString() + '/group/members', body: {'usernames': values});
+                      usernames.clear();
+                      await _loadMessages(silent: true);
+                    } catch (error) {
+                      if (mounted) setState(() => _error = error.toString());
+                    }
+                  },
+                  child: const Text('Ajouter'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              try {
+                await _api.post('/messages/' + id.toString() + '/group/leave');
+                if (mounted) context.go('/messages');
+              } catch (error) {
+                if (mounted) setState(() => _error = error.toString());
+              }
+            },
+            child: const Text('Quitter le groupe'),
+          ),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Fermer')),
+        ],
+      ),
+    );
+    name.dispose();
+    usernames.dispose();
+  }
+
   Future<void> _blockParticipant() async {
     final username = _participant?['username']?.toString();
     if (username == null) return;
@@ -336,9 +440,15 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
         title: Text(_conversationId == null ? 'Messages' : (_conversationName ?? _participant?['name']?.toString() ?? 'Conversation')),
         actions: [
           if (_conversationId == null) IconButton(tooltip: 'Créer un groupe', onPressed: _createGroupDialog, icon: const Icon(Icons.group_add_outlined)),
-          if (_conversationId != null && _participant?['username'] != null) PopupMenuButton<String>(
-            onSelected: (value) { if (value == 'block') _blockParticipant(); },
-            itemBuilder: (_) => const [PopupMenuItem(value: 'block', child: Text('Bloquer ce membre'))],
+          if (_conversationId != null && (_isGroup || _participant?['username'] != null)) PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'block') _blockParticipant();
+              if (value == 'group') _manageGroup();
+            },
+            itemBuilder: (_) => [
+              if (_isGroup) const PopupMenuItem(value: 'group', child: Text('Gérer le groupe')),
+              if (!_isGroup) const PopupMenuItem(value: 'block', child: Text('Bloquer ce membre')),
+            ],
           ),
         ],
         leading: _conversationId == null ? null : IconButton(
