@@ -16,7 +16,6 @@ import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
 import '../notifications/inbox.dart';
 import '../notifications/inbox_screen.dart';
-import '../messages/messages_screen.dart';
 import '../profiles/avatars.dart';
 import 'back_navigation_guard.dart';
 

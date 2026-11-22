@@ -461,7 +461,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                             ),
                           ),
                           ),
-                        ),
+                        );
                       },
                     ),
         ),
