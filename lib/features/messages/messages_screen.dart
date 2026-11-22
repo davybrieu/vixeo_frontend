@@ -32,6 +32,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
   List<Map<String, dynamic>> _messages = [];
   List<Map<String, dynamic>> _suggestions = [];
   Map<String, dynamic>? _participant;
+  String? _conversationName;
+  List<Map<String, dynamic>> _requests = [];
 
   ApiClient get _api => ref.read(apiClientProvider);
 
@@ -62,8 +64,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
   Future<void> _loadConversations() async {
     try {
       final json = await _api.get('/messages');
+      final requestsJson = await _api.get('/messages/requests');
       if (!mounted) return;
       setState(() {
+        _requests = (requestsJson['data'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
         _conversations = (json['data'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
         _loading = false;
         _error = null;
@@ -96,6 +100,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
       final data = (json['data'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
       setState(() {
         _participant = json['participant'] as Map<String, dynamic>?;
+        _conversationName = (json['conversation'] as Map<String, dynamic>?)?['name'] as String?;
         _messages = data;
         _loading = false;
         _error = null;
@@ -125,6 +130,99 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
       if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _sending = false);
+    }
+  }
+
+
+  Future<void> _createGroupDialog() async {
+    final name = TextEditingController();
+    final members = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Créer un groupe'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: name, decoration: const InputDecoration(labelText: 'Nom du groupe')),
+            const SizedBox(height: 12),
+            TextField(
+              controller: members,
+              decoration: const InputDecoration(labelText: 'Pseudos des membres', hintText: 'pseudo1, pseudo2'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Créer')),
+        ],
+      ),
+    );
+    if (result == true) {
+      final usernames = members.text.split(',').map((value) => value.trim().replaceFirst(RegExp(r'^@'), '')).where((value) => value.isNotEmpty).toSet().toList();
+      try {
+        final json = await _api.post('/messages/groups', body: {'name': name.text.trim(), 'usernames': usernames});
+        if (!mounted) return;
+        context.go('/messages/${json['conversation_id']}');
+      } catch (error) {
+        if (mounted) setState(() => _error = error.toString());
+      }
+    }
+    name.dispose();
+    members.dispose();
+  }
+
+  Future<void> _acceptRequest(int id) async {
+    try {
+      await _api.post('/messages/$id/accept');
+      if (!mounted) return;
+      context.go('/messages/$id');
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
+
+  Future<void> _deleteMessage(int id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer ce message ?'),
+        content: const Text('Le message sera supprimé pour tous les participants.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Supprimer')),
+        ],
+      ),
+    );
+    if (confirm != true || _conversationId == null) return;
+    try {
+      await _api.delete('/messages/$_conversationId/$id');
+      await _loadMessages();
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
+
+  Future<void> _blockParticipant() async {
+    final username = _participant?['username']?.toString();
+    if (username == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bloquer ce membre ?'),
+        content: const Text('Cette personne ne pourra plus démarrer de conversation avec vous.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Bloquer')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _api.post('/messages/block/${Uri.encodeComponent(username)}');
+      if (mounted) context.go('/messages');
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
     }
   }
 
@@ -162,7 +260,14 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
     return Scaffold(
       backgroundColor: VxColors.background,
       appBar: AppBar(
-        title: Text(_conversationId == null ? 'Messages' : (_participant?['name'] as String? ?? 'Conversation')),
+        title: Text(_conversationId == null ? 'Messages' : (_conversationName ?? _participant?['name']?.toString() ?? 'Conversation')),
+        actions: [
+          if (_conversationId == null) IconButton(tooltip: 'Créer un groupe', onPressed: _createGroupDialog, icon: const Icon(Icons.group_add_outlined)),
+          if (_conversationId != null && _participant?['username'] != null) PopupMenuButton<String>(
+            onSelected: (value) { if (value == 'block') _blockParticipant(); },
+            itemBuilder: (_) => const [PopupMenuItem(value: 'block', child: Text('Bloquer ce membre'))],
+          ),
+        ],
         leading: _conversationId == null ? null : IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.go('/messages'),
@@ -194,6 +299,16 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
             subtitle: Text('@${user['username'] ?? ''}'),
             onTap: () => _startConversation(user['username'].toString()),
           )),
+        if (_requests.isNotEmpty)
+          ..._requests.map((request) {
+            final sender = request['sender'] as Map<String, dynamic>? ?? {};
+            return ListTile(
+              leading: _avatar(sender['name']?.toString() ?? ''),
+              title: Text('Demande de ${sender['name'] ?? 'membre'}'),
+              subtitle: Text(request['preview']?.toString() ?? 'Souhaite vous envoyer un message'),
+              trailing: TextButton(onPressed: () => _acceptRequest(request['conversation_id'] as int), child: const Text('Accepter')),
+            );
+          }),
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
@@ -213,8 +328,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                               final unread = conversation['unread_count'] as int? ?? 0;
                               return ListTile(
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                                leading: _avatar(user['name']?.toString() ?? ''),
-                                title: Text(user['name']?.toString() ?? 'Membre', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                leading: _avatar(conversation['type'] == 'group' ? (conversation['name']?.toString() ?? 'G') : (user['name']?.toString() ?? '')),
+                                title: Text(conversation['type'] == 'group' ? (conversation['name']?.toString() ?? 'Groupe') : (user['name']?.toString() ?? 'Membre'), style: const TextStyle(fontWeight: FontWeight.w600)),
                                 subtitle: Text(last['body']?.toString() ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
                                 trailing: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -253,7 +368,10 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                       itemBuilder: (context, index) {
                         final message = _messages[index];
                         final mine = message['sender_profile_id'] == profileId;
-                        return Align(
+                        final readBy = (message['read_by'] as List? ?? []).length;
+                        return GestureDetector(
+                          onLongPress: mine && message['deleted'] != true ? () => _deleteMessage(message['id'] as int) : null,
+                          child: Align(
                           alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
                           child: Container(
                             constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * .78),
@@ -271,11 +389,15 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                               children: [
                                 Text(message['body']?.toString() ?? '', style: TextStyle(color: mine ? Colors.white : VxColors.text)),
                                 const SizedBox(height: 4),
-                                Text(_time(message['created_at']), style: TextStyle(fontSize: 10, color: mine ? Colors.white70 : VxColors.textSecondary)),
+                                Row(mainAxisSize: MainAxisSize.min, children: [
+                                  Text(_time(message['created_at']), style: TextStyle(fontSize: 10, color: mine ? Colors.white70 : VxColors.textSecondary)),
+                                  if (mine && readBy > 0) ...[const SizedBox(width: 4), Icon(Icons.done_all_rounded, size: 13, color: Colors.white70)],
+                                ]),
                               ],
                             ),
                           ),
-                        );
+                          ),
+                        ),
                       },
                     ),
         ),
