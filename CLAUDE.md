@@ -100,8 +100,9 @@ lib/
     shell/       navigation : onglets en bas (téléphone), rail à gauche (TV, tablette, ordi)
     tmdb/        avis du profil (nom historique) : notes et commentaires (fenêtre,
                  boutons, onglet « Avis »)
-    ratings/     notes IMDb (jeux de données importés par l'API) sinon TMDb : affichage avec le
-                 logo du site, fenêtre « Notes » (les deux notes et leurs votants)
+    ratings/     notes IMDb (jeux de données importés par l'API) sinon TMDb ; fenêtre « Notes » :
+                 charge aussi à l'ouverture les notes externes MDBList (Trakt, Letterboxd, Rotten
+                 Tomatoes, Metacritic, MyAnimeList)
     notifications/  page « Notifications » de la navigation (`InboxScreen`, `inbox.dart` : demandes
                  d'abonnement, prochains épisodes, activité, pastille), notifications push (FCM) :
                  réglages (`NotificationsScreen`), inscription auprès de l'API (`PushRegistration`),
