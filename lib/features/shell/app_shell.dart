@@ -16,6 +16,7 @@ import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
 import '../notifications/inbox.dart';
 import '../notifications/inbox_screen.dart';
+import '../messages/messages_screen.dart';
 import '../profiles/avatars.dart';
 import 'back_navigation_guard.dart';
 
@@ -47,6 +48,7 @@ const _phoneTabs = [
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _notifications,
+  _Destination('/messages', 'Messages', Icons.mail_outline_rounded, Icons.mail_rounded),
   _Destination('/profil', 'Profil', Icons.person_outline_rounded, Icons.person_rounded),
   _Destination('/parametres', 'Paramètres', Icons.settings_outlined, Icons.settings_rounded),
 ];
@@ -65,6 +67,7 @@ const _railItems = [
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _notifications,
+  _Destination('/messages', 'Messages', Icons.mail_outline_rounded, Icons.mail_rounded),
   _Destination('/profil', 'Profil', Icons.person_outline_rounded, Icons.person_rounded),
   _Destination('/parametres', 'Paramètres', Icons.settings_outlined, Icons.settings_rounded),
 ];
@@ -92,6 +95,7 @@ class AppShell extends ConsumerWidget {
     bool shown(_Destination d) => switch (d.path) {
       '/chaines-tv' => liveTv,
       InboxScreen.location => inbox,
+      '/messages' => inbox,
       _ => true,
     };
     final phoneTabs = [for (final d in guest ? _guestPhoneTabs : _phoneTabs) if (shown(d)) d];
@@ -118,8 +122,8 @@ class AppShell extends ConsumerWidget {
     if (layout.isPhone) {
       final navigationPages = guest
           ? {'/accueil', '/recherche', '/chaines-tv'}
-          : {'/accueil', '/chaines-tv', '/recherche', InboxScreen.location, '/profil', '/parametres'};
-      final showNavigation = navigationPages.contains(location);
+          : {'/accueil', '/chaines-tv', '/recherche', InboxScreen.location, '/messages', '/profil', '/parametres'};
+      final showNavigation = navigationPages.contains(location) || location.startsWith('/messages/');
       final index = phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
 

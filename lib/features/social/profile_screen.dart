@@ -255,7 +255,20 @@ class PublicProfileScreen extends ConsumerWidget {
                   autofocus: true,
                   onPressed: () => context.push('/profil/social/edition'),
                 )
-              : _FollowButton(profile: social),
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _FollowButton(profile: social),
+                    VxButton(
+                      label: 'Envoyer un message',
+                      icon: Icons.mail_outline_rounded,
+                      kind: VxButtonKind.secondary,
+                      dense: true,
+                      onPressed: () => context.push('/messages/new?username=${Uri.encodeComponent(social.username)}'),
+                    ),
+                  ],
+                ),
           onShare: switch (social.shareUrl) {
             final url? when canShareLinks => () => shareLink(
               ref,

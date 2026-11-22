@@ -23,6 +23,7 @@ import 'features/library/my_list_screen.dart';
 import 'features/notifications/inbox.dart';
 import 'features/notifications/inbox_screen.dart';
 import 'features/notifications/notifications_screen.dart';
+import 'features/messages/messages_screen.dart';
 import 'features/playback/player_screen.dart';
 import 'features/profiles/advanced_settings_screen.dart';
 import 'features/profiles/profile_editor_screen.dart';
@@ -80,7 +81,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         '/profils', '/profils/gestion', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes', '/profil/avatar', '/profil/controle-parental',
         '/profil/code-pin', '/profil/parametres', '/profil/compte', '/profil/appareils',
         '/profil/connexions', '/profil/tmdb', '/profil/notes', '/profil/notifications', '/profil/avance', '/profil/plugins', '/tv',
-        InboxScreen.location,
+        InboxScreen.location, '/messages',
       };
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
         if (location != '/demarrage') {
@@ -203,6 +204,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, state) => tab(state, const InboxScreen()),
           ),
           GoRoute(path: '/profil', pageBuilder: (_, state) => tab(state, const ProfileScreen())),
+          GoRoute(path: '/messages', pageBuilder: (_, state) => tab(state, const MessagesScreen())),
+          GoRoute(path: '/messages/new', builder: (_, state) => MessagesScreen(username: state.uri.queryParameters['username'])),
+          GoRoute(path: '/messages/:id', builder: (_, state) => MessagesScreen(conversationId: int.tryParse(state.pathParameters['id'] ?? ''))),
           // Former page: managing is on « Qui regarde ? » now.
           GoRoute(path: '/profils/gestion', redirect: (_, _) => '/profils'),
           GoRoute(path: '/parametres', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
