@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
@@ -84,7 +85,6 @@ class _DescriptionScreenState extends State<DescriptionScreen> {
             SizedBox(height: layout.space(VxSpace.m)),
             Expanded(
               child: Focus(
-                autofocus: true,
                 onKeyEvent: _handleKey,
                 child: SingleChildScrollView(
                   controller: _scrollController,
