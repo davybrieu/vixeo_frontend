@@ -353,7 +353,13 @@ class _EpisodeCard extends StatelessWidget {
     final overview = e.overview?.trim() ?? '';
     final rating = noSpoiler ? null : e.ratings.shown;
     final showFacts = !noSpoiler && (e.runtime != null || rating != null || e.airDate != null);
-    void showRatings() => showAllRatings(context, ratings: e.ratings, name: 'Épisode ${e.number} · ${e.name}');
+    void showRatings() => showAllRatings(
+      context,
+      ratings: e.ratings,
+      name: 'Épisode ${e.number} · ${e.name}',
+      type: MediaType.tv,
+      id: 0, // MDBList does not provide episode-level ratings.
+    );
 
     return SizedBox(
       width: width,
