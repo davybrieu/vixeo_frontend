@@ -379,7 +379,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
               leading: _avatar(sender['name']?.toString() ?? ''),
               title: Text('Demande de ${sender['name'] ?? 'membre'}'),
               subtitle: Text(request['preview']?.toString() ?? 'Souhaite vous envoyer un message'),
-              trailing: Wrap(mainAxisSize: MainAxisSize.min, children: [
+              trailing: Wrap(children: [
                 TextButton(onPressed: () => _declineRequest(request['conversation_id'] as int), child: const Text('Refuser')),
                 TextButton(onPressed: () => _acceptRequest(request['conversation_id'] as int), child: const Text('Accepter')),
               ]),
