@@ -19,6 +19,28 @@ class CatalogRepository {
     MediaItem.fromJson,
   );
 
+  /// Additional ratings from MDBList; called only when the user opens the ratings modal.
+  Future<Map<String, SiteRating>> externalRatings(MediaType type, int id) async {
+    final json = await _api.get('/catalog/ratings', query: {'ids': '${type.name}:$id'});
+    final rows = (json['data'] as List?)?.whereType<Map<String, dynamic>>() ?? const [];
+    if (rows.isEmpty) return const {};
+    final row = rows.first;
+    const sources = {
+      'trakt': 'trakt',
+      'letterboxd': 'letterboxd',
+      'tomatoes': 'tomatoes',
+      'audience': 'audience',
+      'metacritic': 'metacritic',
+      'mal': 'mal',
+    };
+    final result = <String, SiteRating>{};
+    for (final entry in sources.entries) {
+      final value = row[entry.key];
+      if (value is num && value > 0) result[entry.value] = SiteRating(value.toDouble(), 0);
+    }
+    return result;
+  }
+
   Future<TitleDetails> movie(int id) async =>
       TitleDetails.fromJson((await _api.get('/catalog/movie/$id'))['data'] as Map<String, dynamic>);
 
@@ -103,6 +125,11 @@ class CatalogRepository {
   }
 
 }
+
+/// Loaded lazily when the ratings modal is opened.
+final externalRatingsProvider = FutureProvider.autoDispose.family<Map<String, SiteRating>, (MediaType, int)>((ref, key) {
+  return ref.read(catalogRepositoryProvider).externalRatings(key.$1, key.$2);
+});
 
 final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => CatalogRepository(ref.read(apiClientProvider)));
 
