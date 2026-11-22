@@ -7,7 +7,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
-import '../../core/widgets/expandable_text.dart';
+import '../../core/widgets/description_link.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
@@ -100,7 +100,7 @@ class _PersonViewState extends ConsumerState<_PersonView> {
         ],
         if (p.biography != null && !layout.isPhone) ...[
           SizedBox(height: layout.space(VxSpace.m)),
-          ExpandableText(text: p.biography!, maxWidth: layout.tv(1000)),
+          DescriptionLink(title: p.name, description: p.biography!),
         ],
       ],
     );
@@ -145,7 +145,7 @@ class _PersonViewState extends ConsumerState<_PersonView> {
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(layout.gutter, 0, layout.gutter, layout.sectionGap),
-              child: ExpandableText(text: p.biography!),
+              child: DescriptionLink(title: p.name, description: p.biography!),
             ),
           ),
         // Rows scrolled left to right like the home's, each with « Voir tout » (every title of
