@@ -330,6 +330,16 @@ enum RatingSite {
   const RatingSite(this.label);
 
   final String label;
+
+  String get shortLabel => switch (this) {
+    RatingSite.imdb => 'IMDb',
+    RatingSite.tmdb => 'TMDb',
+    RatingSite.trakt => 'TRAKT',
+    RatingSite.letterboxd => 'LETTERBOXD',
+    RatingSite.tomatoes || RatingSite.audience => 'RT',
+    RatingSite.metacritic => 'MC',
+    RatingSite.mal => 'MAL',
+  };
 }
 
 /// A rating and its number of votes. MDBList does not expose vote counts in this endpoint.
