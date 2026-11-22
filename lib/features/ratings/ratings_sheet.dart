@@ -176,7 +176,8 @@ class _RatingRow extends StatelessWidget {
       container: true,
       label: rating == null
           ? '${site.label} : pas de note'
-          : '${site.label} : ${formatRating(rating.value)} ${scaleLabel.substring(2)}',
+          : '${site.label} : ${formatRating(rating.value)} ${scaleLabel.substring(2)}'
+                '${rating.votes > 0 ? ', ${formatVotes(rating.votes)}' : ''}',
       excludeSemantics: true,
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: 12 * s),
