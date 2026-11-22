@@ -598,7 +598,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                     runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      if (!t.ratings.isEmpty) RatingButton(ratings: t.ratings, name: t.title),
+                      if (!t.ratings.isEmpty) RatingButton(ratings: t.ratings, name: t.title, type: t.type, id: t.id),
                       for (final m in _meta(t)) Text(m, style: VxText.body(14, color: VxColors.textSoft)),
                       if (t.ageRating != null) VxBadge(_ageLabel(t.ageRating!), outlined: true),
                     ],
@@ -754,7 +754,7 @@ class _LargeDetails extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         if (!t.ratings.isEmpty)
-                          RatingButton(ratings: t.ratings, name: t.title, fontSize: layout.tv(22)),
+                          RatingButton(ratings: t.ratings, name: t.title, type: t.type, id: t.id, fontSize: layout.tv(22)),
                         for (final m in _meta(t)) Text(m, style: VxText.body(layout.tv(22), color: VxColors.textSoft)),
                         if (t.genres.isNotEmpty)
                           Text(
