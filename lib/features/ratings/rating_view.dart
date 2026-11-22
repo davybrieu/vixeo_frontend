@@ -61,6 +61,7 @@ class RatingLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     // As high as the capital letters for TMDb's wide logo, a little higher for IMDb's plate.
     if (site == RatingSite.tmdb) return TmdbLogo(height: size * 0.7);
+    if (site != RatingSite.imdb) return Text(site.shortLabel, style: VxText.body(size * 0.8, weight: FontWeight.w800, color: VxColors.textSecondary));
     final height = size * 0.95;
     return Image.asset(
       'assets/images/ratings/imdb.png',
