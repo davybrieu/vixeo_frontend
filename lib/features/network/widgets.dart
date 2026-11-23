@@ -556,7 +556,12 @@ class _ListLikeButtonState extends ConsumerState<ListLikeButton> {
       });
       widget.onChanged?.call(widget.list.copyWith(liked: after.liked, likesCount: after.likesCount));
     } on ApiException catch (e) {
-      if (mounted) setState(() => (_liked, _count) = before);
+      if (mounted) {
+        setState(() {
+          _liked = before.$1;
+          _count = before.$2;
+        });
+      }
       showVxSnackOn(messenger, e.message, icon: Icons.error_outline_rounded);
     } finally {
       if (mounted) setState(() => _busy = false);

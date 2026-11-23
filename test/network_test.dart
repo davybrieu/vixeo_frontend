@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vixeo/core/api/api_client.dart';
@@ -80,7 +81,7 @@ class _FakeNetwork extends NetworkRepository {
   _FakeNetwork() : super(ApiClient(token: () => null, profileId: () => null));
 
   final calls = <String>[];
-  final comments = <SocialComment>[];
+  final stored = <SocialComment>[];
 
   @override
   Future<FeedPage> feed({int? before}) async => (
@@ -105,7 +106,7 @@ class _FakeNetwork extends NetworkRepository {
 
   @override
   Future<({List<SocialComment> comments, bool hasMore})> comments(CommentSubject subject, {int? before}) async =>
-      (comments: List.of(comments), hasMore: false);
+      (comments: List.of(stored), hasMore: false);
 
   @override
   Future<SocialComment> comment(CommentSubject subject, String body, {bool spoilers = false}) async {
