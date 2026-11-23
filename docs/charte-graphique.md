@@ -200,7 +200,9 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
 | État vide `EmptyState` | icône 44, titre 20 | — | une phrase qui dit quoi faire, et un bouton si une action existe |
 | Note TMDb `TmdbRating` | taille du texte autour | — | étoile verte, note, petit logo TMDb (0,7 × la taille du texte) |
 | Note IMDb `RatingLabel` | taille du texte autour | — | étoile verte, note sur 10 (« 8,8 »), logo d'IMDb (`RatingLogo`, `brand/ratings`, 0,95 × la taille du texte) ; sans note IMDb, celle de TMDb (`TmdbRating`, logo à 0,7 × la taille du texte) ; fiche : appui → « Notes » (IMDb et TMDb, votants) |
-| Toutes les notes `showAllRatings` | lignes 16, note 20 (TV × 1,6) | feuille du bas / fenêtre | ouverte par un appui sur la note de la fiche (`RatingButton`, petite flèche) : logo, site, note sur son échelle, « Votre source » en vert |
+| Toutes les notes `showAllRatings` | lignes 16, note 20 (TV × 1,6) | feuille du bas / fenêtre | ouverte par un appui sur la note de la fiche (`RatingButton`, petite flèche) : IMDb et TMDb (logo, votants), puis pour un film ou une série les autres sites (sigle, note sur son échelle : « 79 / 100 ») |
+| Confirmation `showVxConfirm` | fenêtre | rayon 28 | titre, phrase, « Annuler » (contour) et l'action (verte, ou rouge `danger`) ; focus sur l'action, ou sur « Annuler » pour une action qui détruit |
+| Bulle de message | texte 15–16 (TV 22–24) | rayon 18 (TV 28) | la mienne à droite, vert à 16 % ; les autres à gauche, `surfaceHigh` ; 80 % de la largeur au plus (60 % sur grand écran) ; heure et ✓ / ✓✓ (vert : lu) sous la dernière d'une suite |
 
 ## 8. Cartes de titres, rangées et grilles
 

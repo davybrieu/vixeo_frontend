@@ -110,6 +110,9 @@ lib/
     social/      pages de profil (`ProfileView`), réseaux sociaux (`social_links.dart`), compte
                  privé et demandes d'abonnement, J'aime sur les avis (`review_likes.dart`)
     addons/      plug-ins : dépôts de scrapers JavaScript (façon Nuvio), page « Plug-ins » (`docs/scrapers.md`)
+    messages/    messagerie : modèles, dépôt et providers (`messages.dart`), temps réel Reverb
+                 (`realtime.dart`), « Messages » (`conversations_screen.dart`), une conversation
+                 (`conversation_screen.dart`), créer / gérer un groupe (`group_screen.dart`)
 ```
 
 ## Conventions
@@ -529,6 +532,41 @@ lib/
   (QuickJS de `flutter_js` sur Android et Windows, JavaScriptCore) : la CI compile et teste le
   Dart, `tools/scraper-runner` le JavaScript. Tests : `test/scraper_models_test.dart`, `scraper_runner_test.dart`,
   `addons_test.dart`, doublures dans `test/scraper_fakes.dart`.
+- **Messagerie** (`features/messages`, le développeur, 22/11/2026, comme Instagram ; API :
+  `vixeo_backend/docs/messagerie.md`) : onglet / entrée du rail **« Messages »** après
+  « Notifications » (`ConversationsScreen`, `/messages` ; pas pour un invité ni un profil enfant :
+  `socialAvailable`, la route mène à l'accueil) : `VxPageHeader` avec « Écrire à un membre… »
+  (recherche des comptes, `MemberSearchResults`) et « Créer un groupe » (`VxIconAction`), les
+  **demandes reçues** (« Accepter » ✓ / « Refuser » ✕) puis les conversations (avatar ou icône du
+  groupe, « Vous : … », date, pastille des non lus). Une conversation (`ConversationScreen`,
+  `/messages/:id`, sans la barre d'onglets) : en-tête (retour, nom : la page du membre ou
+  « Gérer le groupe », focus à l'arrivée ; options : « Voir le profil », « Bloquer » /
+  « Débloquer »), messages (liste inversée, les plus anciens chargés en remontant, jour au-dessus
+  du premier message d'un jour, nom de l'expéditeur dans un groupe, mes bulles à droite en vert à
+  16 %, ✓ / ✓✓ lu), photo (téléchargée avec le jeton, `attachmentBytesProvider`, gardée 5 min ;
+  un appui l'ouvre en plein écran) ou vidéo (icône et taille) ; **appui long ou touche menu** sur un
+  message : « Copier le texte », « Supprimer pour tout le monde » (le mien) ; en bas, le champ,
+  le trombone (photo / vidéo, `file_picker`, 100 Mo au plus ; pas avant l'acceptation d'une
+  demande) et « Envoyer » ; une demande reçue : « Accepter » / « Refuser » à la place. Groupes :
+  `NewGroupScreen` (`/messages/nouveau-groupe` : nom, membres cherchés et choisis) et
+  `GroupSettingsScreen` (`/messages/:id/groupe`, `InfoPage` : nom, membres, transmettre
+  l'administration, retirer, ajouter, « Quitter le groupe »). Page d'un membre : bouton rond
+  « Envoyer un message » à côté du bouton principal (`ProfileHeader(onMessage:)`). État :
+  `ConversationController` (`conversationProvider(id)`, relu à chaque changement annoncé, messages
+  marqués lus quand ils s'affichent), `inboxProvider` (invalidé après une lecture, un envoi, une
+  réponse). **Temps réel : `MessagesRealtime`** (`realtime.dart`, `messagesRealtimeProvider`) :
+  **une seule** WebSocket vers Laravel Reverb (protocole Pusher, `REVERB_*` de `--dart-define`,
+  variables de la CI), ouverte tant qu'une conversation est affichée, un canal privé par
+  conversation (`private-messages.{id}`, autorisé par `ApiClient.authorizeBroadcasting`) ;
+  reconnexion (1 s, 2 s… 30 s) puis `resync` ; sans clé Reverb, rien ne s'ouvre (la page relit la
+  conversation après chaque action). Dates de l'API en ISO 8601 avec fuseau, affichées en heure
+  locale. Confirmations : `showVxConfirm` (`core/widgets/choice.dart`). Test : `test/messages_test.dart`.
+- **Résumé et biographie** (`DescriptionLink`, `catalog/description_screen.dart`) : sur la fiche et
+  la page d'une personne, les 5 premières lignes puis, **seulement si le texte est plus long**,
+  « Lire la suite », qui ouvre le texte entier sur une page à part (`DescriptionScreen`,
+  `/description`, texte passé avec la route, jamais dans l'adresse ; `VxPageHeader(back:)` ; Haut /
+  Bas de la télécommande font défiler le texte, Haut en haut revient à « Retour »). Test :
+  `test/description_test.dart`.
 - **Avancé** (« Paramètres » → « Avancé », `/profil/avance`, `AdvancedSettingsScreen` ; demande du
   développeur, sans rapports de plantage) : « Mémoriser le dernier profil » (sur l'appareil,
   activé par défaut ; désactivé : « Qui regarde ? » à chaque lancement ; un profil à code demande
@@ -590,9 +628,15 @@ lib/
   (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche et
   « Avis ». Les notes vont de 0,5 à 10. Ancienne adresse `/profil/notes` redirigée.
 - **Notes des titres : IMDb, sinon TMDb** (`features/ratings`, demande du développeur,
-  21/11/2026 ; API : `vixeo_backend/docs/notes.md`). **Plus de « Source des notes » ni de MDBList**
-  (supprimés le 21/11/2026 : réglage `rating_source`, `RatingSource`, `RatingsLoader`,
-  `GET /catalog/ratings`, logos des autres sites ; ne pas les réintroduire). L'API importe chaque
+  21/11/2026 ; API : `vixeo_backend/docs/notes.md`). **Plus de « Source des notes »** (supprimé le
+  21/11/2026 : réglage `rating_source`, `RatingSource`, `RatingsLoader`). **Les autres sites
+  reviennent dans « Notes » seulement** (le développeur, 22/11/2026) : à l'ouverture de la fenêtre
+  d'un film ou d'une série (`RatingButton(title:)`, jamais pour un épisode ni une carte),
+  `externalRatingsProvider` demande `GET /catalog/ratings` (MDBList côté API) : Trakt,
+  Letterboxd, Rotten Tomatoes (critiques et public), Metacritic, MyAnimeList, sous IMDb et TMDb,
+  chacun sur son échelle (`RatingSite.scale`, `RatingSite.format` : « 79 / 100 », « 4,3 / 5 »),
+  marqués par un sigle (`RatingSite.shortLabel`, pas de logo) ; un site sans note n'apparaît pas ;
+  `externalRatingsFromJson`. L'API importe chaque
   jour les jeux de données d'IMDb et donne `ratings` = `{imdb: {id, rating, votes} | null, tmdb:
   {rating, votes}}` avec la fiche (`TitleDetails.ratings`), chaque épisode d'une saison
   (`Episode.ratings`) et **toutes les listes de titres** (`MediaItem.ratings`, complété par
@@ -819,6 +863,9 @@ lib/
   moteurs par plateforme (natif sur Android / iOS, media_kit sur Windows : `docs/lecteur.md`),
   appli Windows (fenêtre, plein écran, installateur), mises en page téléphone et TV / grand
   écran, navigation à la télécommande.
+- Fait aussi : messagerie (conversations directes et demandes, groupes, photos et vidéos, accusés
+  de lecture, blocage) en temps réel (Reverb), page « Lire la suite » des résumés et biographies,
+  notes des autres sites dans « Notes » (MDBList).
 - Fait aussi : page « Notifications » de la navigation (demandes d'abonnement, prochains épisodes
   de « Ma liste », activité, pastille des non lues), compte privé et demandes d'abonnement,
   réseaux sociaux du profil, J'aime sur les avis des autres membres, push « Activité ».
