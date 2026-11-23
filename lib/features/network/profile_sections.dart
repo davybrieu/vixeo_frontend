@@ -113,8 +113,7 @@ class WatchlistCard extends ConsumerWidget {
       count = ref.watch(socialProfileProvider(member)).value?.listCount ?? titles?.length;
     }
     final covers = [
-      for (final title in titles ?? const <MediaItem>[])
-        if (title.posterUrl case final url?) url,
+      for (final title in titles ?? const <MediaItem>[]) ?title.posterUrl,
     ].take(4).toList();
     final summary = count == null ? '' : titleCount(count);
     return VxCard(
