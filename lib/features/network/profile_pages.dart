@@ -2,12 +2,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
-import '../../core/widgets/choice.dart';
 import '../../core/widgets/common.dart';
 import '../auth/session.dart';
 import '../tmdb/tmdb.dart' show formatScore;
@@ -17,13 +15,14 @@ import 'profile_sections.dart';
 import 'share_image.dart';
 import 'widgets.dart';
 
-// The whole pages behind the « Listes » and « Journal » tabs of a profile: every list, the whole
-// diary, the « Bilan de l'année ». [username] null = the active profile.
+// The whole pages behind the « Listes » and « Vus » tabs of a profile: every list (« À voir »
+// first), the « Bilan de l'année ». [username] null = the active profile.
 
 /// The active profile's username, or [username].
 String? _who(WidgetRef ref, String? username) => username ?? ref.watch(sessionProvider).profile?.username;
 
-/// Every list of a profile (`/profil/listes`, `/membre/:username/listes`).
+/// Every list of a profile (`/profil/listes`, `/membre/:username/listes`): « À voir » first (it
+/// can't be deleted), then the others.
 class ProfileListsScreen extends ConsumerWidget {
   const ProfileListsScreen({super.key, this.username});
 
@@ -64,156 +63,13 @@ class ProfileListsScreen extends ConsumerWidget {
             error: lists.error,
             onRetry: reload,
           )
-        else if (value.isEmpty)
-          const EmptyState(icon: Icons.playlist_play_rounded, title: 'Aucune liste')
-        else
-          for (final (i, list) in value.indexed) ...[
-            if (i > 0) SizedBox(height: layout.listGap),
+        else ...[
+          WatchlistCard(username: mine ? null : who),
+          for (final list in value) ...[
+            SizedBox(height: layout.listGap),
             ListPost(list: list, showAuthor: false),
           ],
-      ],
-    );
-  }
-}
-
-/// The whole diary of a profile (`/profil/journal`, `/membre/:username/journal`), by month. Mine:
-/// a long press (or the menu key) removes an entry.
-class DiaryScreen extends ConsumerStatefulWidget {
-  const DiaryScreen({super.key, this.username});
-
-  final String? username;
-
-  @override
-  ConsumerState<DiaryScreen> createState() => _DiaryScreenState();
-}
-
-class _DiaryScreenState extends ConsumerState<DiaryScreen> {
-  final _scroll = ScrollController();
-  final _entries = <DiaryEntry>[];
-  int _page = 0;
-  bool _hasMore = true;
-  bool _loading = false;
-  Object? _error;
-
-  String? get _username => widget.username ?? ref.read(sessionProvider).profile?.username;
-
-  @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(() {
-      if (_scroll.position.extentAfter < 600) _load();
-    });
-    _load();
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  Future<void> _load({bool reset = false}) async {
-    final username = _username;
-    if (username == null) return;
-    if (reset) {
-      _entries.clear();
-      _page = 0;
-      _hasMore = true;
-      _error = null;
-    }
-    if (_loading || !_hasMore) return;
-    setState(() => _loading = true);
-    try {
-      final page = await ref.read(networkRepositoryProvider).diary(username, page: _page + 1);
-      if (!mounted) return;
-      setState(() {
-        _entries.addAll(page.entries);
-        _page++;
-        _hasMore = page.hasMore;
-      });
-    } catch (error) {
-      if (mounted) setState(() => _error = error);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _remove(DiaryEntry entry) async {
-    final profileId = ref.read(sessionProvider).profile?.id;
-    if (profileId == null) return;
-    final messenger = ScaffoldMessenger.of(context);
-    final ok = await showVxConfirm(
-      context,
-      title: 'Retirer du journal ?',
-      message: '${entry.title.title}${entry.episodeLabel == null ? '' : ', ${entry.episodeLabel}'} ne sera plus dans votre journal (il reste marqué comme vu).',
-      confirm: 'Retirer',
-      danger: true,
-    );
-    if (!ok) return;
-    try {
-      await ref.read(networkRepositoryProvider).deleteDiaryEntry(profileId, entry.id);
-      if (!mounted) return;
-      setState(() => _entries.removeWhere((e) => e.id == entry.id));
-      ref.invalidate(diaryProvider);
-      showVxSnackOn(messenger, 'Retiré du journal', icon: Icons.delete_outline_rounded);
-    } on ApiException catch (e) {
-      showVxSnackOn(messenger, e.message, icon: Icons.error_outline_rounded);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final mine = widget.username == null;
-    final children = <Widget>[];
-    String? month;
-    for (final entry in _entries) {
-      final label = '${frenchMonths[entry.watchedAt.month - 1]} ${entry.watchedAt.year}';
-      if (label != month) {
-        month = label;
-        children.add(
-          Padding(
-            padding: EdgeInsets.only(top: children.isEmpty ? 0 : layout.sectionGap, bottom: layout.space(VxSpace.xs)),
-            child: Text(
-              '${label[0].toUpperCase()}${label.substring(1)}',
-              style: VxText.title(layout.sectionTitleSize),
-            ),
-          ),
-        );
-      }
-      children.add(DiaryRow(entry: entry, onLongPress: mine ? () => _remove(entry) : null));
-    }
-    return NetworkPage(
-      title: mine ? 'Mon journal' : 'Journal de @${widget.username}',
-      controller: _scroll,
-      onRefresh: () => _load(reset: true),
-      actions: [
-        VxIconAction(
-          icon: Icons.insights_rounded,
-          label: mine ? 'Mon année' : 'Son année',
-          dense: true,
-          onPressed: () => context.push(profileSectionLocation(widget.username, 'bilan')),
-        ),
-      ],
-      children: [
-        if (mine && _entries.isNotEmpty)
-          Padding(
-            padding: EdgeInsets.only(bottom: layout.space(VxSpace.m)),
-            child: Text(
-              'Appui long sur une ligne pour la retirer du journal.',
-              style: VxText.body(layout.captionSize, color: VxColors.textMuted),
-            ),
-          ),
-        if (_entries.isEmpty && !_loading)
-          _error != null
-              ? ErrorPanel(error: _error!, onRetry: () => _load(reset: true))
-              : const EmptyState(
-                  icon: Icons.event_note_outlined,
-                  title: 'Journal vide',
-                  message: 'Chaque film ou épisode marqué comme vu s’inscrit ici.',
-                ),
-        ...children,
-        if (_loading) const NetworkLoading(),
+        ],
       ],
     );
   }
@@ -439,7 +295,7 @@ class _YearStatsBody extends StatelessWidget {
         ],
         SizedBox(height: layout.sectionGap),
         Text(
-          'Calculé d’après le journal : les titres marqués comme vus pendant l’année.',
+          'Calculé d’après vos visionnages : les titres marqués comme vus pendant l’année.',
           style: VxText.body(layout.captionSize, color: VxColors.textMuted),
         ),
       ],

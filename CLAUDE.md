@@ -89,8 +89,9 @@ lib/
                  écrans, ApkInstaller : APK ou installateur Windows)
     profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
-    library/     synchro par profil (Ma liste, J’aime ❤, personnes suivies, vus, « Continuer à
-                 regarder »), page Ma liste (aussi « Mes J’aime »)
+    library/     synchro par profil (« À voir », J’aime ❤, personnes suivies, vus, « Continuer à
+                 regarder »), page « À voir » (aussi « Mes J’aime » et « Mes titres vus »),
+                 bouton « Ajouter à une liste »
     search/      recherche (par texte, ou par filtres seuls), filtres (type, genre, années, note) et tri,
                  recherches récentes synchronisées (search_history.dart)
     playback/    lecteur (PlayerScreen, commun à toutes les plateformes), moteurs de lecture
@@ -116,9 +117,9 @@ lib/
                  (`conversation_screen.dart`), créer / gérer un groupe (`group_screen.dart`)
     network/     réseau social des films et séries : modèles, dépôt et providers (`network.dart`),
                  cartes (`widgets.dart`), menus (`actions.dart` : signaler, bloquer, masquer, listes,
-                 envoyer à un ami), « Fil » (`feed_screen.dart`), avis et commentaires
-                 (`review_screen.dart`, `comments.dart`), listes et top 10 (`list_screen.dart`),
-                 journal et bilan (`profile_sections.dart`, `profile_pages.dart`), fiche sociale
+                 envoyer à un ami), « Fil d'actualité » (`feed_screen.dart`), avis et commentaires
+                 (`review_screen.dart`, `comments.dart`), listes (`list_screen.dart`), activité,
+                 « À voir » et bilan (`profile_sections.dart`, `profile_pages.dart`), fiche sociale
                  (`title_social.dart`), image à partager (`share_image.dart`), premier lancement
                  (`onboarding_screen.dart`), note en fin de lecture (`rate_prompt.dart`)
 ```
@@ -156,7 +157,7 @@ lib/
 - **TV en direct masquée pour l'instant** (demande du développeur, 17/11/2026) : `liveTvProvider`
   (`core/features.dart`, faux par défaut ; `--dart-define=LIVE_TV=true` la réaffiche) retire
   l'onglet et l'entrée du rail « Chaînes TV », le type et la section « Chaînes TV » de la
-  recherche (aucune chaîne demandée), « Chaînes TV » de « Ma liste » et la tuile « Catégories des
+  recherche (aucune chaîne demandée), « Chaînes TV » de « À voir » et la tuile « Catégories des
   chaînes TV » des paramètres ; `/chaines-tv…`, `/chaine/:id` et `/profil/rangees/chaines-tv`
   mènent à l'accueil (`liveTvOnly`, `router.dart`). Le code et l'API de la TV restent ; les tests
   des chaînes la réaffichent avec `liveTvProvider.overrideWithValue(true)`.
@@ -430,7 +431,7 @@ lib/
   `_UnreadWatcher` d'`AppShell`), au retour au premier plan et à l'arrivée d'un push du canal
   `social` ; **pas de minuterie**. La page : « Demandes d'abonnement » (compte privé : `AccountTile`,
   « Accepter » ✓ et « Refuser » ✕, `followRequestsProvider`), « Prochains épisodes » des séries de
-  « Ma liste » (rangée horizontale : image, série, « Saison 2, épisode 5 · Titre », « Demain à
+  « À voir » (rangée horizontale : image, série, « Saison 2, épisode 5 · Titre », « Demain à
   21:00 » ; `episodeCalendarProvider`, `GET /notifications/episodes`) et « Sortis cette semaine »,
   puis « Activité » (`activityFeedProvider`, 30 par page, « Afficher plus » : avatar, « **Max** vous
   suit. », « … aime votre avis sur Dune. », « il y a 5 min », point vert tant que non lue ; les
@@ -557,7 +558,7 @@ lib/
   `addons_test.dart`, doublures dans `test/scraper_fakes.dart`.
 - **Messagerie** (`features/messages`, le développeur, 22/11/2026, comme Instagram ; API :
   `vixeo_backend/docs/messagerie.md`) : **une entrée à part de la navigation** (demande du
-  développeur, 23/11/2026 : pas dans le « Fil »), onglet du téléphone et entrée du rail
+  développeur, 23/11/2026 : pas dans le « Fil d'actualité »), onglet du téléphone et entrée du rail
   **« Messages »** après « Notifications » (`ConversationsScreen`, `/messages` ; pas pour un invité ni un profil enfant :
   `socialAvailable`, la route mène à l'accueil) : `VxPageHeader` avec « Écrire à un membre… »
   (recherche des comptes, `MemberSearchResults`) et « Créer un groupe » (`VxIconAction`), les
@@ -595,48 +596,72 @@ lib/
   locale. Confirmations : `showVxConfirm` (`core/widgets/choice.dart`). Test : `test/messages_test.dart`.
 - **Réseau social des films et séries** (`features/network`, demande du développeur, 23/11/2026 :
   « comme Twitter mais sans tweet de texte » ; API : `vixeo_backend/docs/social.md`,
-  `docs/moderation.md`) : **toute publication porte sur une œuvre** (avis, visionnage, liste /
-  top 10), la conversation est dans les commentaires.
-  - **Navigation du téléphone** : Accueil · Fil · Recherche · Notifications · Messages · Profil
-    (« Paramètres » en haut de la page « Profil », bouton rond ; un profil enfant garde l'onglet
-    « Paramètres »). Tablette et ordinateur : « Fil » dans le rail, après « Chaînes TV ». **Pas de
-    « Fil » ni de « Messages » sur TV** (la TV sert à regarder ; ce qui aide à choisir est sur la
-    fiche).
-  - **« Fil »** (`FeedScreen`, `/fil`) : **deux onglets** (`VxTabs`, `core/widgets/tabs.dart`,
-    demande du développeur, 23/11/2026) : **« Pour toi », par défaut** (`feedProvider(FeedTab.forYou)`,
-    `GET /social/feed/for-you?page=` : avis et listes de tout le réseau, classés par l'API) et
+  `docs/moderation.md`) : **toute publication porte sur une œuvre** (avis, visionnage, J'aime,
+  liste), la conversation est dans les commentaires.
+  - **Navigation du téléphone** : Accueil · Fil d'actualité · Recherche · Notifications · Messages ·
+    Profil (icônes seules ; « Paramètres » en haut de la page « Profil », bouton rond ; un profil
+    enfant garde l'onglet « Paramètres »). Tablette et ordinateur : « Fil d'actualité » dans le rail,
+    après « Chaînes TV ». **Pas de « Fil d'actualité » ni de « Messages » sur TV** (la TV sert à
+    regarder ; ce qui aide à choisir est sur la fiche).
+  - **« Fil d'actualité »** (renommé de « Fil » le 23/11/2026, demande du développeur ;
+    `FeedScreen`, adresse `/fil`) : il montre **les avis, les titres vus, les J'aime et les listes**
+    (demande du développeur, 23/11/2026) ; **deux onglets** (`VxTabs`, `core/widgets/tabs.dart`) :
+    **« Pour toi », par défaut** (`feedProvider(FeedTab.forYou)`, `GET /social/feed/for-you?page=` :
+    avis et listes de tout le réseau, titres vus et aimés des comptes suivis, classés par l'API) et
     **« Abonnements »** (`feedProvider(FeedTab.following)`, `GET /social/feed?before=` : avis
-    (`ReviewPost`), listes (`ListPost`), titres vus regroupés (`WatchedPost` : « Léa et Max ont
-    vu… ») des comptes suivis) ; la page suivante en arrivant à la fin ; « Comptes à suivre »
-    (`SuggestionCard`, `GET /social/suggestions`, « 82 % de goûts en commun ») après le 3ᵉ
-    élément, ou seuls quand l'onglet est vide. Pas de bouton « Messages » (il a son onglet).
+    (`ReviewPost`), listes (`ListPost`), titres vus et aimés regroupés (`TitlePost`, `FeedTitle` =
+    `FeedWatched` / `FeedLiked` : « Léa et Max ont vu… », « Léa et Max aiment… ») des comptes
+    suivis) ; la page suivante en arrivant à la fin ; « Comptes à suivre » (`SuggestionCard`,
+    `GET /social/suggestions`, « 82 % de goûts en commun ») après le 3ᵉ élément, ou seuls quand
+    l'onglet est vide. Pas de bouton « Messages » (il a son onglet).
   - **Avis** : un avis a sa page (`ReviewThreadScreen`, `/avis/:id`) avec ses **commentaires**
     (`CommentsSection` : « Contient des spoilers » `SpoilerSwitch`, « Publier » ; lus seulement
     sur TV) ; un avis ou un commentaire avec spoilers est caché derrière « Contient des spoilers ·
     Afficher » (`SpoilerText`), sauf pour son auteur ; la page de note a aussi
     « Contient des spoilers » (`MyRating.spoilers`, `contains_spoilers`). « Avis » sur la fiche :
     « Voir tout » → `TitleReviewsScreen` (`/titre/:type/:id/avis`, Populaires / Récents).
-  - **Listes et top 10** (`ListDetailsScreen`, `/listes/:id` ; `ListEditorScreen`,
-    `/listes/nouvelle?type=top&item=movie:550`, `/listes/:id/modifier`) : titre (idées : « Mon top 10
-    de 2026 »…), description, top 10 (numéroté, 10 titres) ou liste (100), titres choisis par
-    `pickTitle` et rangés avec « monter » / « descendre » / « retirer » (des boutons : télécommande) ;
-    J'aime (`ListLikeButton`), commentaires. Fiche : « Ajouter à une liste » (`showAddToList`) et
+  - **Listes** (demande du développeur, 23/11/2026 : « À voir » et les listes fusionnées) :
+    **« À voir »** (anciennement « À voir » : le groupe `favorite` de la synchro,
+    `LibraryState.toWatch`) est **la première des listes**, **jamais supprimée**, sans titre ni
+    description à choisir, triée par date d'ajout (`WatchlistCard`, `profile_sections.dart` ; page
+    `MyListScreen`, **`/listes/a-voir`**, celle d'un membre `/membre/:username/a-voir` ; « À voir »
+    des chaînes TV aussi). Les autres listes (`ListDetailsScreen`, `/listes/:id` ;
+    `ListEditorScreen`, `/listes/nouvelle?item=movie:550`, `/listes/:id/modifier`) : **un titre et
+    une description**, jusqu'à 100 titres **dans l'ordre choisi**, numérotés (idées : « Top 10 de
+    2026 »… ; **plus de type « top 10 » / « liste »** : un « Top 10 » est une liste comme les
+    autres), titres choisis par `pickTitle` et rangés avec « monter » / « descendre » / « retirer »
+    (des boutons : télécommande) ; J'aime (`ListLikeButton`), commentaires.
+  - **« Ajouter à une liste »** (demande du développeur, 23/11/2026 : choisir la liste) : le bouton
+    marque-page d'un titre (`FavoriteButton`, fiche, grande image, appui long sur une carte :
+    `addToList`) ouvre `showAddToList` : **« À voir » en tête** puis mes listes (une coche par liste
+    qui a le titre, `GET /social/lists?item=`), et « Nouvelle liste » ; alertes « Ajouté à « À
+    voir » », « Retiré de « Mon top » »… Sans listes à soi (profil enfant, pas de pseudo :
+    `listsAvailable`), le bouton ajoute à « À voir » ou en retire directement. Fiche : aussi
     « Envoyer à un ami » (`recommendToFriend` : une conversation ou un membre, `share` de
     `POST /messages/{id}` ; la bulle montre la carte, `SharedCard`, un appui l'ouvre).
-  - **Page de profil** (`ProfileView`) : **onglets** Activité · Listes · Journal (`ProfileTab`,
-    `VxTabs`) ; **« Mes 4 favoris »** sous l'en-tête (`PinnedTitles`, choisis dans
-    « Modifier mon profil », `pinned_titles`) ; un membre : « … » (masquer du fil, bloquer,
+  - **Page de profil** (`ProfileView`) : **cinq onglets** (demande du développeur, 23/11/2026)
+    **Activité · Listes · Avis · Aimés · Vus** (`ProfileTab`, `VxTabs`) ; **plus de « Journal »**
+    (supprimé le 23/11/2026, ni page ni adresse). **Activité** (`ProfileActivitySection`,
+    `activityProvider`, `GET /social/profiles/{pseudo}/activity`) : « la liste de tes actions avec
+    la date » : avis, listes, titres vus et aimés sous leur jour (« Aujourd’hui », « Mercredi
+    12 mars 2025 »), chacun avec son heure (`ActivityRow`), « Afficher plus ». **Listes** :
+    « À voir » puis les listes (`ProfileListsSection`, « Nouvelle liste »). **Avis** : les 10
+    derniers. **Aimés** : grille des J'aime (`ProfileTitlesSection(grid: true)`) et personnes
+    suivies. **Vus** : « Mon année 2026 » et grille des titres vus (`LibraryState.watched`, un
+    membre : `socialWatchedProvider`, `GET /social/profiles/{pseudo}/watched`). **« Mes 4
+    favoris »** sous l'en-tête (`PinnedTitles`, choisis dans « Modifier mon profil »,
+    `pinned_titles`), **rien quand il n'y en a pas** (plus d'invitation « Choisissez vos 4
+    films… », demande du développeur, 23/11/2026) ; un membre : « … » (masquer du fil, bloquer,
     signaler : `showMemberMenu`) et « 82 % de goûts en commun » (`ProfileHeader(compatibility:)`).
-    Journal (`DiaryScreen`, `/profil/journal`, `/membre/:username/journal` : par mois, appui long
-    = retirer) et **bilan de l'année** (`YearStatsScreen`, `/profil/bilan?annee=2026` : chiffres,
-    mois, genres, mieux notés, série de l'année) ; **« Partager en image »** d'un avis, d'une
-    liste ou de l'année (`StoryScreen`, format story 1080 × 1920 : feuille de partage d'Android,
-    dossier Téléchargements sur Windows ; pas sur TV).
+    **Bilan de l'année** (`YearStatsScreen`, `/profil/bilan?annee=2026` : chiffres, mois, genres,
+    mieux notés, série de l'année) ; **« Partager en image »** d'un avis, d'une liste ou de l'année
+    (`StoryScreen`, format story 1080 × 1920 : feuille de partage d'Android, dossier
+    Téléchargements sur Windows ; pas sur TV).
   - **Fiche** : `TitleSocialSection` (`GET /social/titles/{type}/{id}`) : abonnés qui l'ont vu,
     leur moyenne, avis populaires, listes qui l'ont ; rien pour un invité ou un titre sans activité.
   - **Note en fin de lecture** (demande du développeur, 23/11/2026) : dans les derniers 8 % d'un
     film ou d'un épisode (5 min au plus, `atTheEnd`), le lecteur marque le titre vu (film :
-    « Vu » ; épisode : synchro `episode:…` et journal) puis, si le profil a gardé
+    « Vu » ; épisode : synchro `episode:…` et visionnage, `POST /profiles/{id}/diary`) puis, si le profil a gardé
     **« Proposer de noter à la fin »** (« Paramètres du profil » → « Après la lecture »,
     `rate_after_watching`, activé par défaut) et n'a pas encore noté le titre, une carte
     (`RateAfterWatchingCard`) : « Noter », « Plus tard » et le lien **« Désactiver dans les
@@ -651,7 +676,8 @@ lib/
     (`HiddenAccountsScreen`, `/profil/comptes-masques`). Notifications : `review_comment`,
     `list_like`, `list_comment`, `moderation` (« Modération »).
   - Mots d'une page de l'appli réservés côté API (`Usernames::RESERVED`) : `fil`, `listes`,
-    `bienvenue`, `messages`, `description`, `journal`, `bilan`. Tests : `test/network_test.dart`.
+    `bienvenue`, `messages`, `description`, `journal`, `bilan`. Tests : `test/network_test.dart`,
+    `test/profile_screen_test.dart`.
 - **Résumé et biographie** (`DescriptionLink`, `catalog/description_screen.dart`) : sur la fiche et
   la page d'une personne, les 5 premières lignes puis, **seulement si le texte est plus long**,
   « Lire la suite », qui ouvre le texte entier sur une page à part (`DescriptionScreen`,
@@ -662,7 +688,7 @@ lib/
   développeur, sans rapports de plantage) : « Mémoriser le dernier profil » (sur l'appareil,
   activé par défaut ; désactivé : « Qui regarde ? » à chaque lancement ; un profil à code demande
   toujours son code) et « Vider le cache » (images sur le disque et en mémoire, titres, saisons,
-  accueil et « Ma liste » / « Continuer à regarder », rechargés à l'affichage). Lignes des
+  accueil et « À voir » / « Continuer à regarder », rechargés à l'affichage). Lignes des
   réglages communes : `profiles/settings_rows.dart` (`SettingsSection`, `SettingsChoiceRow`,
   `SettingsSwitchRow`, `SettingsActionRow`). Test : `test/advanced_settings_test.dart`.
 - **Rail de navigation sur un écran bas** : icônes et marges rétrécissent selon la hauteur
@@ -676,23 +702,25 @@ lib/
   J'aime, pas des favoris**, précisé le 23/11/2026 : « J’aime » / « Je n’aime plus », « Ajouté à vos
   J’aime », « Mes J’aime », « Ses J’aime » ; « Mes 4 favoris » est autre chose) : groupes `liked` et `followed` de la synchro
   (`LibraryController.setLiked` / `setFollowed`, API : `vixeo_backend/docs/synchronisation.md`),
-  indépendants de « Ma liste ». Cœur `LikedButton` sur la fiche (films, séries ; pas sur les
-  épisodes ni les chaînes), après « Ma liste » ; « Suivre » / « Ne plus suivre »
+  indépendants de « À voir ». Cœur `LikedButton` sur la fiche (films, séries ; pas sur les
+  épisodes ni les chaînes), après « Ajouter à une liste » ; un J'aime va au fil d'actualité des
+  abonnés ; « Suivre » / « Ne plus suivre »
   (`FollowPersonButton`) sur la page d'une personne, sous son métier et ses dates (connecté avec
   un profil) ; une personne suivie = item `person:<id>` (`ProfileItem.person`,
   `LibraryState.followedPeople`). Alertes : « Ajouté à vos J’aime », « Retiré de vos J’aime »,
-  « Vous suivez … », « Vous ne suivez plus … ». Page « Profil » : rangées « Mes J’aime » (affiches) et
-  « Personnes suivies » (`ProfilePeopleSection`, photos rondes `PersonCard`) entre « Ma liste » et
-  « Mes avis » ; « Voir tout » : `/profil/social/aimes` (`MyListScreen(liked: true)`, recherche et
-  filtres de « Ma liste ») et `/profil/social/personnes` (grille). Page d'un membre : « Ses J’aime »
-  et « Personnes suivies » (`socialLikedProvider`, `socialPeopleProvider`, API
-  `/social/profiles/{username}/liked` et `/people`). Tests : `test/profile_features_test.dart`,
+  « Vous suivez … », « Vous ne suivez plus … ». Page « Profil », onglet « Aimés » : « Mes J’aime »
+  (grille d'affiches) et « Personnes suivies » (`ProfilePeopleSection`, photos rondes
+  `PersonCard`) ; « Voir tout » : `/profil/social/aimes` (`MyListScreen(collection:
+  TitleCollection.liked)`, recherche et filtres de « À voir ») et `/profil/social/personnes`
+  (grille). Page d'un membre : « Ses J’aime » et « Personnes suivies » (`socialLikedProvider`,
+  `socialPeopleProvider`, API `/social/profiles/{username}/liked` et `/people`). Tests : `test/profile_features_test.dart`,
   `test/profile_screen_test.dart`, `test/models_test.dart`.
-- **Actions sur un titre** (Ma liste, J'aime ❤, Vu / non vu, Noter, Bande-annonce) : toujours le même bouton
+- **Actions sur un titre** (Ajouter à une liste, J'aime ❤, Vu / non vu, Noter, Bande-annonce) : toujours le même bouton
   rond **icône seule** (`VxIconAction`, `FavoriteButton`, `LikedButton`, `WatchedButton`, `RateTitleButton`), sans
-  texte visible (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire.
-  Chaque action se confirme par une alerte (`showVxSnack`) : « Ajouté à votre liste », « Supprimé
-  de votre liste », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
+  texte visible (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire
+  (« Ajouter à une liste » : il ouvre le choix des listes, voir « Listes »).
+  Chaque action se confirme par une alerte (`showVxSnack`) : « Ajouté à « À voir » », « Retiré
+  de « À voir » », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
   « Note enregistrée : 8/10 », « Note supprimée ».
 - **Avis** (`features/tmdb`, nom historique ; API : `vixeo_backend/docs/avis.md`) : tout profil
   connecté note, modifie et supprime ses avis (`canRateProvider` = connecté avec un profil),
@@ -775,7 +803,7 @@ lib/
   `SearchFilterBar(withRating: true)`) et **« Votants »** portent sur **la note que montre chaque
   carte : IMDb, sinon TMDb**, et ses votants : la recherche les demande à l'API (`year_from` /
   `year_to`, `min_rating` / `max_rating`, `min_votes` / `max_votes`, `sort=rating`,
-  `vixeo_backend/docs/notes.md`) ; « Ma liste », qui filtre et trie elle-même, les applique de la
+  `vixeo_backend/docs/notes.md`) ; « À voir », qui filtre et trie elle-même, les applique de la
   même façon (`SearchFilters.yearWithin`, `ratingWithin` : un titre sans note est écarté par une
   borne). **« Chaînes TV » et « Personnes » toujours proposés**, avec ou sans texte
   (demande du développeur) : dans « Tout », après Films et Séries, une section « Chaînes TV » et
@@ -792,7 +820,7 @@ lib/
   résultat » ; « Aucun résultat » uniquement quand une recherche ne trouve rien (dans « Tout » :
   ni titre, ni personne, ni chaîne). Sur TV, le
   champ ne prend pas le focus à l'arrivée (il ouvrirait le clavier).
-  « Ma liste » reprend la barre sans « Personnes » ni « Catégorie » (`kinds`, `channelCategories`). Avec un texte : l'API filtre et trie les premiers résultats (une
+  « À voir » reprend la barre sans « Personnes » ni « Catégorie » (`kinds`, `channelCategories`). Avec un texte : l'API filtre et trie les premiers résultats (une
   recherche filtrée ne renvoie pas de personnes). « Tout » = une rangée Films et une rangée
   Séries, puis Personnes et Comptes, chacune avec le **bouton rond « Voir tout »** à droite de son
   titre (demande du développeur, 21/11/2026 ; `SectionHeader(onSeeAll:)`) : il choisit ce type,
@@ -850,11 +878,11 @@ lib/
   libellé pour les lecteurs d'écran. En horizontal, le logo du
   titre s'affiche quand le titre le donne (rangées de l'accueil) : **jamais de requête de fiche par
   carte** (`titleProvider` dans `PosterCard` = une requête par titre affiché, au-delà de la limite
-  de l'API). « Ma liste » demande tous ses titres en une requête (`titlesByIdProvider`, API
+  de l'API). « À voir » demande tous ses titres en une requête (`titlesByIdProvider`, API
   `/catalog/titles`). Sur une carte horizontale, le logo est demandé en w300 (`cardLogoUrl`) et
   apparaît avec l'image (`ImagesTogether` : les deux une fois chargées), jamais après. Badge « Ma
   liste » sur l'affiche, « vu » dans le libellé. Titre de rangée et lien « Voir tout » :
-  `SectionHeader(title, onSeeAll: …)`. Pages principales (Recherche, Ma liste, Avis) : même en-tête
+  `SectionHeader(title, onSeeAll: …)`. Pages principales (Recherche, « À voir », Avis) : même en-tête
   `VxPageHeader` (titre, recherche, `FilterBar`) et `pageContentPadding` (charte, § 6).
 - **Avatars** : galerie `GET /avatars` regroupée par licence (`features/profiles/avatars.dart`,
   pixel art dessiné par `PixelAvatarPainter`, ou `image_url`) ; `ProfileAvatar` partout où le
@@ -875,18 +903,19 @@ lib/
   même limite dans l'API), puis
   le bouton (focus à l'arrivée) : « Modifier le profil » (le mien), « Suivre » / « Ne plus
   suivre » (un membre ; invité : « Se connecter pour suivre ») ; puis une carte de compteurs
-  (Avis, Vus, Ma liste / Sa liste) ; puis la liste (rangée `PosterRow`, 20 titres au plus, une
-  seule requête `titlesByIdProvider` via `withCatalogDetails`), les J'aime ❤ (même rangée), les
-  personnes suivies (`ProfilePeopleSection`) et les 3 derniers avis
-  (`ReviewRow`) ; le bouton rond « Voir tout » ouvre `/ma-liste` et `/avis` (le mien) ou
-  `/membre/:username/list|reviews` : **les mêmes pages** « Sa liste » (`MyListScreen(username:)`,
-  sans les chaînes) et « Ses avis » (`ReviewsScreen(username:)`), avec recherche, filtres et tri
-  (demande du développeur) ; `SocialCollectionScreen` n'affiche lui-même que les abonnés /
-  abonnements. Ouvertes par-dessus une autre page, elles ont le bouton retour de
+  (Avis, Vus, À voir) ; puis les cinq onglets (voir « Page de profil » du réseau social :
+  Activité, Listes, Avis, Aimés, Vus ; grilles d'une seule requête `titlesByIdProvider` via
+  `withCatalogDetails`) ; le bouton rond « Voir tout » ouvre `/listes/a-voir`, `/avis`,
+  `/profil/social/aimes|vus|personnes` (le mien) ou `/membre/:username/a-voir|avis|aimes|vus|
+  personnes|abonnes|abonnements` (**adresses en français seulement**, plus de `list`, `liked`,
+  `reviews`… : une autre section affiche « Page introuvable ») : **les mêmes pages** « À voir »,
+  J'aime, titres vus (`MyListScreen(username:, collection:)`, sans les chaînes) et « Ses avis »
+  (`ReviewsScreen(username:)`), avec recherche, filtres et tri (demande du développeur) ;
+  `SocialCollectionScreen` n'affiche lui-même que les abonnés / abonnements et les personnes. Ouvertes par-dessus une autre page, elles ont le bouton retour de
   `VxPageHeader(back:)` (`VxBackButton`) ; pas les onglets. Un avis d'un membre (`ReviewRow(mine: false)`) ouvre la fiche du
   titre, pas « Mon avis ». Le mien : liste et avis des providers locaux (`libraryProvider`,
   `reviewsProvider`). Un membre :
-  `socialProfileProvider`, `socialTitlesProvider`, `socialReviewsProvider` (API
+  `socialProfileProvider`, `socialTitlesProvider`, `socialWatchedProvider`, `socialReviewsProvider` (API
   `/social/profiles/{username}…` ; les avis ont les champs de « Mes avis »). Profil enfant : pas
   de page. **Comptes** (recherche, abonnés) : `AccountTile` = avatar, nom, @pseudo, **sans le
   nombre d'abonnés** (demande du développeur). **La recherche ne montre jamais le profil actif
@@ -946,11 +975,11 @@ lib/
   (tapé dans l'appli du téléphone), « Qui regarde ? » (PIN de profil, ajout avec PIN parental si
   activé), accueil (carrousel / grande image, « Continuer à regarder », rangées),
   fiche film et série (saisons, épisodes avec date de diffusion, distribution, recommandations,
-  bande-annonce, Ma liste, Vu, avis sur le film et la série), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
+  bande-annonce, « À voir » et listes, Vu, avis sur le film et la série), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (filtres type / genre / années, tri, grande image
   sur grand écran, résultats groupés, recherches récentes synchronisées), notes IMDb (jeux de
   données importés par l'API) sinon TMDb, avec leurs votants (« Notes »), sur les titres et les épisodes,
-  Ma liste, « Avis » (notes et commentaires), « Mon profil » (paramètres
+  « À voir », « Avis » (notes et commentaires), « Mon profil » (paramètres
   d’apparence, No spoil, langues et lecture automatique, code PIN parental dans « Mon compte »,
   restrictions dans « Modifier le profil »,
   connecter une TV, changer de profil, Notifications (nouveaux épisodes, activité ; Windows par le
@@ -967,12 +996,14 @@ lib/
   de lecture, blocage) en temps réel (Reverb), page « Lire la suite » des résumés et biographies,
   notes des autres sites dans « Notes » (MDBList).
 - Fait aussi : page « Notifications » de la navigation (demandes d'abonnement, prochains épisodes
-  de « Ma liste », activité, pastille des non lues), compte privé et demandes d'abonnement,
+  de « À voir », activité, pastille des non lues), compte privé et demandes d'abonnement,
   réseaux sociaux du profil, J'aime sur les avis des autres membres, push « Activité ».
-- Fait aussi (23/11/2026) : réseau social des films et séries (fil, avis et commentaires avec
-  spoilers, listes et top 10, 4 favoris, journal et bilan de l'année, partage en image, fiche
-  sociale, goûts en commun, premier lancement, signaler / bloquer / masquer, note proposée en fin
-  de lecture avec son réglage). **Pas encore vérifié sur un appareil** (la CI compile et teste).
+- Fait aussi (23/11/2026) : réseau social des films et séries (fil d'actualité avec avis, vus,
+  J'aime et listes, avis et commentaires avec spoilers, listes ordonnées avec « À voir » en tête,
+  choix de la liste au marque-page, 4 favoris, page de profil en cinq onglets dont l'activité datée,
+  bilan de l'année, partage en image, fiche sociale, goûts en commun, premier lancement, signaler /
+  bloquer / masquer, note proposée en fin de lecture avec son réglage). **Pas encore vérifié sur un
+  appareil** (la CI compile et teste).
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
 - Vérifié de bout en bout (ancienne version web) contre l'API Laravel locale avec un faux TMDb.
 - Pas encore vérifié sur un vrai PC Windows : lecture (media_kit), plug-ins (QuickJS de

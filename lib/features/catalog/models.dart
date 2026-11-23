@@ -101,7 +101,7 @@ class MediaItem {
   /// Length, genres and age rating, given with home and search items: the hero shows them at once.
   final TitleSummary? summary;
 
-  /// TMDb genre ids (filters of Ma liste).
+  /// TMDb genre ids (filters of À voir).
   final List<int> genreIds;
 
   /// The rating its card shows: IMDb's, else TMDb's (only a fallback, developer's request,

@@ -23,7 +23,7 @@ import 'actions.dart';
 import 'network.dart';
 
 // The cards of the social network (vixeo_backend/docs/social.md): a review, a list, a title
-// watched. The same in the feed, on a title page, on a member's page; a press opens the review,
+// watched or liked. The same in the feed, on a title page, on a member's page; a press opens the review,
 // the list or the title. Every interactive part goes through VxFocusable (remote).
 
 /// Where a review opens: its page, with its comments.
@@ -365,7 +365,7 @@ class ReviewPost extends ConsumerWidget {
   }
 }
 
-/// A list or a top 10 as a publication: its covers, its title and author, likes and comments. A
+/// A list as a publication: its covers, its title and author, likes and comments. A
 /// press opens it.
 class ListPost extends ConsumerWidget {
   const ListPost({super.key, required this.list, this.at, this.showAuthor = true});
@@ -402,11 +402,6 @@ class ListPost extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (list.kind == ListKind.top)
-                        Padding(
-                          padding: EdgeInsets.only(bottom: layout.space(VxSpace.xxs)),
-                          child: const VxBadge('TOP 10', accent: true),
-                        ),
                       Text(
                         list.title,
                         maxLines: 2,
@@ -449,11 +444,12 @@ class ListPost extends ConsumerWidget {
   }
 }
 
-/// A title watched by followed members (« Léa et Max ont vu… »). A press opens the title.
-class WatchedPost extends StatelessWidget {
-  const WatchedPost({super.key, required this.item});
+/// A title watched or liked by followed members (« Léa et Max ont vu… », « Léa aime… »). A press
+/// opens the title.
+class TitlePost extends StatelessWidget {
+  const TitlePost({super.key, required this.item});
 
-  final FeedWatched item;
+  final FeedTitle item;
 
   @override
   Widget build(BuildContext context) {
@@ -505,7 +501,11 @@ class WatchedPost extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: layout.size(22, tv: 34), color: VxColors.textMuted),
+            Icon(
+              item is FeedLiked ? Icons.favorite_rounded : Icons.visibility_outlined,
+              size: layout.size(20, tv: 32),
+              color: item is FeedLiked ? VxColors.accent : VxColors.textMuted,
+            ),
           ],
         ),
       ),
@@ -583,7 +583,7 @@ class _ListLikeButtonState extends ConsumerState<ListLikeButton> {
   }
 }
 
-/// A row of titles of the social network (numbered for a top 10): their posters, a press opens
+/// A row of titles of the social network (numbered for a list): their posters, a press opens
 /// each one.
 class NumberedPosters extends StatelessWidget {
   const NumberedPosters({super.key, required this.titles, this.numbered = false});

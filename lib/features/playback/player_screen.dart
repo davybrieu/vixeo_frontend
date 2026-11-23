@@ -824,7 +824,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
   }
 
-  /// The credits: the movie or the episode is watched (« Vu », the diary); then, unless the profile
+  /// The credits: the movie or the episode is watched (« Vu », the viewings); then, unless the profile
   /// turned it off or already rated it, the card proposes to rate it (developer's request,
   /// 23/11/2026). Not for a guest.
   Future<void> _onReachedEnd() async {

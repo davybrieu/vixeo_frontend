@@ -39,7 +39,7 @@ enum SearchSort {
   popularity('Popularité'),
 
   /// Best rated first, on the rating each card shows (IMDb's, else TMDb's; developer's request,
-  /// 21/11/2026): the search page asks the API (`sort=rating`), « Ma liste » sorts itself.
+  /// 21/11/2026): the search page asks the API (`sort=rating`), « À voir » sorts itself.
   rating('Mieux notés'),
   recent('Plus récents'),
   oldest('Plus anciens');
@@ -48,7 +48,7 @@ enum SearchSort {
 
   final String label;
 
-  /// Orders offered with or without a text, [withRating] or not (« Ma liste »).
+  /// Orders offered with or without a text, [withRating] or not (« À voir »).
   static List<SearchSort> available({required bool withText, bool withRating = false}) => [
     for (final s in values)
       if ((withText || s != SearchSort.relevance) && (withRating || s != SearchSort.rating)) s,
@@ -131,7 +131,7 @@ String? votesRangeLabel(int? min, int? max) => switch ((min, max)) {
 /// text, popularity without). Years, rating and voters are ranges chosen with two-thumb sliders
 /// (each end optional). The rating ([minRating], [maxRating], [SearchSort.rating]) is the one each
 /// card shows (IMDb's, else TMDb's), and [minVotes] / [maxVotes] count its voters: the search page
-/// asks the API, « Ma liste » applies them itself ([yearWithin], [ratingWithin]).
+/// asks the API, « À voir » applies them itself ([yearWithin], [ratingWithin]).
 @immutable
 class SearchFilters {
   const SearchFilters({

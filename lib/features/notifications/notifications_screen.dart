@@ -11,7 +11,7 @@ import 'episode_alerts.dart';
 import 'push_registration.dart';
 import 'system_notifications.dart';
 
-/// « Notifications » (Paramètres): the new-episode alerts of the profile's « Ma liste » shows and
+/// « Notifications » (Paramètres): the new-episode alerts of the profile's « À voir » shows and
 /// those of its activity (messages, followers, requests, likes) on this device, and a test
 /// notification. The server sends them (vixeo_backend/docs/notifications.md): push on Android, the
 /// real-time channel on Windows, while Vixeo is open (no Firebase Messaging there).
@@ -170,7 +170,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           children: [
             SettingsSwitchRow(
               label: 'Nouveaux épisodes',
-              detail: 'Quand un nouvel épisode d’une série de Ma liste sort.',
+              detail: 'Quand un nouvel épisode d’une série « À voir » sort.',
               value: enabled,
               autofocus: true,
               onChanged: ready ? _toggle : null,

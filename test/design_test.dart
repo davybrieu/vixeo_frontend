@@ -129,14 +129,14 @@ List<double> headerLayout(WidgetTester tester, String title) => [
 ];
 
 void main() {
-  testWidgets('Recherche, Ma liste and Mes avis share the same header and spacing', (tester) async {
+  testWidgets('Recherche, À voir and Mes avis share the same header and spacing', (tester) async {
     await pumpPage(tester, const SearchScreen());
     expect(find.byType(VxPageHeader), findsOneWidget);
     final search = headerLayout(tester, 'Recherche');
 
     await pumpPage(tester, const MyListScreen());
     expect(find.byType(VxPageHeader), findsOneWidget);
-    final myList = headerLayout(tester, 'Ma liste');
+    final myList = headerLayout(tester, 'À voir');
 
     await pumpPage(tester, const ReviewsScreen());
     expect(find.byType(VxPageHeader), findsOneWidget);
@@ -146,7 +146,7 @@ void main() {
     expect(reviews, search);
   });
 
-  testWidgets('Ma liste asks its titles in one request, never one per card', (tester) async {
+  testWidgets('« À voir » asks its titles in one request, never one per card', (tester) async {
     await pumpPage(tester, const MyListScreen());
 
     expect(batches, ['movie:1,movie:2']);

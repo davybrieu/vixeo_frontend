@@ -111,27 +111,36 @@ Widget app(
 );
 
 void main() {
-  testWidgets('one icon-only button adds to and removes from the list, with an alert', (tester) async {
+  testWidgets('without lists of its own, one icon-only button adds to « À voir » and removes from it', (tester) async {
+    // No username: no lists beside « À voir », so no choice to make.
     await tester.pumpWidget(app(const FavoriteButton(item: movie)));
     await tester.pumpAndSettle();
 
     // No visible text, only the icon (the label is for screen readers).
     expect(find.descendant(of: find.byType(VxIconAction), matching: find.byType(Text)), findsNothing);
     expect(find.byIcon(Icons.bookmark_add_outlined), findsOneWidget);
-    expect(find.bySemanticsLabel('Ajouter à ma liste'), findsOneWidget);
+    expect(find.bySemanticsLabel('Ajouter à « À voir »'), findsOneWidget);
 
     await tester.tap(find.byType(VxIconAction));
     await tester.pumpAndSettle();
-    expect(find.text('Ajouté à votre liste'), findsOneWidget);
+    expect(find.text('Ajouté à « À voir »'), findsOneWidget);
     expect(find.byIcon(Icons.bookmark_added_rounded), findsWidgets);
 
     await tester.tap(find.byType(VxIconAction));
     await tester.pumpAndSettle();
-    expect(find.text('Supprimé de votre liste'), findsOneWidget);
+    expect(find.text('Retiré de « À voir »'), findsOneWidget);
     expect(find.byIcon(Icons.bookmark_add_outlined), findsOneWidget);
   });
 
-  testWidgets('the heart is a like (« J’aime »), apart from « Ma liste »', (tester) async {
+  testWidgets('with lists, the button asks which list (« Ajouter à une liste »)', (tester) async {
+    await tester.pumpWidget(
+      app(const FavoriteButton(item: movie), profile: const Profile(id: 1, name: 'Davy', username: 'davy')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Ajouter à une liste'), findsOneWidget);
+  });
+
+  testWidgets('the heart is a like (« J’aime »), apart from « À voir »', (tester) async {
     await tester.pumpWidget(app(const LikedButton(item: movie)));
     await tester.pumpAndSettle();
 
@@ -271,7 +280,7 @@ void main() {
   testWidgets('the side rail fits a low screen (smaller icons), then scrolls', (tester) async {
     addTearDown(tester.view.reset);
     tester.view.devicePixelRatio = 1;
-    const labels = ['Accueil', 'Chaînes TV', 'Fil', 'Recherche', 'Notifications', 'Messages', 'Profil', 'Paramètres'];
+    const labels = ['Accueil', 'Chaînes TV', 'Fil d’actualité', 'Recherche', 'Notifications', 'Messages', 'Profil', 'Paramètres'];
 
     // A phone held sideways: everything is visible, with smaller icons than the usual 52.
     tester.view.physicalSize = const Size(700, 440);

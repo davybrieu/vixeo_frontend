@@ -269,7 +269,7 @@ void main() {
     Finder tab(String label) => find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label);
     expect(tab('Notifications, 3 notifications non lues'), findsOneWidget);
     final home = tester.getCenter(tab('Accueil'));
-    final feed = tester.getCenter(tab('Fil'));
+    final feed = tester.getCenter(tab('Fil d’actualité'));
     final search = tester.getCenter(tab('Recherche'));
     final inbox = tester.getCenter(tab('Notifications, 3 notifications non lues'));
     final messages = tester.getCenter(tab('Messages, 12 messages non lus'));
@@ -400,7 +400,7 @@ void main() {
         'id': 5,
         'type': 'list_comment',
         'actor': {'id': 7, 'username': 'max', 'name': 'Max'},
-        'list': {'id': 3, 'title': 'Mon top 10', 'kind': 'top'},
+        'list': {'id': 3, 'title': 'Mon top 10'},
         'comment': {'id': 6, 'body': 'La fin !', 'contains_spoilers': true},
       });
       expect(spoiler.message, 'a commenté votre liste « Mon top 10 ».');
@@ -409,7 +409,7 @@ void main() {
         'id': 6,
         'type': 'list_like',
         'actor': {'id': 7, 'username': 'max', 'name': 'Max'},
-        'list': {'id': 3, 'title': 'Mon top 10', 'kind': 'top'},
+        'list': {'id': 3, 'title': 'Mon top 10'},
       });
       expect(liked.message, 'aime votre liste « Mon top 10 ».');
       final moderation = Activity.fromJson({

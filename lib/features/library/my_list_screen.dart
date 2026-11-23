@@ -18,24 +18,26 @@ import '../tv/channel_search.dart';
 import '../tv/channel_screen.dart';
 import 'library.dart';
 
-/// "Ma liste": the active profile's favorites (synced between devices), with the search field,
-/// the filters (type, genre, years) and the order of the search page, plus « Note » and « Mieux
-/// notés » on the rating each card shows (IMDb's, else TMDb's), applied here. With [username],
-/// « Sa liste »: another member's list (their profile page, `/membre/:username/list`), the same
-/// page without the channels. With [liked], « J'aime » ❤ (« Ses J'aime » for a member): the
-/// same page for the movies and series liked, without the channels.
+/// The titles a profile keeps: « À voir » (the default, « Ma liste » until 23/11/2026: the synced
+/// favorites, first among the lists, `/listes/a-voir`), « J'aime » ❤ or « Vus » ([collection]),
+/// with the search field, the filters (type, genre, years) and the order of the search page, plus
+/// « Note » and « Mieux notés » on the rating each card shows (IMDb's, else TMDb's), applied here.
+/// With [username], another member's (their profile page, `/membre/:username/a-voir`…), the same
+/// page without the channels. Only my « À voir » has the channels.
 class MyListScreen extends ConsumerStatefulWidget {
-  const MyListScreen({super.key, this.username, this.liked = false});
+  const MyListScreen({super.key, this.username, this.collection = TitleCollection.toWatch});
 
-  /// A member's list; null: mine.
+  /// A member's titles; null: mine.
   final String? username;
 
-  /// « J'aime » ❤ (the titles liked) instead of « Ma liste ».
-  final bool liked;
+  final TitleCollection collection;
 
   @override
   ConsumerState<MyListScreen> createState() => _MyListScreenState();
 }
+
+/// What [MyListScreen] shows.
+enum TitleCollection { toWatch, liked, watched }
 
 class _MyListScreenState extends ConsumerState<MyListScreen> {
   final _searchController = TextEditingController();
@@ -59,7 +61,12 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final member = widget.username;
-    final liked = widget.liked;
+    final collection = widget.collection;
+    final title = switch (collection) {
+      TitleCollection.toWatch => 'À voir',
+      TitleCollection.liked => member == null ? 'Mes J’aime' : 'Ses J’aime',
+      TitleCollection.watched => member == null ? 'Mes titres vus' : 'Ses titres vus',
+    };
 
     return SafeArea(
       bottom: false,
@@ -67,7 +74,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           VxPageHeader(
-            title: liked ? (member == null ? 'Mes J’aime' : 'Ses J’aime') : (member == null ? 'Ma liste' : 'Sa liste'),
+            title: title,
             // Opened from a profile page: a way back.
             back: GoRouter.maybeOf(context)?.canPop() ?? false,
             search: VxSearchField(
@@ -88,7 +95,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
               onChanged: _setFilters,
               // Saved titles and channels (a member's list, or while live TV is hidden: titles only):
               // no people, no channel category.
-              kinds: member == null && !liked && ref.watch(liveTvProvider)
+              kinds: member == null && collection == TitleCollection.toWatch && ref.watch(liveTvProvider)
                   ? const [SearchKind.all, SearchKind.movie, SearchKind.tv, SearchKind.channels]
                   : const [SearchKind.all, SearchKind.movie, SearchKind.tv],
               channelCategories: false,
@@ -99,14 +106,18 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
           Expanded(
             child: member == null
                 ? _mine(context)
-                : _member(context, liked ? socialLikedProvider(member) : socialTitlesProvider(member)),
+                : _member(context, switch (collection) {
+                    TitleCollection.toWatch => socialTitlesProvider(member),
+                    TitleCollection.liked => socialLikedProvider(member),
+                    TitleCollection.watched => socialWatchedProvider(member),
+                  }),
           ),
         ],
       ),
     );
   }
 
-  /// A member's list or likes ([provider]).
+  /// A member's « À voir », likes or titles watched ([provider]).
   Widget _member(BuildContext context, FutureProvider<List<MediaItem>> provider) => AsyncView(
     value: ref.watch(provider),
     onRetry: () => ref.invalidate(provider),
@@ -121,28 +132,20 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
     ),
   );
 
-  /// My list: channels (« Chaînes TV ») or titles, from the synced library. My likes: titles.
+  /// My « À voir »: channels (« Chaînes TV ») or titles, from the synced library. My likes and my
+  /// titles watched: titles.
   Widget _mine(BuildContext context) {
     final layout = Layout.of(context);
     return AsyncView(
               value: ref.watch(libraryProvider),
               onRetry: () => ref.invalidate(libraryProvider),
               data: (state) {
-                if (widget.liked) {
+                if (widget.collection != TitleCollection.toWatch) {
                   return _titles(
                     context,
-                    [
-                      for (final item in state.liked)
-                        if (item.tmdbTitle case final t?)
-                          MediaItem(
-                            id: t.id,
-                            type: t.type,
-                            title: item.title,
-                            year: item.year,
-                            posterUrl: item.posterUrl,
-                            backdropUrl: item.backdropUrl,
-                          ),
-                    ],
+                    widget.collection == TitleCollection.liked
+                        ? [for (final item in state.liked) ?item.asMediaItem]
+                        : state.watched,
                     mine: true,
                     onRefresh: () => ref.read(libraryProvider.notifier).refresh(),
                   );
@@ -163,8 +166,8 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                           if (favorites.isEmpty) {
                             return const EmptyState(
                               icon: Icons.live_tv_outlined,
-                              title: 'Aucune chaîne dans votre liste',
-                              message: 'Ajoutez des chaînes TV à votre liste pour les retrouver ici.',
+                              title: 'Aucune chaîne à voir',
+                              message: 'Ajoutez des chaînes TV à « À voir » pour les retrouver ici.',
                             );
                           }
                           return RefreshIndicator(
@@ -299,24 +302,32 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
 
     if (matching.isEmpty) {
       final isEmpty = titles.isEmpty;
-      if (widget.liked) {
-        return EmptyState(
+      return switch (widget.collection) {
+        TitleCollection.liked => EmptyState(
           icon: Icons.favorite_border_rounded,
           title: isEmpty ? (mine ? 'Aucun J’aime' : 'Aucun J’aime pour l’instant') : 'Aucun résultat',
           message: isEmpty
               ? (mine ? 'Aimez des films et des séries avec le cœur de leur fiche.' : null)
               : 'Aucun titre aimé ne correspond à cette recherche ou à ces filtres.',
-        );
-      }
-      return EmptyState(
-        icon: Icons.bookmark_border_rounded,
-        title: isEmpty ? (mine ? 'Votre liste est vide' : 'Sa liste est vide') : 'Aucun résultat',
-        message: isEmpty
-            ? (mine
-                  ? 'Ajoutez des films et des séries avec « Ma liste » pour les retrouver ici, sur tous vos écrans.'
-                  : 'Aucun film ni série dans sa liste pour l’instant.')
-            : 'Aucun titre de ${mine ? 'votre' : 'sa'} liste ne correspond à cette recherche ou à ces filtres.',
-      );
+        ),
+        TitleCollection.watched => EmptyState(
+          icon: Icons.visibility_outlined,
+          title: isEmpty ? 'Aucun titre vu pour l’instant' : 'Aucun résultat',
+          message: isEmpty
+              ? (mine ? 'Les films et les séries marqués comme vus apparaîtront ici.' : null)
+              : 'Aucun titre vu ne correspond à cette recherche ou à ces filtres.',
+        ),
+        TitleCollection.toWatch => EmptyState(
+          icon: Icons.bookmark_border_rounded,
+          title: isEmpty ? 'Rien à voir pour l’instant' : 'Aucun résultat',
+          message: isEmpty
+              ? (mine
+                    ? 'Ajoutez des films et des séries à « À voir » depuis leur fiche pour les retrouver ici, sur tous '
+                          'vos écrans.'
+                    : 'Aucun film ni série à voir pour l’instant.')
+              : 'Aucun titre à voir ne correspond à cette recherche ou à ces filtres.',
+        ),
+      };
     }
 
     return RefreshIndicator(

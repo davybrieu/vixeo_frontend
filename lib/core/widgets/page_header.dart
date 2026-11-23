@@ -6,7 +6,7 @@ import '../device/layout.dart';
 import '../theme.dart';
 import 'focusable.dart';
 
-/// Top of a main page (Recherche, Ma liste, Avis): its title, a search field and a filter bar,
+/// Top of a main page (Recherche, À voir, Avis): its title, a search field and a filter bar,
 /// with the same spacing everywhere (docs/charte-graphique.md, « En-tête de page »):
 /// 16 above the title, 16 between the title and the field, 12 before the filters, 16 before the
 /// content (×1.5 on TV). The filter bar scrolls sideways and brings its own side margins.
@@ -27,7 +27,7 @@ class VxPageHeader extends StatelessWidget {
   final Widget? search;
   final Widget? filters;
 
-  /// A round back button above the title: a page opened over another one (« Ma liste » from the
+  /// A round back button above the title: a page opened over another one (« À voir » from the
   /// profile page). The tabs have none, so that their titles are at the same place.
   final bool back;
 

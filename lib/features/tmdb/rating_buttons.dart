@@ -6,7 +6,7 @@ import '../catalog/models.dart';
 import 'review_screen.dart';
 import 'tmdb.dart';
 
-/// "Noter" on a movie or TV show page: the same round icon-only button as Ma liste / Vu, filled
+/// "Noter" on a movie or TV show page: the same round icon-only button as À voir / Vu, filled
 /// when rated; it opens the page « Noter » / « Mon avis » (no dialog). For every signed-in profile
 /// ([canRateProvider]).
 class RateTitleButton extends ConsumerWidget {

@@ -8,7 +8,7 @@ import '../tmdb/tmdb.dart';
 
 // The « Notifications » page (`/notifications`, a destination of the navigation; developer's
 // request, 21/11/2026): what other members did for the active profile, its follow requests and
-// the next episodes of its « Ma liste » shows. API: vixeo_backend/docs/social.md.
+// the next episodes of its « À voir » shows. API: vixeo_backend/docs/social.md.
 
 /// What another member did.
 enum ActivityType {
@@ -135,7 +135,7 @@ class ActivityPage {
   final int? unreadCount;
 }
 
-/// The next (or a recent) episode of a « Ma liste » show.
+/// The next (or a recent) episode of a « À voir » show.
 class ShowEpisode {
   const ShowEpisode({
     required this.showId,
@@ -185,7 +185,7 @@ class ShowEpisode {
   ].join(' · ');
 }
 
-/// The next episodes of the « Ma liste » shows (the soonest first) and those out this week.
+/// The next episodes of the « À voir » shows (the soonest first) and those out this week.
 class EpisodeCalendar {
   const EpisodeCalendar({this.upcoming = const [], this.recent = const []});
 
@@ -279,7 +279,7 @@ final followRequestsProvider = FutureProvider.autoDispose<List<SocialProfile>>((
   return ref.read(socialRepositoryProvider).requests();
 });
 
-/// The next episodes of the active profile's « Ma liste » shows.
+/// The next episodes of the active profile's « À voir » shows.
 final episodeCalendarProvider = FutureProvider.autoDispose<EpisodeCalendar>((ref) async {
   if (!socialAvailable(ref.watch(sessionProvider))) return const EpisodeCalendar();
   return ref.read(inboxRepositoryProvider).episodes();
@@ -356,14 +356,15 @@ String dayLabel(DateTime at, DateTime now) {
   return at.year == now.year ? date : '$date ${at.year}';
 }
 
-String _hourMinute(DateTime at) => '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+/// « 21:04 ».
+String hourMinute(DateTime at) => '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
 
 /// When an episode comes out: "Demain à 21:00", "Lundi 24 novembre à 08:00"; out already:
 /// "Sorti aujourd’hui", "Sorti hier", "Sorti lundi 17 novembre".
 String episodeWhen(DateTime at, DateTime now) {
   final day = dayLabel(at, now);
   if (!at.isAfter(now)) return 'Sorti $day';
-  return '${day[0].toUpperCase()}${day.substring(1)} à ${_hourMinute(at)}';
+  return '${day[0].toUpperCase()}${day.substring(1)} à ${hourMinute(at)}';
 }
 
 /// How long ago, as on a social network: "à l’instant", "il y a 5 min", "il y a 3 h", "hier",

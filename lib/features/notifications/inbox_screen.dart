@@ -19,7 +19,7 @@ import 'inbox.dart';
 
 /// « Notifications » (`/notifications`, between « Recherche » and « Profil » in the navigation,
 /// with the number of unread notifications; developer's request, 21/11/2026): the follow requests
-/// to accept or decline (a private account), the next episodes of the « Ma liste » shows and those
+/// to accept or decline (a private account), the next episodes of the « À voir » shows and those
 /// out this week, then what other members did (followed the profile, accepted its request, liked a
 /// review). Opening the page marks everything read. API: vixeo_backend/docs/social.md.
 class InboxScreen extends ConsumerStatefulWidget {
@@ -166,8 +166,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                   else if (upcoming.isEmpty)
                     _Message(
                       recent.isEmpty
-                          ? 'Ajoutez des séries à « Ma liste » : leurs prochains épisodes s’afficheront ici.'
-                          : 'Aucun nouvel épisode annoncé pour les séries de « Ma liste ».',
+                          ? 'Ajoutez des séries à « À voir » : leurs prochains épisodes s’afficheront ici.'
+                          : 'Aucun nouvel épisode annoncé pour les séries « À voir ».',
                     )
                   else
                     _EpisodeRow(episodes: upcoming, now: now, autofocus: takeFocus()),

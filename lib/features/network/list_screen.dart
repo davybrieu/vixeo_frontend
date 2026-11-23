@@ -16,9 +16,9 @@ import 'share_image.dart';
 import 'title_picker.dart';
 import 'widgets.dart';
 
-/// A list or a top 10 (`/listes/:id`, vixeo_backend/docs/social.md): its title, its author, its
-/// description, its titles (numbered for a top 10), « J'aime », then its comments. Mine:
-/// « Modifier ».
+/// A list (`/listes/:id`, vixeo_backend/docs/social.md): its title, its author, its description,
+/// its titles in the order its author chose (numbered: a « Top 10 » is a list like the others),
+/// « J'aime », then its comments. Mine: « Modifier » (title, description, order).
 class ListDetailsScreen extends ConsumerStatefulWidget {
   const ListDetailsScreen({super.key, required this.id});
 
@@ -68,15 +68,7 @@ class _ListDetailsScreenState extends ConsumerState<ListDetailsScreen> {
         setState(() => _comments = 0);
       },
       children: [
-        Wrap(
-          spacing: layout.space(VxSpace.xs),
-          runSpacing: layout.space(VxSpace.xs),
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            if (list.kind == ListKind.top) const VxBadge('TOP 10', accent: true),
-            Text(list.summary, style: VxText.body(layout.captionSize, color: VxColors.textSecondary)),
-          ],
-        ),
+        Text(list.summary, style: VxText.body(layout.captionSize, color: VxColors.textSecondary)),
         SizedBox(height: layout.space(VxSpace.s)),
         MemberLine(profile: list.author, at: list.updatedAt),
         if (description.isNotEmpty) ...[
@@ -110,7 +102,7 @@ class _ListDetailsScreenState extends ConsumerState<ListDetailsScreen> {
             message: list.isMine ? 'Ajoutez des films et des séries avec « Modifier ».' : null,
           )
         else
-          NumberedPosters(titles: titles, numbered: list.kind == ListKind.top),
+          NumberedPosters(titles: titles, numbered: true),
         SizedBox(height: layout.sectionGap),
         CommentsSection(
           subject: (list: true, id: widget.id),
@@ -121,16 +113,15 @@ class _ListDetailsScreenState extends ConsumerState<ListDetailsScreen> {
   }
 }
 
-/// « Nouvelle liste », « Nouveau top 10 » or « Modifier la liste » (`/listes/nouvelle`,
-/// `/listes/:id/modifier`): title (or a ready-made one: « Mon top 10 de 2026 »…), description,
-/// top 10 or list, and the titles in order (« monter », « descendre », « retirer » buttons rather
-/// than drag and drop: they work with a remote). [item] (`movie:550`): a title to start with
-/// (« Ajouter à une liste » → « Nouvelle liste »).
+/// « Nouvelle liste » or « Modifier la liste » (`/listes/nouvelle`, `/listes/:id/modifier`): title
+/// (or a ready-made one: « Top 10 de 2026 »…), description, and the titles in order, the first one
+/// numbered 1 (« monter », « descendre », « retirer » buttons rather than drag and drop: they work
+/// with a remote). [item] (`movie:550`): a title to start with (« Ajouter à une liste » →
+/// « Nouvelle liste »). « À voir » is not edited here: it has no title nor description of its own.
 class ListEditorScreen extends ConsumerStatefulWidget {
-  const ListEditorScreen({super.key, this.id, this.kind = ListKind.list, this.title, this.item});
+  const ListEditorScreen({super.key, this.id, this.title, this.item});
 
   final int? id;
-  final ListKind kind;
   final String? title;
   final String? item;
 
@@ -145,7 +136,6 @@ class ListEditorScreen extends ConsumerStatefulWidget {
 class _ListEditorScreenState extends ConsumerState<ListEditorScreen> {
   late final _title = TextEditingController(text: widget.title ?? '');
   final _description = TextEditingController();
-  late ListKind _kind = widget.kind;
   final _items = <MediaItem>[];
   bool _loaded = false;
   bool _saving = false;
@@ -172,7 +162,6 @@ class _ListEditorScreenState extends ConsumerState<ListEditorScreen> {
         final list = await ref.read(networkRepositoryProvider).list(widget.id!);
         _title.text = list.title;
         _description.text = list.description ?? '';
-        _kind = list.kind;
         _items.addAll(list.items ?? const []);
       } else if (widget.item case final item?) {
         final parts = item.split(':');
@@ -198,12 +187,8 @@ class _ListEditorScreenState extends ConsumerState<ListEditorScreen> {
   Set<String> get _chosen => {for (final item in _items) itemIdOf(item.type, item.id)};
 
   Future<void> _add() async {
-    if (_items.length >= _kind.maxItems) {
-      showVxSnack(
-        context,
-        _kind == ListKind.top ? 'Un top 10 a 10 titres au plus.' : 'Une liste a 100 titres au plus.',
-        icon: Icons.info_outline_rounded,
-      );
+    if (_items.length >= SocialList.maxItems) {
+      showVxSnack(context, 'Une liste a ${SocialList.maxItems} titres au plus.', icon: Icons.info_outline_rounded);
       return;
     }
     final title = await pickTitle(context, chosen: _chosen);
@@ -215,15 +200,6 @@ class _ListEditorScreenState extends ConsumerState<ListEditorScreen> {
     final target = index + delta;
     if (target < 0 || target >= _items.length) return;
     setState(() => _items.insert(target, _items.removeAt(index)));
-  }
-
-  void _setKind(ListKind kind) {
-    if (kind == _kind) return;
-    if (kind == ListKind.top && _items.length > kind.maxItems) {
-      showVxSnack(context, 'Un top 10 a 10 titres au plus : retirez-en d’abord.', icon: Icons.info_outline_rounded);
-      return;
-    }
-    setState(() => _kind = kind);
   }
 
   Future<void> _save() async {
@@ -245,13 +221,11 @@ class _ListEditorScreenState extends ConsumerState<ListEditorScreen> {
               widget.id!,
               title: title,
               description: description.isEmpty ? null : description,
-              kind: _kind,
               items: items,
             )
           : await repository.createList(
               title: title,
               description: description.isEmpty ? null : description,
-              kind: _kind,
               items: items,
             );
       ref.invalidate(myListsProvider);
@@ -275,19 +249,14 @@ class _ListEditorScreenState extends ConsumerState<ListEditorScreen> {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final year = DateTime.now().year;
-    final templates = <(String, ListKind)>[
-      ('Mon top 10 de $year', ListKind.top),
-      ('Mes films préférés', ListKind.top),
-      ('Mes séries préférées', ListKind.top),
-      ('À voir absolument', ListKind.list),
-      ('Mes films réconfortants', ListKind.list),
-      ('Pour une soirée frissons', ListKind.list),
+    final templates = [
+      'Top 10 de $year',
+      'Mes films préférés',
+      'Mes séries préférées',
+      'Mes films réconfortants',
+      'Pour une soirée frissons',
     ];
-    final pageTitle = _editing
-        ? 'Modifier la liste'
-        : _kind == ListKind.top
-        ? 'Nouveau top 10'
-        : 'Nouvelle liste';
+    final pageTitle = _editing ? 'Modifier la liste' : 'Nouvelle liste';
     if (!_loaded) {
       return NetworkPage(
         title: pageTitle,
@@ -304,15 +273,12 @@ class _ListEditorScreenState extends ConsumerState<ListEditorScreen> {
             spacing: layout.space(VxSpace.xs),
             runSpacing: layout.space(VxSpace.xs),
             children: [
-              for (final (label, kind) in templates)
+              for (final label in templates)
                 VxButton(
                   label: label,
                   kind: VxButtonKind.outline,
                   dense: true,
-                  onPressed: () => setState(() {
-                    _title.text = label;
-                    if (_items.length <= kind.maxItems) _kind = kind;
-                  }),
+                  onPressed: () => setState(() => _title.text = label),
                 ),
             ],
           ),
@@ -340,44 +306,22 @@ class _ListEditorScreenState extends ConsumerState<ListEditorScreen> {
             alignLabelWithHint: true,
           ),
         ),
-        SizedBox(height: layout.space(VxSpace.m)),
-        Wrap(
-          spacing: layout.space(VxSpace.xs),
-          children: [
-            VxButton(
-              label: 'Top 10',
-              icon: Icons.format_list_numbered_rounded,
-              kind: _kind == ListKind.top ? VxButtonKind.primary : VxButtonKind.outline,
-              dense: true,
-              onPressed: () => _setKind(ListKind.top),
-            ),
-            VxButton(
-              label: 'Liste',
-              icon: Icons.playlist_play_rounded,
-              kind: _kind == ListKind.list ? VxButtonKind.primary : VxButtonKind.outline,
-              dense: true,
-              onPressed: () => _setKind(ListKind.list),
-            ),
-          ],
-        ),
-        SizedBox(height: layout.space(VxSpace.xs)),
-        Text(
-          _kind == ListKind.top
-              ? 'Un top 10 est numéroté : le premier titre est votre numéro 1.'
-              : 'Une liste garde l’ordre choisi, 100 titres au plus.',
-          style: VxText.body(layout.captionSize, color: VxColors.textSecondary),
-        ),
         SizedBox(height: layout.sectionGap),
-        SectionHeader(
-          '${_items.length} ${_items.length > 1 ? 'titres' : 'titre'}',
-          padding: EdgeInsets.only(bottom: layout.titleGap),
+        SectionHeader(titleCount(_items.length), padding: EdgeInsets.only(bottom: layout.titleGap)),
+        Padding(
+          padding: EdgeInsets.only(bottom: layout.space(VxSpace.s)),
+          child: Text(
+            'Rangez les titres dans l’ordre de votre choix avec « Monter » et « Descendre » : le premier est le '
+            'numéro 1 (${SocialList.maxItems} titres au plus).',
+            style: VxText.body(layout.captionSize, color: VxColors.textSecondary),
+          ),
         ),
         for (final (i, item) in _items.indexed)
           Padding(
             padding: EdgeInsets.only(bottom: layout.space(VxSpace.xs)),
             child: _EditorRow(
               item: item,
-              rank: _kind == ListKind.top ? i + 1 : null,
+              rank: i + 1,
               onUp: i == 0 ? null : () => _move(i, -1),
               onDown: i == _items.length - 1 ? null : () => _move(i, 1),
               onRemove: () => setState(() => _items.removeAt(i)),
@@ -408,10 +352,10 @@ class _ListEditorScreenState extends ConsumerState<ListEditorScreen> {
 }
 
 class _EditorRow extends StatelessWidget {
-  const _EditorRow({required this.item, required this.onRemove, this.rank, this.onUp, this.onDown});
+  const _EditorRow({required this.item, required this.onRemove, required this.rank, this.onUp, this.onDown});
 
   final MediaItem item;
-  final int? rank;
+  final int rank;
   final VoidCallback? onUp;
   final VoidCallback? onDown;
   final VoidCallback onRemove;
@@ -427,11 +371,10 @@ class _EditorRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (rank != null)
-            SizedBox(
-              width: layout.size(28, tv: 44),
-              child: Text('$rank', textAlign: TextAlign.center, style: VxText.title(layout.size(18, tv: 28))),
-            ),
+          SizedBox(
+            width: layout.size(28, tv: 44),
+            child: Text('$rank', textAlign: TextAlign.center, style: VxText.title(layout.size(18, tv: 28))),
+          ),
           PosterThumb(url: item.posterUrl, width: layout.size(36, tv: 56), seed: item.id),
           SizedBox(width: layout.space(VxSpace.s)),
           Expanded(

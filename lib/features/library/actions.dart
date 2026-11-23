@@ -2,10 +2,29 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/common.dart';
+import '../auth/session.dart';
 import '../catalog/models.dart';
+import '../network/actions.dart' show showAddToList;
+import '../notifications/inbox.dart' show socialAvailable;
 import 'library.dart';
 
-/// Adds the title to the profile's list, or removes it, then confirms with an alert.
+/// The profile has lists of its own beside « À voir » (the social features: an adult profile with
+/// a username).
+bool listsAvailable(SessionState session) =>
+    socialAvailable(session) && (session.profile?.username?.trim().isNotEmpty ?? false);
+
+bool hasLists(WidgetRef ref) => listsAvailable(ref.watch(sessionProvider));
+
+/// The bookmark of a title (developer's request, 23/11/2026: « quand tu cliques pour ajouter à la
+/// liste tu dois sélectionner dans quelle liste »): the lists to choose, « À voir » first; without
+/// lists of its own (a child's profile…), « À voir » at once.
+Future<void> addToList(BuildContext context, MediaItem item) {
+  final container = ProviderScope.containerOf(context, listen: false);
+  if (listsAvailable(container.read(sessionProvider))) return showAddToList(context, item);
+  return toggleFavorite(context, item);
+}
+
+/// Adds the title to « À voir », or removes it, then confirms with an alert.
 Future<void> toggleFavorite(BuildContext context, MediaItem item) async {
   final container = ProviderScope.containerOf(context, listen: false);
   final wasFavorite = container.read(libraryProvider).value?.forItem(item)?.isFavorite ?? false;
@@ -14,7 +33,7 @@ Future<void> toggleFavorite(BuildContext context, MediaItem item) async {
     if (context.mounted) {
       showVxSnack(
         context,
-        wasFavorite ? 'Supprimé de votre liste' : 'Ajouté à votre liste',
+        wasFavorite ? 'Retiré de « À voir »' : 'Ajouté à « À voir »',
         icon: wasFavorite ? Icons.bookmark_remove_rounded : Icons.bookmark_added_rounded,
       );
     }
@@ -78,7 +97,7 @@ Future<void> toggleFollowed(BuildContext context, Person person) async {
   }
 }
 
-/// « J'aime » ❤ toggle (a like): the same round icon-only button as Ma liste and Vu.
+/// « J'aime » ❤ toggle (a like): the same round icon-only button as « Ajouter à une liste » and Vu.
 class LikedButton extends ConsumerWidget {
   const LikedButton({super.key, required this.item});
 
@@ -129,7 +148,9 @@ class _FollowPersonButtonState extends ConsumerState<FollowPersonButton> {
   }
 }
 
-/// Ma liste toggle: the same round icon-only button everywhere.
+/// « Ajouter à une liste »: the same round icon-only button everywhere, filled when the title is
+/// « À voir ». It opens the lists to choose ([addToList]); without lists of its own, it adds the
+/// title to « À voir » or removes it.
 class FavoriteButton extends ConsumerWidget {
   const FavoriteButton({super.key, required this.item});
 
@@ -140,9 +161,13 @@ class FavoriteButton extends ConsumerWidget {
     final favorite = ref.watch(libraryProvider).value?.forItem(item)?.isFavorite ?? false;
     return VxIconAction(
       icon: favorite ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
-      label: favorite ? 'Retirer de ma liste' : 'Ajouter à ma liste',
+      label: hasLists(ref)
+          ? 'Ajouter à une liste'
+          : favorite
+          ? 'Retirer de « À voir »'
+          : 'Ajouter à « À voir »',
       active: favorite,
-      onPressed: () => toggleFavorite(context, item),
+      onPressed: () => addToList(context, item),
     );
   }
 }

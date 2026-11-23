@@ -20,11 +20,13 @@ import '../social/social_repository.dart';
 import 'network.dart';
 import 'widgets.dart';
 
-/// « Fil » (`/fil`, in the navigation of phones, tablets and computers; not on a TV, nor for a
-/// guest or a child's profile; vixeo_backend/docs/social.md), in two tabs (developer's request,
-/// 23/11/2026): **« Pour toi »**, the default (reviews and lists of the whole network, ranked by
-/// the API), and **« Abonnements »** (what the followed members did, the most recent first:
-/// reviews, lists and top 10, titles watched, grouped: « Léa et Max ont vu… »). No text post:
+/// « Fil d'actualité » (`/fil`, renamed from « Fil » on 23/11/2026; in the navigation of phones,
+/// tablets and computers; not on a TV, nor for a guest or a child's profile;
+/// vixeo_backend/docs/social.md), in two tabs (developer's request, 23/11/2026): **« Pour toi »**,
+/// the default (reviews and lists of the whole network, and what the followed members watched and
+/// liked, ranked by the API), and **« Abonnements »** (what the followed members did, the most
+/// recent first: reviews, lists, titles watched and titles liked, grouped: « Léa et Max ont vu… »,
+/// « Léa et Max aiment… »). No text post:
 /// everything is about a title. Accounts to follow come after the first posts (or alone, when a tab
 /// is empty). « Messages » has its own place in the navigation.
 ///
@@ -136,7 +138,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const VxPageHeader(title: 'Fil'),
+          const VxPageHeader(title: 'Fil d’actualité'),
           // « Pour toi » / « Abonnements », under the title, on the reading column.
           Padding(
             padding: EdgeInsets.symmetric(horizontal: layout.gutter),
@@ -184,7 +186,7 @@ class _FeedEntry extends StatelessWidget {
   Widget build(BuildContext context) => switch (item) {
     FeedReview(:final review, :final createdAt) => ReviewPost(review: review, at: createdAt),
     FeedList(:final list, :final createdAt) => ListPost(list: list, at: createdAt),
-    final FeedWatched watched => WatchedPost(item: watched),
+    final FeedTitle title => TitlePost(item: title),
   };
 }
 

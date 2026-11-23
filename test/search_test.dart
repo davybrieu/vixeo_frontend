@@ -205,7 +205,7 @@ void main() {
       expect(voters.query(withText: false)['min_votes'], 1000);
       expect(voters.query(withText: false)['max_votes'], 50000);
       expect((voters.hasTitleFilters, voters.canBrowse, voters.isDefault), (true, true, false));
-      // « Ma liste » checks them like the API: both ends included, an unrated title left out.
+      // « À voir » checks them like the API: both ends included, an unrated title left out.
       expect(voters.ratingWithin(7, 1000), isTrue);
       expect(voters.ratingWithin(7, 50001), isFalse);
       expect(voters.ratingWithin(null, 5000), isFalse);
@@ -221,7 +221,7 @@ void main() {
       expect(filters.sortFor(withText: false), SearchSort.popularity);
       expect(filters.kind, SearchKind.person);
       expect(SearchSort.available(withText: false), isNot(contains(SearchSort.relevance)));
-      // « Mieux notés »: offered with [withRating] (search page, « Ma liste »).
+      // « Mieux notés »: offered with [withRating] (search page, « À voir »).
       expect(SearchSort.available(withText: true), isNot(contains(SearchSort.rating)));
       expect(SearchSort.available(withText: false, withRating: true), [
         SearchSort.popularity,

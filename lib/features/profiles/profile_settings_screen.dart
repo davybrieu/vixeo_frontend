@@ -55,7 +55,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     if (profile == null) return const SizedBox();
 
-    // A main page (phone tab): the same header and margins as Recherche, Ma liste and Avis.
+    // A main page (phone tab): the same header and margins as Recherche, À voir and Avis.
     return SafeArea(
       bottom: false,
       child: Column(
@@ -134,7 +134,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       scale: s,
                       icon: Icons.notifications_outlined,
                       title: 'Notifications',
-                      subtitle: 'Nouveaux épisodes des séries de Ma liste, activité.',
+                      subtitle: 'Nouveaux épisodes des séries « À voir », activité.',
                       onPressed: () => context.push(NotificationsScreen.location),
                     ),
                     _SettingsTile(

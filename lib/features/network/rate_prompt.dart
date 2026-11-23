@@ -16,7 +16,7 @@ import '../tmdb/tmdb.dart';
 import 'network.dart';
 
 // The end of a movie or an episode (developer's request, 23/11/2026): the title is marked as
-// watched (« Vu », the diary), then a card proposes to rate it (« Noter » opens the rating page,
+// watched (« Vu », the viewings), then a card proposes to rate it (« Noter » opens the rating page,
 // no dialog), with « Désactiver dans les paramètres », which opens « Paramètres du profil » on
 // « Proposer de noter à la fin ».
 
@@ -31,7 +31,7 @@ bool atTheEnd(Duration position, Duration duration) {
   return left <= (credits > const Duration(minutes: 5) ? const Duration(minutes: 5) : credits);
 }
 
-/// Marks [finished] as watched: a movie in « Vu » (and so in the diary), an episode in the diary.
+/// Marks [finished] as watched: a movie in « Vu » (and so in the viewings), an episode in the viewings.
 /// A failure changes nothing on screen (the title can still be marked by hand).
 Future<void> markFinished(WidgetRef ref, FinishedTitle finished) async {
   final session = ref.read(sessionProvider);
@@ -50,7 +50,8 @@ Future<void> markFinished(WidgetRef ref, FinishedTitle finished) async {
           .read(networkRepositoryProvider)
           .logViewing(profile.id, finished.title, season: finished.season, episode: finished.episode);
     }
-    ref.invalidate(diaryProvider);
+    final username = profile.username;
+    if (username != null && username.isNotEmpty) ref.invalidate(activityProvider(username));
   } catch (_) {
     // Not marked: the title page still has « Vu ».
   }

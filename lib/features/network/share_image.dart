@@ -15,7 +15,7 @@ import '../tmdb/rating_form.dart' show StarRow;
 import '../tmdb/tmdb.dart' show formatScore;
 import 'network.dart';
 
-// « Partager en image » (developer's request, 23/11/2026): a review, a top 10 or the year's review
+// « Partager en image » (developer's request, 23/11/2026): a review, a list or the year's review
 // drawn as a picture in the story format (9:16), to post on Instagram, WhatsApp… The page shows it
 // as it will be; « Partager » takes a picture of it (the images are loaded since they are shown)
 // and opens Android's share sheet; on Windows, the picture goes to the Downloads folder.
@@ -241,20 +241,19 @@ class _ListStory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titles = (list.items ?? const []).take(list.kind == ListKind.top ? 10 : 9).toList();
-    final top = list.kind == ListKind.top;
+    // The first 12 titles, numbered: a list keeps the order its author chose.
+    final titles = (list.items ?? const []).take(12).toList();
     return _StoryFrame(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (top) const VxBadge('TOP 10', accent: true),
           const SizedBox(height: 6),
           Text(list.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: VxText.title(22)),
           Text('par @${list.author.username}', style: VxText.body(12, color: VxColors.textSecondary)),
           const SizedBox(height: 14),
           Expanded(
             child: GridView.count(
-              crossAxisCount: top ? 4 : 3,
+              crossAxisCount: 4,
               mainAxisSpacing: 8,
               crossAxisSpacing: 8,
               childAspectRatio: 2 / 3,
@@ -265,16 +264,15 @@ class _ListStory extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       ClipRRect(borderRadius: BorderRadius.circular(6), child: NetImage(url: title.posterUrl, seed: title.id)),
-                      if (top)
-                        Positioned(
-                          left: 3,
-                          top: 3,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(color: VxColors.accent, borderRadius: BorderRadius.circular(5)),
-                            child: Text('${i + 1}', style: VxText.title(11, color: VxColors.onAccent)),
-                          ),
+                      Positioned(
+                        left: 3,
+                        top: 3,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(color: VxColors.accent, borderRadius: BorderRadius.circular(5)),
+                          child: Text('${i + 1}', style: VxText.title(11, color: VxColors.onAccent)),
                         ),
+                      ),
                     ],
                   ),
               ],

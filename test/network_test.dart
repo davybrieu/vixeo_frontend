@@ -10,10 +10,13 @@ import 'package:vixeo/features/auth/auth_repository.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/models.dart';
+import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/messages/messages.dart';
+import 'package:vixeo/features/network/actions.dart';
 import 'package:vixeo/features/network/comments.dart';
 import 'package:vixeo/features/network/feed_screen.dart';
 import 'package:vixeo/features/network/network.dart';
+import 'package:vixeo/features/network/profile_sections.dart';
 import 'package:vixeo/features/network/rate_prompt.dart';
 import 'package:vixeo/features/network/widgets.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
@@ -21,8 +24,9 @@ import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
 import 'package:vixeo/features/social/social_repository.dart';
 
 // The social network of movies and TV shows (developer's request, 23/11/2026;
-// vixeo_backend/docs/social.md): models, the feed, comments with spoilers, and the rating
-// proposed at the end of playback with its setting.
+// vixeo_backend/docs/social.md): models, the « Fil d'actualité » (reviews, lists, titles watched
+// and liked), the « Activité » of a profile, « Ajouter à une liste » (« À voir » first), comments
+// with spoilers, and the rating proposed at the end of playback with its setting.
 
 class _Session extends SessionController {
   _Session([this.profile = const Profile(id: 2, name: 'Léa', username: 'lea')]);
@@ -31,6 +35,12 @@ class _Session extends SessionController {
 
   @override
   SessionState build() => SessionState(status: SessionStatus.signedIn, token: 't', profile: profile);
+}
+
+/// Nothing synced yet: nothing « À voir ».
+class _EmptyLibrary extends LibraryController {
+  @override
+  Future<LibraryState> build() async => const LibraryState({});
 }
 
 class _NoUnreadMessages extends UnreadMessages {
@@ -67,7 +77,6 @@ const _list = {
   'author': _max,
   'title': 'Mon top 10 de 2026',
   'description': 'Les meilleurs de l’année.',
-  'kind': 'top',
   'items_count': 7,
   'cover': <String>[],
   'likes_count': 12,
@@ -100,9 +109,55 @@ class _FakeNetwork extends NetworkRepository {
         'profiles': [_lea, _max],
         'profiles_count': 2,
       })!,
+      FeedItem.fromJson({
+        'kind': 'liked',
+        'activity_id': 7,
+        'title': {'type': 'movie', 'id': 603, 'title': 'Matrix', 'year': 1999},
+        'profiles': [_max],
+        'profiles_count': 1,
+      })!,
     ],
     next: null,
   );
+
+  /// The « Activité » of a member: each action with its date.
+  @override
+  Future<FeedPage> activity(String username, {int? before}) async {
+    calls.add('activity $username');
+    return (
+      items: [
+        FeedItem.fromJson({
+          'kind': 'liked',
+          'activity_id': 4,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'title': {'type': 'movie', 'id': 603, 'title': 'Matrix'},
+          'profiles': [_lea],
+        })!,
+        FeedItem.fromJson({
+          'kind': 'watched',
+          'activity_id': 3,
+          'created_at': '2025-03-12T20:15:00Z',
+          'title': {'type': 'tv', 'id': 1399, 'title': 'Les Hautes Terres'},
+          'profiles': [_lea],
+          'episodes_count': 3,
+        })!,
+      ],
+      next: 2,
+    );
+  }
+
+  /// My lists, and which ones have the title asked.
+  @override
+  Future<List<SocialList>> myLists({String? item}) async {
+    calls.add('my lists $item');
+    return [SocialList.fromJson({..._list, 'author': _lea, 'is_mine': true, 'contains': true})];
+  }
+
+  @override
+  Future<SocialList> removeFromList(int id, MediaItem title) async {
+    calls.add('remove ${title.id} from $id');
+    return SocialList.fromJson({..._list, 'author': _lea});
+  }
 
   /// « Pour toi »: a member I don't follow.
   @override
@@ -207,10 +262,12 @@ void main() {
       expect(post.item.likesCount, 4);
       expect(post.title.title, 'Dune : Deuxième Partie');
 
+      // A « Top 10 » is a list like the others: in the order its author chose, 100 titles at most.
       final list = SocialList.fromJson(_list);
-      expect(list.kind, ListKind.top);
-      expect(list.kind.maxItems, 10);
-      expect(list.summary, 'Top 10 · 7 titres');
+      expect(list.summary, '7 titres');
+      expect(SocialList.maxItems, 100);
+      expect(titleCount(1), '1 titre');
+      expect(titleCount(0), 'Aucun titre');
       expect(list.copyWith(liked: false, likesCount: 11).likesCount, 11);
 
       FeedWatched watched(List<Map<String, dynamic>> profiles, int count, {int episodes = 0}) =>
@@ -228,11 +285,24 @@ void main() {
       expect(watched([_lea, _max], 4).sentence, 'Léa, Max et 2 autres ont vu');
       expect(watched([_lea], 1, episodes: 3).sentence, 'Léa a vu 3 épisodes de');
       expect(watched([_lea], 1).title.type, MediaType.tv);
+      // Liked (« J'aime »), grouped the same way.
+      FeedLiked liked(List<Map<String, dynamic>> profiles, int count) =>
+          FeedItem.fromJson({
+                'kind': 'liked',
+                'activity_id': 4,
+                'title': {'type': 'movie', 'id': 603, 'title': 'Matrix'},
+                'profiles': profiles,
+                'profiles_count': count,
+              })!
+              as FeedLiked;
+      expect(liked([_lea], 1).sentence, 'Léa aime');
+      expect(liked([_lea, _max], 2).sentence, 'Léa et Max aiment');
+      expect(liked([_lea, _max], 3).sentence, 'Léa, Max et 1 autre aiment');
       // A kind this app doesn't know: not shown.
       expect(FeedItem.fromJson({'kind': 'tweet', 'activity_id': 3}), isNull);
     });
 
-    test('the social part of a title, the diary and the year', () {
+    test('the social part of a title and the year', () {
       final social = TitleSocial.fromJson({
         'friends': [
           {..._max, 'rating': 8.5, 'review_id': 31},
@@ -248,21 +318,6 @@ void main() {
       expect(social.friendsAverage, 7.8);
       expect(social.isEmpty, isFalse);
       expect(const TitleSocial().isEmpty, isTrue);
-
-      final entry = DiaryEntry.fromJson({
-        'id': 1,
-        'type': 'tv',
-        'tmdb_id': 1399,
-        'title': 'Les Hautes Terres',
-        'season_number': 2,
-        'episode_number': 5,
-        'watched_at': '2026-11-20T21:00:00+00:00',
-        'rewatch': true,
-        'rating': 9,
-      });
-      expect(entry.episodeLabel, 'Saison 2, épisode 5');
-      expect(entry.rewatch, isTrue);
-      expect(entry.watchedAt.isUtc, isFalse);
 
       final year = YearStats.fromJson({
         'year': 2026,
@@ -314,15 +369,15 @@ void main() {
       expect(review.title, 'Les Hautes Terres · S1 · É2');
       expect(review.subtitle, 'Avis de @max · ★ 8,5/10');
 
-      final list = SharedCard.fromJson(const {'type': 'list', 'list_id': 3, 'title': 'Top', 'kind': 'top', 'items_count': 10});
+      final list = SharedCard.fromJson(const {'type': 'list', 'list_id': 3, 'title': 'Top', 'items_count': 10});
       expect(list.path, '/listes/3');
-      expect(list.subtitle, 'Top 10 · 10 titres');
+      expect(list.subtitle, 'Liste · 10 titres');
 
       final message = ChatMessage.fromJson(const {
         'id': 1,
         'sender_profile_id': 7,
         'body': '',
-        'shared': {'type': 'list', 'list_id': 3, 'title': 'Top', 'kind': 'list', 'items_count': 1},
+        'shared': {'type': 'list', 'list_id': 3, 'title': 'Top', 'items_count': 1},
       });
       expect(message.shared?.kind, 'list');
       expect(ChatMessage.fromJson(const {'id': 2, 'sender_profile_id': 7, 'body': 'Salut'}).shared, isNull);
@@ -359,10 +414,10 @@ void main() {
     });
   });
 
-  testWidgets('« Fil »: « Pour toi » first, then « Abonnements »', (tester) async {
+  testWidgets('« Fil d’actualité »: « Pour toi » first, then « Abonnements »', (tester) async {
     final network = await _pump(tester, const FeedScreen());
 
-    expect(find.text('Fil'), findsOneWidget);
+    expect(find.text('Fil d’actualité'), findsOneWidget);
     // « Pour toi » by default: the whole network.
     expect(_pressable('Pour toi, onglet 1 sur 2'), findsOneWidget);
     expect(find.text('Découvert grâce à Vixeo.'), findsOneWidget);
@@ -380,12 +435,13 @@ void main() {
     expect(find.text('Dune : Deuxième Partie'), findsOneWidget);
     expect(find.text('9/10'), findsOneWidget);
     expect(find.text('Une claque visuelle.'), findsOneWidget);
-    // A top 10.
-    expect(find.text('TOP 10'), findsOneWidget);
+    // A list (a « Top 10 » is a list like the others).
+    expect(find.text('TOP 10'), findsNothing);
     expect(find.text('Mon top 10 de 2026'), findsOneWidget);
-    expect(find.text('Top 10 · 7 titres'), findsOneWidget);
-    // Watched, grouped.
+    expect(find.text('7 titres'), findsOneWidget);
+    // Watched and liked, grouped.
     expect(find.textContaining('Léa et Max ont vu'), findsOneWidget);
+    expect(find.textContaining('Max aime'), findsOneWidget);
     // Accounts to follow.
     expect(find.text('Comptes à suivre'), findsOneWidget);
     expect(find.text('82 % de goûts en commun'), findsOneWidget);
@@ -412,6 +468,58 @@ void main() {
     await tester.tap(find.textContaining('Léa et Max ont vu'));
     await tester.pumpAndSettle();
     expect(find.text('Fiche 550'), findsOneWidget);
+
+    await following();
+    await tester.tap(find.textContaining('Max aime'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fiche 603'), findsOneWidget);
+  });
+
+  testWidgets('« Activité »: each action under its day, with its time', (tester) async {
+    final network = await _pump(
+      tester,
+      const SingleChildScrollView(child: ProfileActivitySection(username: 'lea', mine: true)),
+    );
+    expect(network.calls, ['activity lea']);
+    expect(find.text('Mon activité'), findsOneWidget);
+    expect(find.text('Aujourd’hui'), findsOneWidget);
+    expect(find.text('Aimé'), findsOneWidget);
+    expect(find.text('Matrix'), findsOneWidget);
+    // Another year: the date says it.
+    expect(find.textContaining('2025'), findsOneWidget);
+    expect(find.text('Vu · 3 épisodes'), findsOneWidget);
+    expect(find.text('Afficher plus'), findsOneWidget);
+
+    await tester.tap(find.text('Matrix'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fiche 603'), findsOneWidget);
+  });
+
+  testWidgets('« Ajouter à une liste »: « À voir » first, then my lists', (tester) async {
+    final network = await _pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showAddToList(context, const MediaItem(id: 550, type: MediaType.movie, title: 'Fight Club')),
+          child: const Text('Ouvrir'),
+        ),
+      ),
+      overrides: [libraryProvider.overrideWith(_EmptyLibrary.new)],
+    );
+    await tester.tap(find.text('Ouvrir'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ajouter « Fight Club » à une liste'), findsOneWidget);
+    expect(network.calls, ['my lists movie:550']);
+    expect(_pressable('À voir, Aucun titre'), findsOneWidget);
+    expect(_pressable('Mon top 10 de 2026, 7 titres, contient ce titre'), findsOneWidget);
+    expect(find.text('Nouvelle liste'), findsOneWidget);
+    expect(find.text('Nouveau top 10'), findsNothing);
+
+    await tester.tap(_pressable('Mon top 10 de 2026, 7 titres, contient ce titre'));
+    await tester.pumpAndSettle();
+    expect(network.calls, contains('remove 550 from 3'));
+    expect(find.text('Retiré de « Mon top 10 de 2026 »'), findsOneWidget);
   });
 
   testWidgets('spoilers stay hidden until « Afficher »', (tester) async {

@@ -4,7 +4,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Live TV (« Chaînes TV ») is hidden for now (developer's request, 17/11/2026): no tab nor rail
-/// entry, no channels in the search, in « Ma liste » or in the settings, and its pages lead to
+/// entry, no channels in the search, in « À voir » or in the settings, and its pages lead to
 /// the home page. Its code stays: build with `--dart-define=LIVE_TV=true` to show it again, or
 /// change the default here.
 const liveTvByDefault = bool.fromEnvironment('LIVE_TV');

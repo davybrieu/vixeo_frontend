@@ -17,6 +17,7 @@ import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/library/my_list_screen.dart';
+import 'package:vixeo/features/network/network.dart';
 import 'package:vixeo/features/social/profile_screen.dart';
 import 'package:vixeo/features/social/review_likes.dart';
 import 'package:vixeo/features/social/social_links.dart';
@@ -58,8 +59,15 @@ class _Library extends LibraryController {
       isFavorite: true,
       favoritedAt: DateTime(2026, 11, 12),
     ),
-    // Watched only: not in « Ma liste ».
-    'tmdb|movie:550': const ProfileItem(source: 'tmdb', itemId: 'movie:550', type: 'movie', title: 'Fight Club'),
+    // Watched only: not « À voir ».
+    'tmdb|movie:550': ProfileItem(
+      source: 'tmdb',
+      itemId: 'movie:550',
+      type: 'movie',
+      title: 'Fight Club',
+      isWatched: true,
+      watchedAt: DateTime(2026, 11, 11),
+    ),
     // In « J'aime » ❤ only.
     'tmdb|movie:13': ProfileItem(
       source: 'tmdb',
@@ -109,6 +117,51 @@ const _social = SocialProfile(
   listCount: 2,
 );
 
+/// The « Activité » and the lists of a profile, without the network.
+class _FakeNetwork extends NetworkRepository {
+  _FakeNetwork() : super(ApiClient(token: () => null, profileId: () => null));
+
+  @override
+  Future<FeedPage> activity(String username, {int? before}) async => (
+    items: [
+      FeedItem.fromJson({
+        'kind': 'liked',
+        'activity_id': 4,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'title': {'type': 'movie', 'id': 603, 'title': 'Matrix'},
+        'profiles': [
+          {'id': 2, 'username': username, 'name': username},
+        ],
+      })!,
+    ],
+    next: null,
+  );
+
+  static final _lists = [
+    SocialList.fromJson(const {
+      'id': 3,
+      'author': {'id': 2, 'username': 'lea', 'name': 'Léa'},
+      'title': 'Top 10 de 2026',
+      'items_count': 7,
+      'is_mine': true,
+    }),
+  ];
+
+  @override
+  Future<List<SocialList>> myLists({String? item}) async => _lists;
+
+  @override
+  Future<List<SocialList>> memberLists(String username) async => _lists;
+}
+
+/// Opens the tab [label] of a profile page (« Activité », « Listes », « Avis », « Aimés », « Vus »).
+Future<void> _tab(WidgetTester tester, String label) async {
+  await tester.tap(
+    find.byWidgetPredicate((w) => w is VxFocusable && (w.semanticLabel ?? '').startsWith('$label, onglet')),
+  );
+  await tester.pumpAndSettle();
+}
+
 /// The button (or link) read [label] by screen readers.
 Finder _pressable(String label) =>
     find.byWidgetPredicate((widget) => widget is VxFocusable && widget.semanticLabel == label);
@@ -121,7 +174,9 @@ Future<void> _pump(WidgetTester tester) async {
   final router = GoRouter(
     routes: [
       GoRoute(path: '/', builder: (_, _) => const Scaffold(body: ProfileScreen())),
-      GoRoute(path: '/ma-liste', builder: (_, _) => page('Page Ma liste')),
+      GoRoute(path: '/listes/a-voir', builder: (_, _) => page('Page À voir')),
+      GoRoute(path: '/listes/:id', builder: (_, state) => page('Liste ${state.pathParameters['id']}')),
+      GoRoute(path: '/titre/:type/:id', builder: (_, state) => page('Fiche ${state.pathParameters['id']}')),
       GoRoute(path: '/avis', builder: (_, _) => page('Page Mes avis')),
       GoRoute(path: '/profil/social/edition', builder: (_, _) => page('Page Modifier')),
       GoRoute(path: '/profil/social/:section', builder: (_, state) => page('Page ${state.pathParameters['section']}')),
@@ -133,6 +188,7 @@ Future<void> _pump(WidgetTester tester) async {
         sessionProvider.overrideWith(_Signed.new),
         libraryProvider.overrideWith(_Library.new),
         tmdbRepositoryProvider.overrideWithValue(_Tmdb()),
+        networkRepositoryProvider.overrideWithValue(_FakeNetwork()),
         socialProfileProvider.overrideWith((ref, username) async => _social),
         titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
       ],
@@ -143,7 +199,7 @@ Future<void> _pump(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('shows the profile, its counters, « Ma liste » and the latest reviews', (tester) async {
+  testWidgets('shows the profile, its counters and its five tabs', (tester) async {
     await _pump(tester);
 
     expect(find.text('Léa'), findsOneWidget);
@@ -152,53 +208,81 @@ void main() {
     expect(_pressable('12 abonnés'), findsOneWidget);
     expect(_pressable('1 abonnement'), findsOneWidget);
     expect(find.text('Modifier le profil'), findsOneWidget);
+    // No invitation to choose « Mes 4 favoris ».
+    expect(find.textContaining('Choisissez vos 4'), findsNothing);
 
-    // Counters: the reviews and the list as shown on the page, the watched titles from the API.
+    // Counters: the reviews, the titles watched and « À voir » as shown on the page.
     expect(find.bySemanticsLabel('Avis : 5'), findsOneWidget);
-    expect(find.bySemanticsLabel('Vus : 34'), findsOneWidget);
-    expect(find.bySemanticsLabel('Ma liste : 2'), findsOneWidget);
+    expect(find.bySemanticsLabel('Vus : 1'), findsOneWidget);
+    expect(find.bySemanticsLabel('À voir : 2'), findsOneWidget);
 
-    // « Ma liste »: a row of posters, the most recently added first.
-    Offset card(String title) =>
-        tester.getTopLeft(find.ancestor(of: find.text(title).first, matching: find.byType(PosterCard)).first);
-    final series = card('Les Hautes Terres');
-    final movie = card('Dune');
-    expect(series.dy, closeTo(movie.dy, 1));
-    expect(series.dx, lessThan(movie.dx));
-    expect(find.text('Fight Club'), findsNothing);
+    // « Activité » first: each action with its date; no « Journal ».
+    for (final (i, tab) in ['Activité', 'Listes', 'Avis', 'Aimés', 'Vus'].indexed) {
+      expect(_pressable('$tab, onglet ${i + 1} sur 5'), findsOneWidget);
+    }
+    expect(find.textContaining('Journal'), findsNothing);
+    expect(find.text('Mon activité'), findsOneWidget);
+    expect(find.text('Aujourd’hui'), findsOneWidget);
+    expect(find.text('Aimé'), findsOneWidget);
+    expect(find.text('Matrix'), findsOneWidget);
 
-    // « J'aime » ❤ (a like, not favorites) and « Personnes suivies », apart from « Ma liste ».
+    // « Listes »: « À voir » first, then my lists.
+    await _tab(tester, 'Listes');
+    expect(_pressable('À voir, 2 titres'), findsOneWidget);
+    expect(find.text('Top 10 de 2026'), findsOneWidget);
+    expect(find.text('Nouvelle liste'), findsOneWidget);
+    expect(find.text('Nouveau top 10'), findsNothing);
+
+    // « Avis »: the 10 latest.
+    await _tab(tester, 'Avis');
+    expect(find.text('Film noté 1'), findsOneWidget);
+    expect(find.text('Film noté 5'), findsOneWidget);
+
+    // « Aimés »: the likes (not favorites) and the people followed.
+    await _tab(tester, 'Aimés');
     expect(find.text('Mes J’aime'), findsOneWidget);
     expect(find.text('Forrest Gump'), findsWidgets);
     expect(find.text('Personnes suivies'), findsOneWidget);
     expect(find.text('Brad Pitt'), findsOneWidget);
+    expect(find.text('Dune'), findsNothing);
 
-    // « Mes avis »: the 3 latest only.
-    expect(find.text('Film noté 1'), findsOneWidget);
-    expect(find.text('Film noté 3'), findsOneWidget);
-    expect(find.text('Film noté 4'), findsNothing);
+    // « Vus »: the titles watched, « Mon année ».
+    await _tab(tester, 'Vus');
+    expect(find.text('Mes titres vus'), findsOneWidget);
+    expect(find.text('Fight Club'), findsWidgets);
+    expect(find.textContaining('Mon année'), findsOneWidget);
   });
 
-  testWidgets('the arrows open the whole list and every review', (tester) async {
+  testWidgets('the arrows open « À voir », every review, like and title watched', (tester) async {
     await _pump(tester);
-    await tester.tap(_pressable('Voir tout : Ma liste'));
+    await _tab(tester, 'Listes');
+    await tester.tap(_pressable('À voir, 2 titres'));
     await tester.pumpAndSettle();
-    expect(find.text('Page Ma liste'), findsOneWidget);
+    expect(find.text('Page À voir'), findsOneWidget);
 
     await _pump(tester);
+    await _tab(tester, 'Avis');
     await tester.tap(_pressable('Voir tout : Mes avis'));
     await tester.pumpAndSettle();
     expect(find.text('Page Mes avis'), findsOneWidget);
 
     await _pump(tester);
+    await _tab(tester, 'Aimés');
     await tester.tap(_pressable('Voir tout : Mes J’aime'));
     await tester.pumpAndSettle();
     expect(find.text('Page aimes'), findsOneWidget);
 
     await _pump(tester);
+    await _tab(tester, 'Aimés');
     await tester.tap(_pressable('Voir tout : Personnes suivies'));
     await tester.pumpAndSettle();
     expect(find.text('Page personnes'), findsOneWidget);
+
+    await _pump(tester);
+    await _tab(tester, 'Vus');
+    await tester.tap(_pressable('Voir tout : Mes titres vus'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page vus'), findsOneWidget);
   });
 
   testWidgets('followers open their list', (tester) async {
@@ -208,36 +292,55 @@ void main() {
     expect(find.text('Page abonnes'), findsOneWidget);
   });
 
-  testWidgets('a member\'s page: the same page, with their list, their reviews and « Suivre »', (tester) async {
+  testWidgets('a member\'s page: the same page and tabs, and « Suivre »', (tester) async {
     final social = await _pumpMember(tester);
 
     expect(find.text('Max'), findsOneWidget);
     expect(find.text('@max'), findsOneWidget);
     expect(find.text('Cinéphile.'), findsOneWidget);
     expect(_pressable('3 abonnés'), findsOneWidget);
-    expect(find.bySemanticsLabel('Sa liste : 1'), findsOneWidget);
-    expect(find.text('Dune'), findsWidgets);
-    expect(find.text('Fight Club'), findsOneWidget);
+    expect(find.bySemanticsLabel('À voir : 1'), findsOneWidget);
+    expect(find.text('Son activité'), findsOneWidget);
+    expect(find.text('Matrix'), findsOneWidget);
+
+    await _tab(tester, 'Listes');
+    expect(_pressable('À voir, 1 titre'), findsOneWidget);
+    expect(find.text('Top 10 de 2026'), findsOneWidget);
+    expect(find.text('Nouvelle liste'), findsNothing);
+
+    await _tab(tester, 'Aimés');
     expect(find.text('Ses J’aime'), findsOneWidget);
     expect(find.text('Forrest Gump'), findsWidgets);
     expect(find.text('Personnes suivies'), findsOneWidget);
     expect(find.text('Brad Pitt'), findsOneWidget);
+
+    await _tab(tester, 'Vus');
+    expect(find.text('Ses titres vus'), findsOneWidget);
+    expect(find.text('Le Parrain'), findsWidgets);
 
     await tester.tap(find.text('Suivre'));
     await tester.pumpAndSettle();
     expect(social.calls, ['follow max']);
 
     // Their review opens the title, not « Mon avis ».
+    await _tab(tester, 'Avis');
     await tester.tap(find.text('Fight Club'));
     await tester.pumpAndSettle();
     expect(find.text('Fiche 550'), findsOneWidget);
   });
 
-  testWidgets('a member\'s whole list opens from the arrow', (tester) async {
+  testWidgets('a member\'s « À voir » and titles watched open whole', (tester) async {
     await _pumpMember(tester);
-    await tester.tap(_pressable('Voir tout : Sa liste'));
+    await _tab(tester, 'Listes');
+    await tester.tap(_pressable('À voir, 1 titre'));
     await tester.pumpAndSettle();
-    expect(find.text('Page list'), findsOneWidget);
+    expect(find.text('Page a-voir'), findsOneWidget);
+
+    await _pumpMember(tester);
+    await _tab(tester, 'Vus');
+    await tester.tap(_pressable('Voir tout : Ses titres vus'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page vus'), findsOneWidget);
   });
 
   testWidgets('account search: avatar, name and @username, no follower count', (tester) async {
@@ -303,7 +406,7 @@ void main() {
     expect(find.text('Dune'), findsOneWidget);
   });
 
-  testWidgets('« Sa liste »: a member\'s list with the search and the filters of « Ma liste »', (tester) async {
+  testWidgets('a member\'s « À voir », with the search and the filters of mine', (tester) async {
     tester.view.physicalSize = const Size(430, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -326,7 +429,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Sa liste'), findsOneWidget);
+    expect(find.text('À voir'), findsOneWidget);
     expect(find.byType(PosterCard), findsNWidgets(2));
     // No channels in a member's list.
     expect(find.text('Chaînes TV'), findsNothing);
@@ -342,6 +445,7 @@ void main() {
 
   testWidgets('my reviews, with no TMDb account to link', (tester) async {
     await _pump(tester);
+    await _tab(tester, 'Avis');
     expect(find.text('Lier mon compte TMDb'), findsNothing);
     expect(find.text('Film noté 1'), findsOneWidget);
     expect(find.bySemanticsLabel('Avis : 5'), findsOneWidget);
@@ -436,8 +540,10 @@ void main() {
           sessionProvider.overrideWith(_Signed.new),
           linkSharerProvider.overrideWithValue(sharer),
           socialProfileProvider.overrideWith((ref, username) async => shared),
+          networkRepositoryProvider.overrideWithValue(_FakeNetwork()),
           socialTitlesProvider.overrideWith((ref, username) async => const <MediaItem>[]),
           socialLikedProvider.overrideWith((ref, username) async => const <MediaItem>[]),
+          socialWatchedProvider.overrideWith((ref, username) async => const <MediaItem>[]),
           socialPeopleProvider.overrideWith((ref, username) async => const <Person>[]),
           socialReviewsProvider.overrideWith((ref, username) async => const <RatedItem>[]),
           titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
@@ -544,7 +650,8 @@ void main() {
     expect(find.text('Max'), findsOneWidget);
     expect(find.byWidgetPredicate((w) => w is Icon && w.semanticLabel == 'Compte privé'), findsOneWidget);
     expect(find.text('Ce compte est privé'), findsOneWidget);
-    // Its list, favorites and reviews are not asked for.
+    // Its activity, lists, likes and reviews are not asked for.
+    expect(find.text('Son activité'), findsNothing);
     expect(find.text('Ses J’aime'), findsNothing);
     expect(find.text('Ses avis'), findsNothing);
     expect(find.text('Fight Club'), findsNothing);
@@ -583,7 +690,8 @@ void main() {
     );
     final social = await _pumpMember(tester, member: followed);
 
-    // Followed: its list is shown.
+    // Followed: its reviews are shown.
+    await _tab(tester, 'Avis');
     expect(find.text('Ses avis'), findsOneWidget);
     await tester.tap(find.text('Ne plus suivre'));
     await tester.pumpAndSettle();
@@ -615,6 +723,7 @@ void main() {
 
   testWidgets('« J’aime » on a member\'s review', (tester) async {
     final social = await _pumpMember(tester);
+    await _tab(tester, 'Avis');
 
     expect(find.text('2'), findsOneWidget);
     await tester.tap(_pressable('J’aime cet avis'));
@@ -631,6 +740,7 @@ void main() {
 
   testWidgets('my reviews: their number of likes, no heart to press', (tester) async {
     await _pump(tester);
+    await _tab(tester, 'Avis');
     expect(
       find.byWidgetPredicate(
         (widget) => widget is VxFocusable && (widget.semanticLabel ?? '').startsWith('Film noté 1,') &&
@@ -725,6 +835,7 @@ Future<_FakeSocial> _pumpMember(
       GoRoute(path: '/', builder: (_, _) => const PublicProfileScreen(username: 'max')),
       GoRoute(path: '/membre/:username/:section', builder: (_, state) => page('Page ${state.pathParameters['section']}')),
       GoRoute(path: '/titre/:type/:id', builder: (_, state) => page('Fiche ${state.pathParameters['id']}')),
+      GoRoute(path: '/listes/:id', builder: (_, state) => page('Liste ${state.pathParameters['id']}')),
     ],
   );
   await tester.pumpWidget(
@@ -733,6 +844,10 @@ Future<_FakeSocial> _pumpMember(
         sessionProvider.overrideWith(_Signed.new),
         libraryProvider.overrideWith(_Library.new),
         socialRepositoryProvider.overrideWithValue(social),
+        networkRepositoryProvider.overrideWithValue(_FakeNetwork()),
+        socialWatchedProvider.overrideWith(
+          (ref, username) async => const [MediaItem(id: 238, type: MediaType.movie, title: 'Le Parrain', year: 1972)],
+        ),
         socialProfileProvider.overrideWith((ref, username) async => member),
         socialTitlesProvider.overrideWith(
           (ref, username) async => const [MediaItem(id: 438631, type: MediaType.movie, title: 'Dune', year: 2021)],

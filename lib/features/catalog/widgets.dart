@@ -566,7 +566,7 @@ class _PosterGridDelegate extends SliverGridDelegate {
       old.captionHeight != captionHeight;
 }
 
-/// Grid of title cards (Ma liste, genres), following the profile's poster format.
+/// Grid of title cards (À voir, genres), following the profile's poster format.
 class PosterGrid extends ConsumerWidget {
   const PosterGrid({super.key, required this.items, this.padding, this.alwaysScrollable = false});
 
@@ -591,7 +591,7 @@ class PosterGrid extends ConsumerWidget {
   }
 }
 
-/// Long press menu: Ma liste, marquer vu / non vu.
+/// Long press menu: « Ajouter à une liste » (or « À voir »), marquer vu / non vu.
 Future<void> showTitleMenu(BuildContext context, MediaItem item) => showModalBottomSheet<void>(
   // Above the phone's tab bar, drawn over the pages' navigator (AppShell).
   useRootNavigator: true,
@@ -617,10 +617,14 @@ Future<void> showTitleMenu(BuildContext context, MediaItem item) => showModalBot
               child: Text(item.title, style: VxText.title(20)),
             ),
             _MenuTile(
-              icon: favorite ? Icons.bookmark_remove_rounded : Icons.bookmark_add_outlined,
-              label: favorite ? 'Retirer de ma liste' : 'Ajouter à ma liste',
+              icon: favorite ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
+              label: hasLists(ref)
+                  ? 'Ajouter à une liste'
+                  : favorite
+                  ? 'Retirer de « À voir »'
+                  : 'Ajouter à « À voir »',
               autofocus: true,
-              onTap: () => then(toggleFavorite),
+              onTap: () => then(addToList),
             ),
             if (item.type == MediaType.movie)
               _MenuTile(

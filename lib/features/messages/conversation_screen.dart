@@ -608,7 +608,7 @@ class _MessageBubble extends StatelessWidget {
 }
 
 /// A title, a review or a list sent in a message: its poster(s), its title, a line (« Film · 1999 »,
-/// « Avis de @lea · ★ 8/10 », « Top 10 · 10 titres »), the beginning of a review. A press on the
+/// « Avis de @lea · ★ 8/10 », « Liste · 10 titres »), the beginning of a review. A press on the
 /// bubble opens it.
 class _SharedCardView extends StatelessWidget {
   const _SharedCardView({required this.card});

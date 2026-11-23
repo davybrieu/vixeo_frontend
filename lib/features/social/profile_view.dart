@@ -31,10 +31,13 @@ import 'social_repository.dart';
 /// Titles shown in a row of a profile page (the most recently added).
 const profileTitlesShown = 20;
 
-/// Reviews shown on a profile page (the most recent).
-const profileReviewsShown = 3;
+/// Reviews shown in the « Avis » tab of a profile page (the most recent).
+const profileReviewsShown = 10;
 
-/// A tab of a profile page (« Activité », « Listes », « Journal »): its sections.
+/// Titles shown in a grid of a tab (« Aimés », « Vus »), before « Voir tout ».
+const profileGridShown = 18;
+
+/// A tab of a profile page (« Activité », « Listes », « Avis », « Aimés », « Vus »): its sections.
 typedef ProfileTab = ({String label, List<Widget> sections});
 
 /// A profile's page: header, « Mes 4 favoris » ([pinned]), counters, then its sections (a list,
@@ -422,10 +425,10 @@ class _FollowLink extends StatelessWidget {
   }
 }
 
-/// Reviews, watched titles and titles in the list, side by side in a card. A null count (not
+/// Reviews, watched titles and titles « À voir », side by side in a card. A null count (not
 /// loaded yet) is a dash.
 class ProfileCounters extends StatelessWidget {
-  const ProfileCounters({super.key, this.reviews, this.watched, this.titles, this.titlesLabel = 'Ma liste'});
+  const ProfileCounters({super.key, this.reviews, this.watched, this.titles, this.titlesLabel = 'À voir'});
 
   final int? reviews;
   final int? watched;
@@ -491,8 +494,9 @@ AsyncValue<List<MediaItem>> withCatalogDetails(WidgetRef ref, List<MediaItem> ti
   return AsyncData([for (final title in titles) title.withDetails(known[(type: title.type, id: title.id)])]);
 }
 
-/// A list of a profile (« Ma liste », « Sa liste »): a row of posters, as on the home page; the
-/// round arrow ([onSeeAll]) opens the whole list.
+/// Titles of a profile (« Mes J'aime », « Vus »…): a row of posters, as on the home page, or a
+/// [grid] (the first [profileGridShown], a tab of their own); the round arrow ([onSeeAll]) opens
+/// them all.
 class ProfileTitlesSection extends ConsumerWidget {
   const ProfileTitlesSection({
     super.key,
@@ -500,12 +504,14 @@ class ProfileTitlesSection extends ConsumerWidget {
     required this.titles,
     required this.emptyMessage,
     this.onSeeAll,
+    this.grid = false,
   });
 
   final String title;
   final AsyncValue<List<MediaItem>> titles;
   final String emptyMessage;
   final VoidCallback? onSeeAll;
+  final bool grid;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -524,7 +530,28 @@ class ProfileTitlesSection extends ConsumerWidget {
           : ProfileSectionLoading(title: title, height: rowHeight);
     }
     if (items.isEmpty) return ProfileSectionMessage(title: title, message: emptyMessage);
-    return PosterRow(title: title, items: items, onSeeAll: onSeeAll);
+    if (!grid) return PosterRow(title: title, items: items, onSeeAll: onSeeAll);
+    final shown = items.take(profileGridShown).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title, onSeeAll: onSeeAll),
+        FocusTraversalGroup(
+          policy: vxTraversalPolicy,
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            // Room for the focus zoom on TV.
+            padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.isLarge ? layout.tv(16) : 0),
+            gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
+            itemCount: shown.length,
+            itemBuilder: (context, i) => LayoutBuilder(
+              builder: (context, c) => PosterCard(item: shown[i], width: c.maxWidth, format: format),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -581,7 +608,7 @@ class ProfilePeopleSection extends StatelessWidget {
   }
 }
 
-/// Reviews of a profile (« Mes avis », « Ses avis »): the latest ones, the same rows as the
+/// Reviews of a profile (« Mes avis », « Ses avis »): the latest [profileReviewsShown], the same rows as the
 /// « Mes avis » page; the round arrow ([onSeeAll]) opens them all. [mine]: a review opens
 /// « Mon avis » to change it; otherwise, the title.
 class ProfileReviewsSection extends StatelessWidget {

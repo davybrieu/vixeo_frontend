@@ -15,7 +15,7 @@ import '../../core/widgets/page_header.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
-import '../network/actions.dart' show recommendToFriend, showAddToList;
+import '../network/actions.dart' show recommendToFriend;
 import '../network/title_social.dart';
 import '../notifications/inbox.dart' show socialAvailable;
 import '../profiles/no_spoiler.dart';
@@ -97,8 +97,9 @@ class _BackButton extends StatelessWidget {
   );
 }
 
-/// Ma liste / J'aime ❤ / Vu / Noter / Bande-annonce: the same round icon-only button for each action.
-/// Each click confirms with an alert ("Supprimé de votre liste"…).
+/// « Ajouter à une liste » (« À voir » first) / J'aime ❤ / Vu / Noter / Bande-annonce: the same round
+/// icon-only button for each action.
+/// Each click confirms with an alert (« Ajouté à « À voir » »…).
 class _Actions extends ConsumerWidget {
   const _Actions({required this.title});
 
@@ -118,13 +119,7 @@ class _Actions extends ConsumerWidget {
         if (!guest) LikedButton(item: item),
         if (!guest && title.type == MediaType.movie) WatchedButton(item: item),
         if (!guest && ref.watch(canRateProvider)) RateTitleButton(item: item),
-        // The social network (not on a TV): put it in one of my lists, send it to a friend.
-        if (social)
-          VxIconAction(
-            icon: Icons.playlist_add_rounded,
-            label: 'Ajouter à une liste',
-            onPressed: () => showAddToList(context, item),
-          ),
+        // The social network (not on a TV): send it to a friend.
         if (social)
           VxIconAction(
             icon: Icons.send_outlined,

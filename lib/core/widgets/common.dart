@@ -219,7 +219,7 @@ class VxButton extends StatelessWidget {
   }
 }
 
-/// Round icon-only button, the same for every title action (Ma liste, Vu, Bande-annonce).
+/// Round icon-only button, the same for every title action (À voir, Vu, Bande-annonce).
 /// [label] is read by screen readers only. [active] = the state is on (in my list, watched).
 class VxIconAction extends StatelessWidget {
   const VxIconAction({
@@ -446,7 +446,7 @@ class EmptyState extends StatelessWidget {
   );
 }
 
-/// Short alert at the bottom of the screen ("Supprimé de votre liste"…).
+/// Short alert at the bottom of the screen (« Marqué comme vu »…).
 void showVxSnack(BuildContext context, String message, {IconData? icon}) =>
     showVxSnackOn(ScaffoldMessenger.of(context), message, icon: icon);
 

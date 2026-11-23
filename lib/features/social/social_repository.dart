@@ -30,7 +30,7 @@ class SocialProfile {
     this.reviewsCount = 0, this.watchedCount = 0, this.listCount = 0, this.shareUrl,
     this.isPrivate = false, FollowStatus? followStatus, this.canView = true, this.socialLinks = const [],
     this.requestedAt, this.pinned = const [], this.compatibility, this.commonRatings = 0, this.isBlocked = false,
-    this.isMuted = false, this.listsCount = 0, this.diaryCount = 0,
+    this.isMuted = false, this.listsCount = 0,
   }) : _followStatus = followStatus; // ignore: prefer_initializing_formals (a named parameter can't be private)
 
   factory SocialProfile.fromJson(Map<String, dynamic> json) => SocialProfile(
@@ -61,7 +61,6 @@ class SocialProfile {
     isBlocked: json['is_blocked'] as bool? ?? false,
     isMuted: json['is_muted'] as bool? ?? false,
     listsCount: json['lists_count'] as int? ?? 0,
-    diaryCount: json['diary_count'] as int? ?? 0,
   );
 
   final int id;
@@ -114,7 +113,6 @@ class SocialProfile {
   /// Hidden from the active profile's feed (« Masquer »).
   final bool isMuted;
   final int listsCount;
-  final int diaryCount;
 }
 
 /// What a like of a review leaves: liked or not, and its number of likes.
@@ -134,7 +132,7 @@ class SocialRepository {
     return SocialProfile.fromJson(json['data'] as Map<String, dynamic>);
   }
 
-  /// The movies and series of a member's list, the most recently added first.
+  /// The movies and series of a member's « À voir », the most recently added first.
   Future<List<MediaItem>> titles(String username) async {
     final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/list');
     return [
@@ -161,6 +159,14 @@ class SocialRepository {
   /// A member's « J'aime » ❤ (movies and series liked), the most recently liked first.
   Future<List<MediaItem>> liked(String username) async {
     final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/liked');
+    return [
+      for (final item in (json['data'] as List).whereType<Map<String, dynamic>>()) ?titleOf(item),
+    ];
+  }
+
+  /// The movies and series a member watched (« Vus »), the most recently watched first.
+  Future<List<MediaItem>> watched(String username) async {
+    final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/watched');
     return [
       for (final item in (json['data'] as List).whereType<Map<String, dynamic>>()) ?titleOf(item),
     ];
@@ -235,7 +241,7 @@ final socialSearchProvider = FutureProvider.autoDispose.family<List<SocialProfil
   ];
 });
 
-/// A member's list (movies and series), by username.
+/// A member's « À voir » (movies and series), by username.
 final socialTitlesProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>(
   (ref, username) => ref.read(socialRepositoryProvider).titles(username),
 );
@@ -243,6 +249,11 @@ final socialTitlesProvider = FutureProvider.autoDispose.family<List<MediaItem>, 
 /// A member's « J'aime » ❤ (movies and series liked), by username.
 final socialLikedProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>(
   (ref, username) => ref.read(socialRepositoryProvider).liked(username),
+);
+
+/// The movies and series a member watched (« Vus »), by username.
+final socialWatchedProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>(
+  (ref, username) => ref.read(socialRepositoryProvider).watched(username),
 );
 
 /// The people a member follows, by username.

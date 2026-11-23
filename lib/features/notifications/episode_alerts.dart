@@ -5,7 +5,7 @@ import '../auth/session.dart';
 
 /// « Nouveaux épisodes » of the active profile on this device (off by default): kept on the
 /// device and sent to the server with the app's registration (`PushRegistration`), which then
-/// announces the new episodes of the profile's « Ma liste » shows here.
+/// announces the new episodes of the profile's « À voir » shows here.
 final episodeAlertsSettingProvider = AsyncNotifierProvider<EpisodeAlertsSetting, bool>(EpisodeAlertsSetting.new);
 
 class EpisodeAlertsSetting extends AsyncNotifier<bool> {

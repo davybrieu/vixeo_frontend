@@ -159,7 +159,7 @@ class SharedCard {
           title: json['title'] as String? ?? '',
           path: '/listes/${json['list_id']}',
           subtitle: [
-            json['kind'] == 'top' ? 'Top 10' : 'Liste',
+            'Liste',
             '$count ${count > 1 ? 'titres' : 'titre'}',
             if (by != null && by.isNotEmpty) '@$by',
           ].join(' · '),

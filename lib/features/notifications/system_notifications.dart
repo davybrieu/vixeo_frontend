@@ -10,7 +10,7 @@ import 'package:window_manager/window_manager.dart';
 /// Android notification channels of Vixeo (the server's `channel_id`, docs/notifications.md):
 /// each one can be turned off in the app's notification settings of the device.
 enum NotificationChannel {
-  episodes('episodes', 'Nouveaux épisodes', 'Un nouvel épisode d’une série de Ma liste est sorti.'),
+  episodes('episodes', 'Nouveaux épisodes', 'Un nouvel épisode d’une série « À voir » est sorti.'),
   social('social', 'Activité', 'Messages, nouveaux abonnés, demandes d’abonnement et J’aime sur vos avis.'),
   general('general', 'Informations', 'Les messages de Vixeo.');
 

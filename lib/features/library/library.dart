@@ -24,6 +24,7 @@ class ProfileItem {
     this.progress,
     this.lastEngagedAt,
     this.isWatched = false,
+    this.watchedAt,
     this.isLiked = false,
     this.likedAt,
     this.isFollowed = false,
@@ -48,6 +49,7 @@ class ProfileItem {
     progress: (json['progress'] as num?)?.toDouble(),
     lastEngagedAt: _date(json['last_engaged_at']),
     isWatched: json['is_watched'] as bool? ?? false,
+    watchedAt: _date(json['watched_at']),
     isLiked: json['is_liked'] as bool? ?? false,
     likedAt: _date(json['liked_at']),
     isFollowed: json['is_followed'] as bool? ?? false,
@@ -67,7 +69,7 @@ class ProfileItem {
   final int? seasonNumber;
   final int? episodeNumber;
 
-  /// In « Ma liste » (the API's historic `favorite` group).
+  /// In « À voir » (« Ma liste » until 23/11/2026; the API's historic `favorite` group).
   final bool isFavorite;
   final DateTime? favoritedAt;
 
@@ -76,6 +78,7 @@ class ProfileItem {
   final double? progress;
   final DateTime? lastEngagedAt;
   final bool isWatched;
+  final DateTime? watchedAt;
 
   /// Liked, « J'aime » ❤ (movies and series; the API's `liked` group).
   final bool isLiked;
@@ -137,6 +140,33 @@ class LibraryState {
   List<ProfileItem> get favorites =>
       items.values.where((i) => i.isFavorite).toList()
         ..sort((a, b) => (b.favoritedAt ?? DateTime(0)).compareTo(a.favoritedAt ?? DateTime(0)));
+
+  /// The movies and series of « À voir », once each (an episode in it counts for its series), the
+  /// most recently added first.
+  List<MediaItem> get toWatch {
+    final seen = <({MediaType type, int id})>{};
+    return [
+      for (final item in favorites)
+        if (item.tmdbTitle case final t?)
+          if (seen.add(t))
+            MediaItem(
+              id: t.id,
+              type: t.type,
+              title: item.title,
+              year: item.year,
+              posterUrl: item.posterUrl,
+              backdropUrl: item.backdropUrl,
+            ),
+    ];
+  }
+
+  /// « Vus »: the movies and series watched (not the episodes), the most recently watched first.
+  List<MediaItem> get watched => [
+    for (final item
+        in items.values.where((i) => i.isWatched && (i.type == 'movie' || i.type == 'tv')).toList()
+          ..sort((a, b) => (b.watchedAt ?? DateTime(0)).compareTo(a.watchedAt ?? DateTime(0))))
+      ?item.asMediaItem,
+  ];
 
   /// « J'aime » ❤: the movies and series liked, the most recently liked first.
   List<ProfileItem> get liked =>

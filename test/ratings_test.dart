@@ -320,7 +320,7 @@ void main() {
       expect(find.bySemanticsLabel('TMDb : pas de note'), findsOneWidget);
     });
 
-    testWidgets('« Ma liste » sorts and filters on the rating each card shows', (tester) async {
+    testWidgets('« À voir » sorts and filters on the rating each card shows', (tester) async {
       tester.view.physicalSize = const Size(430, 1400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);

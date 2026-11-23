@@ -54,8 +54,13 @@ const _messages = _Destination(
   Icons.chat_bubble_rounded,
 );
 
-/// « Fil »: what the followed members did (not for a guest nor a child's profile, nor on a TV).
-const _feed = _Destination(FeedScreen.location, 'Fil', Icons.dynamic_feed_outlined, Icons.dynamic_feed_rounded);
+/// « Fil d'actualité »: what the members did (not for a guest nor a child's profile, nor on a TV).
+const _feed = _Destination(
+  FeedScreen.location,
+  'Fil d’actualité',
+  Icons.dynamic_feed_outlined,
+  Icons.dynamic_feed_rounded,
+);
 
 /// Phone (developer's requests, 23/11/2026): Accueil · Fil · Recherche · Notifications ·
 /// Messages · Profil. « Messages » has its own tab (not in the feed); « Paramètres » is a button at

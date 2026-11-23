@@ -67,7 +67,7 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
   }
 
   /// Images, titles and ratings already read and the profile's « Continuer à regarder » /
-  /// « Ma liste »: read again from the API when shown.
+  /// « À voir »: read again from the API when shown.
   Future<void> _clearCache() async {
     setState(() => _clearing = true);
     try {

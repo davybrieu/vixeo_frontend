@@ -36,7 +36,7 @@ class CatalogRepository {
   Future<Season> season(int showId, int number) async =>
       Season.fromJson((await _api.get('/catalog/tv/$showId/season/$number'))['data'] as Map<String, dynamic>);
 
-  /// Several titles at once (Ma liste…), with their logo, length, genres and age rating, in the
+  /// Several titles at once (À voir…), with their logo, length, genres and age rating, in the
   /// order asked: one request per 100 titles instead of one per title.
   Future<List<MediaItem>> titlesById(List<TitleRef> titles) async {
     final items = <MediaItem>[];

@@ -48,7 +48,7 @@ String _fold(String s) => s
 /// and order don't apply to people or live channels: hidden for those kinds. Live channels have
 /// their « Catégorie » instead, the same kind of chip as « Genre ». [withRating] adds « Note »,
 /// « Votants » and « Mieux notés », on the rating each card shows (IMDb's, else TMDb's) and its
-/// voters: the search page asks the API, « Ma liste » applies them itself.
+/// voters: the search page asks the API, « À voir » applies them itself.
 class SearchFilterBar extends ConsumerWidget {
   const SearchFilterBar({
     super.key,
@@ -60,13 +60,13 @@ class SearchFilterBar extends ConsumerWidget {
     this.withRating = false,
   });
 
-  /// Types offered (« Ma liste » has no people).
+  /// Types offered (« À voir » has no people).
   final List<SearchKind> kinds;
 
-  /// « Catégorie » for live channels (the search page; not « Ma liste »).
+  /// « Catégorie » for live channels (the search page; not « À voir »).
   final bool channelCategories;
 
-  /// « Note » and « Votants » filters, « Mieux notés » order (search page, « Ma liste »).
+  /// « Note » and « Votants » filters, « Mieux notés » order (search page, « À voir »).
   final bool withRating;
 
   final SearchFilters filters;
@@ -285,7 +285,7 @@ Future<(int?, int?)?> pickVotesRange(BuildContext context, {required int? min, r
   return picked == null ? null : stops.valuesAt(picked);
 }
 
-/// Row of filter chips under a page header (Recherche, Ma liste, Avis): scrolls sideways, with the
+/// Row of filter chips under a page header (Recherche, À voir, Avis): scrolls sideways, with the
 /// page's side margins and room for the focus zoom on TV (docs/charte-graphique.md).
 class FilterBar extends StatelessWidget {
   const FilterBar({super.key, required this.child});

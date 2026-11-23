@@ -1,5 +1,5 @@
 // The social network of movies and TV shows (vixeo_backend/docs/social.md): every publication is
-// about a title (a review, a watched title, a list or a top 10), the conversation is in the
+// about a title (a review, a title watched or liked, a list), the conversation is in the
 // comments. This file holds the models, the API calls and the providers; the pages are beside it.
 //
 // Flutter: a provider (Riverpod) is like a Vue store or a Laravel service the pages ask for; a
@@ -101,17 +101,10 @@ class SocialReview {
   );
 }
 
-/// A top 10 (numbered, 10 titles at most) or a list (in the chosen order, 100 at most).
-enum ListKind {
-  top,
-  list;
-
-  static ListKind parse(Object? value) => value == 'top' ? top : list;
-
-  int get maxItems => this == top ? 10 : 100;
-}
-
-/// A list or a top 10 of a member, with its titles when it was opened ([items]).
+/// A list of a member: a title, a description and up to [maxItems] titles in the order its author
+/// chose (a « Top 10 » is a list like the others: developer's request, 23/11/2026), with its titles
+/// when it was opened ([items]). « À voir » is not one of them: it is the synced `favorite` group
+/// (`LibraryState.favorites`), shown first among the lists.
 @immutable
 class SocialList {
   const SocialList({
@@ -119,7 +112,6 @@ class SocialList {
     required this.author,
     required this.title,
     this.description,
-    this.kind = ListKind.list,
     this.itemsCount = 0,
     this.cover = const [],
     this.likesCount = 0,
@@ -136,7 +128,6 @@ class SocialList {
     author: SocialProfile.fromJson(json['author'] as Map<String, dynamic>),
     title: json['title'] as String? ?? '',
     description: json['description'] as String?,
-    kind: ListKind.parse(json['kind']),
     itemsCount: json['items_count'] as int? ?? 0,
     cover: [
       for (final url in json['cover'] as List? ?? const [])
@@ -155,8 +146,10 @@ class SocialList {
   final SocialProfile author;
   final String title;
   final String? description;
-  final ListKind kind;
   final int itemsCount;
+
+  /// Titles in a list, at most.
+  static const maxItems = 100;
 
   /// Posters of its first 4 titles.
   final List<String> cover;
@@ -172,16 +165,14 @@ class SocialList {
   /// Its titles in order (an opened list); null in a list of lists.
   final List<MediaItem>? items;
 
-  /// « Top 10 · 7 titres », « Liste · 1 titre ».
-  String get summary =>
-      '${kind == ListKind.top ? 'Top 10' : 'Liste'} · $itemsCount ${itemsCount > 1 ? 'titres' : 'titre'}';
+  /// « 7 titres », « 1 titre », « Aucun titre ».
+  String get summary => titleCount(itemsCount);
 
   SocialList copyWith({bool? liked, int? likesCount, int? commentsCount}) => SocialList(
     id: id,
     author: author,
     title: title,
     description: description,
-    kind: kind,
     itemsCount: itemsCount,
     cover: cover,
     likesCount: likesCount ?? this.likesCount,
@@ -193,6 +184,13 @@ class SocialList {
     items: items,
   );
 }
+
+/// « 7 titres », « 1 titre », « Aucun titre ».
+String titleCount(int count) => switch (count) {
+  0 => 'Aucun titre',
+  1 => '1 titre',
+  _ => '$count titres',
+};
 
 /// What a comment is on: a review or a list.
 typedef CommentSubject = ({bool list, int id});
@@ -258,6 +256,13 @@ sealed class FeedItem {
         episodesCount: json['episodes_count'] as int? ?? 0,
         rewatch: json['rewatch'] as bool? ?? false,
       ),
+      'liked' when json['title'] is Map<String, dynamic> => FeedLiked(
+        activityId: id,
+        createdAt: at,
+        title: titleCardOf(json['title'] as Map<String, dynamic>),
+        profiles: _list(json['profiles'], SocialProfile.fromJson),
+        profilesCount: json['profiles_count'] as int? ?? 1,
+      ),
       _ => null,
     };
   }
@@ -278,41 +283,76 @@ class FeedList extends FeedItem {
   final SocialList list;
 }
 
-/// A title watched by one or more followed profiles (grouped in a page).
-class FeedWatched extends FeedItem {
-  const FeedWatched({
+/// A title watched or liked by one or more profiles (grouped in a page).
+sealed class FeedTitle extends FeedItem {
+  const FeedTitle({
     required super.activityId,
     super.createdAt,
     required this.title,
     required this.profiles,
     this.profilesCount = 1,
-    this.episodesCount = 0,
-    this.rewatch = false,
   });
 
   final MediaItem title;
 
-  /// The first 3 who watched it.
+  /// The first 3 who watched or liked it.
   final List<SocialProfile> profiles;
   final int profilesCount;
-  final int episodesCount;
-  final bool rewatch;
 
-  /// « Léa a vu », « Léa et Max ont vu », « Léa, Max et 2 autres ont vu », « Léa a vu 3 épisodes de ».
-  String get sentence {
+  /// « Léa », « Léa et Max », « Léa, Max et 2 autres ».
+  String get who {
     final names = [for (final p in profiles) p.name.trim().isEmpty ? '@${p.username}' : p.name];
     final others = profilesCount - names.length;
-    final who = switch (names.length) {
+    return switch (names.length) {
       0 => 'Quelqu’un',
       1 when others <= 0 => names.first,
       2 when others <= 0 => '${names[0]} et ${names[1]}',
       _ when others <= 0 => '${names.sublist(0, names.length - 1).join(', ')} et ${names.last}',
       _ => '${names.join(', ')} et $others ${others > 1 ? 'autres' : 'autre'}',
     };
+  }
+
+  /// What comes before the title: « Léa a vu », « Léa et Max aiment ».
+  String get sentence;
+}
+
+/// A title watched by one or more followed profiles (grouped in a page).
+class FeedWatched extends FeedTitle {
+  const FeedWatched({
+    required super.activityId,
+    super.createdAt,
+    required super.title,
+    required super.profiles,
+    super.profilesCount,
+    this.episodesCount = 0,
+    this.rewatch = false,
+  });
+
+  final int episodesCount;
+  final bool rewatch;
+
+  /// « Léa a vu », « Léa et Max ont vu », « Léa, Max et 2 autres ont vu », « Léa a vu 3 épisodes de ».
+  @override
+  String get sentence {
     final verb = profilesCount > 1 ? 'ont' : 'a';
     if (episodesCount > 1 && profilesCount == 1) return '$who $verb vu $episodesCount épisodes de';
     return '$who $verb ${rewatch ? 'revu' : 'vu'}';
   }
+}
+
+/// A title liked (« J'aime ») by one or more followed profiles (grouped in a page).
+class FeedLiked extends FeedTitle {
+  const FeedLiked({
+    required super.activityId,
+    super.createdAt,
+    required super.title,
+    required super.profiles,
+    super.profilesCount,
+  });
+
+  /// « Léa aime », « Léa et Max aiment ».
+  @override
+  String get sentence => '$who ${profilesCount > 1 ? 'aiment' : 'aime'}';
 }
 
 /// A page of the feed and where the next one starts.
@@ -357,52 +397,6 @@ class TitleSocial {
   final List<SocialList> lists;
 
   bool get isEmpty => friends.isEmpty && reviews.isEmpty && lists.isEmpty;
-}
-
-/// A day of the diary: a movie, a TV show or an episode watched.
-@immutable
-class DiaryEntry {
-  const DiaryEntry({
-    required this.id,
-    required this.title,
-    required this.watchedAt,
-    this.season,
-    this.episode,
-    this.episodeName,
-    this.rewatch = false,
-    this.rating,
-  });
-
-  factory DiaryEntry.fromJson(Map<String, dynamic> json) => DiaryEntry(
-    id: json['id'] as int,
-    title: MediaItem(
-      id: json['tmdb_id'] as int,
-      type: MediaType.parse(json['type']),
-      title: json['title'] as String? ?? '',
-      year: json['year'] as int?,
-      posterUrl: json['poster_url'] as String?,
-    ),
-    watchedAt: _date(json['watched_at']) ?? DateTime.now(),
-    season: json['season_number'] as int?,
-    episode: json['episode_number'] as int?,
-    episodeName: json['episode_name'] as String?,
-    rewatch: json['rewatch'] as bool? ?? false,
-    rating: (json['rating'] as num?)?.toDouble(),
-  );
-
-  final int id;
-  final MediaItem title;
-  final DateTime watchedAt;
-  final int? season;
-  final int? episode;
-  final String? episodeName;
-  final bool rewatch;
-
-  /// The profile's rating of the title (or the episode).
-  final double? rating;
-
-  /// « Saison 2, épisode 5 » for an episode.
-  String? get episodeLabel => episode == null ? null : 'Saison $season, épisode $episode';
 }
 
 /// The « Bilan de l'année ».
@@ -500,10 +494,23 @@ class NetworkRepository {
     );
   }
 
-  /// « Pour toi »: the reviews and lists of the whole network, ranked by the API (1 first; `next`:
-  /// the following page).
+  /// « Pour toi »: the reviews and lists of the whole network, and what the followed profiles
+  /// watched and liked, ranked by the API (1 first; `next`: the following page).
   Future<FeedPage> forYou({int page = 1}) async {
     final json = await _api.get('/social/feed/for-you', query: {'page': page});
+    return (
+      items: [
+        for (final item in (json['data'] as List? ?? const []).whereType<Map<String, dynamic>>())
+          ?FeedItem.fromJson(item),
+      ],
+      next: json['next'] as int?,
+    );
+  }
+
+  /// The « Activité » of a member (or mine): each review, list, title watched or liked, with its
+  /// date, the most recent first; `before`: the `next` of the previous page.
+  Future<FeedPage> activity(String username, {int? before}) async {
+    final json = await _api.get('/social/profiles/${_user(username)}/activity', query: {'before': before});
     return (
       items: [
         for (final item in (json['data'] as List? ?? const []).whereType<Map<String, dynamic>>())
@@ -535,33 +542,21 @@ class NetworkRepository {
   Future<SocialList> list(int id) async =>
       SocialList.fromJson((await _api.get('/social/lists/$id'))['data'] as Map<String, dynamic>);
 
-  Future<SocialList> createList({
-    required String title,
-    String? description,
-    required ListKind kind,
-    List<String> items = const [],
-  }) async => SocialList.fromJson(
-    (await _api.post(
-          '/social/lists',
-          body: {'title': title, 'description': description, 'kind': kind.name, 'items': items},
-        ))['data']
-        as Map<String, dynamic>,
-  );
+  Future<SocialList> createList({required String title, String? description, List<String> items = const []}) async =>
+      SocialList.fromJson(
+        (await _api.post('/social/lists', body: {'title': title, 'description': description, 'items': items}))['data']
+            as Map<String, dynamic>,
+      );
 
   /// Changes a list; [items] (all of them, in order) when given.
-  Future<SocialList> updateList(
-    int id, {
-    required String title,
-    String? description,
-    required ListKind kind,
-    List<String>? items,
-  }) async => SocialList.fromJson(
-    (await _api.put(
-          '/social/lists/$id',
-          body: {'title': title, 'description': description, 'kind': kind.name, 'items': ?items},
-        ))['data']
-        as Map<String, dynamic>,
-  );
+  Future<SocialList> updateList(int id, {required String title, String? description, List<String>? items}) async =>
+      SocialList.fromJson(
+        (await _api.put(
+              '/social/lists/$id',
+              body: {'title': title, 'description': description, 'items': ?items},
+            ))['data']
+            as Map<String, dynamic>,
+      );
 
   Future<void> deleteList(int id) => _api.delete('/social/lists/$id');
 
@@ -618,31 +613,16 @@ class NetworkRepository {
     );
   }
 
-  Future<({List<DiaryEntry> entries, bool hasMore})> diary(String username, {int page = 1}) async {
-    final json = await _api.get('/social/profiles/${_user(username)}/diary', query: {'page': page});
-    final meta = json['meta'] is Map ? json['meta'] as Map : const {};
-    return (
-      entries: _list(json['data'], DiaryEntry.fromJson),
-      hasMore: (meta['current_page'] as int? ?? 1) < (meta['last_page'] as int? ?? 1),
-    );
-  }
-
   Future<YearStats> stats(String username, int year) async => YearStats.fromJson(
     (await _api.get('/social/profiles/${_user(username)}/stats', query: {'year': year}))['data']
         as Map<String, dynamic>,
   );
 
-  /// Another viewing (« Revu »), logged in the diary.
-  Future<DiaryEntry> logViewing(int profileId, MediaItem title, {int? season, int? episode}) async =>
-      DiaryEntry.fromJson(
-        (await _api.post(
-              '/profiles/$profileId/diary',
-              body: {'item': itemIdOf(title.type, title.id), 'season_number': ?season, 'episode_number': ?episode},
-            ))['data']
-            as Map<String, dynamic>,
-      );
-
-  Future<void> deleteDiaryEntry(int profileId, int id) => _api.delete('/profiles/$profileId/diary/$id');
+  /// A viewing (an episode watched to the end): in the profile's « Activité » and the feed.
+  Future<void> logViewing(int profileId, MediaItem title, {int? season, int? episode}) => _api.post(
+    '/profiles/$profileId/diary',
+    body: {'item': itemIdOf(title.type, title.id), 'season_number': ?season, 'episode_number': ?episode},
+  );
 
   Future<void> block(String username, {required bool blocked}) => blocked
       ? _api.post('/social/profiles/${_user(username)}/block')
@@ -694,9 +674,8 @@ const fallbackReportReasons = <ReportReason>[
   (reason: 'other', label: 'Autre raison'),
 ];
 
-/// The feed: pages read one after the other ([Feed.loadMore]).
-/// The two tabs of « Fil » (developer's request, 23/11/2026): « Pour toi » (the default) and
-/// « Abonnements ».
+/// The two tabs of « Fil d'actualité » (developer's request, 23/11/2026): « Pour toi » (the
+/// default) and « Abonnements ».
 enum FeedTab {
   forYou('Pour toi'),
   following('Abonnements');
@@ -811,10 +790,38 @@ final yearStatsProvider = FutureProvider.autoDispose.family<YearStats, ({String 
   (ref, key) => ref.read(networkRepositoryProvider).stats(key.username, key.year),
 );
 
-/// The first page of a member's diary (the « Journal » tab).
-final diaryProvider = FutureProvider.autoDispose.family<List<DiaryEntry>, String>(
-  (ref, username) async => (await ref.read(networkRepositoryProvider).diary(username)).entries,
+/// The « Activité » of a member (or mine), by username, page after page.
+final activityProvider = AsyncNotifierProvider.autoDispose.family<ProfileActivity, FeedPage, String>(
+  ProfileActivity.new,
 );
+
+class ProfileActivity extends AsyncNotifier<FeedPage> {
+  ProfileActivity(this.username);
+
+  final String username;
+  bool _loading = false;
+
+  @override
+  Future<FeedPage> build() => ref.read(networkRepositoryProvider).activity(username);
+
+  bool get hasMore => state.value?.next != null;
+
+  /// The next page, added at the end.
+  Future<void> loadMore() async {
+    final current = state.value;
+    if (current == null || current.next == null || _loading) return;
+    _loading = true;
+    try {
+      final page = await ref.read(networkRepositoryProvider).activity(username, before: current.next);
+      if (!ref.mounted) return;
+      state = AsyncData((items: [...current.items, ...page.items], next: page.next));
+    } catch (_) {
+      // Kept as it is: « Afficher plus » tries again.
+    } finally {
+      _loading = false;
+    }
+  }
+}
 
 /// Blocked and muted accounts (« Comptes bloqués et masqués »).
 final hiddenAccountsProvider = FutureProvider.autoDispose(

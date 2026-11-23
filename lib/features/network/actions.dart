@@ -12,6 +12,7 @@ import '../../core/widgets/focusable.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
 import '../catalog/widgets.dart' show titlePath;
+import '../library/library.dart';
 import '../messages/messages.dart' show ChatMember, inboxProvider, startConversation;
 import '../messages/widgets.dart' show ChatAvatar, MemberSearchResults;
 import '../notifications/inbox.dart' show socialAvailable;
@@ -264,7 +265,9 @@ Future<void> report(BuildContext context, WidgetRef ref, ReportSubject subject, 
   }
 }
 
-/// « Ajouter à une liste »: my lists, a press adds the title or removes it; or a new list with it.
+/// « Ajouter à une liste » (the bookmark of a title, developer's request, 23/11/2026: choose the
+/// list): « À voir » first, then my lists; a press adds the title or removes it; or a new list
+/// with it.
 Future<void> showAddToList(BuildContext context, MediaItem title) => showModalBottomSheet<void>(
   useRootNavigator: true,
   context: context,
@@ -286,7 +289,28 @@ class _AddToListSheet extends ConsumerStatefulWidget {
 class _AddToListSheetState extends ConsumerState<_AddToListSheet> {
   final _busy = <int>{};
 
+  /// « À voir » is being changed.
+  bool _busyToWatch = false;
+
   String get _item => itemIdOf(widget.title.type, widget.title.id);
+
+  Future<void> _toggleToWatch(bool inIt) async {
+    if (_busyToWatch) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busyToWatch = true);
+    try {
+      await ref.read(libraryProvider.notifier).setFavorite(widget.title, !inIt);
+      showVxSnackOn(
+        messenger,
+        inIt ? 'Retiré de « À voir »' : 'Ajouté à « À voir »',
+        icon: inIt ? Icons.bookmark_remove_rounded : Icons.bookmark_added_rounded,
+      );
+    } on ApiException catch (e) {
+      showVxSnackOn(messenger, e.message, icon: Icons.error_outline_rounded);
+    } finally {
+      if (mounted) setState(() => _busyToWatch = false);
+    }
+  }
 
   Future<void> _toggle(SocialList list) async {
     if (_busy.contains(list.id)) return;
@@ -310,15 +334,71 @@ class _AddToListSheetState extends ConsumerState<_AddToListSheet> {
     }
   }
 
-  void _create(ListKind kind) {
+  void _create() {
     Navigator.of(context).pop();
-    context.push(newListLocation(kind: kind, item: _item));
+    context.push(newListLocation(item: _item));
+  }
+
+  /// A line of the sheet: its state, its name and how many titles it has.
+  Widget _line({
+    required bool contains,
+    required bool busy,
+    required String title,
+    required String summary,
+    required VoidCallback onPressed,
+    bool autofocus = false,
+    IconData? icon,
+  }) {
+    final layout = Layout.of(context);
+    return VxFocusable(
+      autofocus: autofocus,
+      borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
+      semanticLabel: '$title, $summary${contains ? ', contient ce titre' : ''}',
+      onPressed: onPressed,
+      child: Padding(
+        padding: EdgeInsets.all(layout.space(VxSpace.s)),
+        child: Row(
+          children: [
+            Icon(
+              contains ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded,
+              color: contains ? VxColors.accent : VxColors.textSecondary,
+              size: layout.size(24, tv: 36),
+            ),
+            SizedBox(width: layout.space(VxSpace.m)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon, size: layout.size(16, tv: 26), color: VxColors.accent),
+                        SizedBox(width: layout.space(VxSpace.xxs)),
+                      ],
+                      Flexible(child: Text(title, style: VxText.body(layout.bodySize, weight: FontWeight.w600))),
+                    ],
+                  ),
+                  Text(summary, style: VxText.body(layout.captionSize, color: VxColors.textSecondary)),
+                ],
+              ),
+            ),
+            if (busy)
+              SizedBox.square(
+                dimension: layout.size(20, tv: 30),
+                child: const CircularProgressIndicator(strokeWidth: 2),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final lists = ref.watch(myListsProvider(_item));
+    final library = ref.watch(libraryProvider).value;
+    final inToWatch = library?.forItem(widget.title)?.isFavorite ?? false;
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
@@ -331,79 +411,56 @@ class _AddToListSheetState extends ConsumerState<_AddToListSheet> {
               child: Text('Ajouter « ${widget.title.title} » à une liste', style: VxText.title(layout.size(20, tv: 32))),
             ),
             Flexible(
-              child: switch (lists) {
-                AsyncValue(:final value?) => ListView(
-                  shrinkWrap: true,
-                  padding: EdgeInsets.symmetric(horizontal: layout.space(VxSpace.s)),
-                  children: [
-                    for (final (i, list) in value.indexed)
-                      VxFocusable(
-                        autofocus: i == 0,
-                        borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
-                        semanticLabel: '${list.title}, ${list.summary}${list.contains ? ', contient ce titre' : ''}',
-                        onPressed: () => _toggle(list),
-                        child: Padding(
-                          padding: EdgeInsets.all(layout.space(VxSpace.s)),
-                          child: Row(
-                            children: [
-                              Icon(
-                                list.contains ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded,
-                                color: list.contains ? VxColors.accent : VxColors.textSecondary,
-                                size: layout.size(24, tv: 36),
-                              ),
-                              SizedBox(width: layout.space(VxSpace.m)),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(list.title, style: VxText.body(layout.bodySize, weight: FontWeight.w600)),
-                                    Text(list.summary, style: VxText.body(layout.captionSize, color: VxColors.textSecondary)),
-                                  ],
-                                ),
-                              ),
-                              if (_busy.contains(list.id))
-                                SizedBox.square(
-                                  dimension: layout.size(20, tv: 30),
-                                  child: const CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                            ],
-                          ),
+              child: ListView(
+                shrinkWrap: true,
+                padding: EdgeInsets.symmetric(horizontal: layout.space(VxSpace.s)),
+                children: [
+                  // « À voir »: always there, first.
+                  _line(
+                    contains: inToWatch,
+                    busy: _busyToWatch,
+                    title: 'À voir',
+                    summary: titleCount(library?.toWatch.length ?? 0),
+                    icon: Icons.bookmark_rounded,
+                    autofocus: true,
+                    onPressed: () => _toggleToWatch(inToWatch),
+                  ),
+                  ...switch (lists) {
+                    AsyncValue(:final value?) => [
+                      for (final list in value)
+                        _line(
+                          contains: list.contains,
+                          busy: _busy.contains(list.id),
+                          title: list.title,
+                          summary: list.summary,
+                          onPressed: () => _toggle(list),
+                        ),
+                    ],
+                    AsyncValue(:final error?) => [
+                      Padding(
+                        padding: EdgeInsets.all(layout.space(VxSpace.m)),
+                        child: Text(
+                          error is ApiException ? error.message : 'Impossible de charger vos listes.',
+                          style: VxText.body(layout.bodySize, color: VxColors.textSecondary),
                         ),
                       ),
-                  ],
-                ),
-                AsyncValue(:final error?) => Padding(
-                  padding: EdgeInsets.all(layout.space(VxSpace.l)),
-                  child: Text(
-                    error is ApiException ? error.message : 'Impossible de charger vos listes.',
-                    style: VxText.body(layout.bodySize, color: VxColors.textSecondary),
-                  ),
-                ),
-                _ => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
-              },
+                    ],
+                    _ => [const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))],
+                  },
+                ],
+              ),
             ),
             Padding(
               padding: EdgeInsets.all(layout.space(VxSpace.m)),
-              child: Wrap(
-                spacing: layout.space(VxSpace.s),
-                runSpacing: layout.space(VxSpace.s),
-                children: [
-                  VxButton(
-                    label: 'Nouvelle liste',
-                    icon: Icons.playlist_add_rounded,
-                    kind: VxButtonKind.secondary,
-                    dense: true,
-                    autofocus: lists.value?.isEmpty ?? false,
-                    onPressed: () => _create(ListKind.list),
-                  ),
-                  VxButton(
-                    label: 'Nouveau top 10',
-                    icon: Icons.format_list_numbered_rounded,
-                    kind: VxButtonKind.secondary,
-                    dense: true,
-                    onPressed: () => _create(ListKind.top),
-                  ),
-                ],
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: VxButton(
+                  label: 'Nouvelle liste',
+                  icon: Icons.playlist_add_rounded,
+                  kind: VxButtonKind.secondary,
+                  dense: true,
+                  onPressed: _create,
+                ),
               ),
             ),
           ],
@@ -413,11 +470,11 @@ class _AddToListSheetState extends ConsumerState<_AddToListSheet> {
   }
 }
 
-/// Where a new list opens: its kind, a template's title, a title already in it.
-String newListLocation({ListKind kind = ListKind.list, String? title, String? item}) => Uri(
-  path: '/listes/nouvelle',
-  queryParameters: {'type': kind.name, 'titre': ?title, 'item': ?item},
-).toString();
+/// Where a new list opens: a template's title, a title already in it.
+String newListLocation({String? title, String? item}) {
+  final query = {'titre': ?title, 'item': ?item};
+  return Uri(path: '/listes/nouvelle', queryParameters: query.isEmpty ? null : query).toString();
+}
 
 /// « Envoyer à un ami »: a conversation or a member, then the card is sent in the messaging.
 Future<void> recommendToFriend(BuildContext context, ShareTarget share) => showModalBottomSheet<void>(

@@ -31,9 +31,9 @@ import 'features/messages/messages.dart' show newGroupLocation;
 import 'features/network/feed_screen.dart';
 import 'features/network/hidden_accounts_screen.dart';
 import 'features/network/list_screen.dart';
-import 'features/network/network.dart' show ListKind;
 import 'features/network/onboarding_screen.dart';
 import 'features/network/profile_pages.dart';
+import 'features/network/profile_sections.dart' show WatchlistCard;
 import 'features/network/review_screen.dart';
 import 'features/playback/player_screen.dart';
 import 'features/profiles/advanced_settings_screen.dart';
@@ -93,7 +93,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         '/accueil', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/membre',
       };
       const accountOnly = {
-        '/profils', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes',
+        '/profils', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/aimes', '/profil/social/vus', '/profil/social/personnes', '/profil/social/abonnements', '/profil/social/abonnes',
         '/profil/parametres', '/profil/compte', '/profil/appareils', '/profil/notifications', '/profil/avance', '/profil/plugins', '/tv',
         InboxScreen.location, ConversationsScreen.location, FeedScreen.location, '/listes', OnboardingScreen.location,
       };
@@ -197,7 +197,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/recherche',
             pageBuilder: (_, state) => tab(state, SearchScreen(initialType: state.extra as MediaType?)),
           ),
-          GoRoute(path: '/ma-liste', pageBuilder: (_, state) => tab(state, const MyListScreen())),
           // "Mes avis": the profile's ratings and comments (vixeo_backend/docs/avis.md).
           GoRoute(path: '/avis', pageBuilder: (_, state) => tab(state, const ReviewsScreen())),
           // A review as a publication, with its comments (vixeo_backend/docs/social.md).
@@ -223,18 +222,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             redirect: (_, _) => socialAvailable(ref.read(sessionProvider)) ? null : '/accueil',
             pageBuilder: (_, state) => tab(state, const InboxScreen()),
           ),
-          // « Fil »: what the followed members did (phones, tablets, computers).
+          // « Fil d'actualité »: what the members did (phones, tablets, computers).
           GoRoute(
             path: FeedScreen.location,
             redirect: socialOnly,
             pageBuilder: (_, state) => tab(state, const FeedScreen()),
           ),
-          // Lists and top 10. « nouvelle » before « :id ».
+          // « À voir » (« Ma liste » until 23/11/2026, first of the lists; every profile has it, a
+          // child's too), then the other lists. « a-voir » and « nouvelle » before « :id ».
+          GoRoute(path: WatchlistCard.location, builder: (_, _) => const MyListScreen()),
           GoRoute(
             path: ListEditorScreen.newLocation,
             redirect: socialOnly,
             builder: (_, state) => ListEditorScreen(
-              kind: ListKind.parse(state.uri.queryParameters['type']),
               title: state.uri.queryParameters['titre'],
               item: state.uri.queryParameters['item'],
             ),
@@ -250,9 +250,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => ListEditorScreen(id: idOf(state)!),
           ),
           GoRoute(path: HiddenAccountsScreen.location, redirect: socialOnly, builder: (_, _) => const HiddenAccountsScreen()),
-          // My lists, diary and year (the « Listes » and « Journal » tabs of my page).
+          // My lists and my year (the « Listes » and « Vus » tabs of my page).
           GoRoute(path: '/profil/listes', redirect: socialOnly, builder: (_, _) => const ProfileListsScreen()),
-          GoRoute(path: '/profil/journal', redirect: socialOnly, builder: (_, _) => const DiaryScreen()),
           GoRoute(
             path: '/profil/bilan',
             redirect: socialOnly,
@@ -299,11 +298,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => ProfileListsScreen(username: state.pathParameters['username']),
           ),
           GoRoute(
-            path: '/membre/:username/journal',
-            redirect: socialOnly,
-            builder: (_, state) => DiaryScreen(username: state.pathParameters['username']),
-          ),
-          GoRoute(
             path: '/membre/:username/bilan',
             redirect: socialOnly,
             builder: (_, state) => YearStatsScreen(
@@ -312,10 +306,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(path: '/membre/:username/:section', builder: (_, state) => SocialCollectionScreen(
-            username: state.pathParameters['username'], section: state.pathParameters['section'] ?? 'list',
+            username: state.pathParameters['username'], section: state.pathParameters['section'] ?? '',
           )),
           GoRoute(path: '/profil/social/:section', builder: (_, state) => SocialCollectionScreen(
-            section: state.pathParameters['section'] ?? 'list',
+            section: state.pathParameters['section'] ?? '',
           )),
           GoRoute(
             path: ProfilePreferencesScreen.location,
