@@ -97,6 +97,8 @@ flutter:
     - assets/fonts/OFL-Inter.txt
     # Official TMDb logo ("Primary short", themoviedb.org/about/logos-attribution), as a PNG.
     - assets/images/tmdb_short.png
+    # Vixeo's icon (brand/icons/icon-rounded.svg, 192 px): the icon of the Windows notifications.
+    - assets/images/app_icon.png
     # Logos of the rating sites (brand/ratings, brand/tools/rating_logos.py) and the licence of
     # the Lucide icon used for Rotten Tomatoes' audience score.
     - assets/images/ratings/

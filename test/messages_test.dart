@@ -1,11 +1,9 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vixeo/core/api/api_client.dart';
+import 'package:vixeo/core/api/realtime.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/core/widgets/focusable.dart';
 import 'package:vixeo/features/auth/models.dart';
@@ -13,9 +11,10 @@ import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/messages/conversation_screen.dart';
 import 'package:vixeo/features/messages/conversations_screen.dart';
 import 'package:vixeo/features/messages/messages.dart';
-import 'package:vixeo/features/messages/realtime.dart';
 import 'package:vixeo/features/messages/widgets.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
+
+import 'realtime_fakes.dart';
 
 // The messaging (vixeo_backend/docs/messagerie.md): its models, the real-time connection (Reverb)
 // and the pages « Messages » and a conversation.
@@ -131,7 +130,7 @@ Future<_FakeMessages> _pump(WidgetTester tester, Widget home, {ConversationPage?
         sessionProvider.overrideWith(_Session.new),
         messagesRepositoryProvider.overrideWithValue(repository),
         // No Reverb key in the tests: no socket.
-        messagesRealtimeProvider.overrideWithValue(MessagesRealtime(authorize: (_, _) async => null)),
+        realtimeProvider.overrideWithValue(Realtime(authorize: (_, _) async => null)),
         avatarCatalogProvider.overrideWith((ref) async => const <AvatarLicense>[]),
       ],
       child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
@@ -142,30 +141,9 @@ Future<_FakeMessages> _pump(WidgetTester tester, Widget home, {ConversationPage?
 }
 
 /// A WebSocket that the test plays the server of.
-class _FakeSocket implements RealtimeSocket {
-  final _frames = StreamController<Object?>();
-  final sent = <Map<String, dynamic>>[];
-  bool closed = false;
-
-  @override
-  Stream<Object?> get frames => _frames.stream;
-
-  @override
-  void send(String frame) => sent.add(jsonDecode(frame) as Map<String, dynamic>);
-
-  @override
-  Future<void> close() async {
-    closed = true;
-    await _frames.close();
-  }
-
-  /// The server sends [event] (Pusher: `data` as a JSON string).
-  void server(String event, Map<String, Object?> data, {String? channel}) =>
-      _frames.add(jsonEncode({'event': event, 'data': jsonEncode(data), 'channel': ?channel}));
-
-  /// The server goes away.
-  Future<void> drop() => _frames.close();
-}
+/// The events of conversation [id], by name.
+Stream<String> changesOf(Realtime realtime, int id) =>
+    realtime.events(conversationChannel(id)).map((event) => event.name);
 
 void main() {
   group('models', () {
@@ -242,9 +220,9 @@ void main() {
 
   group('real time', () {
     test('one socket, a channel per conversation shown, its changes; closed with the last one', () async {
-      final sockets = <_FakeSocket>[];
+      final sockets = <FakeSocket>[];
       final authorized = <String>[];
-      final realtime = MessagesRealtime(
+      final realtime = Realtime(
         endpoint: Uri.parse('wss://api.vixeo.test/app/key'),
         connect: (_) async => sockets.last,
         authorize: (socketId, channel) async {
@@ -253,10 +231,10 @@ void main() {
         },
       );
       addTearDown(realtime.dispose);
-      sockets.add(_FakeSocket());
+      sockets.add(FakeSocket());
 
       final changes = <String>[];
-      final first = realtime.changes(12).listen(changes.add);
+      final first = changesOf(realtime, 12).listen(changes.add);
       await pumpEventQueue();
       final socket = sockets.single;
       socket.server('pusher:connection_established', {'socket_id': '1.2', 'activity_timeout': 30});
@@ -276,7 +254,7 @@ void main() {
       expect(socket.sent.last['event'], 'pusher:pong');
 
       // Another conversation: the same socket.
-      final second = realtime.changes(13).listen((_) {});
+      final second = changesOf(realtime, 13).listen((_) {});
       await pumpEventQueue();
       expect(authorized.last, '1.2 private-messages.13');
       await second.cancel();
@@ -292,21 +270,21 @@ void main() {
     });
 
     test('reconnects after a drop and says what may have been missed', () async {
-      final sockets = [_FakeSocket()];
-      final realtime = MessagesRealtime(
+      final sockets = [FakeSocket()];
+      final realtime = Realtime(
         endpoint: Uri.parse('wss://api.vixeo.test/app/key'),
         connect: (_) async => sockets.last,
         authorize: (_, _) async => 'signed',
       );
       addTearDown(realtime.dispose);
       final changes = <String>[];
-      final subscription = realtime.changes(12).listen(changes.add);
+      final subscription = changesOf(realtime, 12).listen(changes.add);
       addTearDown(subscription.cancel);
       await pumpEventQueue();
       sockets.last.server('pusher:connection_established', {'socket_id': '1.2'});
       await pumpEventQueue();
 
-      sockets.add(_FakeSocket());
+      sockets.add(FakeSocket());
       await sockets.first.drop();
       // The first retry comes after a second.
       await Future<void>.delayed(const Duration(milliseconds: 1200));
@@ -315,20 +293,20 @@ void main() {
       expect(sockets.last.sent.last['event'], 'pusher:subscribe');
       sockets.last.server('pusher_internal:subscription_succeeded', {}, channel: 'private-messages.12');
       await pumpEventQueue();
-      expect(changes, [MessagesRealtime.resync]);
+      expect(changes, [Realtime.resync]);
     });
 
     test('no Reverb key in the build: nothing opens', () async {
       var connections = 0;
-      final realtime = MessagesRealtime(
+      final realtime = Realtime(
         connect: (_) async {
           connections++;
-          return _FakeSocket();
+          return FakeSocket();
         },
         authorize: (_, _) async => 'signed',
       );
       addTearDown(realtime.dispose);
-      final subscription = realtime.changes(12).listen((_) {});
+      final subscription = changesOf(realtime, 12).listen((_) {});
       await pumpEventQueue();
       await subscription.cancel();
       expect(realtime.enabled, isFalse);

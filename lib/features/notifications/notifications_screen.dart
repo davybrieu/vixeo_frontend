@@ -12,8 +12,9 @@ import 'push_registration.dart';
 import 'system_notifications.dart';
 
 /// « Notifications » (Paramètres): the new-episode alerts of the profile's « Ma liste » shows and
-/// those of its activity (followers, requests, likes) on this device, and a test notification. The server sends them (push, docs:
-/// vixeo_backend/docs/notifications.md); Windows can't receive them (no Firebase Messaging there).
+/// those of its activity (messages, followers, requests, likes) on this device, and a test
+/// notification. The server sends them (vixeo_backend/docs/notifications.md): push on Android, the
+/// real-time channel on Windows, while Vixeo is open (no Firebase Messaging there).
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -124,6 +125,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
 
     final ready = availability.value == PushAvailability.ready;
+    final windows = ref.watch(pushTransportProvider) == PushTransport.realtime;
     final enabled = ref.watch(episodeAlertsSettingProvider).value ?? false;
     final social = ref.watch(socialAlertsSettingProvider).value ?? true;
 
@@ -131,6 +133,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       title: 'Notifications',
       fallback: '/parametres',
       children: [
+        if (windows) const InfoIntro('Sur Windows, les notifications arrivent tant que Vixeo est ouvert.'),
         // Why not (two different fixes): this version of the app has no Firebase configuration (a
         // newer APK built with the FIREBASE_* secrets), or the server sends none (FCM_CREDENTIALS).
         if (availability.value == PushAvailability.noToken) ...[
@@ -174,7 +177,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             ),
             SettingsSwitchRow(
               label: 'Activité',
-              detail: 'Quand un membre vous suit, demande à vous suivre, accepte votre demande ou aime un de vos avis.',
+              detail:
+                  'Quand un membre vous écrit, vous suit, demande à vous suivre, accepte votre demande ou aime un de vos avis.',
               value: social,
               onChanged: ready ? _toggleSocial : null,
             ),

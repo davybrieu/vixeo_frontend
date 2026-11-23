@@ -77,6 +77,13 @@
   ""
  ],
  [
+  "brand/icons/icon-rounded.svg",
+  "assets/images/app_icon.png",
+  192,
+  192,
+  ""
+ ],
+ [
   "brand/icons/icon.svg",
   "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@1x.png",
   20,

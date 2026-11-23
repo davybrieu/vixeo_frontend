@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../auth/session.dart';
 import '../notifications/inbox.dart' show socialAvailable;
-import 'realtime.dart';
 
 // The messaging (vixeo_backend/docs/messagerie.md): conversations between adult profiles, requests
 // to accept, groups run by their admins, photos and videos, read receipts. Models written from the
@@ -425,8 +424,12 @@ class ConversationState {
   );
 }
 
+/// The real-time channel of conversation [id] (vixeo_backend/docs/reverb.md): `message.sent`,
+/// `message.deleted`, `message.read`, `message.updated`, or `resync` after a reconnection.
+String conversationChannel(int id) => 'private-messages.$id';
+
 /// A conversation: read when its page opens, read again when the API announces a change on its
-/// channel ([MessagesRealtime]) or after an action, marked read as it is shown.
+/// channel ([conversationChannel]) or after an action, marked read as it is shown.
 final conversationProvider = AsyncNotifierProvider.autoDispose.family<ConversationController, ConversationState, int>(
   ConversationController.new,
 );
@@ -444,7 +447,7 @@ class ConversationController extends AsyncNotifier<ConversationState> {
   @override
   Future<ConversationState> build() async {
     // Listened to before the first reading: nothing announced meanwhile is missed.
-    final changes = ref.watch(messagesRealtimeProvider).changes(id).listen((_) => unawaited(refresh()));
+    final changes = ref.watch(realtimeProvider).events(conversationChannel(id)).listen((_) => unawaited(refresh()));
     ref.onDispose(changes.cancel);
     final page = await _repository.conversation(id);
     _markRead(page.messages);

@@ -78,7 +78,8 @@ lib/
     legal.dart                       éditeur et adresse de support (--dart-define)
     theme.dart                       couleurs (VxColors), polices Sora / Inter (VxText)
     device/layout.dart               téléphone / tablette / grand écran, détection TV, échelle TV
-    api/                             client HTTP (dio), erreurs en français, stockage du jeton
+    api/                             client HTTP (dio), erreurs en français, stockage du jeton,
+                                     temps réel Reverb (realtime.dart : une WebSocket, un canal par sujet)
     widgets/                         VxFocusable (focus TV), boutons, images, états vides / erreur
   features/
     auth/        connexion (page d'accueil de l'appli), inscription, mot de passe oublié, session,
@@ -110,8 +111,8 @@ lib/
     social/      pages de profil (`ProfileView`), réseaux sociaux (`social_links.dart`), compte
                  privé et demandes d'abonnement, J'aime sur les avis (`review_likes.dart`)
     addons/      plug-ins : dépôts de scrapers JavaScript (façon Nuvio), page « Plug-ins » (`docs/scrapers.md`)
-    messages/    messagerie : modèles, dépôt et providers (`messages.dart`), temps réel Reverb
-                 (`realtime.dart`), « Messages » (`conversations_screen.dart`), une conversation
+    messages/    messagerie : modèles, dépôt et providers (`messages.dart`, canal temps réel
+                 `conversationChannel`), « Messages » (`conversations_screen.dart`), une conversation
                  (`conversation_screen.dart`), créer / gérer un groupe (`group_screen.dart`)
 ```
 
@@ -454,12 +455,15 @@ lib/
   quatre, la CI nomme ceux qui manquent) ; sans eux, pas de jeton : la page dit « Cette version de
   l'appli ne reçoit pas encore les notifications… » ; serveur sans `FCM_CREDENTIALS` : « Le
   serveur n'envoie pas encore de notifications. ».
-  Jeton FCM par `getToken` / `onTokenRefresh` (dépréciés par firebase_messaging 17 au profit des
-  identifiants d'installation, `register()` / `onRegistered` : changement à suivre aussi par le
-  serveur et à tester sur un appareil ; marqués `ignore`, ils marchent encore).
-  `PushRegistration` donne le jeton à l'API (`PUT /push/device` : profil actif, réglage
-  « Nouveaux épisodes », `utc_offset`) au lancement, au retour au premier plan (6 h au plus entre
-  deux envois identiques), quand la session, le profil, le réglage ou le jeton change
+  **Identifiant d'installation Firebase** (FID, firebase_messaging 17, le 23/11/2026 : `getToken` /
+  `onTokenRefresh` dépréciés et retirés) : `FirebasePushMessaging.installationId()` écoute
+  `onRegistered` **avant** d'appeler `register()` (la réponse arrive par ce flux, comme chaque
+  changement : `installationIdChanges` → inscription forcée) ; Android a besoin du meta-data
+  `firebase_messaging_installation_id_enabled` du manifeste ; le serveur envoie avec
+  `message.fid`. **Pas encore essayé sur un appareil.**
+  `PushRegistration` donne le FID à l'API (`PUT /push/device` : `fid`, profil actif, réglages
+  « Nouveaux épisodes » et « Activité », `utc_offset`) au lancement, au retour au premier plan (6 h
+  au plus entre deux envois identiques), quand la session, le profil, un réglage ou le FID change
   (`NotificationsGate`, dans le `builder` de `MaterialApp.router`, sous `UpdateGate`) ; la
   déconnexion supprime l'inscription côté serveur. Réglage « Nouveaux épisodes » par profil **sur
   l'appareil** (`EpisodeAlertsSetting`, `LocalStore`, désactivé par défaut) ; l'activer pose la
@@ -470,8 +474,17 @@ lib/
   `SystemNotifications`, canaux Android `episodes` et `general` créés au lancement) ; un appui
   ouvre `data.path` (aussi quand la notification lance l'appli). Icône
   `drawable/ic_notification.xml` (gardée par `raw/keep.xml`), couleur `values/colors.xml`,
-  désucrage Java activé (`build.gradle.kts`). Sur Windows (pas de FCM) : une phrase. Les tests passent par
-  `FakePush` et `FakeNotifications` (`test/notifications_test.dart`).
+  désucrage Java activé (`build.gradle.kts`). **Windows (pas de FCM) : canal temps réel**
+  (demande du développeur, 23/11/2026) : `PushTransport` (`pushTransportProvider` : `firebase`,
+  `realtime` sur Windows avec une clé Reverb, sinon `none` → une phrase) ; l'appli s'inscrit avec
+  `platform: windows` sans FID, garde l'`id` de la réponse (`pushDeviceProvider`) et écoute
+  `private-push-devices.{id}` (`realtimeNotificationsProvider`, ouvert tant que l'appli tourne) ;
+  chaque événement `notification` (`PushNotification.fromRealtime`) est affiché comme un push reçu
+  appli ouverte (notification Windows : `PluginNotifications`, AppUserModelID `Vixeo.Vixeo`,
+  icône `assets/images/app_icon.png` ; un clic ramène la fenêtre devant) ; la page dit « Sur
+  Windows, les notifications arrivent tant que Vixeo est ouvert. ». Rien appli fermée (pas de
+  MSIX). Les tests passent par `FakePush`, `FakeNotifications` et `FakeSocket`
+  (`test/notifications_test.dart`, `test/realtime_fakes.dart`).
 - **Plug-ins** (`features/addons`, « Paramètres » → « Plug-ins », `/profil/plugins`,
   `AddonsScreen` ; contrat complet : [`docs/scrapers.md`](docs/scrapers.md) ; demande du développeur,
   19/11/2026 : « comme Nuvio », **Android, Windows, puis iOS**, **exécuter du code JS** pour les sources).
@@ -560,12 +573,14 @@ lib/
   « Envoyer un message » à côté du bouton principal (`ProfileHeader(onMessage:)`). État :
   `ConversationController` (`conversationProvider(id)`, relu à chaque changement annoncé, messages
   marqués lus quand ils s'affichent), `inboxProvider` (invalidé après une lecture, un envoi, une
-  réponse). **Temps réel : `MessagesRealtime`** (`realtime.dart`, `messagesRealtimeProvider`) :
-  **une seule** WebSocket vers Laravel Reverb (protocole Pusher, `REVERB_*` de `--dart-define`,
-  variables de la CI), ouverte tant qu'une conversation est affichée, un canal privé par
-  conversation (`private-messages.{id}`, autorisé par `ApiClient.authorizeBroadcasting`) ;
-  reconnexion (1 s, 2 s… 30 s) puis `resync` ; sans clé Reverb, rien ne s'ouvre (la page relit la
-  conversation après chaque action). Dates de l'API en ISO 8601 avec fuseau, affichées en heure
+  réponse). **Temps réel : `Realtime`** (`core/api/realtime.dart`, `realtimeProvider` de
+  `auth/session.dart`, un par session et profil) : **une seule** WebSocket vers Laravel Reverb
+  (protocole Pusher, `REVERB_*` de `--dart-define`, variables de la CI), ouverte tant qu'un canal
+  est écouté, un canal privé par sujet (`events(canal)`, autorisé par
+  `ApiClient.authorizeBroadcasting`) : une conversation affichée (`conversationChannel(id)` =
+  `private-messages.{id}`) ou les notifications de Windows (`private-push-devices.{id}`, voir
+  « Notifications ») ; reconnexion (1 s, 2 s… 30 s) puis `resync` ; sans clé Reverb, rien ne
+  s'ouvre (la page relit la conversation après chaque action). Dates de l'API en ISO 8601 avec fuseau, affichées en heure
   locale. Confirmations : `showVxConfirm` (`core/widgets/choice.dart`). Test : `test/messages_test.dart`.
 - **Résumé et biographie** (`DescriptionLink`, `catalog/description_screen.dart`) : sur la fiche et
   la page d'une personne, les 5 premières lignes puis, **seulement si le texte est plus long**,
@@ -862,7 +877,8 @@ lib/
   Ma liste, « Avis » (notes et commentaires), « Mon profil » (paramètres
   d’apparence, No spoil, langues et lecture automatique, code PIN parental dans « Mon compte »,
   restrictions dans « Modifier le profil »,
-  connecter une TV, changer de profil, Notifications (nouveaux épisodes, activité),
+  connecter une TV, changer de profil, Notifications (nouveaux épisodes, activité ; Windows par le
+  canal temps réel, appli ouverte),
   Avancé (dernier profil, cache),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
@@ -880,7 +896,7 @@ lib/
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
 - Vérifié de bout en bout (ancienne version web) contre l'API Laravel locale avec un faux TMDb.
 - Pas encore vérifié sur un vrai PC Windows : lecture (media_kit), plug-ins (QuickJS de
-  `flutter_js`), mise à jour par l'installateur ; la CI ne fait que compiler (matrice de
+  `flutter_js`), mise à jour par l'installateur, notifications (canal temps réel) ; la CI ne fait que compiler (matrice de
   `docs/lecteur.md`, `docs/windows-release.md`).
 - Pas encore fait : appli iOS ; moments à passer et langues préférées du profil pas encore
   utilisés par le lecteur (les sous-titres de l'API, si) ; signature de l'installateur Windows.

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
+import '../../core/api/realtime.dart';
 import '../../core/api/session_storage.dart';
 import 'auth_repository.dart';
 import 'models.dart';
@@ -53,6 +54,19 @@ final apiClientProvider = Provider<ApiClient>(
     onUnauthorized: () => ref.read(sessionProvider.notifier).expire(),
   ),
 );
+
+/// The real-time connection of the signed-in app (Reverb, `core/api/realtime.dart`): another
+/// account or profile gets another one (other channels, another authorization).
+final realtimeProvider = Provider<Realtime>((ref) {
+  ref.watch(sessionProvider.select((s) => (s.token, s.profile?.id)));
+  final api = ref.read(apiClientProvider);
+  final realtime = Realtime(
+    authorize: (socketId, channel) async =>
+        (await api.authorizeBroadcasting(socketId: socketId, channelName: channel))['auth'] as String?,
+  );
+  ref.onDispose(realtime.dispose);
+  return realtime;
+});
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository(ref.read(apiClientProvider)));
 

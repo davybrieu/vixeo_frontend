@@ -79,8 +79,13 @@ secrets GitHub, jamais dans le dépôt.
 
 ## 5. Ce qui manque sur Windows
 
-- **Notifications push** : Firebase Cloud Messaging n'existe pas pour une appli Windows ; la page
-  « Notifications » le dit en une phrase.
+- **Notifications appli fermée** : Firebase Cloud Messaging n'existe pas pour une appli Windows, et
+  une appli installée sans MSIX ne peut pas recevoir de notification fermée. Les notifications
+  (nouveaux épisodes, activité, messages, test) arrivent donc par le **canal temps réel** (Reverb,
+  `private-push-devices.{id}`) **tant que Vixeo est ouvert**, et l'appli les affiche en notification
+  Windows (`flutter_local_notifications`, AppUserModelID `Vixeo.Vixeo` écrit dans le registre de
+  l'utilisateur, effacé par la désinstallation). Il faut la variable GitHub `REVERB_APP_KEY` ; sans
+  elle, la page « Notifications » le dit en une phrase. **Pas encore essayé** sur un vrai PC.
 - **Connexion TV** : rien à faire sur Windows ; « Connecter une TV » (taper le code d'une TV)
   marche aussi depuis l'ordinateur.
 - Plein écran : la fenêtre passe en plein écran (`window_manager`) ; pas d'orientation.

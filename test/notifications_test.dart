@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/api/api_client.dart';
+import 'package:vixeo/core/api/realtime.dart';
 import 'package:vixeo/core/local_store.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/core/widgets/focusable.dart';
@@ -15,6 +16,8 @@ import 'package:vixeo/features/notifications/notifications_screen.dart';
 import 'package:vixeo/features/notifications/push_messaging.dart';
 import 'package:vixeo/features/notifications/push_registration.dart';
 import 'package:vixeo/features/notifications/system_notifications.dart';
+
+import 'realtime_fakes.dart';
 
 /// The device's notification system, in memory.
 class FakeNotifications implements SystemNotifications {
@@ -50,22 +53,22 @@ class FakeNotifications implements SystemNotifications {
   Future<void> openSettings() async => settingsOpened = true;
 }
 
-/// Firebase Cloud Messaging, in memory: [pushToken] null = no Firebase in this build.
+/// Firebase Cloud Messaging, in memory: [fid] null = no Firebase in this build.
 class FakePush implements PushMessaging {
-  FakePush({this.supported = true, this.pushToken = 'fcm-token'});
+  FakePush({this.supported = true, this.fid = 'fid-1'});
 
   @override
   final bool supported;
-  String? pushToken;
+  String? fid;
   final receivedController = StreamController<PushNotification>.broadcast();
   final openedController = StreamController<String>.broadcast();
-  final refreshController = StreamController<String>.broadcast();
+  final changesController = StreamController<String>.broadcast();
 
   @override
-  Future<String?> token() async => pushToken;
+  Future<String?> installationId() async => fid;
 
   @override
-  Stream<String> get tokenRefresh => refreshController.stream;
+  Stream<String> get installationIdChanges => changesController.stream;
 
   @override
   Stream<PushNotification> get received => receivedController.stream;
@@ -79,9 +82,10 @@ class FakePush implements PushMessaging {
 
 /// The API's `/push/device`, recorded.
 class PushApi extends ApiClient {
-  PushApi({this.available = true, this.testAnswer}) : super(token: () => 't', profileId: () => 1);
+  PushApi({this.available = true, this.realtime = true, this.testAnswer}) : super(token: () => 't', profileId: () => 1);
 
   final bool available;
+  final bool realtime;
   final Map<String, dynamic>? testAnswer;
   final registrations = <Map<String, dynamic>>[];
   int tests = 0;
@@ -95,14 +99,16 @@ class PushApi extends ApiClient {
       return {'unread_count': 2};
     }
     expect(path, '/push/device');
-    return {'data': null, 'available': available};
+    return {'data': null, 'available': available, 'realtime': realtime};
   }
 
   @override
   Future<Map<String, dynamic>> put(String path, {Object? body}) async {
     expect(path, '/push/device');
     registrations.add(Map<String, dynamic>.from(body! as Map));
-    return {'data': <String, dynamic>{}};
+    return {
+      'data': {'id': 7, 'target': body['platform'] == 'windows' ? 'realtime' : 'fid'},
+    };
   }
 
   @override
@@ -154,14 +160,14 @@ void main() {
       return c;
     }
 
-    test('gives the token, the setting and the time zone, once in a while', () async {
+    test('gives the installation ID, the setting and the time zone, once in a while', () async {
       final api = PushApi();
       final c = container(push: FakePush(), api: api);
 
       expect(await c.read(pushRegistrationProvider).sync(), isTrue);
       expect(api.registrations.single, {
-        'token': 'fcm-token',
         'platform': 'android',
+        'fid': 'fid-1',
         'new_episodes': true,
         'social': true,
         'utc_offset': DateTime.now().timeZoneOffset.inMinutes,
@@ -193,11 +199,36 @@ void main() {
       expect(api.registrations.single['new_episodes'], isTrue);
     });
 
-    test('nothing without a token, a profile or a session', () async {
+    test('Windows: registered for the real-time channel, without Firebase', () async {
+      final api = PushApi();
+      final store = MemoryLocalStore();
+      final c = ProviderContainer(
+        overrides: [
+          sessionProvider.overrideWith(SignedInSession.new),
+          apiClientProvider.overrideWithValue(api),
+          pushMessagingProvider.overrideWithValue(FakePush(supported: false)),
+          pushTransportProvider.overrideWithValue(PushTransport.realtime),
+          localStoreProvider.overrideWithValue(store),
+        ],
+      );
+      addTearDown(c.dispose);
+
+      expect(await c.read(pushRegistrationProvider).sync(), isTrue);
+      expect(api.registrations.single, {
+        'platform': 'windows',
+        'new_episodes': false,
+        'social': true,
+        'utc_offset': DateTime.now().timeZoneOffset.inMinutes,
+      });
+      // Its channel: private-push-devices.7.
+      expect(c.read(pushDeviceProvider), 7);
+    });
+
+    test('nothing without an installation ID, a profile or a session', () async {
       final api = PushApi();
       Future<bool> sync(ProviderContainer c) => c.read(pushRegistrationProvider).sync();
 
-      expect(await sync(container(push: FakePush(pushToken: null), api: api)), isFalse);
+      expect(await sync(container(push: FakePush(fid: null), api: api)), isFalse);
       expect(
         await sync(
           container(push: FakePush(), api: api, session: () => SignedInSession(SessionStatus.signedIn, false)),
@@ -222,6 +253,7 @@ void main() {
       FakeNotifications notifications, {
       FakePush? push,
       bool available = true,
+      Realtime? realtime,
     }) async {
       tester.view.physicalSize = const Size(520, 1400);
       tester.view.devicePixelRatio = 1;
@@ -236,6 +268,10 @@ void main() {
             pushMessagingProvider.overrideWithValue(push ?? FakePush()),
             systemNotificationsProvider.overrideWithValue(notifications),
             localStoreProvider.overrideWithValue(store),
+            if (realtime != null) ...[
+              realtimeProvider.overrideWithValue(realtime),
+              pushTransportProvider.overrideWithValue(PushTransport.realtime),
+            ],
           ],
           child: MaterialApp(
             theme: buildVixeoTheme(),
@@ -246,11 +282,52 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('on Windows: one sentence', (tester) async {
+    testWidgets('a Windows build without Reverb: one sentence', (tester) async {
       await pump(tester, FakeNotifications(supported: false), push: FakePush(supported: false));
 
       expect(find.text('Les notifications sont disponibles dans l’appli Android.'), findsOneWidget);
       expect(find.text('Nouveaux épisodes'), findsNothing);
+    });
+
+    testWidgets('on Windows: the same alerts, shown while Vixeo is open', (tester) async {
+      final notifications = FakeNotifications(isAllowed: true);
+      final socket = FakeSocket();
+      final realtime = Realtime(
+        endpoint: Uri.parse('wss://api.vixeo.test/app/key'),
+        connect: (_) async => socket,
+        authorize: (_, channel) async => 'signed $channel',
+      );
+      addTearDown(realtime.dispose);
+      await pump(tester, notifications, push: FakePush(supported: false), realtime: realtime);
+
+      expect(find.text('Sur Windows, les notifications arrivent tant que Vixeo est ouvert.'), findsOneWidget);
+      expect(find.text('Nouveaux épisodes'), findsOneWidget);
+      expect(api.registrations.single['platform'], 'windows');
+
+      // The channel of its registration (id 7), open while the app runs.
+      socket.server('pusher:connection_established', {'socket_id': '1.2'});
+      await tester.pumpAndSettle();
+      expect(socket.sent.last, {
+        'event': 'pusher:subscribe',
+        'data': {'auth': 'signed private-push-devices.7', 'channel': 'private-push-devices.7'},
+      });
+
+      socket.server('notification', {
+        'title': 'Nouvel abonné',
+        'body': 'Max (@max) vous suit.',
+        'path': '/membre/max',
+        'channel': 'social',
+        'tag': null,
+        'image': null,
+      }, channel: 'private-push-devices.7');
+      await tester.pumpAndSettle();
+
+      final shown = notifications.shown.single;
+      expect(shown.title, 'Nouvel abonné');
+      expect(shown.path, '/membre/max');
+      expect(shown.channel, NotificationChannel.social);
+      // The badge of « Notifications » is read again.
+      expect(api.counts, 1);
     });
 
     testWidgets('not available yet (server off): says so, nothing to turn on', (tester) async {
@@ -265,7 +342,7 @@ void main() {
     });
 
     testWidgets('no Firebase in this build: says so too', (tester) async {
-      await pump(tester, FakeNotifications(), push: FakePush(pushToken: null));
+      await pump(tester, FakeNotifications(), push: FakePush(fid: null));
 
       expect(find.textContaining('Cette version de l’appli ne reçoit pas encore les notifications.'), findsOneWidget);
     });

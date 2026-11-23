@@ -62,6 +62,12 @@ Type: filesandordirs; Name: "{app}\data"
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\vixeo.exe"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\vixeo.exe"; Tasks: desktopicon
 
+[Registry]
+; Written by the app for its notifications (flutter_local_notifications, AppUserModelID
+; PluginNotifications.windowsAppId): removed with it.
+Root: HKCU; Subkey: "Software\Classes\AppUserModelId\Vixeo.Vixeo"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\PushNotifications\Backup\Vixeo.Vixeo"; Flags: uninsdeletekey dontcreatekey
+
 [Run]
 ; Also after a silent update (no skipifsilent): Vixeo starts again by itself.
 Filename: "{app}\vixeo.exe"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall

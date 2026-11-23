@@ -14,9 +14,10 @@ import 'system_notifications.dart';
 
 /// Around the app (`MaterialApp.builder`), like UpdateGate: prepares the notification channels,
 /// registers the app with the server (at launch, back in the foreground, when the session, the
-/// profile, the « Nouveaux épisodes » or « Activité » setting or the push token changes), shows a push received
-/// while the app is open, and opens the page of a tapped notification (also one that launched
-/// the app). Nothing on Windows.
+/// profile, the « Nouveaux épisodes » or « Activité » setting or the Firebase installation ID
+/// changes), shows a notification received while the app is open (a push, or on Windows an event
+/// of its real-time channel: [realtimeNotificationsProvider]), and opens the page of a tapped
+/// notification (also one that launched the app). Nothing on a Windows build without Reverb.
 class NotificationsGate extends ConsumerStatefulWidget {
   const NotificationsGate({super.key, required this.child});
 
@@ -27,10 +28,12 @@ class NotificationsGate extends ConsumerStatefulWidget {
 }
 
 class _NotificationsGateState extends ConsumerState<NotificationsGate> {
-  late final bool _supported = ref.read(pushMessagingProvider).supported;
+  late final PushTransport _transport = ref.read(pushTransportProvider);
   AppLifecycleListener? _lifecycle;
   final _subscriptions = <StreamSubscription<Object?>>[];
   int _shown = 0;
+
+  bool get _supported => _transport != PushTransport.none;
 
   @override
   void initState() {
@@ -54,19 +57,22 @@ class _NotificationsGateState extends ConsumerState<NotificationsGate> {
     final push = ref.read(pushMessagingProvider);
     await system.init(_open);
     if (!mounted) return;
-    _subscriptions
-      ..add(push.received.listen(_show))
-      ..add(push.opened.listen(_open))
-      ..add(push.tokenRefresh.listen((_) => ref.read(pushRegistrationProvider).sync(force: true)));
-    final path = await push.launchPath() ?? await system.launchPath();
+    if (_transport == PushTransport.firebase) {
+      _subscriptions
+        ..add(push.received.listen(_show))
+        ..add(push.opened.listen(_open))
+        ..add(push.installationIdChanges.listen((_) => ref.read(pushRegistrationProvider).sync(force: true)));
+    }
+    final path = (_transport == PushTransport.firebase ? await push.launchPath() : null) ?? await system.launchPath();
     if (path != null) _open(path);
     _register();
   }
 
   void _register() => ref.read(pushRegistrationProvider).sync();
 
-  /// Android only shows the push of a closed app: the app shows the others itself. One of the
-  /// `social` channel also updates the badges and the « Notifications » and « Messages » pages.
+  /// Android only shows the push of a closed app: the app shows the others itself, and those of
+  /// the real-time channel (Windows). One of the `social` channel also updates the badges and the
+  /// « Notifications » and « Messages » pages.
   void _show(PushNotification notification) {
     if (notification.channel == NotificationChannel.social.id) {
       ref.read(unreadNotificationsProvider.notifier).refresh(force: true);
@@ -119,6 +125,13 @@ class _NotificationsGateState extends ConsumerState<NotificationsGate> {
 
       ref.listen(episodeAlertsSettingProvider, changed);
       ref.listen(socialAlertsSettingProvider, changed);
+      if (_transport == PushTransport.realtime) {
+        // Keeps the channel open while the app runs (the provider is not autoDispose).
+        // Each event once (not again when the provider reloads: another profile, another session).
+        ref.listen(realtimeNotificationsProvider, (previous, next) {
+          if (next case AsyncData(:final value) when !identical(value, previous?.value)) _show(value);
+        });
+      }
     }
     return widget.child;
   }

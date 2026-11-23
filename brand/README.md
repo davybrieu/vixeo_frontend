@@ -33,7 +33,8 @@ Le même logo et le même favicon partout :
 - **appli** : `VxLogo` (`lib/core/widgets/common.dart`) le dessine avec les mêmes formes, net à
   toutes les tailles ;
 - **Windows** : `windows/runner/resources/app_icon.ico` (16 à 256, d'après `icons/icon-rounded.svg`),
-  icône de `vixeo.exe`, de la fenêtre et de l'installateur ;
+  icône de `vixeo.exe`, de la fenêtre et de l'installateur ; `assets/images/app_icon.png` (192 px,
+  même dessin) : icône des notifications Windows ;
 - **Android** : icône adaptative (`mipmap-anydpi-v26/ic_launcher.xml` : le symbole
   `drawable/ic_launcher_foreground.xml` sur le fond `#070A08`, aussi pour les icônes à thème
   d'Android 13), icônes PNG d'avant Android 8 (`mipmap-*/ic_launcher.png`), bannière Android TV
