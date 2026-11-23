@@ -199,7 +199,8 @@ String messageDay(DateTime at, DateTime now) {
 
 /// « 12 Mo », « 850 Ko »: the size of an attachment.
 String fileSize(int bytes) {
-  if (bytes >= 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1).replaceAll('.', ',')} Mo';
+  const mega = 1024 * 1024;
+  if (bytes >= mega) return '${(bytes / mega).toStringAsFixed(bytes >= 10 * mega ? 0 : 1).replaceAll('.', ',')} Mo';
   return '${(bytes / 1024).ceil()} Ko';
 }
 

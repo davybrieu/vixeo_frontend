@@ -44,7 +44,13 @@ class ChatMember {
 
 /// A photo or a video of a message, downloaded with the token ([attachmentBytesProvider]).
 class ChatAttachment {
-  const ChatAttachment({required this.id, required this.name, required this.mimeType, required this.size, required this.url});
+  const ChatAttachment({
+    required this.id,
+    required this.name,
+    required this.mimeType,
+    required this.size,
+    required this.url,
+  });
 
   factory ChatAttachment.fromJson(Map<String, dynamic> json) => ChatAttachment(
     id: json['id'] as int? ?? 0,
@@ -356,20 +362,29 @@ final attachmentBytesProvider = FutureProvider.autoDispose.family<Uint8List, Str
 /// What a conversation page shows: its members and status ([page], the latest reading) and every
 /// message loaded so far, oldest first (the latest page and the older ones scrolled up to).
 class ConversationState {
-  const ConversationState({required this.page, required this.messages, this.hasMore = false, this.loadingOlder = false});
+  const ConversationState({
+    required this.page,
+    required this.messages,
+    this.hasMore = false,
+    this.loadingOlder = false,
+  });
 
   final ConversationPage page;
   final List<ChatMessage> messages;
   final bool hasMore;
   final bool loadingOlder;
 
-  ConversationState copyWith({ConversationPage? page, List<ChatMessage>? messages, bool? hasMore, bool? loadingOlder}) =>
-      ConversationState(
-        page: page ?? this.page,
-        messages: messages ?? this.messages,
-        hasMore: hasMore ?? this.hasMore,
-        loadingOlder: loadingOlder ?? this.loadingOlder,
-      );
+  ConversationState copyWith({
+    ConversationPage? page,
+    List<ChatMessage>? messages,
+    bool? hasMore,
+    bool? loadingOlder,
+  }) => ConversationState(
+    page: page ?? this.page,
+    messages: messages ?? this.messages,
+    hasMore: hasMore ?? this.hasMore,
+    loadingOlder: loadingOlder ?? this.loadingOlder,
+  );
 }
 
 /// A conversation: read when its page opens, read again when the API announces a change on its

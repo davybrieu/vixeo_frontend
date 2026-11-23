@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
@@ -198,8 +197,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
   Future<void> _setBlocked(ChatMember member, {required bool blocked}) async {
     try {
-      await _controller.change((repository) => blocked ? repository.block(member.username) : repository.unblock(member.username));
-      if (mounted) showVxSnack(context, blocked ? '@${member.username} est bloqué' : '@${member.username} est débloqué');
+      final username = member.username;
+      await _controller.change(
+        (repository) => blocked ? repository.block(username) : repository.unblock(username),
+      );
+      if (mounted) showVxSnack(context, blocked ? '@$username est bloqué' : '@$username est débloqué');
     } catch (error) {
       _alert(error, 'Impossible de modifier le blocage.');
     }
@@ -252,10 +254,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             ),
             if (page != null)
               Padding(
-                padding: EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.xs), layout.gutter, layout.space(VxSpace.s)),
+                padding: EdgeInsets.fromLTRB(
+                  layout.gutter,
+                  layout.space(VxSpace.xs),
+                  layout.gutter,
+                  layout.space(VxSpace.s),
+                ),
                 child: page.isRequest
                     ? _Notice(
-                        text: '${page.participant?.displayName ?? 'Ce membre'} souhaite vous écrire. Acceptez pour répondre.',
+                        text:
+                            '${page.participant?.displayName ?? 'Ce membre'} souhaite vous écrire. '
+                            'Acceptez pour répondre.',
                         actions: [
                           VxButton(
                             label: 'Refuser',
@@ -432,7 +441,8 @@ class _MessageList extends StatelessWidget {
           final mine = message.senderId == me;
           final newDay = previous == null || !_sameDay(previous.createdAt, message.createdAt);
           final firstOfRun = newDay || previous.senderId != message.senderId;
-          final lastOfRun = next == null || next.senderId != message.senderId || !_sameDay(next.createdAt, message.createdAt);
+          final lastOfRun =
+              next == null || next.senderId != message.senderId || !_sameDay(next.createdAt, message.createdAt);
           final createdAt = message.createdAt;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -703,7 +713,10 @@ class _Composer extends StatelessWidget {
             decoration: InputDecoration(
               hintText: 'Écrire un message…',
               hintStyle: VxText.body(layout.size(16, tv: 24), color: VxColors.textMuted),
-              contentPadding: EdgeInsets.symmetric(horizontal: layout.space(VxSpace.m), vertical: layout.space(VxSpace.s)),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: layout.space(VxSpace.m),
+                vertical: layout.space(VxSpace.s),
+              ),
             ),
           ),
         ),
@@ -711,7 +724,9 @@ class _Composer extends StatelessWidget {
         sending
             ? SizedBox.square(
                 dimension: VxIconAction.sizeOf(layout, dense: true),
-                child: const Center(child: SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.4))),
+                child: const Center(
+                  child: SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.4)),
+                ),
               )
             : VxIconAction(icon: Icons.send_rounded, label: 'Envoyer', active: true, dense: true, onPressed: onSend),
       ],

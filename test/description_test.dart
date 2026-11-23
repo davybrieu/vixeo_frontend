@@ -53,6 +53,7 @@ void main() {
 
     expect(find.byType(DescriptionScreen), findsOneWidget);
     expect(find.text('Les Veilleurs'), findsOneWidget);
-    expect(find.byWidgetPredicate((widget) => widget is VxFocusable && widget.semanticLabel == 'Retour'), findsOneWidget);
+    final back = find.byWidgetPredicate((widget) => widget is VxFocusable && widget.semanticLabel == 'Retour');
+    expect(back, findsOneWidget);
   });
 }

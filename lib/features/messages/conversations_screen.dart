@@ -62,7 +62,11 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
       _clearSearch();
       unawaited(context.push(conversationLocation(id)));
     } catch (error) {
-      showVxSnackOn(messenger, errorText(error, 'Impossible d’écrire à ce membre.'), icon: Icons.error_outline_rounded);
+      showVxSnackOn(
+        messenger,
+        errorText(error, 'Impossible d’écrire à ce membre.'),
+        icon: Icons.error_outline_rounded,
+      );
     }
   }
 
@@ -85,7 +89,11 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
         showVxSnackOn(messenger, 'Demande refusée');
       }
     } catch (error) {
-      showVxSnackOn(messenger, errorText(error, 'Impossible de répondre à la demande.'), icon: Icons.error_outline_rounded);
+      showVxSnackOn(
+        messenger,
+        errorText(error, 'Impossible de répondre à la demande.'),
+        icon: Icons.error_outline_rounded,
+      );
     } finally {
       if (mounted) setState(() => _answering.remove(id));
     }
@@ -207,7 +215,12 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
 /// A conversation: avatar (or the group's icon), name, last message (« Vous : … » when it is
 /// mine), its date and the number of unread messages.
 class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({required this.conversation, required this.mine, required this.onPressed, this.autofocus = false});
+  const _ConversationTile({
+    required this.conversation,
+    required this.mine,
+    required this.onPressed,
+    this.autofocus = false,
+  });
 
   final ConversationSummary conversation;
   final bool mine;

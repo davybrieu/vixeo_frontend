@@ -91,7 +91,7 @@ class ApiClient {
     required String channelName,
   }) => _send(
     () => _dio.postUri<Map<String, dynamic>>(
-      Uri.parse(AppConfig.apiUrl.replaceAll(RegExp(r'/+$'), '') + '/api/broadcasting/auth'),
+      Uri.parse('${AppConfig.apiUrl.replaceAll(RegExp(r'/+$'), '')}/api/broadcasting/auth'),
       data: {'socket_id': socketId, 'channel_name': channelName},
     ),
   );

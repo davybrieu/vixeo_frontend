@@ -48,7 +48,10 @@ class _NewGroupScreenState extends ConsumerState<NewGroupScreen> {
       ref.invalidate(inboxProvider);
       context.pushReplacement(conversationLocation(id));
     } catch (error) {
-      if (mounted) showVxSnack(context, errorText(error, 'Le groupe n’a pas pu être créé.'), icon: Icons.error_outline_rounded);
+      if (mounted) {
+        final message = errorText(error, 'Le groupe n’a pas pu être créé.');
+        showVxSnack(context, message, icon: Icons.error_outline_rounded);
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -153,7 +156,10 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       await _controller.change(action);
       if (mounted) showVxSnack(context, done);
     } catch (error) {
-      if (mounted) showVxSnack(context, errorText(error, 'Le groupe n’a pas pu être modifié.'), icon: Icons.error_outline_rounded);
+      if (mounted) {
+        final message = errorText(error, 'Le groupe n’a pas pu être modifié.');
+        showVxSnack(context, message, icon: Icons.error_outline_rounded);
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -166,7 +172,11 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       message: '${member.displayName} pourra gérer le groupe ; vous deviendrez membre.',
       confirm: 'Transmettre',
     );
-    if (ok) await _change((repository) => repository.transferAdmin(widget.id, member.username), '${member.displayName} gère le groupe');
+    if (!ok) return;
+    await _change(
+      (repository) => repository.transferAdmin(widget.id, member.username),
+      '${member.displayName} gère le groupe',
+    );
   }
 
   Future<void> _remove(ChatMember member) async {
@@ -176,7 +186,11 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       confirm: 'Retirer',
       danger: true,
     );
-    if (ok) await _change((repository) => repository.removeMember(widget.id, member.username), '${member.displayName} a été retiré du groupe');
+    if (!ok) return;
+    await _change(
+      (repository) => repository.removeMember(widget.id, member.username),
+      '${member.displayName} a été retiré du groupe',
+    );
   }
 
   Future<void> _leave() async {
@@ -196,7 +210,9 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       showVxSnack(context, 'Vous avez quitté le groupe');
       context.go('/messages');
     } catch (error) {
-      if (mounted) showVxSnack(context, errorText(error, 'Impossible de quitter le groupe.'), icon: Icons.error_outline_rounded);
+      if (mounted) {
+        showVxSnack(context, errorText(error, 'Impossible de quitter le groupe.'), icon: Icons.error_outline_rounded);
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -241,7 +257,10 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                     dense: true,
                     onPressed: _busy || renamed.length < 2 || renamed == page.name
                         ? null
-                        : () => _change((repository) => repository.rename(widget.id, renamed), 'Nom du groupe enregistré'),
+                        : () => _change(
+                            (repository) => repository.rename(widget.id, renamed),
+                            'Nom du groupe enregistré',
+                          ),
                   ),
                 ),
               ],
@@ -309,7 +328,9 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
           ),
         ];
       }(),
-      AsyncValue(:final error?) => [ErrorPanel(error: error, onRetry: () => ref.invalidate(conversationProvider(widget.id)))],
+      AsyncValue(:final error?) => [
+        ErrorPanel(error: error, onRetry: () => ref.invalidate(conversationProvider(widget.id))),
+      ],
       _ => [
         Padding(
           padding: EdgeInsets.only(top: layout.space(VxSpace.xxl)),

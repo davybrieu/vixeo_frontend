@@ -41,7 +41,13 @@ class _FakeMessages extends MessagesRepository {
   @override
   Future<({List<ConversationSummary> conversations, int unreadCount})> conversations() async => (
     conversations: [
-      ConversationSummary(id: 5, participants: const [_max], lastMessage: 'À ce soir', lastSenderId: 2, updatedAt: DateTime.now()),
+      ConversationSummary(
+        id: 5,
+        participants: const [_max],
+        lastMessage: 'À ce soir',
+        lastSenderId: 2,
+        updatedAt: DateTime.now(),
+      ),
       ConversationSummary(
         id: 6,
         isGroup: true,
