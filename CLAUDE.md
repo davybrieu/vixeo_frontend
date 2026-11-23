@@ -90,7 +90,7 @@ lib/
     profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
     library/     synchro par profil (Ma liste, J’aime ❤, personnes suivies, vus, « Continuer à
-                 regarder »), page Ma liste (aussi « Favoris »)
+                 regarder »), page Ma liste (aussi « Mes J’aime »)
     search/      recherche (par texte, ou par filtres seuls), filtres (type, genre, années, note) et tri,
                  recherches récentes synchronisées (search_history.dart)
     playback/    lecteur (PlayerScreen, commun à toutes les plateformes), moteurs de lecture
@@ -132,6 +132,11 @@ lib/
 - **État** : Riverpod 3 (`Provider`, `FutureProvider.family`, `Notifier`, `AsyncNotifier`), sans
   génération de code. Les providers du catalogue surveillent le profil actif : changer de profil
   recharge les données (l'API filtre selon l'âge du profil).
+- **Jamais d'ancienne adresse** (demande du développeur, 23/11/2026) : quand une page change
+  d'adresse ou disparaît, l'ancienne adresse est supprimée (ni redirection ni alias) ; supprimés
+  le 23/11/2026 : `/@pseudo`, `/films`, `/series`, `/tv-live`, `/profils/gestion`,
+  `/profil/avatar`, `/profil/controle-parental`, `/profil/code-pin`, `/profil/connexions`,
+  `/profil/tmdb`, `/profil/notes`, `/profil/social/favoris`.
 - **Navigation** : go_router. La connexion est la page d'entrée ; le routeur redirige vers
   `/connexion` tant qu'on n'est pas connecté, puis vers `/profils` tant qu'aucun profil n'est choisi.
   Le routeur n'écoute que le statut de connexion et la présence d'un profil : modifier le profil
@@ -156,7 +161,7 @@ lib/
   mènent à l'accueil (`liveTvOnly`, `router.dart`). Le code et l'API de la TV restent ; les tests
   des chaînes la réaffichent avec `liveTvProvider.overrideWithValue(true)`.
 - **TV en direct** (`features/tv`, API : `vixeo_backend/docs/tv-direct.md`) : **pas de page « TV »
-  ni d'onglet** (supprimés, demande du développeur ; `/tv-live` redirige vers `/recherche`). Les
+  ni d'onglet** (supprimés, demande du développeur). Les
   chaînes sont sur l'accueil (**quatre rangées** « Chaînes TV généralistes », « … sport »,
   « … info », « … enfants », demande du développeur : `channelSections` classe les chaînes selon le
   nom de leur catégorie, mots-clés sans accents, 24 par rangée, rangée vide masquée ; aucune
@@ -241,11 +246,9 @@ lib/
   « Sécurité » (« Ajouter un code PIN » / « Retirer le code PIN » : libellés courts, lisibles en
   entier sur téléphone), « Enregistrer les modifications » et « Supprimer le profil » (confirmation ; jamais le dernier). Contrôle parental
   activé : le code PIN parental est demandé pour créer, supprimer et changer les restrictions.
-  `/profils/gestion` redirige vers `/profils`.
   Test : `test/profiles_screen_test.dart`.
 - **Contrôle parental** (API : `vixeo_backend/docs/controle-parental.md`) : **plus de page ni de
-  tuile « Contrôle parental » ni « Code PIN »** (supprimées, demande du développeur ;
-  `/profil/controle-parental` et `/profil/code-pin` redirigent vers `/profil/compte`). Les
+  tuile « Contrôle parental » ni « Code PIN »** (supprimées, demande du développeur). Les
   **restrictions** d'un profil (âge maximum, titres sans classification) sont dans
   « Ajouter / Modifier le profil » (section « Restrictions ») ; le **code PIN parental** du compte
   est dans « Mon compte » (`ParentalPinSection`, `parental_pin.dart` : « Activer », ou « Changer
@@ -666,7 +669,7 @@ lib/
   (40 au minimum), puis le rail défile avec une barre (`_Rail`, `shell/app_shell.dart`). Test :
   `test/profile_features_test.dart`.
 - **Pas de pages « Films » ni « Séries »** (supprimées, demande du développeur) : ni route, ni
-  onglet, ni entrée du rail ; `/films` et `/series` redirigent vers `/accueil`. `HomeScreen` et
+  onglet, ni entrée du rail. `HomeScreen` et
   `homeProvider` n'ont plus de paramètre `type`. Pour ne voir que les films ou les séries : le
   filtre de type de la recherche. Ne pas les réintroduire.
 - **« J'aime » ❤ et personnes suivies** (demande du développeur, 20/11/2026 ; **le cœur est un
@@ -681,7 +684,7 @@ lib/
   « Vous suivez … », « Vous ne suivez plus … ». Page « Profil » : rangées « Mes J’aime » (affiches) et
   « Personnes suivies » (`ProfilePeopleSection`, photos rondes `PersonCard`) entre « Ma liste » et
   « Mes avis » ; « Voir tout » : `/profil/social/aimes` (`MyListScreen(liked: true)`, recherche et
-  filtres de « Ma liste » ; `favoris`, l'ancienne adresse, marche encore) et `/profil/social/personnes` (grille). Page d'un membre : « Ses J’aime »
+  filtres de « Ma liste ») et `/profil/social/personnes` (grille). Page d'un membre : « Ses J’aime »
   et « Personnes suivies » (`socialLikedProvider`, `socialPeopleProvider`, API
   `/social/profiles/{username}/liked` et `/people`). Tests : `test/profile_features_test.dart`,
   `test/profile_screen_test.dart`, `test/models_test.dart`.
@@ -694,8 +697,8 @@ lib/
 - **Avis** (`features/tmdb`, nom historique ; API : `vixeo_backend/docs/avis.md`) : tout profil
   connecté note, modifie et supprime ses avis (`canRateProvider` = connecté avec un profil),
   **gardés par Vixeo seulement**. **Plus de liaison d'un compte TMDb ni de synchronisation**
-  (supprimées, demande du développeur, 20/11/2026 : ni page ni tuile « Connexions » ;
-  `/profil/connexions` et `/profil/tmdb` mènent à « Paramètres » ; ne pas les réintroduire).
+  (supprimées, demande du développeur, 20/11/2026 : ni page ni tuile « Connexions » ; ne pas les
+  réintroduire).
   **Films, séries et épisodes** (avis d'épisodes supprimés le 20/11/2026 puis **rétablis le
   21/11/2026**, demande du développeur) : étoile `RateEpisodeButton` en haut à droite de chaque
   carte d'épisode (rond sombre, « Noter l’épisode 3 »), badge « Ma note : 8/10 » après
@@ -720,7 +723,7 @@ lib/
   la même page que « Noter », `RatingSubject.of(item)`) ; « Enregistrer » et « Supprimer »
   (confirmation) ramènent à la liste, « Voir la fiche » ouvre le titre. Toutes les notes sont chargées d'un coup
   (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche et
-  « Avis ». Les notes vont de 0,5 à 10. Ancienne adresse `/profil/notes` redirigée.
+  « Avis ». Les notes vont de 0,5 à 10.
 - **Notes des titres : IMDb, sinon TMDb** (`features/ratings`, demande du développeur,
   21/11/2026 ; API : `vixeo_backend/docs/notes.md`). **Plus de « Source des notes »** (supprimé le
   21/11/2026 : réglage `rating_source`, `RatingSource`, `RatingsLoader`). **Les autres sites
@@ -859,7 +862,7 @@ lib/
   nouveau profil (y compris celui créé à l'inscription) reçoit un avatar du catalogue au hasard
   (côté API) ; l'avatar se choisit dans « Ajouter / Modifier le profil » (« Qui regarde ? » →
   « Gérer les profils ») : **plus de page ni de tuile « Avatar » dans les paramètres** (demande
-  du développeur, `/profil/avatar` redirige vers `/parametres`). L'initiale reste affichée pour un
+  du développeur). L'initiale reste affichée pour un
   ancien profil sans avatar.
 - **Pages de profil** (demande du développeur) : « Profil » (onglet `/profil`, `ProfileScreen`)
   et la page d'un membre (`/membre/:username`, `PublicProfileScreen`) sont **la même page** :
@@ -901,8 +904,8 @@ lib/
   site avec l'empreinte du certificat de release, `flutter_deeplinking_enabled`) : alias
   `.ProfileLinkActivity` du manifeste (`pathAdvancedPattern="/[A-Za-z0-9_]+"`, **Android 12 et
   plus** seulement, `values-v31/bools.xml` : avant, l'attribut serait ignoré et toutes les pages du
-  site s'ouvriraient dans l'appli ; ces versions ouvrent la page du site), plus l'ancienne adresse
-  `/@pseudo` (filtre `pathPrefix`, toutes versions, utilisée par « Ouvrir dans Vixeo » du site).
+  site s'ouvriraient dans l'appli ; ces versions ouvrent la page du site), plus `/membre/pseudo`, la
+  page de l'appli (filtre `pathPrefix`, toutes versions, utilisée par « Ouvrir dans Vixeo » du site).
   Le routeur en fait `/membre/pseudo` (`memberOfLink`), ou `/profil` pour mon propre profil :
   `/pseudo` est **la dernière route** (`profileLinkRoute`, `profileLinkPath`), donc seulement un
   mot qui n'est aucune page de l'appli (l'API réserve ces mots : `Usernames::RESERVED`, à compléter

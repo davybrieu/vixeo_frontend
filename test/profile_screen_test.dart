@@ -470,11 +470,9 @@ void main() {
     expect(memberOfLink('/lea', unknownPage: true), 'lea');
     expect(memberOfLink('/lea'), isNull);
     expect(memberOfLink('/a', unknownPage: true), isNull);
-    // The old /@lea.
-    expect(memberOfLink('/@lea'), 'lea');
-    expect(memberOfLink('/%40Max_9'), 'Max_9');
-    expect(memberOfLink('/@lea/autre'), 'lea');
-    expect(memberOfLink('/@a'), isNull);
+    expect(memberOfLink('/Max_9', unknownPage: true), 'Max_9');
+    // No other address (old ones are not kept).
+    expect(memberOfLink('/@lea', unknownPage: true), isNull);
     expect(memberOfLink('/membre/lea'), isNull);
     expect(memberOfLink('/accueil'), isNull);
   });
@@ -502,9 +500,6 @@ void main() {
     router.go('/lea');
     await tester.pumpAndSettle();
     expect(find.text('Membre lea'), findsOneWidget);
-    router.go('/@max');
-    await tester.pumpAndSettle();
-    expect(find.text('Membre max'), findsOneWidget);
     router.go('/recherche');
     await tester.pumpAndSettle();
     expect(find.text('Recherche'), findsOneWidget);

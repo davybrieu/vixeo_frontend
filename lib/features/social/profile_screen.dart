@@ -860,7 +860,7 @@ class _PinnedEditor extends StatelessWidget {
 class SocialCollectionScreen extends ConsumerWidget {
   const SocialCollectionScreen({super.key, required this.section, this.username});
 
-  /// `list` / `liste`, `liked` / `aimes` (`favoris` before), `people` / `personnes`, `reviews` / `avis`, `followers` /
+  /// `list` / `liste`, `liked` / `aimes`, `people` / `personnes`, `reviews` / `avis`, `followers` /
   /// `abonnes`, `following` / `abonnements`.
   final String section;
 
@@ -876,8 +876,7 @@ class SocialCollectionScreen extends ConsumerWidget {
     final kind = switch (section) {
       'avis' || 'reviews' => _Kind.reviews,
       'liste' || 'list' => _Kind.list,
-      // « favoris »: the old address.
-      'aimes' || 'favoris' || 'liked' => _Kind.liked,
+      'aimes' || 'liked' => _Kind.liked,
       'personnes' || 'people' => _Kind.people,
       'abonnes' || 'followers' => _Kind.followers,
       _ => _Kind.following,

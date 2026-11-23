@@ -80,8 +80,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
-      // A profile's link (www.vixeo.app/pseudo, « Partager »; old /@pseudo), opened by Android in
-      // the app: a path no page of the app has (the last route, profileLinkPath).
+      // A profile's link (www.vixeo.app/pseudo, « Partager »), opened by Android in the app: a path
+      // no page of the app has (the last route, profileLinkPath).
       final member = memberOfLink(state.uri.path, unknownPage: state.fullPath == profileLinkPath);
       if (member != null) {
         final mine = member.toLowerCase() == session.profile?.username?.toLowerCase();
@@ -90,12 +90,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       const authPages = {'/connexion', '/inscription', '/mot-de-passe-oublie'};
       const guestAllowed = {
-        '/accueil', '/films', '/series', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/tv-live', '/membre',
+        '/accueil', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/membre',
       };
       const accountOnly = {
-        '/profils', '/profils/gestion', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes', '/profil/avatar', '/profil/controle-parental',
-        '/profil/code-pin', '/profil/parametres', '/profil/compte', '/profil/appareils',
-        '/profil/connexions', '/profil/tmdb', '/profil/notes', '/profil/notifications', '/profil/avance', '/profil/plugins', '/tv',
+        '/profils', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes',
+        '/profil/parametres', '/profil/compte', '/profil/appareils', '/profil/notifications', '/profil/avance', '/profil/plugins', '/tv',
         InboxScreen.location, ConversationsScreen.location, FeedScreen.location, '/listes', OnboardingScreen.location,
       };
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
@@ -149,7 +148,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       if (session.profile == null) {
         // « Qui regarde ? » and its « Ajouter / Modifier un profil » pages.
-        final picker = location == '/profils' || (location.startsWith('/profils/') && location != '/profils/gestion');
+        final picker = location == '/profils' || location.startsWith('/profils/');
         return picker ? null : '/profils';
       }
       if (authPages.contains(location) || location == '/profils' || location == '/demarrage') {
@@ -161,8 +160,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      // A profile's link (www.vixeo.app/@pseudo): the redirect above opens the profile.
-      GoRoute(path: '/@:username', redirect: (_, state) => '/membre/${state.pathParameters['username']}'),
       GoRoute(path: '/demarrage', builder: (_, state) => guarded(state.uri.path, const SplashScreen())),
       GoRoute(path: '/connexion', builder: (_, state) => guarded(state.uri.path, const LoginScreen())),
       GoRoute(path: '/inscription', builder: (_, state) => guarded(state.uri.path, const RegisterScreen())),
@@ -182,8 +179,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/accueil', pageBuilder: (_, state) => tab(state, const HomeScreen())),
           // The "Films" and "Séries" pages were removed: their former addresses lead to the home page.
-          GoRoute(path: '/films', redirect: (_, _) => '/accueil'),
-          GoRoute(path: '/series', redirect: (_, _) => '/accueil'),
           GoRoute(
             path: '/chaines-tv',
             redirect: liveTvOnly,
@@ -198,7 +193,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               title: state.uri.queryParameters['titre'],
             ),
           ),
-          GoRoute(path: '/tv-live', redirect: (_, _) => '/chaines-tv'),
           GoRoute(
             path: '/recherche',
             pageBuilder: (_, state) => tab(state, SearchScreen(initialType: state.extra as MediaType?)),
@@ -296,7 +290,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => GroupSettingsScreen(id: int.parse(state.pathParameters['id']!)),
           ),
           // Former page: managing is on « Qui regarde ? » now.
-          GoRoute(path: '/profils/gestion', redirect: (_, _) => '/profils'),
           GoRoute(path: '/parametres', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
           GoRoute(path: '/profil/social/edition', builder: (_, _) => const SocialProfileEditScreen()),
           GoRoute(path: '/membre/:username', builder: (_, state) => PublicProfileScreen(username: state.pathParameters['username'] ?? '')),
@@ -324,13 +317,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profil/social/:section', builder: (_, state) => SocialCollectionScreen(
             section: state.pathParameters['section'] ?? 'list',
           )),
-          // Former pages (developer's request): the avatar is changed in « Modifier le profil »
-          // (« Qui regarde ? » → « Gérer les profils »), the parental PIN on « Contrôle parental ».
-          GoRoute(path: '/profil/avatar', redirect: (_, _) => '/parametres'),
-          // Former pages (developer's request): the restrictions are in « Modifier le profil »
-          // (« Qui regarde ? » → « Gérer les profils »), the parental PIN in « Mon compte ».
-          GoRoute(path: '/profil/controle-parental', redirect: (_, _) => '/profil/compte'),
-          GoRoute(path: '/profil/code-pin', redirect: (_, _) => '/profil/compte'),
           GoRoute(
             path: ProfilePreferencesScreen.location,
             builder: (_, state) => ProfilePreferencesScreen(setting: state.uri.queryParameters['reglage']),
@@ -347,14 +333,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
           GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
-          // No more « Connexions » page: a TMDb account is no longer linked (developer's request).
-          GoRoute(path: '/profil/connexions', redirect: (_, _) => '/parametres'),
           GoRoute(path: NotificationsScreen.location, builder: (_, _) => const NotificationsScreen()),
           GoRoute(path: AdvancedSettingsScreen.location, builder: (_, _) => const AdvancedSettingsScreen()),
           // Plug-ins in the Stremio add-on format (vixeo_backend/docs/plugins.md).
           GoRoute(path: AddonsScreen.location, builder: (_, _) => const AddonsScreen()),
-          GoRoute(path: '/profil/tmdb', redirect: (_, _) => '/parametres'),
-          GoRoute(path: '/profil/notes', redirect: (_, _) => '/avis'),
           GoRoute(
             path: '/personne/:id',
             builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
@@ -516,17 +498,10 @@ const profileLinkPath = '/:username';
 /// never a page of the app (the API reserves them: vixeo_backend `Usernames::RESERVED`).
 GoRoute profileLinkRoute() => GoRoute(path: profileLinkPath, redirect: (_, _) => '/accueil');
 
-/// The username of a profile's link: `/lea` when [unknownPage] (the path matched
-/// [profileLinkRoute], no page of the app), or the old `/@lea`; null for any other path.
+/// The username of a profile's link, `/lea`, when [unknownPage] (the path matched
+/// [profileLinkRoute], no page of the app); null for any other path.
 String? memberOfLink(String path, {bool unknownPage = false}) {
-  final decoded = Uri.decodeComponent(path);
-  final String username;
-  if (decoded.startsWith('/@')) {
-    username = decoded.substring(2).split('/').first;
-  } else if (unknownPage) {
-    username = decoded.substring(1);
-  } else {
-    return null;
-  }
+  if (!unknownPage) return null;
+  final username = Uri.decodeComponent(path).substring(1);
   return RegExp(r'^[A-Za-z0-9_]{3,30}$').hasMatch(username) ? username : null;
 }
