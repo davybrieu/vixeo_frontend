@@ -15,7 +15,7 @@ import 'package:vixeo/features/catalog/details_screen.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
-import 'package:vixeo/features/tmdb/rating_dialog.dart';
+import 'package:vixeo/features/tmdb/rating_form.dart';
 import 'package:vixeo/features/tmdb/review_screen.dart';
 import 'package:vixeo/features/tmdb/reviews_screen.dart';
 import 'package:vixeo/features/tmdb/tmdb.dart';
@@ -88,8 +88,10 @@ Future<void> pumpPage(
       GoRoute(path: '/', builder: (_, _) => page),
       GoRoute(
         path: '/avis/:type/:id',
-        builder: (_, state) =>
-            ReviewScreen(target: ReviewScreen.targetOf(state.pathParameters, state.uri.queryParameters)),
+        builder: (_, state) => ReviewScreen(
+          target: ReviewScreen.targetOf(state.pathParameters, state.uri.queryParameters),
+          subject: state.extra as RatingSubject?,
+        ),
       ),
       GoRoute(
         path: '/titre/:type/:id',
@@ -157,8 +159,15 @@ void main() {
     expect(formatScore(7.5), '7,5');
   });
 
-  group('rating dialog', () {
-    Future<List<(MyRating?,)?>> open(WidgetTester tester, {MyRating? current, Size size = const Size(430, 900)}) async {
+  group('rating page (a page, not a dialog)', () {
+    const dune = RatingTarget.title(MediaType.movie, 438631);
+
+    Future<List<(MyRating?,)?>> open(
+      WidgetTester tester, {
+      MyRating? current,
+      Size size = const Size(430, 900),
+      FakeTmdb? tmdb,
+    }) async {
       final results = <(MyRating?,)?>[];
       await pumpPage(
         tester,
@@ -166,13 +175,19 @@ void main() {
           builder: (context) => Scaffold(
             body: Center(
               child: TextButton(
-                onPressed: () async => results.add(await showRatingDialog(context, name: 'Dune', current: current)),
+                onPressed: () async => results.add(
+                  await editRating(
+                    context,
+                    target: dune,
+                    subject: RatingSubject(title: 'Dune', subtitle: 'Film · 2021', current: current, titleLink: false),
+                  ),
+                ),
                 child: const Text('Ouvrir'),
               ),
             ),
           ),
         ),
-        tmdb: FakeTmdb(),
+        tmdb: tmdb ?? FakeTmdb(),
         size: size,
       );
       await tester.tap(find.text('Ouvrir'));
@@ -180,22 +195,34 @@ void main() {
       return results;
     }
 
-    testWidgets('stars by half points; saving returns the rating', (tester) async {
-      final results = await open(tester);
+    testWidgets('stars by half points; saving goes back with the rating', (tester) async {
+      final tmdb = FakeTmdb();
+      final results = await open(tester, tmdb: tmdb);
+      // A page of its own: its title, the movie, no dialog.
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.text('Noter'), findsOneWidget);
+      expect(find.text('Dune'), findsOneWidget);
+      expect(find.text('Film · 2021'), findsOneWidget);
+      expect(find.text('Voir la fiche'), findsNothing);
       expect(find.text('– / 10'), findsOneWidget);
 
       await tapStar(tester, 8);
-      expect(find.text('8 / 10'), findsOneWidget, reason: 'tapping a star does not close the dialog');
+      expect(find.text('8 / 10'), findsOneWidget, reason: 'tapping a star does not leave the page');
 
       await tester.tap(find.text('Enregistrer'));
       await tester.pumpAndSettle();
+      expect(tmdb.calls, ['rate movie/438631 8.0']);
       expect(results, [(const MyRating(8),)]);
+      // Back where it came from.
+      expect(find.text('Ouvrir'), findsOneWidget);
+      expect(find.text('Note enregistrée : 8/10'), findsOneWidget);
     });
 
     testWidgets('an optional comment, kept by Vixeo', (tester) async {
       final results = await open(tester, current: const MyRating(7, comment: 'Bien.'));
+      expect(find.text('Mon avis'), findsOneWidget);
       expect(find.text('Bien.'), findsOneWidget);
-      // No word on TMDb in the dialog (developer's request).
+      // No word on TMDb on the page (developer's request).
       expect(find.textContaining('TMDb'), findsNothing);
 
       await tester.enterText(find.byType(TextField), '  Une claque.  ');
@@ -227,19 +254,49 @@ void main() {
     testWidgets('the stars fit a small phone', (tester) async {
       await open(tester, current: const MyRating(8), size: const Size(320, 640));
 
-      final dialog = tester.getRect(find.byType(Dialog));
       final stars = tester.getRect(find.byType(RatingStars));
-      expect(stars.right, lessThanOrEqualTo(dialog.right));
-      expect(stars.left, greaterThanOrEqualTo(dialog.left));
+      expect(stars.right, lessThanOrEqualTo(320));
+      expect(stars.left, greaterThanOrEqualTo(0));
     });
 
-    testWidgets('an existing rating can be removed', (tester) async {
-      final results = await open(tester, current: const MyRating(7.5));
+    testWidgets('an existing rating can be removed, after a confirmation', (tester) async {
+      final tmdb = FakeTmdb();
+      final results = await open(tester, current: const MyRating(7.5), tmdb: tmdb);
       expect(find.text('7,5 / 10'), findsOneWidget);
 
       await tester.tap(find.text('Supprimer'));
       await tester.pumpAndSettle();
+      expect(find.text('Votre note et votre commentaire de « Dune » seront supprimés.'), findsOneWidget);
+      await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Supprimer')));
+      await tester.pumpAndSettle();
+      expect(tmdb.calls, ['unrate movie/438631']);
       expect(results, [(null,)]);
+      expect(find.text('Avis supprimé'), findsOneWidget);
+    });
+
+    testWidgets('an address without the title: the rating and the title are asked', (tester) async {
+      final tmdb = FakeTmdb()..ratings['movie/3'] = const MyRating(6, comment: 'Correct.');
+      await pumpPage(
+        tester,
+        Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(onPressed: () => context.push('/avis/movie/3'), child: const Text('Ouvrir')),
+          ),
+        ),
+        tmdb: tmdb,
+        overrides: [
+          titleProvider.overrideWith(
+            (ref, key) async => const TitleDetails(id: 3, type: MediaType.movie, title: 'Le Phare', year: 2019),
+          ),
+        ],
+      );
+      await tester.tap(find.text('Ouvrir'));
+      await tester.pumpAndSettle();
+      expect(find.text('Mon avis'), findsOneWidget);
+      expect(find.text('Le Phare'), findsOneWidget);
+      expect(find.text('Film · 2019'), findsOneWidget);
+      expect(find.text('6 / 10'), findsOneWidget);
+      expect(find.text('Correct.'), findsOneWidget);
     });
   });
 
@@ -282,6 +339,9 @@ void main() {
 
       await tester.tap(find.bySemanticsLabel('Noter'));
       await tester.pumpAndSettle();
+      // The page « Noter », not a dialog.
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.text('Le Phare'), findsOneWidget);
       await tapStar(tester, 8);
       await tester.tap(find.text('Enregistrer'));
       await tester.pumpAndSettle();
@@ -292,7 +352,10 @@ void main() {
 
       await tester.tap(find.bySemanticsLabel('Ma note : 8 sur 10, modifier'));
       await tester.pumpAndSettle();
+      expect(find.text('Mon avis'), findsOneWidget);
       await tester.tap(find.text('Supprimer'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Supprimer')));
       await tester.pumpAndSettle();
       expect(tmdb.calls.last, 'unrate movie/3');
       expect(find.bySemanticsLabel('Noter'), findsOneWidget);

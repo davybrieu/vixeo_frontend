@@ -33,7 +33,7 @@ import 'social_repository.dart';
 
 /// « Profil » (tab): the active profile's page (`ProfileView`). At the top, its avatar, name,
 /// @username, followers and following, bio and « Modifier le profil »; then its counters and its
-/// activity: « Ma liste » and « Favoris » ❤ (rows of posters), « Personnes suivies » (round
+/// activity: « Ma liste » and « J'aime » ❤ (rows of posters), « Personnes suivies » (round
 /// photos) and « Mes avis » (the latest reviews). The round arrow of each section opens it whole.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -81,7 +81,7 @@ class ProfileScreen extends ConsumerWidget {
               ),
           ]);
     }
-    // « Favoris » ❤ and « Personnes suivies », from the same synced library.
+    // « J'aime » ❤ and « Personnes suivies », from the same synced library.
     final AsyncValue<List<MediaItem>> liked;
     final AsyncValue<List<Person>> people;
     if (library.value case final state?) {
@@ -178,10 +178,10 @@ class ProfileScreen extends ConsumerWidget {
               onSeeAll: () => context.push('/ma-liste'),
             ),
             ProfileTitlesSection(
-              title: 'Favoris',
+              title: 'Mes J’aime',
               titles: liked,
-              emptyMessage: 'Ajoutez des films et des séries à vos favoris avec le cœur de leur fiche : ils apparaîtront ici.',
-              onSeeAll: () => context.push('/profil/social/favoris'),
+              emptyMessage: 'Aimez des films et des séries avec le cœur de leur fiche : ils apparaîtront ici.',
+              onSeeAll: () => context.push('/profil/social/aimes'),
             ),
             ProfilePeopleSection(
               title: 'Personnes suivies',
@@ -380,13 +380,13 @@ class PublicProfileScreen extends ConsumerWidget {
         onSeeAll: () => context.push(_section('list')),
       ),
       ProfileTitlesSection(
-        title: 'Ses favoris',
+        title: 'Ses J’aime',
         titles: switch (liked.value) {
           final list? => withCatalogDetails(ref, list.take(profileTitlesShown).toList()),
           null when liked.hasError => AsyncError<List<MediaItem>>(liked.error!, StackTrace.empty),
           null => const AsyncLoading<List<MediaItem>>(),
         },
-        emptyMessage: 'Aucun favori pour l’instant.',
+        emptyMessage: 'Aucun J’aime pour l’instant.',
         onSeeAll: () => context.push(_section('liked')),
       ),
       ProfilePeopleSection(
@@ -431,9 +431,9 @@ class _PrivateAccount extends StatelessWidget {
                   SizedBox(height: layout.space(VxSpace.xxs)),
                   Text(
                     requested
-                        ? 'Votre demande d’abonnement est envoyée : sa liste, ses favoris et ses avis '
+                        ? 'Votre demande d’abonnement est envoyée : sa liste, ses J’aime et ses avis '
                               's’afficheront quand @${profile.username} l’aura acceptée.'
-                        : 'Suivez @${profile.username} pour voir sa liste, ses favoris, les personnes '
+                        : 'Suivez @${profile.username} pour voir sa liste, ses J’aime, les personnes '
                               'suivies et ses avis.',
                     style: VxText.body(layout.bodySize, color: VxColors.textSecondary),
                   ),
@@ -730,7 +730,7 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
               SettingsSwitchRow(
                 label: 'Compte privé',
                 detail:
-                    'Seuls les abonnés que vous acceptez voient votre liste, vos favoris, les personnes suivies, '
+                    'Seuls les abonnés que vous acceptez voient votre liste, vos J’aime, les personnes suivies, '
                     'vos avis, vos abonnés et vos abonnements.',
                 value: _private,
                 onChanged: (value) => setState(() => _private = value),
@@ -812,7 +812,7 @@ class _PinnedEditor extends StatelessWidget {
                       right: -6,
                       child: VxFocusable(
                         borderRadius: 16,
-                        semanticLabel: 'Retirer ${titles[i].title} des favoris',
+                        semanticLabel: 'Retirer ${titles[i].title} de mes 4 favoris',
                         onPressed: () => onRemove(i),
                         child: Container(
                           width: 28,
@@ -854,13 +854,13 @@ class _PinnedEditor extends StatelessWidget {
 /// The whole list, favorites, followed people, reviews, followers or followed profiles of a member
 /// (`/membre/:username/list`…) or of the active profile (`/profil/social/abonnes`…). The list, the
 /// favorites and the reviews are the pages of « Ma liste » and « Mes avis » (`MyListScreen`,
-/// `ReviewsScreen`: search, filters, order), « Sa liste », « Ses favoris » and « Ses avis » for a
+/// `ReviewsScreen`: search, filters, order), « Sa liste », « Ses J'aime » and « Ses avis » for a
 /// member; followed people: their round photos in a grid; followers and followed profiles: back
 /// button, title and the members (`AccountTile`).
 class SocialCollectionScreen extends ConsumerWidget {
   const SocialCollectionScreen({super.key, required this.section, this.username});
 
-  /// `list` / `liste`, `liked` / `favoris`, `people` / `personnes`, `reviews` / `avis`, `followers` /
+  /// `list` / `liste`, `liked` / `aimes` (`favoris` before), `people` / `personnes`, `reviews` / `avis`, `followers` /
   /// `abonnes`, `following` / `abonnements`.
   final String section;
 
@@ -876,7 +876,8 @@ class SocialCollectionScreen extends ConsumerWidget {
     final kind = switch (section) {
       'avis' || 'reviews' => _Kind.reviews,
       'liste' || 'list' => _Kind.list,
-      'favoris' || 'liked' => _Kind.liked,
+      // « favoris »: the old address.
+      'aimes' || 'favoris' || 'liked' => _Kind.liked,
       'personnes' || 'people' => _Kind.people,
       'abonnes' || 'followers' => _Kind.followers,
       _ => _Kind.following,

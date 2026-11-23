@@ -11,7 +11,7 @@ import '../../core/widgets/focusable.dart';
 import '../catalog/models.dart';
 import '../catalog/widgets.dart' show titlePath;
 import '../social/profile_view.dart';
-import '../tmdb/rating_dialog.dart' show StarRow;
+import '../tmdb/rating_form.dart' show StarRow;
 import '../tmdb/tmdb.dart' show formatScore;
 import 'actions.dart' show newListLocation;
 import 'network.dart';

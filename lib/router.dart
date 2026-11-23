@@ -216,7 +216,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/avis/:type/:id',
             builder: (_, state) =>
-                ReviewScreen(target: ReviewScreen.targetOf(state.pathParameters, state.uri.queryParameters)),
+                ReviewScreen(
+                  target: ReviewScreen.targetOf(state.pathParameters, state.uri.queryParameters),
+                  // What the caller already knows (title, rating): never in the address.
+                  subject: state.extra is RatingSubject ? state.extra! as RatingSubject : null,
+                ),
           ),
           // « Notifications »: follow requests, next episodes, what other members did (not for a
           // child's profile).

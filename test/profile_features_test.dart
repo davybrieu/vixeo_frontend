@@ -131,17 +131,17 @@ void main() {
     expect(find.byIcon(Icons.bookmark_add_outlined), findsOneWidget);
   });
 
-  testWidgets('the heart adds to and removes from « Favoris », apart from « Ma liste »', (tester) async {
+  testWidgets('the heart is a like (« J’aime »), apart from « Ma liste »', (tester) async {
     await tester.pumpWidget(app(const LikedButton(item: movie)));
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
-    expect(find.bySemanticsLabel('Ajouter aux favoris'), findsOneWidget);
+    expect(find.bySemanticsLabel('J’aime'), findsOneWidget);
 
     await tester.tap(find.byType(VxIconAction));
     await tester.pumpAndSettle();
-    expect(find.text('Ajouté à vos favoris'), findsOneWidget);
-    expect(find.bySemanticsLabel('Retirer des favoris'), findsOneWidget);
+    expect(find.text('Ajouté à vos J’aime'), findsOneWidget);
+    expect(find.bySemanticsLabel('Je n’aime plus'), findsOneWidget);
     final container = ProviderScope.containerOf(tester.element(find.byType(LikedButton)));
     final state = container.read(libraryProvider).value!;
     expect(state.liked.map((i) => i.title), ['Nord Sauvage']);
@@ -149,7 +149,7 @@ void main() {
 
     await tester.tap(find.byType(VxIconAction));
     await tester.pumpAndSettle();
-    expect(find.text('Retiré de vos favoris'), findsOneWidget);
+    expect(find.text('Retiré de vos J’aime'), findsOneWidget);
     expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
   });
 

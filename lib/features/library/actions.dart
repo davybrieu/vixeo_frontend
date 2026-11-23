@@ -41,7 +41,8 @@ Future<void> toggleWatched(BuildContext context, MediaItem item) async {
   }
 }
 
-/// Adds the title to « Favoris » ❤, or removes it, then confirms with an alert.
+/// « J'aime » ❤ on a title (a like, not favorites: developer's request, 23/11/2026), or no longer,
+/// then confirms with an alert.
 Future<void> toggleLiked(BuildContext context, MediaItem item) async {
   final container = ProviderScope.containerOf(context, listen: false);
   final wasLiked = container.read(libraryProvider).value?.forItem(item)?.isLiked ?? false;
@@ -50,7 +51,7 @@ Future<void> toggleLiked(BuildContext context, MediaItem item) async {
     if (context.mounted) {
       showVxSnack(
         context,
-        wasLiked ? 'Retiré de vos favoris' : 'Ajouté à vos favoris',
+        wasLiked ? 'Retiré de vos J’aime' : 'Ajouté à vos J’aime',
         icon: wasLiked ? Icons.heart_broken_outlined : Icons.favorite_rounded,
       );
     }
@@ -77,7 +78,7 @@ Future<void> toggleFollowed(BuildContext context, Person person) async {
   }
 }
 
-/// « Favoris » ❤ toggle: the same round icon-only button as Ma liste and Vu.
+/// « J'aime » ❤ toggle (a like): the same round icon-only button as Ma liste and Vu.
 class LikedButton extends ConsumerWidget {
   const LikedButton({super.key, required this.item});
 
@@ -88,7 +89,7 @@ class LikedButton extends ConsumerWidget {
     final liked = ref.watch(libraryProvider).value?.forItem(item)?.isLiked ?? false;
     return VxIconAction(
       icon: liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-      label: liked ? 'Retirer des favoris' : 'Ajouter aux favoris',
+      label: liked ? 'Je n’aime plus' : 'J’aime',
       active: liked,
       onPressed: () => toggleLiked(context, item),
     );

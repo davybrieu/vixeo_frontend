@@ -84,7 +84,12 @@ class _FakeNetwork extends NetworkRepository {
   final stored = <SocialComment>[];
 
   @override
-  Future<FeedPage> feed({int? before}) async => (
+  Future<FeedPage> feed({int? before}) async {
+    calls.add('following');
+    return _following;
+  }
+
+  FeedPage get _following => (
     items: [
       FeedItem.fromJson({'kind': 'review', 'activity_id': 10, 'created_at': '2026-11-23T09:00:00+00:00', 'review': _review()})!,
       FeedItem.fromJson({'kind': 'list', 'activity_id': 9, 'list': _list})!,
@@ -98,6 +103,25 @@ class _FakeNetwork extends NetworkRepository {
     ],
     next: null,
   );
+
+  /// « Pour toi »: a member I don't follow.
+  @override
+  Future<FeedPage> forYou({int page = 1}) async {
+    calls.add('for you $page');
+    return (
+      items: [
+        FeedItem.fromJson({
+          'kind': 'review',
+          'activity_id': 20,
+          'review': {
+            ..._review(id: 40, comment: 'Découvert grâce à Vixeo.'),
+            'author': {'id': 11, 'username': 'ines', 'name': 'Inès'},
+          },
+        })!,
+      ],
+      next: null,
+    );
+  }
 
   @override
   Future<List<Suggestion>> suggestions() async => [
@@ -146,7 +170,6 @@ Future<_FakeNetwork> _pump(WidgetTester tester, Widget home, {List<Override> ove
   final router = GoRouter(
     routes: [
       GoRoute(path: '/', builder: (_, _) => Scaffold(body: home)),
-      GoRoute(path: '/messages', builder: (_, _) => page('Page Messages')),
       GoRoute(path: '/avis/:id', builder: (_, state) => page('Avis ${state.pathParameters['id']}')),
       GoRoute(path: '/listes/:id', builder: (_, state) => page('Liste ${state.pathParameters['id']}')),
       GoRoute(path: '/titre/:type/:id', builder: (_, state) => page('Fiche ${state.pathParameters['id']}')),
@@ -336,10 +359,22 @@ void main() {
     });
   });
 
-  testWidgets('« Fil »: reviews, lists and titles watched by the followed members, accounts to follow', (tester) async {
-    await _pump(tester, const FeedScreen());
+  testWidgets('« Fil »: « Pour toi » first, then « Abonnements »', (tester) async {
+    final network = await _pump(tester, const FeedScreen());
 
     expect(find.text('Fil'), findsOneWidget);
+    // « Pour toi » by default: the whole network.
+    expect(_pressable('Pour toi, onglet 1 sur 2'), findsOneWidget);
+    expect(find.text('Découvert grâce à Vixeo.'), findsOneWidget);
+    expect(find.text('Inès'), findsOneWidget);
+    expect(network.calls, ['for you 1']);
+    // « Messages » has its own place in the navigation, not here.
+    expect(_pressable('Messages'), findsNothing);
+
+    await tester.tap(_pressable('Abonnements, onglet 2 sur 2'));
+    await tester.pumpAndSettle();
+    expect(network.calls, ['for you 1', 'following']);
+    expect(find.text('Découvert grâce à Vixeo.'), findsNothing);
     // A review: its author, its title, its stars, its comment.
     expect(find.text('Max'), findsWidgets);
     expect(find.text('Dune : Deuxième Partie'), findsOneWidget);
@@ -354,25 +389,26 @@ void main() {
     // Accounts to follow.
     expect(find.text('Comptes à suivre'), findsOneWidget);
     expect(find.text('82 % de goûts en commun'), findsOneWidget);
-
-    // « Messages » is the round button of the header (phone).
-    await tester.tap(_pressable('Messages'));
-    await tester.pumpAndSettle();
-    expect(find.text('Page Messages'), findsOneWidget);
   });
 
   testWidgets('a post opens its review, its list or its title', (tester) async {
-    await _pump(tester, const FeedScreen());
+    Future<void> following() async {
+      await _pump(tester, const FeedScreen());
+      await tester.tap(_pressable('Abonnements, onglet 2 sur 2'));
+      await tester.pumpAndSettle();
+    }
+
+    await following();
     await tester.tap(find.text('Une claque visuelle.'));
     await tester.pumpAndSettle();
     expect(find.text('Avis 31'), findsOneWidget);
 
-    await _pump(tester, const FeedScreen());
+    await following();
     await tester.tap(find.text('Mon top 10 de 2026'));
     await tester.pumpAndSettle();
     expect(find.text('Liste 3'), findsOneWidget);
 
-    await _pump(tester, const FeedScreen());
+    await following();
     await tester.tap(find.textContaining('Léa et Max ont vu'));
     await tester.pumpAndSettle();
     expect(find.text('Fiche 550'), findsOneWidget);

@@ -97,7 +97,7 @@ class _BackButton extends StatelessWidget {
   );
 }
 
-/// Ma liste / Favoris ❤ / Vu / Noter / Bande-annonce: the same round icon-only button for each action.
+/// Ma liste / J'aime ❤ / Vu / Noter / Bande-annonce: the same round icon-only button for each action.
 /// Each click confirms with an alert ("Supprimé de votre liste"…).
 class _Actions extends ConsumerWidget {
   const _Actions({required this.title});
@@ -117,7 +117,7 @@ class _Actions extends ConsumerWidget {
         if (!guest) FavoriteButton(item: item),
         if (!guest) LikedButton(item: item),
         if (!guest && title.type == MediaType.movie) WatchedButton(item: item),
-        if (!guest && ref.watch(canRateProvider)) RateTitleButton(type: title.type, id: title.id, name: title.title),
+        if (!guest && ref.watch(canRateProvider)) RateTitleButton(item: item),
         // The social network (not on a TV): put it in one of my lists, send it to a friend.
         if (social)
           VxIconAction(
@@ -293,6 +293,7 @@ class _EpisodesState extends ConsumerState<_Episodes> {
                             showName: widget.title.title,
                             episode: e,
                             value: myRatings[e.number],
+                            imageUrl: widget.title.backdropUrl,
                           )
                         : null,
                   );

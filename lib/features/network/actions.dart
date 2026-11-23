@@ -16,7 +16,7 @@ import '../messages/messages.dart' show ChatMember, inboxProvider, startConversa
 import '../messages/widgets.dart' show ChatAvatar, MemberSearchResults;
 import '../notifications/inbox.dart' show socialAvailable;
 import '../social/social_repository.dart';
-import '../tmdb/review_screen.dart' show ReviewScreen;
+import '../tmdb/review_screen.dart' show RatingSubject, ReviewScreen;
 import 'network.dart';
 import 'share_image.dart';
 
@@ -114,7 +114,7 @@ Future<void> showReviewMenu(BuildContext context, WidgetRef ref, SocialReview re
         sheetAction(
           Icons.edit_outlined,
           'Modifier mon avis',
-          () => context.push(ReviewScreen.location(item.target)),
+          () => context.push(ReviewScreen.location(item.target), extra: RatingSubject.of(item)),
         )
       else ...[
         sheetAction(Icons.flag_outlined, 'Signaler l’avis', () => report(context, ref, ReportSubject.review, review.id), danger: true),

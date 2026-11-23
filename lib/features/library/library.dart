@@ -77,7 +77,7 @@ class ProfileItem {
   final DateTime? lastEngagedAt;
   final bool isWatched;
 
-  /// In « Favoris » ❤ (movies and series).
+  /// Liked, « J'aime » ❤ (movies and series; the API's `liked` group).
   final bool isLiked;
   final DateTime? likedAt;
 
@@ -138,7 +138,7 @@ class LibraryState {
       items.values.where((i) => i.isFavorite).toList()
         ..sort((a, b) => (b.favoritedAt ?? DateTime(0)).compareTo(a.favoritedAt ?? DateTime(0)));
 
-  /// « Favoris » ❤: the movies and series liked, the most recently added first.
+  /// « J'aime » ❤: the movies and series liked, the most recently liked first.
   List<ProfileItem> get liked =>
       items.values.where((i) => i.isLiked && i.tmdbTitle != null).toList()
         ..sort((a, b) => (b.likedAt ?? DateTime(0)).compareTo(a.likedAt ?? DateTime(0)));
@@ -185,7 +185,7 @@ class LibraryController extends AsyncNotifier<LibraryState> {
     'favorite': {'value': value, 'at': _now()},
   });
 
-  /// Adds the title to « Favoris » ❤, or removes it.
+  /// Likes the title (« J'aime » ❤), or no longer.
   Future<void> setLiked(MediaItem item, bool value) => _push(item, {
     'liked': {'value': value, 'at': _now()},
   });

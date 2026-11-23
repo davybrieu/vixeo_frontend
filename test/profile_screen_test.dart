@@ -60,7 +60,7 @@ class _Library extends LibraryController {
     ),
     // Watched only: not in « Ma liste ».
     'tmdb|movie:550': const ProfileItem(source: 'tmdb', itemId: 'movie:550', type: 'movie', title: 'Fight Club'),
-    // In « Favoris » ❤ only.
+    // In « J'aime » ❤ only.
     'tmdb|movie:13': ProfileItem(
       source: 'tmdb',
       itemId: 'movie:13',
@@ -167,8 +167,8 @@ void main() {
     expect(series.dx, lessThan(movie.dx));
     expect(find.text('Fight Club'), findsNothing);
 
-    // « Favoris » ❤ and « Personnes suivies », apart from « Ma liste ».
-    expect(find.text('Favoris'), findsOneWidget);
+    // « J'aime » ❤ (a like, not favorites) and « Personnes suivies », apart from « Ma liste ».
+    expect(find.text('Mes J’aime'), findsOneWidget);
     expect(find.text('Forrest Gump'), findsWidgets);
     expect(find.text('Personnes suivies'), findsOneWidget);
     expect(find.text('Brad Pitt'), findsOneWidget);
@@ -191,9 +191,9 @@ void main() {
     expect(find.text('Page Mes avis'), findsOneWidget);
 
     await _pump(tester);
-    await tester.tap(_pressable('Voir tout : Favoris'));
+    await tester.tap(_pressable('Voir tout : Mes J’aime'));
     await tester.pumpAndSettle();
-    expect(find.text('Page favoris'), findsOneWidget);
+    expect(find.text('Page aimes'), findsOneWidget);
 
     await _pump(tester);
     await tester.tap(_pressable('Voir tout : Personnes suivies'));
@@ -218,7 +218,7 @@ void main() {
     expect(find.bySemanticsLabel('Sa liste : 1'), findsOneWidget);
     expect(find.text('Dune'), findsWidgets);
     expect(find.text('Fight Club'), findsOneWidget);
-    expect(find.text('Ses favoris'), findsOneWidget);
+    expect(find.text('Ses J’aime'), findsOneWidget);
     expect(find.text('Forrest Gump'), findsWidgets);
     expect(find.text('Personnes suivies'), findsOneWidget);
     expect(find.text('Brad Pitt'), findsOneWidget);
@@ -550,7 +550,7 @@ void main() {
     expect(find.byWidgetPredicate((w) => w is Icon && w.semanticLabel == 'Compte privé'), findsOneWidget);
     expect(find.text('Ce compte est privé'), findsOneWidget);
     // Its list, favorites and reviews are not asked for.
-    expect(find.text('Ses favoris'), findsNothing);
+    expect(find.text('Ses J’aime'), findsNothing);
     expect(find.text('Ses avis'), findsNothing);
     expect(find.text('Fight Club'), findsNothing);
 

@@ -11,7 +11,7 @@ import '../../core/device/layout.dart';
 import '../../core/share.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
-import '../tmdb/rating_dialog.dart' show StarRow;
+import '../tmdb/rating_form.dart' show StarRow;
 import '../tmdb/tmdb.dart' show formatScore;
 import 'network.dart';
 

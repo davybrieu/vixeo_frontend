@@ -10,6 +10,7 @@ import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
+import '../../core/widgets/tabs.dart';
 import '../../core/widgets/page_header.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
@@ -110,13 +111,10 @@ class _ProfileViewState extends State<ProfileView> {
             if (tabs.length > 1) ...[
               SizedBox(height: layout.sectionGap),
               ProfileColumn(
-                child: FocusTraversalGroup(
-                  policy: vxTraversalPolicy,
-                  child: _ProfileTabs(
-                    labels: [for (final t in tabs) t.label],
-                    selected: tab,
-                    onSelected: (i) => setState(() => _tab = i),
-                  ),
+                child: VxTabs(
+                  labels: [for (final t in tabs) t.label],
+                  selected: tab,
+                  onSelected: (i) => setState(() => _tab = i),
                 ),
               ),
             ],
@@ -126,60 +124,6 @@ class _ProfileViewState extends State<ProfileView> {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// The tabs of a profile page: a segmented bar (one press, or OK with the remote, changes the tab).
-class _ProfileTabs extends StatelessWidget {
-  const _ProfileTabs({required this.labels, required this.selected, required this.onSelected});
-
-  final List<String> labels;
-  final int selected;
-  final ValueChanged<int> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final radius = layout.size(VxRadius.button, tv: VxRadius.buttonTv);
-    return Container(
-      padding: EdgeInsets.all(layout.space(VxSpace.xxs)),
-      decoration: BoxDecoration(color: VxColors.surface, borderRadius: BorderRadius.circular(radius + 4)),
-      child: Row(
-        children: [
-          for (final (i, label) in labels.indexed)
-            Expanded(
-              child: Semantics(
-                selected: i == selected,
-                child: VxFocusable(
-                  borderRadius: radius,
-                  focusScale: 1.02,
-                  semanticLabel: '$label, onglet ${i + 1} sur ${labels.length}',
-                  onPressed: () => onSelected(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: EdgeInsets.symmetric(vertical: layout.space(VxSpace.xs)),
-                    decoration: BoxDecoration(
-                      color: i == selected ? VxColors.surfaceHigh : Colors.transparent,
-                      borderRadius: BorderRadius.circular(radius),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: VxText.body(
-                        layout.captionSize,
-                        weight: FontWeight.w700,
-                        color: i == selected ? VxColors.text : VxColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }

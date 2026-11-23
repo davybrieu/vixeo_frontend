@@ -9,8 +9,8 @@ import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../catalog/models.dart';
 import '../social/review_likes.dart';
-import '../tmdb/rating_dialog.dart' show StarRow;
-import '../tmdb/review_screen.dart' show ReviewScreen;
+import '../tmdb/rating_form.dart' show StarRow;
+import '../tmdb/review_screen.dart' show RatingSubject, ReviewScreen;
 import '../tmdb/tmdb.dart';
 import 'actions.dart';
 import 'comments.dart';
@@ -135,7 +135,7 @@ class _ReviewThreadScreenState extends ConsumerState<ReviewThreadScreen> {
               icon: Icons.edit_outlined,
               kind: VxButtonKind.outline,
               dense: true,
-              onPressed: () => context.push(ReviewScreen.location(item.target)),
+              onPressed: () => context.push(ReviewScreen.location(item.target), extra: RatingSubject.of(item)),
             ),
           ),
         ],

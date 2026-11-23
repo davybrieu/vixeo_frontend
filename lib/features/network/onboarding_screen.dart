@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
@@ -13,7 +12,7 @@ import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
 import '../notifications/inbox.dart' show socialAvailable;
-import '../tmdb/rating_dialog.dart' show showRatingDialog;
+import '../tmdb/review_screen.dart' show RatingSubject, editRating;
 import '../tmdb/tmdb.dart';
 import 'feed_screen.dart' show SuggestionCard;
 import 'network.dart';
@@ -42,33 +41,32 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _step = 0;
   bool _finishing = false;
 
-  /// What was rated here: `movie:550` → the rating.
-  final _rated = <String, double>{};
+  /// What was rated here: `movie:550` → the rating and comment.
+  final _rated = <String, MyRating>{};
 
+  /// The page « Noter » of [title] (no dialog); back here once saved.
   Future<void> _rate(MediaItem title) async {
     final key = itemIdOf(title.type, title.id);
-    final current = _rated[key];
-    final choice = await showRatingDialog(
+    final outcome = await editRating(
       context,
-      name: title.title,
-      subtitle: title.year == null ? null : '${title.year}',
-      current: current == null ? null : MyRating(current),
+      target: RatingTarget.title(title.type, title.id),
+      subject: RatingSubject(
+        title: title.title,
+        subtitle: [title.type == MediaType.movie ? 'Film' : 'Série', if (title.year != null) '${title.year}'].join(' · '),
+        imageUrl: title.posterUrl,
+        current: _rated[key],
+        titleLink: false,
+      ),
     );
-    if (choice == null || !mounted) return;
-    final (rating,) = choice;
-    final messenger = ScaffoldMessenger.of(context);
-    final target = RatingTarget.title(title.type, title.id);
-    try {
+    if (outcome == null || !mounted) return;
+    final (rating,) = outcome;
+    setState(() {
       if (rating == null) {
-        await ref.read(tmdbRatingsProvider).remove(target);
-        if (mounted) setState(() => _rated.remove(key));
+        _rated.remove(key);
       } else {
-        await ref.read(tmdbRatingsProvider).rate(target, rating);
-        if (mounted) setState(() => _rated[key] = rating.value);
+        _rated[key] = rating;
       }
-    } on ApiException catch (e) {
-      showVxSnackOn(messenger, e.message, icon: Icons.error_outline_rounded);
-    }
+    });
   }
 
   /// Done or skipped: never again for this profile, then the home page.
@@ -189,7 +187,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
               delegate: SliverChildBuilderDelegate(childCount: titles.length, (context, i) {
                 final title = titles[i];
-                final rating = _rated[itemIdOf(title.type, title.id)];
+                final rating = _rated[itemIdOf(title.type, title.id)]?.value;
                 return VxFocusable(
                   borderRadius: layout.size(VxRadius.poster, tv: 16),
                   semanticLabel: rating == null

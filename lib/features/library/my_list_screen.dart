@@ -22,7 +22,7 @@ import 'library.dart';
 /// the filters (type, genre, years) and the order of the search page, plus « Note » and « Mieux
 /// notés » on the rating each card shows (IMDb's, else TMDb's), applied here. With [username],
 /// « Sa liste »: another member's list (their profile page, `/membre/:username/list`), the same
-/// page without the channels. With [liked], « Favoris » ❤ (« Ses favoris » for a member): the
+/// page without the channels. With [liked], « J'aime » ❤ (« Ses J'aime » for a member): the
 /// same page for the movies and series liked, without the channels.
 class MyListScreen extends ConsumerStatefulWidget {
   const MyListScreen({super.key, this.username, this.liked = false});
@@ -30,7 +30,7 @@ class MyListScreen extends ConsumerStatefulWidget {
   /// A member's list; null: mine.
   final String? username;
 
-  /// « Favoris » ❤ instead of « Ma liste ».
+  /// « J'aime » ❤ (the titles liked) instead of « Ma liste ».
   final bool liked;
 
   @override
@@ -67,7 +67,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           VxPageHeader(
-            title: liked ? (member == null ? 'Favoris' : 'Ses favoris') : (member == null ? 'Ma liste' : 'Sa liste'),
+            title: liked ? (member == null ? 'Mes J’aime' : 'Ses J’aime') : (member == null ? 'Ma liste' : 'Sa liste'),
             // Opened from a profile page: a way back.
             back: GoRouter.maybeOf(context)?.canPop() ?? false,
             search: VxSearchField(
@@ -106,7 +106,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
     );
   }
 
-  /// A member's list or favorites ([provider]).
+  /// A member's list or likes ([provider]).
   Widget _member(BuildContext context, FutureProvider<List<MediaItem>> provider) => AsyncView(
     value: ref.watch(provider),
     onRetry: () => ref.invalidate(provider),
@@ -121,7 +121,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
     ),
   );
 
-  /// My list: channels (« Chaînes TV ») or titles, from the synced library. My favorites: titles.
+  /// My list: channels (« Chaînes TV ») or titles, from the synced library. My likes: titles.
   Widget _mine(BuildContext context) {
     final layout = Layout.of(context);
     return AsyncView(
@@ -164,7 +164,7 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
                             return const EmptyState(
                               icon: Icons.live_tv_outlined,
                               title: 'Aucune chaîne dans votre liste',
-                              message: 'Ajoutez des chaînes TV à vos favoris pour les retrouver ici.',
+                              message: 'Ajoutez des chaînes TV à votre liste pour les retrouver ici.',
                             );
                           }
                           return RefreshIndicator(
@@ -302,10 +302,10 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
       if (widget.liked) {
         return EmptyState(
           icon: Icons.favorite_border_rounded,
-          title: isEmpty ? (mine ? 'Aucun favori' : 'Aucun favori pour l’instant') : 'Aucun résultat',
+          title: isEmpty ? (mine ? 'Aucun J’aime' : 'Aucun J’aime pour l’instant') : 'Aucun résultat',
           message: isEmpty
-              ? (mine ? 'Ajoutez des films et des séries à vos favoris avec le cœur de leur fiche.' : null)
-              : 'Aucun favori ne correspond à cette recherche ou à ces filtres.',
+              ? (mine ? 'Aimez des films et des séries avec le cœur de leur fiche.' : null)
+              : 'Aucun titre aimé ne correspond à cette recherche ou à ces filtres.',
         );
       }
       return EmptyState(

@@ -2,119 +2,16 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/api_exception.dart';
-import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import 'tmdb.dart';
 
-/// Rates [target] (or changes / removes its rating and comment) in a dialog, saves them through
-/// the API, then confirms with an alert ("Note enregistrée : 8/10", "Note supprimée").
-Future<void> editRating(
-  BuildContext context, {
-  required RatingTarget target,
-  required String name,
-  String? subtitle,
-  MyRating? current,
-}) async {
-  final choice = await showRatingDialog(context, name: name, subtitle: subtitle, current: current);
-  if (choice == null || !context.mounted) return;
-  final (rating,) = choice;
-  final ratings = ProviderScope.containerOf(context, listen: false).read(tmdbRatingsProvider);
-  final messenger = ScaffoldMessenger.of(context);
-  try {
-    if (rating == null) {
-      await ratings.remove(target);
-      showVxSnackOn(messenger, 'Note supprimée', icon: Icons.star_outline_rounded);
-    } else {
-      await ratings.rate(target, rating);
-      showVxSnackOn(messenger, 'Note enregistrée : ${formatScore(rating.value)}/10', icon: Icons.star_rounded);
-    }
-  } on ApiException catch (e) {
-    showVxSnackOn(messenger, e.message, icon: Icons.error_outline_rounded);
-  }
-}
-
-/// Rating dialog: 10 stars, by half points (0.5 to 10), and an optional comment. Returns `(rating,)` to save, `(null,)` to remove the current rating, null when closed. TV:
-/// the stars have the focus, ← → change the rating, OK saves.
-Future<(MyRating?,)?> showRatingDialog(
-  BuildContext context, {
-  required String name,
-  String? subtitle,
-  MyRating? current,
-}) => showDialog<(MyRating?,)>(
-  context: context,
-  builder: (_) => _RatingDialog(name: name, subtitle: subtitle, current: current),
-);
-
-class _RatingDialog extends StatelessWidget {
-  const _RatingDialog({required this.name, this.subtitle, this.current});
-
-  final String name;
-  final String? subtitle;
-  final MyRating? current;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final s = layout.isLarge ? layout.tv(1) * 1.6 : 1.0;
-
-    return Dialog(
-      backgroundColor: VxColors.surface,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 480 * s),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(24 * s),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                current == null ? 'Noter' : 'Modifier mon avis',
-                style: VxText.body(14 * s, color: VxColors.textSecondary),
-              ),
-              SizedBox(height: 4 * s),
-              Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: VxText.title(22 * s)),
-              if (subtitle != null) ...[
-                SizedBox(height: 2 * s),
-                Text(subtitle!, style: VxText.body(14 * s, color: VxColors.textSoft)),
-              ],
-              SizedBox(height: 22 * s),
-              RatingForm(
-                current: current,
-                scale: s,
-                onSave: (rating) => Navigator.of(context).pop((rating,)),
-                actions: [
-                  if (current != null)
-                    VxButton(
-                      label: 'Supprimer',
-                      icon: Icons.delete_outline_rounded,
-                      kind: VxButtonKind.outline,
-                      expand: true,
-                      onPressed: () => Navigator.of(context).pop((null,)),
-                    ),
-                  VxButton(
-                    label: 'Annuler',
-                    kind: VxButtonKind.secondary,
-                    expand: true,
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The score, the stars (they have the focus) and the optional comment,
-/// then « Enregistrer » and [actions] under it: in the rating dialog and on the page of a review
-/// (« Mon avis »). [scale]: 1 on phones, the TV factor on large screens.
+/// The score, the stars (they have the focus) and the optional comment, « Contient des
+/// spoilers », then « Enregistrer » and [actions] under it: the form of the page « Noter » / « Mon
+/// avis » (review_screen.dart; no dialog, developer's request, 23/11/2026). [scale]: 1 on phones,
+/// the TV factor on large screens.
 class RatingForm extends StatefulWidget {
   const RatingForm({
     super.key,

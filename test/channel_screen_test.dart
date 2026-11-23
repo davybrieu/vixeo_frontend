@@ -100,7 +100,7 @@ void main() {
     expect(find.text('TF1'), findsOneWidget);
     expect(find.text('Généralistes'), findsOneWidget);
     expect(find.text('Regarder'), findsOneWidget);
-    expect(find.bySemanticsLabel('Ajouter aux favoris'), findsNothing);
+    expect(find.bySemanticsLabel('J’aime'), findsNothing);
     expect(find.text('En ce moment'), findsOneWidget);
     expect(find.text('Les infos du jour.'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);

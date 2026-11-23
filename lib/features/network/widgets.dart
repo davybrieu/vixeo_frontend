@@ -17,7 +17,7 @@ import '../profiles/avatars.dart';
 import '../social/profile_view.dart' show AccountTile, ProfileHeader;
 import '../social/review_likes.dart';
 import '../social/social_repository.dart';
-import '../tmdb/rating_dialog.dart' show StarRow;
+import '../tmdb/rating_form.dart' show StarRow;
 import '../tmdb/tmdb.dart';
 import 'actions.dart';
 import 'network.dart';

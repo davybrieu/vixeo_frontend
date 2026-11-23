@@ -500,6 +500,19 @@ class NetworkRepository {
     );
   }
 
+  /// « Pour toi »: the reviews and lists of the whole network, ranked by the API (1 first; `next`:
+  /// the following page).
+  Future<FeedPage> forYou({int page = 1}) async {
+    final json = await _api.get('/social/feed/for-you', query: {'page': page});
+    return (
+      items: [
+        for (final item in (json['data'] as List? ?? const []).whereType<Map<String, dynamic>>())
+          ?FeedItem.fromJson(item),
+      ],
+      next: json['next'] as int?,
+    );
+  }
+
   Future<List<Suggestion>> suggestions() async {
     final json = await _api.get('/social/suggestions');
     return [
@@ -682,15 +695,39 @@ const fallbackReportReasons = <ReportReason>[
 ];
 
 /// The feed: pages read one after the other ([Feed.loadMore]).
-final feedProvider = AsyncNotifierProvider.autoDispose<Feed, FeedPage>(Feed.new);
+/// The two tabs of « Fil » (developer's request, 23/11/2026): « Pour toi » (the default) and
+/// « Abonnements ».
+enum FeedTab {
+  forYou('Pour toi'),
+  following('Abonnements');
+
+  const FeedTab(this.label);
+
+  final String label;
+}
+
+/// A tab of the feed, page after page. `ref.invalidate(feedProvider)` reloads both.
+final feedProvider = AsyncNotifierProvider.autoDispose.family<Feed, FeedPage, FeedTab>(Feed.new);
 
 class Feed extends AsyncNotifier<FeedPage> {
+  Feed(this.tab);
+
+  final FeedTab tab;
   bool _loading = false;
 
   @override
   Future<FeedPage> build() {
     ref.watch(sessionProvider.select((s) => s.profile?.id));
-    return ref.read(networkRepositoryProvider).feed();
+    return _page(null);
+  }
+
+  /// « Pour toi » is paged by number, « Abonnements » by the last activity.
+  Future<FeedPage> _page(int? next) {
+    final repository = ref.read(networkRepositoryProvider);
+    return switch (tab) {
+      FeedTab.forYou => repository.forYou(page: next ?? 1),
+      FeedTab.following => repository.feed(before: next),
+    };
   }
 
   bool get hasMore => state.value?.next != null;
@@ -701,7 +738,7 @@ class Feed extends AsyncNotifier<FeedPage> {
     if (current == null || current.next == null || _loading) return;
     _loading = true;
     try {
-      final page = await ref.read(networkRepositoryProvider).feed(before: current.next);
+      final page = await _page(current.next);
       if (!ref.mounted) return;
       state = AsyncData((items: [...current.items, ...page.items], next: page.next));
     } catch (_) {

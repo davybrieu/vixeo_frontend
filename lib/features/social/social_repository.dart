@@ -158,7 +158,7 @@ class SocialRepository {
     );
   }
 
-  /// A member's « Favoris » ❤ (movies and series), the most recently added first.
+  /// A member's « J'aime » ❤ (movies and series liked), the most recently liked first.
   Future<List<MediaItem>> liked(String username) async {
     final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/liked');
     return [
@@ -240,7 +240,7 @@ final socialTitlesProvider = FutureProvider.autoDispose.family<List<MediaItem>, 
   (ref, username) => ref.read(socialRepositoryProvider).titles(username),
 );
 
-/// A member's « Favoris » ❤ (movies and series), by username.
+/// A member's « J'aime » ❤ (movies and series liked), by username.
 final socialLikedProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>(
   (ref, username) => ref.read(socialRepositoryProvider).liked(username),
 );

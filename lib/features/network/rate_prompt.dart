@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
@@ -12,13 +11,14 @@ import '../auth/session.dart';
 import '../catalog/models.dart';
 import '../library/library.dart';
 import '../profiles/profile_preferences_screen.dart';
-import '../tmdb/rating_dialog.dart' show showRatingDialog;
+import '../tmdb/review_screen.dart' show RatingSubject, ReviewScreen;
 import '../tmdb/tmdb.dart';
 import 'network.dart';
 
 // The end of a movie or an episode (developer's request, 23/11/2026): the title is marked as
-// watched (« Vu », the diary), then a card proposes to rate it, with « Désactiver dans les
-// paramètres », which opens « Paramètres du profil » on « Proposer de noter à la fin ».
+// watched (« Vu », the diary), then a card proposes to rate it (« Noter » opens the rating page,
+// no dialog), with « Désactiver dans les paramètres », which opens « Paramètres du profil » on
+// « Proposer de noter à la fin ».
 
 /// What finished playing: a movie, or an episode ([season], [episode]) of a TV show.
 typedef FinishedTitle = ({MediaItem title, int? season, int? episode});
@@ -70,7 +70,7 @@ Future<bool> shouldProposeRating(WidgetRef ref, FinishedTitle finished) async {
     return false;
   }
   try {
-    return await ref.read(titleRatingProvider(ratingTargetOf(finished)).future) == null;
+    return await ref.read(myRatingProvider(ratingTargetOf(finished)).future) == null;
   } catch (_) {
     return false;
   }
@@ -89,33 +89,26 @@ class RateAfterWatchingCard extends ConsumerStatefulWidget {
 }
 
 class _RateAfterWatchingCardState extends ConsumerState<RateAfterWatchingCard> {
-  bool _saving = false;
-
   String get _name {
     final f = widget.finished;
     return f.episode == null ? f.title.title : '${f.title.title} · S${f.season} · É${f.episode}';
   }
 
-  Future<void> _rate() async {
-    final messenger = ScaffoldMessenger.of(context);
-    final choice = await showRatingDialog(
-      context,
-      name: _name,
-      subtitle: widget.finished.episode == null ? null : 'Épisode ${widget.finished.episode}',
+  /// The page « Noter » (no dialog), in place of the player: once saved, back to the title page.
+  void _rate() {
+    final f = widget.finished;
+    final episode = f.episode != null;
+    context.pushReplacement(
+      ReviewScreen.location(ratingTargetOf(f)),
+      extra: RatingSubject(
+        title: f.title.title,
+        subtitle: episode
+            ? 'Saison ${f.season}, épisode ${f.episode}'
+            : [f.title.type == MediaType.movie ? 'Film' : 'Série', if (f.title.year != null) '${f.title.year}'].join(' · '),
+        imageUrl: episode ? (f.title.backdropUrl ?? f.title.posterUrl) : f.title.posterUrl,
+        wide: episode,
+      ),
     );
-    final rating = choice?.$1;
-    if (rating == null || !mounted) return;
-    setState(() => _saving = true);
-    try {
-      await ref.read(tmdbRatingsProvider).rate(ratingTargetOf(widget.finished), rating);
-      showVxSnackOn(messenger, 'Note enregistrée : ${formatScore(rating.value)}/10', icon: Icons.star_rounded);
-      ref.invalidate(feedProvider);
-      widget.onClose();
-    } on ApiException catch (e) {
-      showVxSnackOn(messenger, e.message, icon: Icons.error_outline_rounded);
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
   }
 
   @override
@@ -177,13 +170,7 @@ class _RateAfterWatchingCardState extends ConsumerState<RateAfterWatchingCard> {
           Row(
             children: [
               Expanded(
-                child: VxButton(
-                  label: 'Noter',
-                  icon: Icons.star_rounded,
-                  dense: true,
-                  loading: _saving,
-                  onPressed: _rate,
-                ),
+                child: VxButton(label: 'Noter', icon: Icons.star_rounded, dense: true, onPressed: _rate),
               ),
               SizedBox(width: layout.space(VxSpace.xs)),
               Expanded(

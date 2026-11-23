@@ -198,7 +198,7 @@ class _LoginForm extends StatelessWidget {
             Text(large ? 'Connectez-vous' : 'Vos films et séries, sur tous vos écrans.', style: VxText.title(28)),
             const SizedBox(height: 8),
             Text(
-              'Connectez-vous pour retrouver vos profils, vos favoris et votre progression.',
+              'Connectez-vous pour retrouver vos profils, vos listes et votre progression.',
               style: VxText.body(15, color: VxColors.textSecondary),
             ),
             const SizedBox(height: 24),

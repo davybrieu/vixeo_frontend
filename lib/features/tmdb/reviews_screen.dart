@@ -14,7 +14,7 @@ import '../search/filter_bar.dart';
 import '../search/search_filters.dart' show ratingRangeLabel, yearRangeLabel;
 import '../social/review_likes.dart';
 import '../social/social_repository.dart' show socialReviewsProvider;
-import 'rating_dialog.dart';
+import 'rating_form.dart';
 import 'review_screen.dart';
 import 'tmdb.dart';
 
@@ -351,7 +351,9 @@ class ReviewRow extends StatelessWidget {
           '${item.label}, ${mine ? 'ma note' : 'note'} : ${formatScore(item.value)} sur 10'
           '${item.comment == null ? '' : ', ${item.comment}'}'
           '${likes > 0 ? ', ${likesLabel(likes)}' : ''}',
-      onPressed: () => context.push(mine ? ReviewScreen.location(item.target) : titlePath(item.mediaType, item.id)),
+      onPressed: () => mine
+          ? context.push(ReviewScreen.location(item.target), extra: RatingSubject.of(item))
+          : context.push(titlePath(item.mediaType, item.id)),
       child: Padding(
         padding: EdgeInsets.all(layout.space(VxSpace.xxs)),
         child: Row(

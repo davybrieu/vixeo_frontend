@@ -296,6 +296,16 @@ final seasonRatingsProvider = FutureProvider.autoDispose.family<Map<int, MyRatin
   return ref.read(tmdbRepositoryProvider).seasonRatings(profileId, key.$1, key.$2);
 });
 
+/// The profile's rating of a movie, a TV show or an episode (the API answers one episode with its
+/// season: one request, shared with the episode cards).
+final myRatingProvider = FutureProvider.autoDispose.family<MyRating?, RatingTarget>((ref, target) async {
+  if (target.isEpisode) {
+    final season = await ref.watch(seasonRatingsProvider((target.id, target.season!)).future);
+    return season[target.episode];
+  }
+  return ref.watch(titleRatingProvider(target).future);
+});
+
 /// Rates, updates or removes a rating (and its comment), then refreshes what shows it (title
 /// page, episodes, "Mes avis").
 final tmdbRatingsProvider = Provider<TmdbRatings>(TmdbRatings.new);

@@ -10,7 +10,7 @@ import '../../core/widgets/common.dart';
 import '../account/info_page.dart' show uiScale;
 import '../auth/session.dart';
 import '../notifications/inbox.dart' show socialAvailable;
-import '../tmdb/rating_dialog.dart' show SpoilerSwitch;
+import '../tmdb/rating_form.dart' show SpoilerSwitch;
 import 'actions.dart';
 import 'network.dart';
 import 'widgets.dart';
