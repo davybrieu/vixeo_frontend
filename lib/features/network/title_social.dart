@@ -150,6 +150,7 @@ class _Friends extends StatelessWidget {
                       children: [
                         AvatarTile(
                           avatarId: profile.avatar,
+                          photoUrl: profile.photoUrl,
                           initial: ProfileHeader.initialOf(profile.name),
                           size: avatar,
                           radius: avatar / 2,

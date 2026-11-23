@@ -13,13 +13,21 @@ import '../notifications/inbox.dart' show socialAvailable;
 
 /// A member of a conversation, or the sender of a request.
 class ChatMember {
-  const ChatMember({required this.id, required this.username, required this.name, this.avatar, this.isAdmin = false});
+  const ChatMember({
+    required this.id,
+    required this.username,
+    required this.name,
+    this.avatar,
+    this.photoUrl,
+    this.isAdmin = false,
+  });
 
   factory ChatMember.fromJson(Map<String, dynamic> json) => ChatMember(
     id: json['id'] as int? ?? 0,
     username: json['username'] as String? ?? '',
     name: json['name'] as String? ?? '',
     avatar: json['avatar'] as String?,
+    photoUrl: json['photo_url'] as String?,
     isAdmin: json['role'] == 'admin',
   );
 
@@ -33,6 +41,9 @@ class ChatMember {
   final String username;
   final String name;
   final String? avatar;
+
+  /// Its own photo, shown instead of [avatar].
+  final String? photoUrl;
 
   /// Runs the group (`role: admin`).
   final bool isAdmin;

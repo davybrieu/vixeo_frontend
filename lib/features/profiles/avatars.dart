@@ -117,19 +117,27 @@ class PixelAvatarPainter extends CustomPainter {
   bool shouldRepaint(PixelAvatarPainter oldDelegate) => oldDelegate.avatar != avatar;
 }
 
-/// Square avatar tile: the chosen avatar, or the initial on a color.
+/// Square avatar tile: the profile's own photo, else the chosen avatar, else the initial on a color.
 class AvatarTile extends ConsumerWidget {
   const AvatarTile({
     super.key,
     required this.avatarId,
     required this.initial,
     required this.size,
+    this.photoUrl,
+    this.photo,
     this.fallbackColor = VxColors.accent,
     this.fallbackInk = VxColors.onAccent,
     this.radius,
   });
 
   final String? avatarId;
+
+  /// The profile's own photo (`photo_url`), shown instead of the avatar.
+  final String? photoUrl;
+
+  /// A photo not sent yet (framed in « Modifier le profil »), shown before [photoUrl].
+  final Uint8List? photo;
   final String initial;
   final double size;
   final Color fallbackColor;
@@ -138,8 +146,25 @@ class AvatarTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final avatar = ref.watch(avatarByIdProvider(avatarId));
     final r = BorderRadius.circular(radius ?? size * 0.22);
+    final photo = this.photo;
+    if (photo != null || photoUrl != null) {
+      return ClipRRect(
+        borderRadius: r,
+        child: SizedBox.square(
+          dimension: size,
+          child: photo != null
+              ? Image.memory(photo, fit: BoxFit.cover, gaplessPlayback: true)
+              // The avatar if it can't be loaded.
+              : NetImage(
+                  url: photoUrl,
+                  seed: photoUrl.hashCode,
+                  fallback: AvatarTile(avatarId: avatarId, initial: initial, size: size, radius: radius),
+                ),
+        ),
+      );
+    }
+    final avatar = ref.watch(avatarByIdProvider(avatarId));
     if (avatar == null) {
       return Container(
         width: size,
@@ -177,5 +202,11 @@ class ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      AvatarTile(avatarId: profile?.avatar, initial: profile?.initial ?? '?', size: size, radius: radius);
+      AvatarTile(
+        avatarId: profile?.avatar,
+        photoUrl: profile?.photoUrl,
+        initial: profile?.initial ?? '?',
+        size: size,
+        radius: radius,
+      );
 }

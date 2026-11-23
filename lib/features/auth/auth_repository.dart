@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../core/api/api_client.dart';
 import '../../core/device/layout.dart';
 import 'models.dart';
@@ -116,6 +118,25 @@ class AuthRepository {
     '/profiles/$profileId',
     headers: {if (parentalPin != null && parentalPin.isNotEmpty) 'X-Parental-Pin': parentalPin},
   );
+
+  /// The profile's own photo (a framed square, PNG), shown instead of its avatar
+  /// (vixeo_backend/docs/social.md).
+  Future<Profile> uploadProfilePhoto(int profileId, Uint8List png) async {
+    final json = await _api.upload(
+      '/profiles/$profileId/photo',
+      field: 'photo',
+      stream: () => Stream.value(png),
+      length: png.length,
+      filename: 'photo.png',
+    );
+    return Profile.fromJson(json['data'] as Map<String, dynamic>);
+  }
+
+  /// Back to the avatar.
+  Future<Profile> deleteProfilePhoto(int profileId) async {
+    final json = await _api.delete('/profiles/$profileId/photo');
+    return Profile.fromJson(json['data'] as Map<String, dynamic>);
+  }
 
   /// Changes harmless profile fields (`name`, `avatar`, `poster_format`…).
   Future<Profile> updateProfile(int profileId, Map<String, Object?> fields) async {

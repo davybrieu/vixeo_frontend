@@ -19,6 +19,7 @@ import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
 import 'avatars.dart';
 import 'parental_pin.dart';
+import 'profile_photo.dart';
 import 'pin_pad.dart';
 import 'profiles_screen.dart';
 import 'settings_rows.dart';
@@ -37,7 +38,8 @@ int? effectiveMaxAge(Profile profile) => profile.maxAgeRating ?? (profile.isKid 
 
 /// « Ajouter un profil » and « Modifier le profil », opened from « Qui regarde ? » →
 /// « Gérer les profils » (demande du développeur, like other media centers): the avatar, name and
-/// pseudo as they will look, the name, the pseudo, the avatars by license, the restrictions
+/// pseudo as they will look, the name, the pseudo, « Photo de profil » (its own photo instead of the
+/// avatar, demande du développeur, 23/11/2026), the avatars by license, the restrictions
 /// (maximum age, unrated titles; no « profil enfant », demande du développeur), then (to change
 /// one) « Sécurité » (the profile's PIN) and « Supprimer le profil ». With parental control on, the
 /// parental PIN is asked to create or delete a profile and to change its restrictions
@@ -60,6 +62,12 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   final _name = TextEditingController();
   final _username = TextEditingController();
   String? _avatar;
+
+  /// A photo framed here, sent with « Enregistrer » / « Créer un profil ».
+  Uint8List? _newPhoto;
+
+  /// The profile's photo is to be removed (« Retirer la photo », or an avatar chosen).
+  bool _removePhoto = false;
   int? _maxAge;
   bool _allowUnrated = false;
   bool _ready = false;
@@ -81,6 +89,28 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
     for (final profile in profiles) {
       if (profile.id == widget.profileId) return profile;
     }
+    return null;
+  }
+
+  /// The profile shows a photo: a new one, or its own unless removed.
+  bool _hasPhoto(Profile? profile) => _newPhoto != null || (!_removePhoto && profile?.photoUrl != null);
+
+  Future<void> _choosePhoto() async {
+    final photo = await chooseProfilePhoto(context);
+    if (photo == null || !mounted) return;
+    setState(() {
+      _newPhoto = photo;
+      _removePhoto = false;
+    });
+  }
+
+  /// Sends the photo framed here, or removes the profile's: the profile as the API returns it, or
+  /// null when there is nothing to do.
+  Future<Profile?> _savePhoto(int profileId, Profile? before) async {
+    final repository = ref.read(authRepositoryProvider);
+    final photo = _newPhoto;
+    if (photo != null) return repository.uploadProfilePhoto(profileId, photo);
+    if (_removePhoto && before?.photoUrl != null) return repository.deleteProfilePhoto(profileId);
     return null;
   }
 
@@ -122,7 +152,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
     final repository = ref.read(authRepositoryProvider);
     try {
       if (_creating) {
-        await repository.createProfile(
+        final created = await repository.createProfile(
           name: name,
           username: username,
           avatar: _avatar,
@@ -130,6 +160,25 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           allowUnrated: _allowUnrated,
           parentalPin: parentalPin,
         );
+        // The profile exists: a photo that can't be sent doesn't keep the page (« Créer » again
+        // would make a second profile). It can be sent again from « Modifier le profil ».
+        String? photoError;
+        try {
+          await _savePhoto(created.id, null);
+        } on ApiException catch (e) {
+          photoError = e.field('photo') ?? e.message;
+        }
+        ref.invalidate(profilesProvider);
+        if (!mounted) return;
+        showVxSnack(
+          context,
+          photoError == null
+              ? 'Profil « $name » créé'
+              : 'Profil « $name » créé, mais la photo n’a pas été envoyée : $photoError',
+          icon: photoError == null ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded,
+        );
+        context.pop(true);
+        return;
       } else if (profile != null) {
         final fields = <String, Object?>{
           if (name != profile.name) 'name': name,
@@ -144,16 +193,20 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
         if (fields.isNotEmpty) {
           ref.read(sessionProvider.notifier).updateProfile(await repository.updateProfile(profile.id, fields));
         }
+        try {
+          final updated = await _savePhoto(profile.id, profile);
+          if (updated != null) ref.read(sessionProvider.notifier).updateProfile(updated);
+        } on ApiException {
+          // The other changes are saved: the page compares the photo with the profile read again.
+          ref.invalidate(profilesProvider);
+          rethrow;
+        }
       }
       ref.invalidate(profilesProvider);
       // The catalog is filtered with the active profile's limits: read again.
       if (restrictions) ref.invalidate(homeProvider);
       if (!mounted) return;
-      showVxSnack(
-        context,
-        _creating ? 'Profil « $name » créé' : 'Modifications enregistrées',
-        icon: Icons.check_circle_outline_rounded,
-      );
+      showVxSnack(context, 'Modifications enregistrées', icon: Icons.check_circle_outline_rounded);
       context.pop(true);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
@@ -307,6 +360,8 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
                 children: [
                   AvatarTile(
                     avatarId: _avatar,
+                    photo: _newPhoto,
+                    photoUrl: _removePhoto ? null : profile?.photoUrl,
                     initial: name.isEmpty ? '?' : name.characters.first.toUpperCase(),
                     size: 64 * s,
                     radius: 32 * s,
@@ -370,6 +425,20 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
             ],
           ),
         ),
+        if (canChooseProfilePhoto || _hasPhoto(profile)) ...[
+          SizedBox(height: gap),
+          _PhotoCard(
+            hasPhoto: _hasPhoto(profile),
+            error: error?.field('photo'),
+            onChoose: canChooseProfilePhoto && !_saving ? _choosePhoto : null,
+            onRemove: _saving
+                ? null
+                : () => setState(() {
+                    _newPhoto = null;
+                    _removePhoto = true;
+                  }),
+          ),
+        ],
         SizedBox(height: gap),
         VxCard(
           child: Column(
@@ -382,10 +451,16 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
                 onRetry: () => ref.invalidate(avatarCatalogProvider),
                 data: (licenses) => _AvatarGrid(
                   licenses: licenses,
-                  selected: _avatar,
+                  // With a photo, no avatar is shown: none is marked.
+                  selected: _hasPhoto(profile) ? null : _avatar,
                   // TV: the focus starts on the chosen avatar (a text field would open the keyboard).
                   autofocus: layout.isLarge,
-                  onPick: (id) => setState(() => _avatar = id),
+                  // An avatar chosen replaces the photo (« pour laisser le choix »).
+                  onPick: (id) => setState(() {
+                    _avatar = id;
+                    _newPhoto = null;
+                    _removePhoto = true;
+                  }),
                 ),
               ),
             ],
@@ -464,6 +539,61 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// « Photo de profil »: import one (framed on « Cadrer la photo »), change it or remove it; the
+/// avatar is shown again without it. TV: no import (no files to browse), only « Retirer la photo ».
+class _PhotoCard extends StatelessWidget {
+  const _PhotoCard({required this.hasPhoto, required this.onChoose, required this.onRemove, this.error});
+
+  final bool hasPhoto;
+  final VoidCallback? onChoose;
+  final VoidCallback? onRemove;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = uiScale(context);
+    final error = this.error;
+    return VxCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Photo de profil', style: VxText.title(17 * s)),
+          SizedBox(height: 6 * s),
+          Text(
+            hasPhoto
+                ? 'Votre photo est affichée à la place de l’avatar. Choisir un avatar la retire.'
+                : 'Votre propre photo, à la place de l’avatar.',
+            style: VxText.body(14 * s, color: VxColors.textSecondary),
+          ),
+          if (error != null) ...[
+            SizedBox(height: 8 * s),
+            Text(error, style: VxText.body(14 * s, color: VxColors.error)),
+          ],
+          SizedBox(height: 14 * s),
+          if (canChooseProfilePhoto)
+            VxButton(
+              label: hasPhoto ? 'Changer la photo' : 'Importer une photo',
+              icon: Icons.add_photo_alternate_outlined,
+              kind: VxButtonKind.secondary,
+              expand: true,
+              onPressed: onChoose,
+            ),
+          if (hasPhoto) ...[
+            if (canChooseProfilePhoto) SizedBox(height: 10 * s),
+            VxButton(
+              label: 'Retirer la photo',
+              icon: Icons.hide_image_outlined,
+              kind: VxButtonKind.secondary,
+              expand: true,
+              onPressed: onRemove,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

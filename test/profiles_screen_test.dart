@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,11 +7,13 @@ import 'package:go_router/go_router.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/api/api_exception.dart';
 import 'package:vixeo/core/theme.dart';
+import 'package:vixeo/core/widgets/common.dart';
 import 'package:vixeo/features/auth/auth_repository.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/profile_editor_screen.dart';
+import 'package:vixeo/features/profiles/profile_photo.dart';
 import 'package:vixeo/features/profiles/profiles_screen.dart';
 import 'package:vixeo/features/profiles/settings_rows.dart';
 
@@ -25,6 +29,28 @@ class ProfilesAuth extends AuthRepository {
   final restrictions = <Map<String, Object?>>[];
   final updates = <Map<String, Object?>>[];
   final deleted = <(int, String?)>[];
+  final photos = <(int, int)>[];
+  final photoRemovals = <int>[];
+
+  @override
+  Future<Profile> uploadProfilePhoto(int profileId, Uint8List png) async {
+    photos.add((profileId, png.length));
+    return _withPhoto(profileId, 'https://api.vixeo.test/api/v1/profile-photos/new.webp');
+  }
+
+  @override
+  Future<Profile> deleteProfilePhoto(int profileId) async {
+    photoRemovals.add(profileId);
+    return _withPhoto(profileId, null);
+  }
+
+  Profile _withPhoto(int profileId, String? url) {
+    list = [
+      for (final p in list)
+        p.id != profileId ? p : Profile(id: p.id, name: p.name, username: p.username, avatar: p.avatar, photoUrl: url),
+    ];
+    return list.firstWhere((p) => p.id == profileId);
+  }
 
   @override
   Future<List<Profile>> profiles() async => list;
@@ -439,5 +465,112 @@ void main() {
     await tester.tap(find.text('Davy'));
     await tester.pumpAndSettle();
     expect(find.text('Supprimer le profil'), findsNothing);
+  });
+
+  testWidgets('a photo instead of the avatar: « Retirer la photo », or an avatar chosen', (tester) async {
+    const photo = 'https://api.vixeo.test/api/v1/profile-photos/davy.webp';
+    bool showsPhoto() => find.byWidgetPredicate((w) => w is NetImage && w.url == photo).evaluate().isNotEmpty;
+    final profiles = [
+      const Profile(id: 1, name: 'Davy', avatar: 'lion', photoUrl: photo),
+      const Profile(id: 2, name: 'Léa'),
+    ];
+    await pump(tester, profiles: profiles);
+    // « Qui regarde ? » shows the photo.
+    expect(showsPhoto(), isTrue);
+    await tester.tap(find.text('Gérer les profils'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Davy'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Photo de profil'), findsOneWidget);
+    expect(find.text('Votre photo est affichée à la place de l’avatar. Choisir un avatar la retire.'), findsOneWidget);
+    expect(find.text('Changer la photo'), findsOneWidget);
+    // With the photo, no avatar is marked as chosen.
+    expect(find.bySemanticsLabel(RegExp(r'^Milo, choisi')), findsNothing);
+    await tester.ensureVisible(find.text('Retirer la photo'));
+    await tester.tap(find.text('Retirer la photo'));
+    await tester.pump();
+    expect(find.text('Importer une photo'), findsOneWidget);
+    expect(find.text('Retirer la photo'), findsNothing);
+    expect(showsPhoto(), isFalse);
+    expect(find.bySemanticsLabel(RegExp(r'^Milo, choisi')), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Enregistrer les modifications'));
+    await tester.tap(find.text('Enregistrer les modifications'));
+    await tester.pumpAndSettle();
+    expect(auth.photoRemovals, [1]);
+    expect(auth.photos, isEmpty);
+
+    // Another time: an avatar chosen replaces the photo.
+    await pump(tester, profiles: profiles);
+    await tester.tap(find.text('Gérer les profils'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Davy'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel(RegExp(r'^Bram')));
+    await tester.pump();
+    expect(find.text('Retirer la photo'), findsNothing);
+    await tester.ensureVisible(find.text('Enregistrer les modifications'));
+    await tester.tap(find.text('Enregistrer les modifications'));
+    await tester.pumpAndSettle();
+    expect(auth.updates.last, {'id': 1, 'avatar': 'bear'});
+    expect(auth.photoRemovals, [1]);
+  });
+
+  testWidgets('« Cadrer la photo » gives back a square of 512 pixels', (tester) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    // A landscape photo: red on the left, blue on the right.
+    final png = await tester.runAsync(() async {
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder)
+        ..drawRect(const Rect.fromLTWH(0, 0, 300, 400), Paint()..color = const Color(0xFFFF0000))
+        ..drawRect(const Rect.fromLTWH(300, 0, 300, 400), Paint()..color = const Color(0xFF0000FF));
+      final image = await recorder.endRecording().toImage(600, 400);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      return data!.buffer.asUint8List();
+    });
+    Uint8List? framed;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildVixeoTheme(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () async => framed = await framePhoto(context, png!),
+                child: const Text('Cadrer'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Cadrer'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    // The photo is decoded by the engine.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Cadrer la photo'), findsOneWidget);
+    expect(find.text('Déplacez la photo et zoomez pour la cadrer.'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Zoomer'));
+    await tester.pump();
+    await tester.tap(find.text('Utiliser cette photo'));
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(framed, isNotNull);
+    final size = await tester.runAsync(() async {
+      final codec = await ui.instantiateImageCodec(framed!);
+      final frame = await codec.getNextFrame();
+      return (frame.image.width, frame.image.height);
+    });
+    expect(size, (512, 512));
   });
 }

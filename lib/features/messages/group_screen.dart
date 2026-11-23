@@ -232,6 +232,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
           username: profile?.username ?? '',
           name: profile?.name ?? '',
           avatar: profile?.avatar,
+          photoUrl: profile?.photoUrl,
           isAdmin: page.isAdmin,
         );
         final renamed = _name.text.trim();

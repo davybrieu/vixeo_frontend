@@ -160,6 +160,7 @@ class ProfileHeader extends StatelessWidget {
     super.key,
     required this.name,
     this.avatarId,
+    this.photoUrl,
     this.username,
     this.bio,
     this.followers,
@@ -177,6 +178,9 @@ class ProfileHeader extends StatelessWidget {
 
   /// Avatar of the catalog (`GET /avatars`); without one, the initial of [name].
   final String? avatarId;
+
+  /// Its own photo, shown instead of the avatar.
+  final String? photoUrl;
   final String? username;
   final String? bio;
 
@@ -216,7 +220,13 @@ class ProfileHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            AvatarTile(avatarId: avatarId, initial: initialOf(name), size: avatar, radius: avatar / 2),
+            AvatarTile(
+              avatarId: avatarId,
+              photoUrl: photoUrl,
+              initial: initialOf(name),
+              size: avatar,
+              radius: avatar / 2,
+            ),
             SizedBox(width: layout.space(VxSpace.m)),
             Expanded(
               child: Column(
@@ -716,6 +726,7 @@ class AccountTile extends StatelessWidget {
           children: [
             AvatarTile(
               avatarId: profile.avatar,
+              photoUrl: profile.photoUrl,
               initial: ProfileHeader.initialOf(profile.name),
               size: avatar,
               radius: avatar / 2,

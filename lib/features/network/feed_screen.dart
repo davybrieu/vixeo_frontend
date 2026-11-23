@@ -290,6 +290,7 @@ class _SuggestionCardState extends ConsumerState<SuggestionCard> {
                 children: [
                   AvatarTile(
                     avatarId: profile.avatar,
+                    photoUrl: profile.photoUrl,
                     initial: ProfileHeader.initialOf(profile.name),
                     size: avatar,
                     radius: avatar / 2,

@@ -116,6 +116,7 @@ class ProfileScreen extends ConsumerWidget {
       header: ProfileHeader(
         name: profile.name,
         avatarId: profile.avatar,
+        photoUrl: profile.photoUrl,
         username: username,
         isPrivate: profile.isPrivate,
         links: profile.socialLinks.isNotEmpty ? profile.socialLinks : social?.socialLinks ?? const [],
@@ -313,6 +314,7 @@ class PublicProfileScreen extends ConsumerWidget {
         header: ProfileHeader(
           name: social.name,
           avatarId: social.avatar,
+          photoUrl: social.photoUrl,
           username: social.username,
           isPrivate: social.isPrivate,
           compatibility: social.isSelf ? null : social.compatibility,

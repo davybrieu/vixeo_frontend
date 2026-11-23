@@ -25,7 +25,7 @@ enum FollowStatus {
 class SocialProfile {
   const SocialProfile({
     required this.id, required this.username, required this.name,
-    this.avatar, this.bio, this.followersCount = 0, this.followingCount = 0,
+    this.avatar, this.photoUrl, this.bio, this.followersCount = 0, this.followingCount = 0,
     this.isFollowing = false, this.isSelf = false,
     this.reviewsCount = 0, this.watchedCount = 0, this.listCount = 0, this.shareUrl,
     this.isPrivate = false, FollowStatus? followStatus, this.canView = true, this.socialLinks = const [],
@@ -38,6 +38,7 @@ class SocialProfile {
     username: json['username'] as String? ?? '',
     name: json['name'] as String? ?? '',
     avatar: json['avatar'] as String?,
+    photoUrl: json['photo_url'] as String?,
     bio: json['bio'] as String?,
     followersCount: json['followers_count'] as int? ?? 0,
     followingCount: json['following_count'] as int? ?? 0,
@@ -63,6 +64,9 @@ class SocialProfile {
   final String username;
   final String name;
   final String? avatar;
+
+  /// Its own photo, shown instead of [avatar].
+  final String? photoUrl;
   final String? bio;
   final int followersCount;
   final int followingCount;

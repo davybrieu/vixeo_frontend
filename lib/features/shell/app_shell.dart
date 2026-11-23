@@ -462,7 +462,7 @@ class _RailState extends State<_Rail> {
                   VxFocusable(
                     onPressed: () => context.go('/profil'),
                     borderRadius: size * 0.25,
-                    onAccent: widget.profile?.avatar == null,
+                    onAccent: widget.profile?.avatar == null && widget.profile?.photoUrl == null,
                     semanticLabel: 'Mon profil (${widget.profile?.name ?? ''})',
                     child: ProfileAvatar(profile: widget.profile, size: size * 0.78, radius: size * 0.2),
                   ),

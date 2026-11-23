@@ -87,7 +87,8 @@ lib/
     account/     Mon compte (export, suppression), appareils connectés
     updates/     vérification et installation des mises à jour Android / Windows (UpdateGate,
                  écrans, ApkInstaller : APK ou installateur Windows)
-    profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, contrôle parental
+    profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars et photo de profil
+                 (profile_photo.dart : cadrage), contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
     library/     synchro par profil (« À voir », J’aime ❤, personnes suivies, vus, « Continuer à
                  regarder »), page « À voir » (aussi « Mes J’aime » et « Mes titres vus »),
@@ -907,6 +908,19 @@ lib/
   « Gérer les profils ») : **plus de page ni de tuile « Avatar » dans les paramètres** (demande
   du développeur). L'initiale reste affichée pour un
   ancien profil sans avatar.
+  **Photo de profil** (demande du développeur, 23/11/2026 : « pour laisser le choix » ; API :
+  `vixeo_backend/docs/social.md`) : carte « Photo de profil » de « Ajouter / Modifier le profil »
+  (« Importer une photo », « Changer la photo », « Retirer la photo » ; pas d'import sur TV,
+  `canChooseProfilePhoto`) ; la photo choisie (`FilePicker`, image) s'ouvre sur **« Cadrer la
+  photo »** (`PhotoFramingScreen`, `profiles/profile_photo.dart` : carré avec un rond-guide,
+  déplacer au doigt ou à la souris, zoomer en pinçant, à la molette ou avec « Zoomer » /
+  « Dézoomer » ; photo décodée à 2 048 px au plus) ; « Utiliser cette photo » rend un carré PNG de
+  512 px, envoyé à l'enregistrement (`uploadProfilePhoto`, `POST /profiles/{id}/photo` ; retrait :
+  `DELETE`). **Choisir un avatar retire la photo** (aucun avatar marqué tant qu'il y a une
+  photo). Affichage : `AvatarTile(photoUrl:)` (la photo, sinon l'avatar, sinon l'initiale ;
+  l'avatar sous la photo pendant son chargement), `photoUrl` dans `Profile`, `SocialProfile` et
+  `ChatMember` (`photo_url` de l'API) : **tout `AvatarTile` d'un profil reçoit sa photo**. Tests :
+  `test/profiles_screen_test.dart`, `test/models_test.dart`.
 - **Pages de profil** (demande du développeur) : « Profil » (onglet `/profil`, `ProfileScreen`)
   et la page d'un membre (`/membre/:username`, `PublicProfileScreen`) sont **la même page** :
   le composant `ProfileView` (`features/social/profile_view.dart`) et ses morceaux

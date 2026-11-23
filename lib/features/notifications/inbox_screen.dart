@@ -385,6 +385,7 @@ class _ActivityTile extends StatelessWidget {
             else
               AvatarTile(
                 avatarId: actor.avatar,
+                photoUrl: actor.photoUrl,
                 initial: ProfileHeader.initialOf(actor.name),
                 size: avatar,
                 radius: avatar / 2,

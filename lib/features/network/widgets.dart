@@ -182,6 +182,7 @@ class MemberLine extends StatelessWidget {
               children: [
                 AvatarTile(
                   avatarId: profile.avatar,
+                  photoUrl: profile.photoUrl,
                   initial: ProfileHeader.initialOf(profile.name),
                   size: avatar,
                   radius: avatar / 2,
@@ -478,6 +479,7 @@ class TitlePost extends StatelessWidget {
                           offset: Offset(-avatar * 0.3 * i, 0),
                           child: AvatarTile(
                             avatarId: p.avatar,
+                            photoUrl: p.photoUrl,
                             initial: ProfileHeader.initialOf(p.name),
                             size: avatar,
                             radius: avatar / 2,

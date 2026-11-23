@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/library/library.dart';
+import 'package:vixeo/features/messages/messages.dart';
+import 'package:vixeo/features/social/social_repository.dart';
 import 'package:vixeo/features/tv/models.dart';
 
 // Payloads shaped like the API's resources (vixeo_backend/docs/openapi.json).
@@ -38,6 +40,14 @@ void main() {
     expect(profile.isKid, isTrue);
     expect(profile.effectiveMaxAgeRating, 10);
     expect(profile.initial, 'L');
+  });
+
+  test('reads the photo of a profile, a member and a conversation member', () {
+    const url = 'https://api.vixeo.app/api/v1/profile-photos/abc.webp';
+    expect(Profile.fromJson({'id': 3, 'name': 'Léa', 'avatar': 'lion', 'photo_url': url}).photoUrl, url);
+    expect(Profile.fromJson({'id': 3, 'name': 'Léa', 'avatar': 'lion'}).photoUrl, isNull);
+    expect(SocialProfile.fromJson({'id': 3, 'username': 'lea', 'name': 'Léa', 'photo_url': url}).photoUrl, url);
+    expect(ChatMember.fromJson({'id': 3, 'username': 'lea', 'name': 'Léa', 'photo_url': url}).photoUrl, url);
   });
 
   test('reads the playback settings of a profile', () {

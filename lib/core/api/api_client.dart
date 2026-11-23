@@ -109,11 +109,12 @@ class ApiClient {
     required Stream<List<int>> Function() stream,
     required int length,
     required String filename,
+    String field = 'file',
   }) => _send(
     () => _dio.post<dynamic>(
       path,
       data: FormData.fromMap({
-        'file': MultipartFile.fromStream(stream, length, filename: filename),
+        field: MultipartFile.fromStream(stream, length, filename: filename),
       }),
       options: Options(contentType: Headers.multipartFormDataContentType),
     ),

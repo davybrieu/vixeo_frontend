@@ -32,6 +32,7 @@ class ChatAvatar extends StatelessWidget {
     }
     return AvatarTile(
       avatarId: member?.avatar,
+      photoUrl: member?.photoUrl,
       initial: ProfileHeader.initialOf(member?.name ?? ''),
       size: size,
       radius: size / 2,
@@ -107,8 +108,13 @@ class MemberRow extends StatelessWidget {
 }
 
 /// A member found by the account search, as the messaging shows it.
-ChatMember memberOf(SocialProfile profile) =>
-    ChatMember(id: profile.id, username: profile.username, name: profile.name, avatar: profile.avatar);
+ChatMember memberOf(SocialProfile profile) => ChatMember(
+  id: profile.id,
+  username: profile.username,
+  name: profile.name,
+  avatar: profile.avatar,
+  photoUrl: profile.photoUrl,
+);
 
 /// The members whose @username contains [query] (2 letters at least), but those in [exclude]:
 /// a press on one calls [onPick]. The search is the one of the « Comptes » (never the active profile).

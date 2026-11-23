@@ -199,7 +199,13 @@ class _ProfileTile extends StatelessWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  AvatarTile(avatarId: profile.avatar, initial: profile.initial, size: size, radius: size / 2),
+                  AvatarTile(
+                    avatarId: profile.avatar,
+                    photoUrl: profile.photoUrl,
+                    initial: profile.initial,
+                    size: size,
+                    radius: size / 2,
+                  ),
                   if (managing || profile.hasPin)
                     Positioned(
                       right: 0,
