@@ -501,13 +501,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(auth.photoRemovals, [1]);
     expect(auth.photos, isEmpty);
+  });
 
-    // Another time: an avatar chosen replaces the photo.
-    await pump(tester, profiles: profiles);
+  testWidgets('an avatar chosen replaces the photo', (tester) async {
+    await pump(
+      tester,
+      profiles: [
+        const Profile(id: 1, name: 'Davy', avatar: 'lion', photoUrl: 'https://api.vixeo.test/api/v1/profile-photos/d.webp'),
+        const Profile(id: 2, name: 'Léa'),
+      ],
+    );
     await tester.tap(find.text('Gérer les profils'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Davy'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Retirer la photo'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.bySemanticsLabel(RegExp(r'^Bram')));
     await tester.tap(find.bySemanticsLabel(RegExp(r'^Bram')));
     await tester.pump();
     expect(find.text('Retirer la photo'), findsNothing);
