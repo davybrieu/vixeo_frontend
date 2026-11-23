@@ -7,12 +7,12 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
-import '../../core/widgets/description_link.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
 import 'catalog_repository.dart';
 import 'list_screen.dart';
+import 'description_screen.dart';
 import 'models.dart';
 import 'widgets.dart';
 
@@ -100,7 +100,7 @@ class _PersonViewState extends ConsumerState<_PersonView> {
         ],
         if (p.biography != null && !layout.isPhone) ...[
           SizedBox(height: layout.space(VxSpace.m)),
-          DescriptionLink(title: p.name, description: p.biography!),
+          DescriptionLink(title: p.name, description: p.biography!, maxWidth: layout.tv(1000)),
         ],
       ],
     );

@@ -376,4 +376,27 @@ void main() {
     expect(credits.cast.map((p) => '${p.name} (${p.role})'), ['Edward Norton (The Narrator)', 'Brad Pitt (Tyler Durden)']);
     expect(PersonCreditsSort.date.name, 'date');
   });
+
+  test('the other sites of « Notes » (MDBList), each on its own scale', () {
+    final ratings = externalRatingsFromJson({
+      'type': 'movie',
+      'id': 550,
+      'imdb': 8.8,
+      'tmdb': 8.4,
+      'trakt': 88,
+      'letterboxd': 4.3,
+      'tomatoes': 79,
+      'audience': 96,
+      'metacritic': null,
+      'mal': 0,
+    });
+
+    // IMDb and TMDb come with the title; a site without a rating is left out.
+    expect(ratings.keys, [RatingSite.trakt, RatingSite.letterboxd, RatingSite.tomatoes, RatingSite.audience]);
+    expect(ratings[RatingSite.letterboxd], const SiteRating(4.3, 0));
+    expect(RatingSite.tomatoes.format(79), '79');
+    expect(RatingSite.letterboxd.format(4.3), '4,3');
+    expect(RatingSite.letterboxd.scale, 5);
+    expect(const TitleRatings(imdb: SiteRating(8.8, 10))[RatingSite.trakt], isNull);
+  });
 }

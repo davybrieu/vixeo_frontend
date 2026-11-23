@@ -24,7 +24,10 @@ import 'features/library/my_list_screen.dart';
 import 'features/notifications/inbox.dart';
 import 'features/notifications/inbox_screen.dart';
 import 'features/notifications/notifications_screen.dart';
-import 'features/messages/messages_screen.dart';
+import 'features/messages/conversation_screen.dart';
+import 'features/messages/conversations_screen.dart';
+import 'features/messages/group_screen.dart';
+import 'features/messages/messages.dart' show newGroupLocation;
 import 'features/playback/player_screen.dart';
 import 'features/profiles/advanced_settings_screen.dart';
 import 'features/profiles/profile_editor_screen.dart';
@@ -82,7 +85,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         '/profils', '/profils/gestion', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes', '/profil/avatar', '/profil/controle-parental',
         '/profil/code-pin', '/profil/parametres', '/profil/compte', '/profil/appareils',
         '/profil/connexions', '/profil/tmdb', '/profil/notes', '/profil/notifications', '/profil/avance', '/profil/plugins', '/tv',
-        InboxScreen.location, '/messages',
+        InboxScreen.location, ConversationsScreen.location,
       };
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
         if (location != '/demarrage') {
@@ -205,9 +208,36 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, state) => tab(state, const InboxScreen()),
           ),
           GoRoute(path: '/profil', pageBuilder: (_, state) => tab(state, const ProfileScreen())),
-          GoRoute(path: '/messages', pageBuilder: (_, state) => tab(state, const MessagesScreen())),
-          GoRoute(path: '/messages/new', builder: (_, state) => MessagesScreen(username: state.uri.queryParameters['username'])),
-          GoRoute(path: '/messages/:id', builder: (_, state) => MessagesScreen(conversationId: int.tryParse(state.pathParameters['id'] ?? ''))),
+          // « Messages » (vixeo_backend/docs/messagerie.md): not for a guest nor a child's profile.
+          GoRoute(
+            path: ConversationsScreen.location,
+            redirect: (_, _) => socialAvailable(ref.read(sessionProvider)) ? null : '/accueil',
+            pageBuilder: (_, state) => tab(state, const ConversationsScreen()),
+          ),
+          // Before /messages/:id, which would take « nouveau-groupe » for an id.
+          GoRoute(
+            path: newGroupLocation,
+            redirect: (_, _) => socialAvailable(ref.read(sessionProvider)) ? null : '/accueil',
+            builder: (_, _) => const NewGroupScreen(),
+          ),
+          GoRoute(
+            path: '/messages/:id',
+            redirect: (_, state) => !socialAvailable(ref.read(sessionProvider))
+                ? '/accueil'
+                : int.tryParse(state.pathParameters['id'] ?? '') == null
+                ? ConversationsScreen.location
+                : null,
+            builder: (_, state) => ConversationScreen(id: int.parse(state.pathParameters['id']!)),
+          ),
+          GoRoute(
+            path: '/messages/:id/groupe',
+            redirect: (_, state) => !socialAvailable(ref.read(sessionProvider))
+                ? '/accueil'
+                : int.tryParse(state.pathParameters['id'] ?? '') == null
+                ? ConversationsScreen.location
+                : null,
+            builder: (_, state) => GroupSettingsScreen(id: int.parse(state.pathParameters['id']!)),
+          ),
           // Former page: managing is on « Qui regarde ? » now.
           GoRoute(path: '/profils/gestion', redirect: (_, _) => '/profils'),
           GoRoute(path: '/parametres', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
@@ -290,15 +320,11 @@ final routerProvider = Provider<GoRouter>((ref) {
               title: state.uri.queryParameters['titre'],
             ),
           ),
+          // The whole summary or biography (« Lire la suite »): its text comes with the route.
           GoRoute(
-            path: '/description',
-            builder: (_, state) {
-              final data = state.extra as Map<String, String>?;
-              return DescriptionScreen(
-                title: data?['title'] ?? 'Description',
-                description: data?['description'] ?? '',
-              );
-            },
+            path: DescriptionScreen.location,
+            redirect: (_, state) => DescriptionScreen.fromExtra(state.extra) == null ? '/accueil' : null,
+            builder: (_, state) => DescriptionScreen.fromExtra(state.extra)!,
           ),
           GoRoute(
             path: '/titre/:type/:id',

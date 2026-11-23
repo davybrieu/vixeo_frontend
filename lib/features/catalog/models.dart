@@ -316,21 +316,31 @@ class SeasonSummary {
 }
 
 /// A site whose rating the app shows: IMDb's (imported from IMDb's datasets by the API), else
-/// TMDb's (vixeo_backend/docs/notes.md).
+/// TMDb's (vixeo_backend/docs/notes.md). The others are only in « Notes » of a movie or a show
+/// (MDBList, asked when it opens), each on its own [scale].
 enum RatingSite {
-  imdb('IMDb'),
-  tmdb('TMDb'),
-  trakt('Trakt'),
-  letterboxd('Letterboxd'),
-  tomatoes('Rotten Tomatoes'),
-  audience('Rotten Tomatoes — public'),
-  metacritic('Metacritic'),
-  mal('MyAnimeList');
+  imdb('IMDb', 10),
+  tmdb('TMDb', 10),
+  trakt('Trakt', 100),
+  letterboxd('Letterboxd', 5),
+  tomatoes('Rotten Tomatoes', 100),
+  audience('Rotten Tomatoes — public', 100),
+  metacritic('Metacritic', 100),
+  mal('MyAnimeList', 10);
 
-  const RatingSite(this.label);
+  const RatingSite(this.label, this.scale);
 
+  /// Name shown in « Notes » and read by screen readers.
   final String label;
 
+  /// Highest rating of the site (« 79 / 100 », « 4,3 / 5 »).
+  final int scale;
+
+  /// The sites of « Notes » besides IMDb and TMDb, in their order (`ratings` of the API's
+  /// `/catalog/ratings`, whose keys are their names).
+  static const external = [trakt, letterboxd, tomatoes, audience, metacritic, mal];
+
+  /// Short mark written instead of a logo for the [external] sites (« RT », « MC »).
   String get shortLabel => switch (this) {
     RatingSite.imdb => 'IMDb',
     RatingSite.tmdb => 'TMDb',
@@ -340,9 +350,12 @@ enum RatingSite {
     RatingSite.metacritic => 'MC',
     RatingSite.mal => 'MAL',
   };
+
+  /// A rating as the site writes it: « 79 » on a scale of 100, « 8,8 » otherwise.
+  String format(double value) => scale == 100 ? '${value.round()}' : formatRating(value);
 }
 
-/// A rating and its number of votes. MDBList does not expose vote counts in this endpoint.
+/// A rating and its number of votes (0: the site's count is not known, the other sites of « Notes »).
 @immutable
 class SiteRating {
   const SiteRating(this.value, this.votes);
@@ -357,14 +370,27 @@ class SiteRating {
   int get hashCode => Object.hash(value, votes);
 }
 
-/// IMDb/TMDb ratings from the title response, plus external ratings loaded on demand in the modal.
+/// The ratings of the other sites of a title (an item of `/catalog/ratings`, on their own scales);
+/// a site without a rating is left out.
+Map<RatingSite, SiteRating> externalRatingsFromJson(Map<String, dynamic> json) => {
+  for (final site in RatingSite.external)
+    if (json[site.name] case final num value when value > 0) site: SiteRating(value.toDouble(), 0),
+};
+
+/// IMDb's and TMDb's ratings of a movie, a TV show or an episode, with their votes (`ratings` of the
+/// API, RatingsResource). [imdb] null: IMDb doesn't rate it (or the title has no IMDb id); [tmdb]
+/// null: nobody voted on TMDb yet. The other sites of « Notes »: [externalRatingsFromJson].
 @immutable
 class TitleRatings {
   const TitleRatings({this.imdb, this.imdbId, this.tmdb});
 
+  /// `ratings` of the API; without it (older API), TMDb's [voteAverage] / [voteCount] alone.
   factory TitleRatings.fromJson(Object? json, {double voteAverage = 0, int voteCount = 0}) {
     SiteRating? parse(Object? site) => switch (site) {
-      {'rating': final num value, 'votes': final num votes} when value > 0 => SiteRating(value.toDouble(), votes.toInt()),
+      {'rating': final num value, 'votes': final num votes} when value > 0 => SiteRating(
+        value.toDouble(),
+        votes.toInt(),
+      ),
       _ => null,
     };
     if (json is! Map<String, dynamic>) {
@@ -379,16 +405,21 @@ class TitleRatings {
   }
 
   static const none = TitleRatings();
+
   final SiteRating? imdb;
+
+  /// IMDb id of the rated title (tt…).
   final String? imdbId;
   final SiteRating? tmdb;
 
+  /// IMDb's or TMDb's rating; null for the other sites (asked by « Notes » only).
   SiteRating? operator [](RatingSite site) => switch (site) {
     RatingSite.imdb => imdb,
     RatingSite.tmdb => tmdb,
     _ => null,
   };
 
+  /// The rating shown next to the title: IMDb's, else TMDb's; null when neither rates it.
   (RatingSite, SiteRating)? get shown => switch ((imdb, tmdb)) {
     (final imdb?, _) => (RatingSite.imdb, imdb),
     (null, final tmdb?) => (RatingSite.tmdb, tmdb),

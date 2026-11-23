@@ -14,6 +14,7 @@ import '../../core/widgets/focusable.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
+import '../messages/conversations_screen.dart';
 import '../notifications/inbox.dart';
 import '../notifications/inbox_screen.dart';
 import '../profiles/avatars.dart';
@@ -42,12 +43,20 @@ const _notifications = _Destination(
   Icons.notifications_rounded,
 );
 
+/// « Messages »: conversations between members (not for a guest nor a child's profile).
+const _messages = _Destination(
+  ConversationsScreen.location,
+  'Messages',
+  Icons.chat_bubble_outline_rounded,
+  Icons.chat_bubble_rounded,
+);
+
 const _phoneTabs = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _notifications,
-  _Destination('/messages', 'Messages', Icons.mail_outline_rounded, Icons.mail_rounded),
+  _messages,
   _Destination('/profil', 'Profil', Icons.person_outline_rounded, Icons.person_rounded),
   _Destination('/parametres', 'Paramètres', Icons.settings_outlined, Icons.settings_rounded),
 ];
@@ -66,7 +75,7 @@ const _railItems = [
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _notifications,
-  _Destination('/messages', 'Messages', Icons.mail_outline_rounded, Icons.mail_rounded),
+  _messages,
   _Destination('/profil', 'Profil', Icons.person_outline_rounded, Icons.person_rounded),
   _Destination('/parametres', 'Paramètres', Icons.settings_outlined, Icons.settings_rounded),
 ];
@@ -94,7 +103,7 @@ class AppShell extends ConsumerWidget {
     bool shown(_Destination d) => switch (d.path) {
       '/chaines-tv' => liveTv,
       InboxScreen.location => inbox,
-      '/messages' => inbox,
+      ConversationsScreen.location => inbox,
       _ => true,
     };
     final phoneTabs = [for (final d in guest ? _guestPhoneTabs : _phoneTabs) if (shown(d)) d];
@@ -121,8 +130,8 @@ class AppShell extends ConsumerWidget {
     if (layout.isPhone) {
       final navigationPages = guest
           ? {'/accueil', '/recherche', '/chaines-tv'}
-          : {'/accueil', '/chaines-tv', '/recherche', InboxScreen.location, '/messages', '/profil', '/parametres'};
-      final showNavigation = navigationPages.contains(location) || location.startsWith('/messages/');
+          : {'/accueil', '/chaines-tv', '/recherche', InboxScreen.location, ConversationsScreen.location, '/profil', '/parametres'};
+      final showNavigation = navigationPages.contains(location);
       final index = phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
 

@@ -177,7 +177,7 @@ void main() {
     // Title, overview and the sections below start at the same left edge.
     final left = tester.getTopLeft(find.text('Créateur et distribution')).dx;
     expect(tester.getTopLeft(find.text('Les Veilleurs').first).dx, left);
-    expect(tester.getTopLeft(find.text('Lire la suite')).dx, left);
+    expect(tester.getTopLeft(find.text('Résumé des Veilleurs')).dx, left);
 
     // Large screen: no "Avec … · Création : …" line under the overview.
     expect(find.textContaining('Avec '), findsNothing);

@@ -12,7 +12,6 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
-import '../../core/widgets/description_link.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
@@ -24,6 +23,7 @@ import '../tmdb/rating_buttons.dart';
 import '../tmdb/tmdb.dart';
 import 'catalog_repository.dart';
 import 'list_screen.dart';
+import 'description_screen.dart';
 import 'models.dart';
 import 'widgets.dart';
 
@@ -353,13 +353,8 @@ class _EpisodeCard extends StatelessWidget {
     final overview = e.overview?.trim() ?? '';
     final rating = noSpoiler ? null : e.ratings.shown;
     final showFacts = !noSpoiler && (e.runtime != null || rating != null || e.airDate != null);
-    void showRatings() => showAllRatings(
-      context,
-      ratings: e.ratings,
-      name: 'Épisode ${e.number} · ${e.name}',
-      type: MediaType.tv,
-      id: 0, // MDBList does not provide episode-level ratings.
-    );
+    // IMDb and TMDb only: the other sites don't rate episodes.
+    void showRatings() => showAllRatings(context, ratings: e.ratings, name: 'Épisode ${e.number} · ${e.name}');
 
     return SizedBox(
       width: width,
@@ -604,7 +599,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                     runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      if (!t.ratings.isEmpty) RatingButton(ratings: t.ratings, name: t.title, type: t.type, id: t.id),
+                      if (!t.ratings.isEmpty) RatingButton(ratings: t.ratings, name: t.title, title: (type: t.type, id: t.id)),
                       for (final m in _meta(t)) Text(m, style: VxText.body(14, color: VxColors.textSoft)),
                       if (t.ageRating != null) VxBadge(_ageLabel(t.ageRating!), outlined: true),
                     ],
@@ -760,7 +755,12 @@ class _LargeDetails extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         if (!t.ratings.isEmpty)
-                          RatingButton(ratings: t.ratings, name: t.title, type: t.type, id: t.id, fontSize: layout.tv(22)),
+                          RatingButton(
+                            ratings: t.ratings,
+                            name: t.title,
+                            title: (type: t.type, id: t.id),
+                            fontSize: layout.tv(22),
+                          ),
                         for (final m in _meta(t)) Text(m, style: VxText.body(layout.tv(22), color: VxColors.textSoft)),
                         if (t.genres.isNotEmpty)
                           Text(

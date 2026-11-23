@@ -9,20 +9,18 @@ import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
 import 'rating_view.dart';
 
+/// The rating of a title page (IMDb's, else TMDb's): a press shows every rating ([showAllRatings]).
+/// A small arrow says it opens something. Nothing when neither rates it.
 class RatingButton extends StatelessWidget {
-  const RatingButton({
-    super.key,
-    required this.ratings,
-    required this.name,
-    this.type = MediaType.movie,
-    this.id = 0,
-    this.fontSize = 14,
-  });
+  const RatingButton({super.key, required this.ratings, required this.name, this.title, this.fontSize = 14});
 
   final TitleRatings ratings;
+
+  /// The title's name, written under « Notes ».
   final String name;
-  final MediaType type;
-  final int id;
+
+  /// The movie or show: « Notes » also asks the other sites' ratings (MDBList) when it opens.
+  final ({MediaType type, int id})? title;
   final double fontSize;
 
   @override
@@ -33,7 +31,7 @@ class RatingButton extends StatelessWidget {
     return VxFocusable(
       borderRadius: fontSize * 0.5,
       semanticLabel: 'Note ${site.label} : ${formatRating(rating.value)} sur 10. Voir les notes',
-      onPressed: () => showAllRatings(context, ratings: ratings, name: name, type: type, id: id),
+      onPressed: () => showAllRatings(context, ratings: ratings, name: name, title: title),
       child: ExcludeSemantics(
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -48,17 +46,22 @@ class RatingButton extends StatelessWidget {
   }
 }
 
+/// « Notes »: IMDb's and TMDb's ratings of a title or an episode ([name]), each with its logo and
+/// its number of votes, then, for a movie or a show ([title]), those of the other sites (Trakt,
+/// Letterboxd, Rotten Tomatoes, Metacritic, MyAnimeList; MDBList, asked only now, on their own
+/// scales). A sheet on a phone (above the tab bar), a window elsewhere (with « Fermer », focused for
+/// the remote).
 Future<void> showAllRatings(
   BuildContext context, {
   required TitleRatings ratings,
   required String name,
-  required MediaType type,
-  required int id,
+  ({MediaType type, int id})? title,
 }) {
   final layout = Layout.of(context);
-  final content = _AllRatings(ratings: ratings, name: name, type: type, id: id);
+  final content = _AllRatings(ratings: ratings, name: name, title: title);
   if (layout.isPhone) {
     return showModalBottomSheet<void>(
+      // Above the phone's tab bar, drawn over the pages' navigator (AppShell).
       useRootNavigator: true,
       context: context,
       backgroundColor: VxColors.surface,
@@ -86,29 +89,22 @@ Future<void> showAllRatings(
 }
 
 class _AllRatings extends ConsumerWidget {
-  const _AllRatings({required this.ratings, required this.name, required this.type, required this.id});
+  const _AllRatings({required this.ratings, required this.name, required this.title});
 
   final TitleRatings ratings;
   final String name;
-  final MediaType type;
-  final int id;
+  final ({MediaType type, int id})? title;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final phone = layout.isPhone;
     final s = layout.isLarge ? layout.tv(1) * 1.6 : 1.0;
-    // The provider is first watched here: no MDBList request before opening this modal.
-    final external = id > 0
-        ? ref.watch(externalRatingsProvider((type, id)))
-        : const AsyncValue<Map<String, SiteRating>>.data({});
-    final extra = external.asData?.value ?? const <String, SiteRating>{};
-    final sites = <RatingSite>[
-      RatingSite.imdb,
-      RatingSite.tmdb,
-      for (final site in RatingSite.values.skip(2))
-        if (_externalRating(site, extra) != null) site,
-    ];
+    final title = this.title;
+    // Watched first here: MDBList is never asked before « Notes » opens (an episode: never).
+    final others = title == null ? null : ref.watch(externalRatingsProvider((title.type, title.id)));
+    final found = others?.value ?? const <RatingSite, SiteRating>{};
+    final sites = [RatingSite.imdb, RatingSite.tmdb, ...RatingSite.external.where(found.containsKey)];
 
     return ListView(
       shrinkWrap: true,
@@ -125,16 +121,23 @@ class _AllRatings extends ConsumerWidget {
         SizedBox(height: 12 * s),
         for (final (i, site) in sites.indexed) ...[
           if (i > 0) const Divider(height: 1, color: VxColors.line),
-          _RatingRow(site: site, rating: ratings[site] ?? _externalRating(site, extra), scale: s),
+          _RatingRow(site: site, rating: ratings[site] ?? found[site], scale: s),
         ],
-        if (external.isLoading)
+        if (others != null && others.isLoading)
           Padding(
             padding: EdgeInsets.symmetric(vertical: 12 * s),
-            child: const Center(child: CircularProgressIndicator()),
+            child: Center(
+              child: SizedBox.square(dimension: 24 * s, child: const CircularProgressIndicator(strokeWidth: 2.4)),
+            ),
+          )
+        else if (others != null && others.hasError)
+          Padding(
+            padding: EdgeInsets.only(top: 12 * s),
+            child: Text(
+              'Les notes des autres sites ne sont pas disponibles pour le moment.',
+              style: VxText.body(13 * s, color: VxColors.textSecondary),
+            ),
           ),
-        if (external.hasError)
-          Text('Notes supplémentaires indisponibles pour le moment.',
-              style: VxText.body(12 * s, color: VxColors.textSecondary)),
         if (!phone) ...[
           SizedBox(height: 20 * s),
           VxButton(label: 'Fermer', autofocus: true, expand: true, onPressed: () => Navigator.of(context).pop()),
@@ -144,22 +147,8 @@ class _AllRatings extends ConsumerWidget {
   }
 }
 
-SiteRating? _externalRating(RatingSite site, Map<String, SiteRating> ratings) => switch (site) {
-  RatingSite.trakt => ratings['trakt'],
-  RatingSite.letterboxd => ratings['letterboxd'],
-  RatingSite.tomatoes => ratings['tomatoes'],
-  RatingSite.audience => ratings['audience'],
-  RatingSite.metacritic => ratings['metacritic'],
-  RatingSite.mal => ratings['mal'],
-  _ => null,
-};
-
-String _scaleLabel(RatingSite site) => switch (site) {
-  RatingSite.letterboxd => '/ 5',
-  RatingSite.tomatoes || RatingSite.audience || RatingSite.metacritic || RatingSite.trakt => '/ 100',
-  _ => '/ 10',
-};
-
+/// A site: its logo, its name, its number of votes (when the site gives it) and its rating on its
+/// own scale (« 8,8 / 10 », « 79 / 100 »), or « Pas de note » when it doesn't rate the title.
 class _RatingRow extends StatelessWidget {
   const _RatingRow({required this.site, required this.rating, required this.scale});
 
@@ -171,12 +160,11 @@ class _RatingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = scale;
     final rating = this.rating;
-    final scaleLabel = _scaleLabel(site);
     return Semantics(
       container: true,
       label: rating == null
           ? '${site.label} : pas de note'
-          : '${site.label} : ${formatRating(rating.value)} sur ${scaleLabel.substring(2)}'
+          : '${site.label} : ${site.format(rating.value)} sur ${site.scale}'
                 '${rating.votes > 0 ? ', ${formatVotes(rating.votes)}' : ''}',
       excludeSemantics: true,
       child: Padding(
@@ -208,8 +196,8 @@ class _RatingRow extends StatelessWidget {
               Text.rich(
                 TextSpan(
                   children: [
-                    TextSpan(text: formatRating(rating.value), style: VxText.title(20 * s)),
-                    TextSpan(text: ' $scaleLabel', style: VxText.body(13 * s, color: VxColors.textSecondary)),
+                    TextSpan(text: site.format(rating.value), style: VxText.title(20 * s)),
+                    TextSpan(text: ' / ${site.scale}', style: VxText.body(13 * s, color: VxColors.textSecondary)),
                   ],
                 ),
               ),

@@ -16,6 +16,7 @@ import '../catalog/models.dart';
 import '../catalog/widgets.dart';
 import '../library/library.dart';
 import '../library/my_list_screen.dart';
+import '../messages/messages.dart' show conversationLocation, startConversation;
 import '../notifications/inbox.dart';
 import '../profiles/profiles_screen.dart';
 import '../profiles/settings_rows.dart';
@@ -197,6 +198,19 @@ class PublicProfileScreen extends ConsumerWidget {
   /// Where a member's list or reviews open: `list`, `reviews`, `followers`, `following`.
   String _section(String section) => '/membre/${Uri.encodeComponent(username)}/$section';
 
+  /// Opens the conversation with the member (a request when there was none).
+  Future<void> _write(BuildContext context, WidgetRef ref, String username) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final id = await startConversation(ref, username);
+      if (context.mounted) await context.push(conversationLocation(id));
+    } on ApiException catch (e) {
+      showVxSnackOn(messenger, e.message, icon: Icons.error_outline_rounded);
+    } catch (_) {
+      showVxSnackOn(messenger, 'Impossible d’écrire à ce membre.', icon: Icons.error_outline_rounded);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(socialProfileProvider(username));
@@ -255,20 +269,11 @@ class PublicProfileScreen extends ConsumerWidget {
                   autofocus: true,
                   onPressed: () => context.push('/profil/social/edition'),
                 )
-              : Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _FollowButton(profile: social),
-                    VxButton(
-                      label: 'Envoyer un message',
-                      icon: Icons.mail_outline_rounded,
-                      kind: VxButtonKind.secondary,
-                      dense: true,
-                      onPressed: () => context.push('/messages/new?username=${Uri.encodeComponent(social.username)}'),
-                    ),
-                  ],
-                ),
+              : _FollowButton(profile: social),
+          // Write to the member (a request first, accepted or declined on its side).
+          onMessage: !social.isSelf && socialAvailable(ref.watch(sessionProvider))
+              ? () => _write(context, ref, social.username)
+              : null,
           onShare: switch (social.shareUrl) {
             final url? when canShareLinks => () => shareLink(
               ref,

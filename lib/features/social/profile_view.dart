@@ -118,6 +118,7 @@ class ProfileHeader extends StatelessWidget {
     this.onFollowers,
     this.onFollowing,
     this.action,
+    this.onMessage,
     this.onShare,
     this.isPrivate = false,
     this.links = const [],
@@ -139,6 +140,10 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback? onFollowers;
   final VoidCallback? onFollowing;
   final Widget? action;
+
+  /// « Envoyer un message » (a round button beside [action]); none when null (my profile, a guest,
+  /// a child's profile).
+  final VoidCallback? onMessage;
 
   /// « Partager » (a round button beside [action]); none when null (TV, profile without page).
   final VoidCallback? onShare;
@@ -235,14 +240,24 @@ class ProfileHeader extends StatelessWidget {
             children: [for (final link in links) SocialLinkChip(link: link)],
           ),
         ],
-        if (action != null || onShare != null) ...[
+        if (action != null || onMessage != null || onShare != null) ...[
           SizedBox(height: layout.space(VxSpace.m)),
           Row(
             children: [
               if (action != null) Flexible(child: action!),
-              if (action != null && onShare != null) SizedBox(width: layout.space(VxSpace.s)),
-              if (onShare != null)
+              if (onMessage != null) ...[
+                if (action != null) SizedBox(width: layout.space(VxSpace.s)),
+                VxIconAction(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  label: username == null ? 'Envoyer un message' : 'Envoyer un message à @$username',
+                  dense: true,
+                  onPressed: onMessage,
+                ),
+              ],
+              if (onShare != null) ...[
+                if (action != null || onMessage != null) SizedBox(width: layout.space(VxSpace.s)),
                 VxIconAction(icon: Icons.share_outlined, label: 'Partager le profil', dense: true, onPressed: onShare),
+              ],
             ],
           ),
         ],

@@ -1,7 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../design.dart';
 import '../device/layout.dart';
 import '../theme.dart';
+import 'common.dart';
 import 'focusable.dart';
 
 /// List of choices (search filters, playback settings): bottom sheet on a phone, dialog on larger screens. The current
@@ -82,4 +84,41 @@ Future<(T?,)?> showVxChoice<T>(
       ),
     ),
   );
+}
+
+/// A question before an action (« Supprimer ce message ? »): a window with « Annuler » and the
+/// action, red when it destroys something ([danger]). The remote starts on the action, or on
+/// « Annuler » for a [danger] one. True when confirmed.
+Future<bool> showVxConfirm(
+  BuildContext context, {
+  required String title,
+  String? message,
+  required String confirm,
+  bool danger = false,
+}) async {
+  final layout = Layout.of(context);
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(title, style: VxText.title(layout.size(20, tv: 32))),
+      content: message == null ? null : Text(message, style: VxText.body(layout.bodySize, color: VxColors.textSoft)),
+      actions: [
+        VxButton(
+          label: 'Annuler',
+          kind: VxButtonKind.outline,
+          dense: true,
+          autofocus: danger,
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+        ),
+        VxButton(
+          label: confirm,
+          kind: danger ? VxButtonKind.danger : VxButtonKind.primary,
+          dense: true,
+          autofocus: !danger,
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
 }
