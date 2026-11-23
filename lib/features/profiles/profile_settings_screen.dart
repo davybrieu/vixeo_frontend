@@ -15,6 +15,7 @@ import '../auth/session.dart';
 import '../network/hidden_accounts_screen.dart';
 import '../notifications/inbox.dart' show socialAvailable;
 import '../notifications/notifications_screen.dart';
+import '../social/public_profile_settings.dart';
 import 'advanced_settings_screen.dart';
 import 'profiles_screen.dart';
 import 'rows_settings_screen.dart';
@@ -44,7 +45,9 @@ Future<bool> saveProfile(
   }
 }
 
-/// Settings hub: grouped cards (account / general), using the app's own destinations.
+/// Settings hub: grouped cards (account, public profile, general), using the app's own
+/// destinations. « Profil public » (developer's request, 23/11/2026: no « Modifier le profil » on
+/// the profile page any more): the biography, the social networks and « Compte privé ».
 class ProfileSettingsScreen extends ConsumerWidget {
   const ProfileSettingsScreen({super.key});
 
@@ -111,6 +114,40 @@ class ProfileSettingsScreen extends ConsumerWidget {
                   ],
                 ),
                 SizedBox(height: layout.sectionGap),
+                if (socialAvailable(ref.watch(sessionProvider))) ...[
+                  _SettingsSection(
+                    label: 'Profil public',
+                    scale: s,
+                    children: [
+                      _SettingsTile(
+                        scale: s,
+                        icon: Icons.notes_rounded,
+                        title: 'Biographie',
+                        subtitle: _bioSummary(profile.bio),
+                        onPressed: () => context.push(BioSettingsScreen.location),
+                      ),
+                      _SettingsTile(
+                        scale: s,
+                        icon: Icons.alternate_email_rounded,
+                        title: 'Réseaux sociaux',
+                        subtitle: profile.socialLinks.isEmpty
+                            ? 'Instagram, X, TikTok, YouTube, Letterboxd… sur votre profil.'
+                            : [for (final link in profile.socialLinks) link.network.label].join(', '),
+                        onPressed: () => context.push(SocialLinksSettingsScreen.location),
+                      ),
+                      _SettingsTile(
+                        scale: s,
+                        icon: profile.isPrivate ? Icons.lock_outline_rounded : Icons.public_rounded,
+                        title: 'Compte privé',
+                        subtitle: profile.isPrivate
+                            ? 'Activé : seuls vos abonnés acceptés voient votre profil.'
+                            : 'Désactivé : tout le monde voit votre profil.',
+                        onPressed: () => context.push(PrivateAccountSettingsScreen.location),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: layout.sectionGap),
+                ],
                 _SettingsSection(
                   label: 'Général',
                   scale: s,
@@ -176,6 +213,13 @@ class ProfileSettingsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// What « Biographie » says under its title: the start of the biography, or what it is for.
+String _bioSummary(String? bio) {
+  final text = bio?.trim().replaceAll(RegExp(r'\s+'), ' ') ?? '';
+  if (text.isEmpty) return 'Quelques mots sous votre nom, sur votre profil.';
+  return text.length > 60 ? '${text.substring(0, 59)}…' : text;
 }
 
 class _SettingsSection extends StatelessWidget {

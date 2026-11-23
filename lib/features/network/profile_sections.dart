@@ -7,7 +7,6 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
-import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../catalog/models.dart';
 import '../catalog/widgets.dart' show titlePath;
@@ -22,7 +21,7 @@ import 'network.dart';
 import 'widgets.dart';
 
 // The parts of a profile page that belong to the social network (vixeo_backend/docs/social.md):
-// « Mes 4 favoris » under the header, the « Activité » and « Listes » tabs.
+// the « Activité » and « Listes » tabs.
 
 /// Where a profile's lists and year open: mine under `/profil`, a member's under
 /// `/membre/:username`.
@@ -36,52 +35,6 @@ const frenchMonths = [
   'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
   'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
 ];
-
-/// « Mes 4 favoris » (`pinned_titles`): the 4 movies or TV shows a profile chose to show at the top
-/// of its page, like Letterboxd; chosen in « Modifier le profil ». Nothing when there are none (no
-/// invitation: developer's request, 23/11/2026).
-class PinnedTitles extends StatelessWidget {
-  const PinnedTitles({super.key, required this.titles, this.mine = false});
-
-  final List<MediaItem> titles;
-  final bool mine;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    if (titles.isEmpty) return const SizedBox.shrink();
-    final label = mine ? 'Mes 4 favoris' : 'Ses 4 favoris';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: VxText.body(layout.captionSize, weight: FontWeight.w700, color: VxColors.textSecondary)),
-        SizedBox(height: layout.space(VxSpace.xs)),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final gap = layout.cardGap;
-            final width = ((constraints.maxWidth - gap * 3) / 4).clamp(0.0, layout.size(140, tv: 220));
-            return FocusTraversalGroup(
-              policy: vxTraversalPolicy,
-              child: Row(
-                children: [
-                  for (final (i, title) in titles.take(4).indexed) ...[
-                    if (i > 0) SizedBox(width: gap),
-                    VxFocusable(
-                      borderRadius: width * 0.08,
-                      semanticLabel: '$label : ${title.title}',
-                      onPressed: () => context.push(titlePath(title.type, title.id)),
-                      child: PosterThumb(url: title.posterUrl, width: width, seed: title.id),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
 
 /// « À voir » among the lists (developer's request, 23/11/2026: « Ma liste » merged into the
 /// lists): the movies and series to watch later (the synced `favorite` group), always first, never
@@ -251,7 +204,8 @@ String activityDay(DateTime at, DateTime now) {
 
 /// The « Activité » tab (developer's request, 23/11/2026: « la liste de tes actions avec la
 /// date »): what a profile did, the most recent first, under the day it was done: reviews, lists,
-/// titles watched and liked, each with its time. « Afficher plus » reads the next page.
+/// titles watched and liked, each with its time. « Afficher plus » reads the next page. Nothing
+/// yet: the [EmptyState] of the « Fil d'actualité ».
 class ProfileActivitySection extends ConsumerWidget {
   const ProfileActivitySection({super.key, required this.username, this.mine = false});
 
@@ -270,11 +224,12 @@ class ProfileActivitySection extends ConsumerWidget {
           : ProfileSectionLoading(title: title, height: layout.size(160, tv: 260));
     }
     if (page.items.isEmpty) {
-      return ProfileSectionMessage(
-        title: title,
+      return EmptyState(
+        icon: Icons.history_rounded,
+        title: 'Aucune activité',
         message: mine
             ? 'Vos avis, vos listes, les titres que vous voyez et ceux que vous aimez apparaîtront ici, avec leur date.'
-            : 'Aucune activité pour l’instant.',
+            : 'Ses avis, ses listes, les titres qu’il voit et ceux qu’il aime apparaîtront ici.',
       );
     }
     final now = DateTime.now();

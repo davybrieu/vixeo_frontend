@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
+import '../library/library.dart';
 
 // The active profile's reviews: a rating and an optional comment per movie, TV show or episode
 // (vixeo_backend/docs/avis.md). Kept by Vixeo only: no TMDb account is linked any more.
@@ -307,7 +310,8 @@ final myRatingProvider = FutureProvider.autoDispose.family<MyRating?, RatingTarg
 });
 
 /// Rates, updates or removes a rating (and its comment), then refreshes what shows it (title
-/// page, episodes, "Mes avis").
+/// page, episodes, "Mes avis"). A new review marks its title or episode watched on the API
+/// (developer's request, 23/11/2026): the library is read again so « Vu » shows at once.
 final tmdbRatingsProvider = Provider<TmdbRatings>(TmdbRatings.new);
 
 class TmdbRatings {
@@ -330,6 +334,10 @@ class TmdbRatings {
       _ref.invalidate(titleRatingProvider(target));
     }
     if (_ref.exists(reviewsProvider)) _ref.read(reviewsProvider.notifier).changed(target, rating);
+    if (rating != null && _ref.exists(libraryProvider)) {
+      // In the background: a failed read changes nothing to the saved review.
+      unawaited(_ref.read(libraryProvider.notifier).refresh().catchError((Object _) {}));
+    }
   }
 }
 

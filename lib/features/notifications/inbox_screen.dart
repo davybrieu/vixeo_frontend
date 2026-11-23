@@ -17,11 +17,13 @@ import '../social/profile_view.dart';
 import '../social/social_repository.dart';
 import 'inbox.dart';
 
-/// « Notifications » (`/notifications`, between « Recherche » and « Profil » in the navigation,
-/// with the number of unread notifications; developer's request, 21/11/2026): the follow requests
-/// to accept or decline (a private account), the next episodes of the « À voir » shows and those
-/// out this week, then what other members did (followed the profile, accepted its request, liked a
-/// review). Opening the page marks everything read. API: vixeo_backend/docs/social.md.
+/// « Notifications » (`/notifications`, in the navigation with the number of unread notifications;
+/// developer's request, 21/11/2026): **everything in one list** (developer's request, 23/11/2026:
+/// no separate « Activité » and « Prochains épisodes »): the follow requests to accept or decline
+/// (a private account), the next episodes of the « À voir » shows (the soonest first), then what
+/// happened, the most recent first: what other members did (followed the profile, liked a review,
+/// commented…) and the episodes out this week. Nothing: the [EmptyState] of the « Fil
+/// d'actualité ». Opening the page marks everything read. API: vixeo_backend/docs/social.md.
 class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
 
@@ -105,17 +107,12 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final requests = ref.watch(followRequestsProvider).value ?? const <SocialProfile>[];
+    final requestsValue = ref.watch(followRequestsProvider);
+    final requests = requestsValue.value ?? const <SocialProfile>[];
     final calendar = ref.watch(episodeCalendarProvider);
     final feed = ref.watch(activityFeedProvider);
     final now = DateTime.now();
-    final activity = [
-      // The requests have their own section; a type this app doesn't know isn't shown.
-      for (final item in feed.value?.items ?? const <Activity>[])
-        if (item.type != ActivityType.followRequest && item.type != ActivityType.unknown) item,
-    ];
-    final upcoming = calendar.value?.upcoming ?? const <ShowEpisode>[];
-    final recent = calendar.value?.recent ?? const <ShowEpisode>[];
+    final upcoming = [...?calendar.value?.upcoming]..sort((a, b) => a.availableAt.compareTo(b.availableAt));
 
     // The first element of the page takes the focus on arrival (TV).
     var focus = true;
@@ -125,7 +122,77 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       return first;
     }
 
-    final gap = SizedBox(height: layout.sectionGap);
+    // What happened, the most recent first: the members' activity and the episodes out this week.
+    final past = <({DateTime at, Widget Function(bool autofocus) row})>[
+      for (final item in feed.value?.items ?? const <Activity>[])
+        // A request has its row with « Accepter » / « Refuser »; a type this app doesn't know isn't shown.
+        if (item.type != ActivityType.followRequest && item.type != ActivityType.unknown)
+          (
+            at: item.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+            row: (autofocus) => _ActivityTile(activity: item, now: now, autofocus: autofocus),
+          ),
+      for (final episode in calendar.value?.recent ?? const <ShowEpisode>[])
+        (at: episode.availableAt, row: (autofocus) => _EpisodeTile(episode: episode, now: now, autofocus: autofocus)),
+    ]..sort((a, b) => b.at.compareTo(a.at));
+
+    final rows = <Widget>[
+      for (final profile in requests)
+        _RequestRow(
+          profile: profile,
+          autofocus: takeFocus(),
+          busy: _answering.contains(profile.username),
+          onAnswer: (accept) => _answer(profile, accept: accept),
+        ),
+      for (final episode in upcoming) _EpisodeTile(episode: episode, now: now, autofocus: takeFocus()),
+      for (final entry in past) entry.row(takeFocus()),
+    ];
+    final loading = !feed.hasValue && !feed.hasError || calendar.isLoading && !calendar.hasValue;
+    final failed = feed.hasError && !feed.hasValue && calendar.hasError && !calendar.hasValue;
+
+    final Widget content;
+    if (rows.isEmpty && loading) {
+      content = const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()));
+    } else if (rows.isEmpty && failed) {
+      content = ErrorPanel(error: feed.error!, onRetry: _refresh);
+    } else if (rows.isEmpty) {
+      content = const EmptyState(
+        icon: Icons.notifications_none_rounded,
+        title: 'Aucune notification',
+        message:
+            'Les nouveaux abonnés, les J’aime et les commentaires sur vos avis et vos listes, et les prochains '
+            'épisodes des séries « À voir » apparaîtront ici.',
+      );
+    } else {
+      content = ProfileColumn(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, row) in rows.indexed) ...[if (i > 0) SizedBox(height: layout.listGap), row],
+            if (feed.value?.hasMore ?? false) ...[
+              SizedBox(height: layout.space(VxSpace.m)),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: VxButton(
+                  label: 'Afficher plus',
+                  kind: VxButtonKind.secondary,
+                  dense: true,
+                  loading: feed.value!.loadingMore,
+                  onPressed: () => ref.read(activityFeedProvider.notifier).loadMore(),
+                ),
+              ),
+            ],
+            if (feed.hasError && !feed.hasValue || calendar.hasError && !calendar.hasValue) ...[
+              SizedBox(height: layout.space(VxSpace.m)),
+              Text(
+                'Certaines notifications n’ont pas pu être chargées : tirez pour réessayer.',
+                style: VxText.body(layout.captionSize, color: VxColors.textSecondary),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
     return SafeArea(
       bottom: false,
       child: Column(
@@ -138,98 +205,12 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.only(top: layout.size(0, tv: 16), bottom: pageBottomPadding(context)),
-                children: [
-                  if (requests.isNotEmpty) ...[
-                    const SectionHeader('Demandes d’abonnement'),
-                    ProfileColumn(
-                      child: Column(
-                        children: [
-                          for (final (i, profile) in requests.indexed) ...[
-                            if (i > 0) SizedBox(height: layout.listGap),
-                            _RequestRow(
-                              profile: profile,
-                              autofocus: takeFocus(),
-                              busy: _answering.contains(profile.username),
-                              onAnswer: (accept) => _answer(profile, accept: accept),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    gap,
-                  ],
-                  const SectionHeader('Prochains épisodes'),
-                  if (calendar.isLoading && !calendar.hasValue)
-                    SizedBox(height: _EpisodeCard.rowHeight(context), child: const Center(child: CircularProgressIndicator()))
-                  else if (calendar.hasError && !calendar.hasValue)
-                    const _Message('Impossible de charger les prochains épisodes.')
-                  else if (upcoming.isEmpty)
-                    _Message(
-                      recent.isEmpty
-                          ? 'Ajoutez des séries à « À voir » : leurs prochains épisodes s’afficheront ici.'
-                          : 'Aucun nouvel épisode annoncé pour les séries « À voir ».',
-                    )
-                  else
-                    _EpisodeRow(episodes: upcoming, now: now, autofocus: takeFocus()),
-                  if (recent.isNotEmpty) ...[
-                    gap,
-                    const SectionHeader('Sortis cette semaine'),
-                    _EpisodeRow(episodes: recent, now: now, autofocus: takeFocus()),
-                  ],
-                  gap,
-                  const SectionHeader('Activité'),
-                  if (!feed.hasValue)
-                    feed.hasError
-                        ? const _Message('Impossible de charger les notifications.')
-                        : const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
-                  else if (activity.isEmpty)
-                    const _Message('Quand un membre vous suit ou aime l’un de vos avis, vous le verrez ici.')
-                  else
-                    ProfileColumn(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final (i, item) in activity.indexed) ...[
-                            if (i > 0) SizedBox(height: layout.listGap),
-                            _ActivityTile(activity: item, now: now, autofocus: takeFocus()),
-                          ],
-                          if (feed.value!.hasMore) ...[
-                            SizedBox(height: layout.space(VxSpace.m)),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: VxButton(
-                                label: 'Afficher plus',
-                                kind: VxButtonKind.secondary,
-                                dense: true,
-                                loading: feed.value!.loadingMore,
-                                onPressed: () => ref.read(activityFeedProvider.notifier).loadMore(),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                ],
+                children: [content],
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-/// A sentence in place of a section's content.
-class _Message extends StatelessWidget {
-  const _Message(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    return ProfileColumn(
-      child: Text(text, style: VxText.body(layout.bodySize, color: VxColors.textSecondary)),
     );
   }
 }
@@ -272,114 +253,80 @@ class _RequestRow extends StatelessWidget {
   }
 }
 
-/// Episodes side by side, in a row that scrolls sideways (like the rows of the home page).
-class _EpisodeRow extends StatelessWidget {
-  const _EpisodeRow({required this.episodes, required this.now, this.autofocus = false});
-
-  final List<ShowEpisode> episodes;
-  final DateTime now;
-  final bool autofocus;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    return SizedBox(
-      height: _EpisodeCard.rowHeight(context),
-      child: FocusTraversalGroup(
-        policy: vxTraversalPolicy,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.space(VxSpace.xs)),
-          itemCount: episodes.length,
-          separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
-          itemBuilder: (_, i) => _EpisodeCard(episode: episodes[i], now: now, autofocus: autofocus && i == 0),
-        ),
-      ),
-    );
-  }
-}
-
-/// An episode: its image, the show, « Saison 2, épisode 5 · Titre » and when it comes out. Opens
-/// the show's page.
-class _EpisodeCard extends StatelessWidget {
-  const _EpisodeCard({required this.episode, required this.now, this.autofocus = false});
+/// An episode of a « À voir » show, in the list: its image, the show, « Saison 2, épisode 5 ·
+/// Titre » and when it comes out (« Demain à 21:00 ») or came out (« Sorti hier »). Opens the
+/// show's page.
+class _EpisodeTile extends StatelessWidget {
+  const _EpisodeTile({required this.episode, required this.now, this.autofocus = false});
 
   final ShowEpisode episode;
   final DateTime now;
   final bool autofocus;
 
-  static double widthOf(Layout layout) => layout.isLarge ? layout.tv(420) : (layout.isPhone ? 240 : 280);
-
-  static double _titleSize(Layout layout) => layout.size(15, tv: 24);
-
-  /// The card's text under the image: the show (1 line) and two captions, at the system's text size.
-  static double _textHeight(BuildContext context) {
-    final layout = Layout.of(context);
-    final scaler = MediaQuery.textScalerOf(context);
-    return layout.space(VxSpace.xs) +
-        scaler.scale(_titleSize(layout)) * 1.45 +
-        2 * scaler.scale(layout.captionSize) * 1.45 +
-        4;
-  }
-
-  /// Height of a row of cards, with the room of the focus ring.
-  static double rowHeight(BuildContext context) {
-    final layout = Layout.of(context);
-    return widthOf(layout) * 9 / 16 + _textHeight(context) + 2 * layout.space(VxSpace.xs);
-  }
-
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final width = widthOf(layout);
     final when = episodeWhen(episode.availableAt, now);
+    final upcoming = episode.availableAt.isAfter(now);
     final label = episode.label;
+    // The same place as an activity's dot and avatar: the rows line up.
+    final dot = layout.size(8, tv: 12);
+    final image = layout.size(44, tv: 72);
     return VxFocusable(
       autofocus: autofocus,
-      borderRadius: VxRadius.poster,
+      borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
       semanticLabel: [episode.showName, if (label.isNotEmpty) label, when].join(', '),
       onPressed: () => context.push(titlePath(MediaType.tv, episode.showId)),
-      child: SizedBox(
-        width: width,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: EdgeInsets.all(layout.space(VxSpace.xxs)),
+        child: Row(
           children: [
+            SizedBox(width: dot),
+            SizedBox(width: layout.space(VxSpace.xs)),
             ClipRRect(
-              borderRadius: BorderRadius.circular(VxRadius.poster),
+              borderRadius: BorderRadius.circular(image / 4),
               child: SizedBox(
-                width: width,
-                height: width * 9 / 16,
+                width: image,
+                height: image,
                 child: NetImage(url: episode.stillUrl ?? episode.backdropUrl, seed: episode.showId),
               ),
             ),
-            SizedBox(
-              height: _textHeight(context),
-              child: Padding(
-                padding: EdgeInsets.only(top: layout.space(VxSpace.xs)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      episode.showName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: VxText.body(_titleSize(layout), weight: FontWeight.w600),
-                    ),
+            SizedBox(width: layout.space(VxSpace.s)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    episode.showName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: VxText.body(layout.bodySize, weight: FontWeight.w700),
+                  ),
+                  if (label.isNotEmpty)
                     Text(
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: VxText.body(layout.captionSize, color: VxColors.textSecondary),
+                      style: VxText.body(layout.bodySize, color: VxColors.textSoft),
                     ),
-                    Text(
-                      when,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: VxText.body(layout.captionSize, color: VxColors.accent, weight: FontWeight.w600),
+                  Text(
+                    when,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: VxText.body(
+                      layout.captionSize,
+                      color: upcoming ? VxColors.accent : VxColors.textSecondary,
+                      weight: upcoming ? FontWeight.w600 : FontWeight.w400,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+            ),
+            Icon(
+              upcoming ? Icons.event_rounded : Icons.live_tv_rounded,
+              size: layout.size(20, tv: 32),
+              color: upcoming ? VxColors.accent : VxColors.textMuted,
             ),
           ],
         ),

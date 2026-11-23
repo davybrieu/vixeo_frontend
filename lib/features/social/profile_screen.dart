@@ -20,22 +20,20 @@ import '../messages/messages.dart' show conversationLocation, startConversation;
 import '../network/actions.dart' show showMemberMenu;
 import '../network/network.dart' show activityProvider, memberListsProvider, myListsProvider;
 import '../network/profile_sections.dart';
-import '../network/title_picker.dart';
 import '../notifications/inbox.dart';
-import '../profiles/profiles_screen.dart';
-import '../profiles/settings_rows.dart';
 import '../tmdb/reviews_screen.dart';
 import '../tmdb/tmdb.dart';
 import 'profile_view.dart';
-import 'social_links.dart';
 import 'social_repository.dart';
 
-/// « Profil » (tab): the active profile's page (`ProfileView`). At the top, its avatar, name,
-/// @username, followers and following, bio and « Modifier le profil »; then its counters and five
-/// tabs (developer's request, 23/11/2026): « Activité » (each action with its date), « Listes »
-/// (« À voir » first, then my lists), « Avis », « Aimés » (titles liked and followed people) and
-/// « Vus » (titles watched, « Mon année »). No « Journal » any more. The round arrow of a section
-/// opens it whole.
+/// « Profil » (tab): the active profile's page (`ProfileView`). At the top right « Partager le
+/// profil » and, on a phone, « Paramètres »; then its avatar, name, @username, followers and
+/// following, bio and networks (changed in « Paramètres » : no « Modifier le profil » button, nor
+/// « Mes 4 favoris »: developer's request, 23/11/2026); then its counters and five tabs:
+/// « Activité » (each action with its date), « Listes » (« À voir » first, then my lists),
+/// « Avis », « Aimés » (titles liked and followed people) and « Vus » (titles watched, « Mon
+/// année »). An empty tab shows the [EmptyState] of the « Fil d'actualité ». The round arrow of a
+/// section opens it whole.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -91,8 +89,23 @@ class ProfileScreen extends ConsumerWidget {
         ref.invalidate(reviewsProvider);
         await ref.read(libraryProvider.notifier).refresh();
       },
-      // On a phone, « Paramètres » is here (the tab bar has 5 tabs at most).
+      // « Partager le profil » (not on TV), then « Paramètres » on a phone (the tab bar has 6 tabs at
+      // most). No button in the header: the shown tab takes the focus on arrival (TV).
+      focusTabs: true,
       actions: [
+        if (social?.shareUrl case final url? when canShareLinks)
+          VxIconAction(
+            icon: Icons.share_outlined,
+            label: 'Partager le profil',
+            dense: true,
+            onPressed: () => shareLink(
+              ref,
+              context,
+              url: url,
+              message: 'Retrouve-moi sur Vixeo : ${profile.name} (@$username)',
+              subject: 'Vixeo',
+            ),
+          ),
         if (layout.isPhone)
           VxIconAction(
             icon: Icons.settings_outlined,
@@ -101,7 +114,6 @@ class ProfileScreen extends ConsumerWidget {
             onPressed: () => context.push('/parametres'),
           ),
       ],
-      pinned: username.isEmpty || profile.pinnedTitles.isEmpty ? null : PinnedTitles(titles: profile.pinnedTitles, mine: true),
       header: ProfileHeader(
         name: profile.name,
         avatarId: profile.avatar,
@@ -109,30 +121,10 @@ class ProfileScreen extends ConsumerWidget {
         isPrivate: profile.isPrivate,
         links: profile.socialLinks.isNotEmpty ? profile.socialLinks : social?.socialLinks ?? const [],
         bio: profile.bio ?? social?.bio,
-        emptyBio: 'Ajoutez une biographie pour vous présenter.',
         followers: social?.followersCount,
         following: social?.followingCount,
         onFollowers: () => context.push('/profil/social/abonnes'),
         onFollowing: () => context.push('/profil/social/abonnements'),
-        action: VxButton(
-          label: username.isEmpty ? 'Choisir un pseudo' : 'Modifier le profil',
-          icon: Icons.edit_outlined,
-          kind: VxButtonKind.secondary,
-          dense: true,
-          // The page's first element: the focus on arrival (TV).
-          autofocus: true,
-          onPressed: () => context.push('/profil/social/edition'),
-        ),
-        onShare: switch (social?.shareUrl) {
-          final url? when canShareLinks => () => shareLink(
-            ref,
-            context,
-            url: url,
-            message: 'Retrouve-moi sur Vixeo : ${profile.name} (@$username)',
-            subject: 'Vixeo',
-          ),
-          _ => null,
-        },
       ),
       counters: ProfileCounters(
         reviews: reviews.value?.length ?? social?.reviewsCount,
@@ -144,9 +136,12 @@ class ProfileScreen extends ConsumerWidget {
           label: 'Activité',
           sections: [
             if (username.isEmpty)
-              const ProfileSectionMessage(
-                title: 'Mon activité',
-                message: 'Choisissez un pseudo (« Modifier le profil ») pour retrouver ici tout ce que vous faites.',
+              const EmptyState(
+                icon: Icons.alternate_email_rounded,
+                title: 'Choisissez un pseudo',
+                message:
+                    'Dans « Qui regarde ? » → « Gérer les profils » : votre activité, vos listes et votre page '
+                    'apparaîtront ici.',
               )
             else
               ProfileActivitySection(username: username, mine: true),
@@ -180,13 +175,16 @@ class ProfileScreen extends ConsumerWidget {
               title: 'Mes J’aime',
               titles: liked,
               grid: true,
-              emptyMessage: 'Aimez des films et des séries avec le cœur de leur fiche : ils apparaîtront ici.',
+              emptyIcon: Icons.favorite_border_rounded,
+              emptyTitle: 'Aucun J’aime',
+              emptyMessage:
+                  'Aimez des films et des séries avec le cœur de leur fiche, suivez des acteurs et des réalisateurs '
+                  'depuis leur page : ils apparaîtront ici.',
               onSeeAll: () => context.push('/profil/social/aimes'),
             ),
             ProfilePeopleSection(
               title: 'Personnes suivies',
               people: people,
-              emptyMessage: 'Suivez des acteurs et des réalisateurs depuis leur page : ils apparaîtront ici.',
               onSeeAll: () => context.push('/profil/social/personnes'),
             ),
           ],
@@ -194,7 +192,7 @@ class ProfileScreen extends ConsumerWidget {
         (
           label: 'Vus',
           sections: [
-            if (username.isNotEmpty)
+            if (username.isNotEmpty && (library.value?.watched.isNotEmpty ?? false))
               ProfileColumn(
                 child: Align(
                   alignment: Alignment.centerLeft,
@@ -211,7 +209,9 @@ class ProfileScreen extends ConsumerWidget {
               title: 'Mes titres vus',
               titles: watched,
               grid: true,
-              emptyMessage: 'Les films et les séries marqués comme vus apparaîtront ici.',
+              emptyIcon: Icons.visibility_outlined,
+              emptyTitle: 'Aucun titre vu',
+              emptyMessage: 'Les films et les séries que vous marquez comme vus, ou que vous notez, apparaîtront ici.',
               onSeeAll: () => context.push('/profil/social/vus'),
             ),
           ],
@@ -222,8 +222,8 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 /// A member's page (`/membre/:username`): the same page as mine (`ProfileView`), with the same
-/// tabs (« Activité », « Listes », « Avis », « Aimés », « Vus ») and « Suivre ». My own page opened
-/// from a list shows « Modifier le profil ».
+/// tabs (« Activité », « Listes », « Avis », « Aimés », « Vus »), « Suivre » and, at the top right,
+/// « Partager le profil » and « … ». My own page opened from a list has no button in its header.
 class PublicProfileScreen extends ConsumerWidget {
   const PublicProfileScreen({super.key, required this.username});
 
@@ -287,8 +287,22 @@ class PublicProfileScreen extends ConsumerWidget {
           ref.invalidate(socialProfileProvider(username));
           await ref.read(socialProfileProvider(username).future);
         },
-        // « … »: mute, block, report.
+        // « Partager le profil » (not on TV), then « … »: mute, block, report.
+        focusTabs: social.isSelf,
         actions: [
+          if (social.shareUrl case final url? when canShareLinks)
+            VxIconAction(
+              icon: Icons.share_outlined,
+              label: 'Partager le profil',
+              dense: true,
+              onPressed: () => shareLink(
+                ref,
+                context,
+                url: url,
+                message: 'Le profil de ${social.name} (@${social.username}) sur Vixeo',
+                subject: 'Vixeo',
+              ),
+            ),
           if (!social.isSelf && socialAvailable(ref.watch(sessionProvider)))
             VxIconAction(
               icon: Icons.more_horiz_rounded,
@@ -297,7 +311,6 @@ class PublicProfileScreen extends ConsumerWidget {
               onPressed: () => showMemberMenu(context, ref, social),
             ),
         ],
-        pinned: canView && social.pinned.isNotEmpty ? PinnedTitles(titles: social.pinned) : null,
         header: ProfileHeader(
           name: social.name,
           avatarId: social.avatar,
@@ -310,30 +323,11 @@ class PublicProfileScreen extends ConsumerWidget {
           following: social.followingCount,
           onFollowers: canView ? () => context.push(_section('abonnes')) : null,
           onFollowing: canView ? () => context.push(_section('abonnements')) : null,
-          action: social.isSelf
-              ? VxButton(
-                  label: 'Modifier le profil',
-                  icon: Icons.edit_outlined,
-                  kind: VxButtonKind.secondary,
-                  dense: true,
-                  autofocus: true,
-                  onPressed: () => context.push('/profil/social/edition'),
-                )
-              : _FollowButton(profile: social),
+          action: social.isSelf ? null : _FollowButton(profile: social),
           // Write to the member (a request first, accepted or declined on its side).
           onMessage: !social.isSelf && socialAvailable(ref.watch(sessionProvider))
               ? () => _write(context, ref, social.username)
               : null,
-          onShare: switch (social.shareUrl) {
-            final url? when canShareLinks => () => shareLink(
-              ref,
-              context,
-              url: url,
-              message: 'Le profil de ${social.name} (@${social.username}) sur Vixeo',
-              subject: 'Vixeo',
-            ),
-            _ => null,
-          },
         ),
         counters: ProfileCounters(
           reviews: social.reviewsCount,
@@ -345,7 +339,8 @@ class PublicProfileScreen extends ConsumerWidget {
                 (
                   label: 'Profil',
                   sections: [
-                    ProfileSectionMessage(
+                    EmptyState(
+                      icon: Icons.block_rounded,
                       title: 'Compte bloqué',
                       message:
                           'Vous avez bloqué @${social.username} : vous ne voyez plus ses publications et il ne voit plus '
@@ -384,7 +379,7 @@ class PublicProfileScreen extends ConsumerWidget {
             title: 'Ses avis',
             reviews: reviews,
             mine: false,
-            emptyMessage: 'Aucun avis pour l’instant.',
+            emptyMessage: 'Ses notes et ses commentaires apparaîtront ici.',
             onSeeAll: () => context.push(_section('avis')),
           ),
         ],
@@ -396,13 +391,14 @@ class PublicProfileScreen extends ConsumerWidget {
             title: 'Ses J’aime',
             titles: titles(liked),
             grid: true,
-            emptyMessage: 'Aucun J’aime pour l’instant.',
+            emptyIcon: Icons.favorite_border_rounded,
+            emptyTitle: 'Aucun J’aime',
+            emptyMessage: 'Les films et les séries qu’il aime apparaîtront ici.',
             onSeeAll: () => context.push(_section('aimes')),
           ),
           ProfilePeopleSection(
             title: 'Personnes suivies',
             people: people,
-            emptyMessage: 'Aucune personne suivie pour l’instant.',
             onSeeAll: () => context.push(_section('personnes')),
           ),
         ],
@@ -410,23 +406,26 @@ class PublicProfileScreen extends ConsumerWidget {
       (
         label: 'Vus',
         sections: [
-          ProfileColumn(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: VxButton(
-                label: 'Son année ${DateTime.now().year}',
-                icon: Icons.insights_rounded,
-                kind: VxButtonKind.secondary,
-                dense: true,
-                onPressed: () => context.push(profileSectionLocation(username, 'bilan')),
+          if (watched.value?.isNotEmpty ?? false)
+            ProfileColumn(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: VxButton(
+                  label: 'Son année ${DateTime.now().year}',
+                  icon: Icons.insights_rounded,
+                  kind: VxButtonKind.secondary,
+                  dense: true,
+                  onPressed: () => context.push(profileSectionLocation(username, 'bilan')),
+                ),
               ),
             ),
-          ),
           ProfileTitlesSection(
             title: 'Ses titres vus',
             titles: titles(watched),
             grid: true,
-            emptyMessage: 'Aucun titre vu pour l’instant.',
+            emptyIcon: Icons.visibility_outlined,
+            emptyTitle: 'Aucun titre vu',
+            emptyMessage: 'Les films et les séries qu’il a vus apparaîtront ici.',
             onSeeAll: () => context.push(_section('vus')),
           ),
         ],
@@ -569,315 +568,6 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
       FollowStatus.none => ('Suivre', Icons.person_add_alt_1_rounded, VxButtonKind.primary),
     };
     return VxButton(label: label, icon: icon, kind: kind, dense: true, autofocus: true, loading: _busy, onPressed: _toggle);
-  }
-}
-
-class SocialProfileEditScreen extends ConsumerStatefulWidget {
-  const SocialProfileEditScreen({super.key});
-
-  /// Longest biography, in characters (the API's limit too; developer's request, 21/11/2026).
-  static const bioMaxLength = 160;
-
-  /// Longest profile name (the API's limit).
-  static const nameMaxLength = 50;
-
-  @override
-  ConsumerState<SocialProfileEditScreen> createState() => _SocialProfileEditScreenState();
-}
-
-/// « Modifier mon profil » (button of the « Profil » page): the profile's name, its @username, its
-/// biography, « Compte privé » and its social networks (developer's requests, 21/11/2026). Saved by
-/// `PUT /profiles/{id}` (vixeo_backend/docs/social.md).
-class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScreen> {
-  final _name = TextEditingController();
-  final _username = TextEditingController();
-  final _bio = TextEditingController();
-  final _links = {for (final network in SocialNetwork.values) network: TextEditingController()};
-  bool _private = false;
-
-  /// « Mes 4 favoris », in order (sent only when changed).
-  final _pinned = <MediaItem>[];
-  late final String _pinnedBefore;
-
-  String get _pinnedIds => [for (final t in _pinned) '${t.type.name}:${t.id}'].join(',');
-  late final Future<SocialProfile?> _social = _load();
-  bool _loading = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    // Filled once (not at each build: an emptied field stayed empty).
-    final profile = ref.read(sessionProvider).profile;
-    _name.text = profile?.name ?? '';
-    _username.text = profile?.username ?? '';
-    _bio.text = profile?.bio ?? '';
-    _private = profile?.isPrivate ?? false;
-    _pinned.addAll(profile?.pinnedTitles ?? const []);
-    _pinnedBefore = _pinnedIds;
-    _fillLinks(profile?.socialLinks ?? const []);
-  }
-
-  Future<void> _pin(int index) async {
-    final title = await pickTitle(
-      context,
-      title: 'Mes 4 favoris',
-      chosen: {for (final t in _pinned) '${t.type.name}:${t.id}'},
-    );
-    if (title == null || !mounted) return;
-    setState(() {
-      if (index < _pinned.length) {
-        _pinned[index] = title;
-      } else {
-        _pinned.add(title);
-      }
-    });
-  }
-
-  void _fillLinks(List<SocialLink> links) {
-    for (final link in links) {
-      final field = _links[link.network]!;
-      if (field.text.isEmpty) field.text = link.handle;
-    }
-  }
-
-  /// The public profile, for a biography or networks the session doesn't have yet.
-  Future<SocialProfile?> _load() async {
-    final username = ref.read(sessionProvider).profile?.username ?? '';
-    if (username.isEmpty) return null;
-    try {
-      final social = await ref.read(socialRepositoryProvider).profile(username);
-      if (mounted) {
-        if (_bio.text.isEmpty) _bio.text = social.bio ?? '';
-        _fillLinks(social.socialLinks);
-      }
-      return social;
-    } catch (_) {
-      // The form still opens with what the session knows.
-      return null;
-    }
-  }
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _username.dispose();
-    _bio.dispose();
-    for (final field in _links.values) {
-      field.dispose();
-    }
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final active = ref.read(sessionProvider).profile;
-    if (active == null) return;
-    final name = _name.text.trim();
-    if (name.isEmpty) {
-      setState(() => _error = 'Le nom du profil est obligatoire.');
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final updated = await ref.read(authRepositoryProvider).updateProfile(active.id, {
-        'name': name,
-        'username': _username.text.trim(),
-        'bio': _bio.text.trim(),
-        'is_private': _private,
-        if (_pinnedIds != _pinnedBefore) 'pinned_titles': [for (final t in _pinned) '${t.type.name}:${t.id}'],
-        // Every network: an emptied field removes its account (null).
-        'social_links': {
-          for (final MapEntry(key: network, value: field) in _links.entries)
-            network.key: field.text.trim().isEmpty ? null : field.text.trim(),
-        },
-      });
-      ref.read(sessionProvider.notifier).updateProfile(updated);
-      // The « Profil » page reads its followers and counters again (new username…), and
-      // « Qui regarde ? » shows the new name. Made public: the waiting requests were accepted.
-      ref.invalidate(socialProfileProvider);
-      ref.invalidate(profilesProvider);
-      if (active.isPrivate && !_private) ref.invalidate(followRequestsProvider);
-      if (mounted) context.pop();
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Modifier mon profil')),
-      body: FutureBuilder<SocialProfile?>(
-        future: _social,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              TextField(
-                controller: _name,
-                autofocus: !DeviceInfo.isTv,
-                maxLength: SocialProfileEditScreen.nameMaxLength,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: 'Nom', counterText: ''),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _username,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: 'Pseudo', prefixText: '@'),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _bio,
-                maxLength: SocialProfileEditScreen.bioMaxLength,
-                maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Biographie'),
-              ),
-              const SizedBox(height: 8),
-              Text('Mes 4 favoris', style: VxText.title(18)),
-              const SizedBox(height: 4),
-              Text(
-                'Les films ou séries qui vous définissent, en haut de votre page.',
-                style: VxText.body(14, color: VxColors.textSecondary),
-              ),
-              const SizedBox(height: 12),
-              _PinnedEditor(
-                titles: _pinned,
-                onPick: _pin,
-                onRemove: (i) => setState(() => _pinned.removeAt(i)),
-              ),
-              const SizedBox(height: 24),
-              SettingsSwitchRow(
-                label: 'Compte privé',
-                detail:
-                    'Seuls les abonnés que vous acceptez voient votre activité, vos listes, vos avis, vos J’aime, '
-                    'vos titres vus, les personnes suivies, vos abonnés et vos abonnements.',
-                value: _private,
-                onChanged: (value) => setState(() => _private = value),
-              ),
-              const SizedBox(height: 24),
-              Text('Réseaux sociaux', style: VxText.title(18)),
-              const SizedBox(height: 4),
-              Text(
-                'Le pseudo ou l’adresse de votre page : ils s’affichent sur votre profil.',
-                style: VxText.body(14, color: VxColors.textSecondary),
-              ),
-              for (final MapEntry(key: network, value: field) in _links.entries) ...[
-                const SizedBox(height: 16),
-                TextField(
-                  controller: field,
-                  keyboardType: TextInputType.url,
-                  autocorrect: false,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: network.label,
-                    hintText: network.isWebsite ? 'https://…' : 'pseudo',
-                    prefixIcon: Icon(network.icon),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              if (_error != null) Text(_error!, style: const TextStyle(color: VxColors.dangerText)),
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: _loading ? null : _save,
-                child: Text(_loading ? 'Enregistrement…' : 'Enregistrer'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// The 4 places of « Mes 4 favoris »: a poster (a press changes it, ✕ removes it) or « + ».
-class _PinnedEditor extends StatelessWidget {
-  const _PinnedEditor({required this.titles, required this.onPick, required this.onRemove});
-
-  final List<MediaItem> titles;
-  final ValueChanged<int> onPick;
-  final ValueChanged<int> onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final gap = layout.cardGap;
-        final width = ((constraints.maxWidth - gap * 3) / 4).clamp(0.0, layout.size(120, tv: 200));
-        return Row(
-          children: [
-            for (var i = 0; i < 4; i++) ...[
-              if (i > 0) SizedBox(width: gap),
-              if (i < titles.length)
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    VxFocusable(
-                      borderRadius: width * 0.08,
-                      semanticLabel: 'Favori ${i + 1} : ${titles[i].title}. Changer',
-                      onPressed: () => onPick(i),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(width * 0.08),
-                        child: SizedBox(
-                          width: width,
-                          height: width * 1.5,
-                          child: NetImage(url: titles[i].posterUrl, seed: titles[i].id),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: -6,
-                      right: -6,
-                      child: VxFocusable(
-                        borderRadius: 16,
-                        semanticLabel: 'Retirer ${titles[i].title} de mes 4 favoris',
-                        onPressed: () => onRemove(i),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: const BoxDecoration(color: VxColors.surfaceHigh, shape: BoxShape.circle),
-                          child: const Icon(Icons.close_rounded, size: 16, color: VxColors.text),
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              else
-                VxFocusable(
-                  borderRadius: width * 0.08,
-                  semanticLabel: i == titles.length ? 'Ajouter un favori' : 'Place libre',
-                  onPressed: i == titles.length ? () => onPick(i) : null,
-                  child: Container(
-                    width: width,
-                    height: width * 1.5,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(width * 0.08),
-                      border: Border.all(color: VxColors.line),
-                    ),
-                    child: Icon(
-                      Icons.add_rounded,
-                      color: i == titles.length ? VxColors.textSoft : VxColors.textMuted,
-                      size: width * 0.3,
-                    ),
-                  ),
-                ),
-            ],
-          ],
-        );
-      },
-    );
   }
 }
 

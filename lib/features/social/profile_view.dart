@@ -40,11 +40,12 @@ const profileGridShown = 18;
 /// A tab of a profile page (« Activité », « Listes », « Avis », « Aimés », « Vus »): its sections.
 typedef ProfileTab = ({String label, List<Widget> sections});
 
-/// A profile's page: header, « Mes 4 favoris » ([pinned]), counters, then its sections (a list,
-/// reviews…), in a page that scrolls and refreshes when pulled down. With several [tabs], a row of
-/// tabs under the counters chooses the sections shown. [back]: a round back button above the
-/// header (a member's page, opened over another page); [actions]: round buttons at the top right
-/// (« Paramètres » of my page on a phone, « … » of a member).
+/// A profile's page: header, counters, then its sections (a list, reviews…), in a page that
+/// scrolls and refreshes when pulled down. With several [tabs], a row of tabs under the counters
+/// chooses the sections shown. [back]: a round back button above the header (a member's page,
+/// opened over another page); [actions]: round buttons at the top right (« Partager le profil »,
+/// then « Paramètres » of my page on a phone or « … » of a member). [focusTabs]: the shown tab
+/// takes the focus on arrival (TV), when the header has no button to take it (my page).
 class ProfileView extends StatefulWidget {
   const ProfileView({
     super.key,
@@ -52,18 +53,18 @@ class ProfileView extends StatefulWidget {
     required this.counters,
     required this.tabs,
     required this.onRefresh,
-    this.pinned,
     this.back = false,
     this.actions = const [],
+    this.focusTabs = false,
   });
 
   final Widget header;
   final Widget counters;
   final List<ProfileTab> tabs;
   final Future<void> Function() onRefresh;
-  final Widget? pinned;
   final bool back;
   final List<Widget> actions;
+  final bool focusTabs;
 
   @override
   State<ProfileView> createState() => _ProfileViewState();
@@ -105,10 +106,6 @@ class _ProfileViewState extends State<ProfileView> {
               SizedBox(height: layout.space(VxSpace.m)),
             ],
             ProfileColumn(child: widget.header),
-            if (widget.pinned case final pinned?) ...[
-              SizedBox(height: layout.sectionGap),
-              ProfileColumn(child: pinned),
-            ],
             SizedBox(height: layout.sectionGap),
             ProfileColumn(child: widget.counters),
             if (tabs.length > 1) ...[
@@ -117,6 +114,7 @@ class _ProfileViewState extends State<ProfileView> {
                 child: VxTabs(
                   labels: [for (final t in tabs) t.label],
                   selected: tab,
+                  autofocus: widget.focusTabs,
                   onSelected: (i) => setState(() => _tab = i),
                 ),
               ),
@@ -155,7 +153,8 @@ class ProfileColumn extends StatelessWidget {
 }
 
 /// Avatar, name, @username, followers and following, bio, then the page's button ([action]:
-/// « Modifier le profil », « Suivre »…), which takes the focus on arrival.
+/// « Suivre » of a member, which takes the focus on arrival; none on my page: its biography and
+/// networks are changed in « Paramètres »).
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
@@ -163,14 +162,12 @@ class ProfileHeader extends StatelessWidget {
     this.avatarId,
     this.username,
     this.bio,
-    this.emptyBio,
     this.followers,
     this.following,
     this.onFollowers,
     this.onFollowing,
     this.action,
     this.onMessage,
-    this.onShare,
     this.isPrivate = false,
     this.links = const [],
     this.compatibility,
@@ -183,9 +180,6 @@ class ProfileHeader extends StatelessWidget {
   final String? username;
   final String? bio;
 
-  /// Shown, dimmed, when there is no bio (mine: an invitation); none when null.
-  final String? emptyBio;
-
   /// Null while they load: the line is not shown yet.
   final int? followers;
   final int? following;
@@ -196,9 +190,6 @@ class ProfileHeader extends StatelessWidget {
   /// « Envoyer un message » (a round button beside [action]); none when null (my profile, a guest,
   /// a child's profile).
   final VoidCallback? onMessage;
-
-  /// « Partager » (a round button beside [action]); none when null (TV, profile without page).
-  final VoidCallback? onShare;
 
   /// A private account: a lock after the name.
   final bool isPrivate;
@@ -294,12 +285,9 @@ class ProfileHeader extends StatelessWidget {
             ],
           ),
         ],
-        if (text.isNotEmpty || emptyBio != null) ...[
+        if (text.isNotEmpty) ...[
           SizedBox(height: layout.space(VxSpace.m)),
-          Text(
-            text.isEmpty ? emptyBio! : text,
-            style: VxText.body(layout.bodySize, color: text.isEmpty ? VxColors.textMuted : VxColors.textSoft),
-          ),
+          Text(text, style: VxText.body(layout.bodySize, color: VxColors.textSoft)),
         ],
         if (links.isNotEmpty) ...[
           SizedBox(height: layout.space(VxSpace.s)),
@@ -309,7 +297,7 @@ class ProfileHeader extends StatelessWidget {
             children: [for (final link in links) SocialLinkChip(link: link)],
           ),
         ],
-        if (action != null || onMessage != null || onShare != null) ...[
+        if (action != null || onMessage != null) ...[
           SizedBox(height: layout.space(VxSpace.m)),
           Row(
             children: [
@@ -322,10 +310,6 @@ class ProfileHeader extends StatelessWidget {
                   dense: true,
                   onPressed: onMessage,
                 ),
-              ],
-              if (onShare != null) ...[
-                if (action != null || onMessage != null) SizedBox(width: layout.space(VxSpace.s)),
-                VxIconAction(icon: Icons.share_outlined, label: 'Partager le profil', dense: true, onPressed: onShare),
               ],
             ],
           ),
@@ -496,13 +480,15 @@ AsyncValue<List<MediaItem>> withCatalogDetails(WidgetRef ref, List<MediaItem> ti
 
 /// Titles of a profile (« Mes J'aime », « Vus »…): a row of posters, as on the home page, or a
 /// [grid] (the first [profileGridShown], a tab of their own); the round arrow ([onSeeAll]) opens
-/// them all.
+/// them all. None: the [EmptyState] of the app ([emptyIcon], [emptyTitle], [emptyMessage]).
 class ProfileTitlesSection extends ConsumerWidget {
   const ProfileTitlesSection({
     super.key,
     required this.title,
     required this.titles,
     required this.emptyMessage,
+    this.emptyTitle = 'Rien pour l’instant',
+    this.emptyIcon = Icons.movie_outlined,
     this.onSeeAll,
     this.grid = false,
   });
@@ -510,6 +496,8 @@ class ProfileTitlesSection extends ConsumerWidget {
   final String title;
   final AsyncValue<List<MediaItem>> titles;
   final String emptyMessage;
+  final String emptyTitle;
+  final IconData emptyIcon;
   final VoidCallback? onSeeAll;
   final bool grid;
 
@@ -529,7 +517,7 @@ class ProfileTitlesSection extends ConsumerWidget {
           ? ProfileSectionMessage(title: title, message: 'Impossible de charger cette liste.')
           : ProfileSectionLoading(title: title, height: rowHeight);
     }
-    if (items.isEmpty) return ProfileSectionMessage(title: title, message: emptyMessage);
+    if (items.isEmpty) return EmptyState(icon: emptyIcon, title: emptyTitle, message: emptyMessage);
     if (!grid) return PosterRow(title: title, items: items, onSeeAll: onSeeAll);
     final shown = items.take(profileGridShown).toList();
     return Column(
@@ -556,19 +544,13 @@ class ProfileTitlesSection extends ConsumerWidget {
 }
 
 /// The people a profile follows (« Personnes suivies »): a row of round photos, as the cast of a
-/// title page; the round arrow ([onSeeAll]) opens them all.
+/// title page; the round arrow ([onSeeAll]) opens them all. None: nothing (the tab's other section
+/// says how to follow people).
 class ProfilePeopleSection extends StatelessWidget {
-  const ProfilePeopleSection({
-    super.key,
-    required this.title,
-    required this.people,
-    required this.emptyMessage,
-    this.onSeeAll,
-  });
+  const ProfilePeopleSection({super.key, required this.title, required this.people, this.onSeeAll});
 
   final String title;
   final AsyncValue<List<Person>> people;
-  final String emptyMessage;
   final VoidCallback? onSeeAll;
 
   @override
@@ -581,7 +563,7 @@ class ProfilePeopleSection extends StatelessWidget {
           ? ProfileSectionMessage(title: title, message: 'Impossible de charger cette liste.')
           : ProfileSectionLoading(title: title, height: height);
     }
-    if (all.isEmpty) return ProfileSectionMessage(title: title, message: emptyMessage);
+    if (all.isEmpty) return const SizedBox.shrink();
 
     final shown = all.take(profileTitlesShown).toList();
     return Column(
@@ -610,7 +592,7 @@ class ProfilePeopleSection extends StatelessWidget {
 
 /// Reviews of a profile (« Mes avis », « Ses avis »): the latest [profileReviewsShown], the same rows as the
 /// « Mes avis » page; the round arrow ([onSeeAll]) opens them all. [mine]: a review opens
-/// « Mon avis » to change it; otherwise, the title.
+/// « Mon avis » to change it; otherwise, the title. None: the [EmptyState] of the app.
 class ProfileReviewsSection extends StatelessWidget {
   const ProfileReviewsSection({
     super.key,
@@ -618,12 +600,14 @@ class ProfileReviewsSection extends StatelessWidget {
     required this.reviews,
     required this.emptyMessage,
     required this.mine,
+    this.emptyTitle = 'Aucun avis',
     this.onSeeAll,
   });
 
   final String title;
   final AsyncValue<List<RatedItem>> reviews;
   final String emptyMessage;
+  final String emptyTitle;
   final bool mine;
   final VoidCallback? onSeeAll;
 
@@ -636,7 +620,7 @@ class ProfileReviewsSection extends StatelessWidget {
           ? ProfileSectionMessage(title: title, message: 'Impossible de charger les avis.')
           : ProfileSectionLoading(title: title, height: layout.size(96, tv: 160));
     }
-    if (all.isEmpty) return ProfileSectionMessage(title: title, message: emptyMessage);
+    if (all.isEmpty) return EmptyState(icon: Icons.star_outline_rounded, title: emptyTitle, message: emptyMessage);
 
     final latest = all.take(profileReviewsShown).toList();
     return Column(

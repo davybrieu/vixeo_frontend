@@ -19,6 +19,7 @@ import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/library/my_list_screen.dart';
 import 'package:vixeo/features/network/network.dart';
 import 'package:vixeo/features/social/profile_screen.dart';
+import 'package:vixeo/features/social/public_profile_settings.dart';
 import 'package:vixeo/features/social/review_likes.dart';
 import 'package:vixeo/features/social/social_links.dart';
 import 'package:vixeo/features/social/social_search.dart';
@@ -178,7 +179,7 @@ Future<void> _pump(WidgetTester tester) async {
       GoRoute(path: '/listes/:id', builder: (_, state) => page('Liste ${state.pathParameters['id']}')),
       GoRoute(path: '/titre/:type/:id', builder: (_, state) => page('Fiche ${state.pathParameters['id']}')),
       GoRoute(path: '/avis', builder: (_, _) => page('Page Mes avis')),
-      GoRoute(path: '/profil/social/edition', builder: (_, _) => page('Page Modifier')),
+      GoRoute(path: '/parametres', builder: (_, _) => page('Page Paramètres')),
       GoRoute(path: '/profil/social/:section', builder: (_, state) => page('Page ${state.pathParameters['section']}')),
     ],
   );
@@ -207,7 +208,10 @@ void main() {
     expect(find.text('Fan de science-fiction.'), findsOneWidget);
     expect(_pressable('12 abonnés'), findsOneWidget);
     expect(_pressable('1 abonnement'), findsOneWidget);
-    expect(find.text('Modifier le profil'), findsOneWidget);
+    // No « Modifier le profil » (the biography and networks are in « Paramètres »), « Paramètres »
+    // at the top right on a phone.
+    expect(find.text('Modifier le profil'), findsNothing);
+    expect(_pressable('Paramètres'), findsOneWidget);
     // No invitation to choose « Mes 4 favoris ».
     expect(find.textContaining('Choisissez vos 4'), findsNothing);
 
@@ -451,79 +455,50 @@ void main() {
     expect(find.bySemanticsLabel('Avis : 5'), findsOneWidget);
   });
 
-  testWidgets('a biography of 160 characters at most', (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          sessionProvider.overrideWith(_Signed.new),
-          socialRepositoryProvider.overrideWithValue(_SearchSocial([_social])),
-        ],
-        child: MaterialApp(theme: buildVixeoTheme(), home: const SocialProfileEditScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
+  testWidgets('« Biographie » (Paramètres): 160 characters at most, saved', (tester) async {
+    final auth = _FakeAuth();
+    await _pumpSettings(tester, auth, BioSettingsScreen.location);
 
     final bio = find.widgetWithText(TextField, 'Biographie');
+    expect(tester.widget<TextField>(bio).controller!.text, 'Fan de science-fiction.');
     expect(tester.widget<TextField>(bio).maxLength, 160);
     await tester.enterText(bio, 'a' * 200);
     await tester.pump();
     expect(tester.widget<TextField>(bio).controller!.text.length, 160);
     expect(find.text('160/160'), findsOneWidget);
+
+    await tester.enterText(bio, ' Cinéphile. ');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(auth.saved.single, {'bio': 'Cinéphile.'});
+    expect(find.text('Page Profil'), findsOneWidget);
   });
 
-  testWidgets('« Modifier mon profil » changes the name too', (tester) async {
-    tester.view.physicalSize = const Size(600, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+  testWidgets('« Réseaux sociaux » (Paramètres): one field per network, an emptied one removed', (tester) async {
     final auth = _FakeAuth();
-    final container = ProviderContainer(
-      overrides: [
-        sessionProvider.overrideWith(_Signed.new),
-        socialRepositoryProvider.overrideWithValue(_SearchSocial([_social])),
-        authRepositoryProvider.overrideWithValue(auth),
-      ],
-    );
-    addTearDown(container.dispose);
-    final router = GoRouter(
-      routes: [
-        GoRoute(path: '/', builder: (_, _) => const Text('Page Profil')),
-        GoRoute(path: '/edition', builder: (_, _) => const SocialProfileEditScreen()),
-      ],
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
-      ),
-    );
-    router.push('/edition');
-    await tester.pumpAndSettle();
+    await _pumpSettings(tester, auth, SocialLinksSettingsScreen.location);
 
-    // Filled with the profile: name, @username, biography.
-    expect(find.widgetWithText(TextField, 'Léa'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'lea'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Fan de science-fiction.'), findsOneWidget);
-
-    // An empty name is refused before the API.
-    await tester.enterText(find.widgetWithText(TextField, 'Nom'), '  ');
+    await tester.enterText(find.widgetWithText(TextField, 'Instagram'), ' @lea.cine ');
+    await tester.enterText(find.widgetWithText(TextField, 'Site web'), 'lea.fr');
     await tester.tap(find.text('Enregistrer'));
     await tester.pumpAndSettle();
-    expect(find.text('Le nom du profil est obligatoire.'), findsOneWidget);
-    expect(auth.saved, isEmpty);
 
-    await tester.enterText(find.widgetWithText(TextField, 'Nom'), ' Léa B. ');
-    await tester.tap(find.text('Enregistrer'));
+    final links = auth.saved.single['social_links']! as Map<String, String?>;
+    expect(links['instagram'], '@lea.cine');
+    expect(links['website'], 'lea.fr');
+    expect(links['x'], isNull);
+    expect(links.keys, [for (final network in SocialNetwork.values) network.key]);
+  });
+
+  testWidgets('« Compte privé » (Paramètres): saved at once', (tester) async {
+    final auth = _FakeAuth();
+    await _pumpSettings(tester, auth, PrivateAccountSettingsScreen.location);
+
+    await tester.tap(_pressable('Compte privé, désactivé'));
     await tester.pumpAndSettle();
-    expect(auth.saved.single, {
-      'name': 'Léa B.',
-      'username': 'lea',
-      'bio': 'Fan de science-fiction.',
-      'is_private': false,
-      'social_links': {for (final network in SocialNetwork.values) network.key: null},
-    });
-    expect(container.read(sessionProvider).profile?.name, 'Léa B.');
-    expect(find.text('Page Profil'), findsOneWidget);
+    expect(auth.saved.single, {'is_private': true});
+    expect(_pressable('Compte privé, activé'), findsOneWidget);
+    expect(find.text('Compte privé activé'), findsOneWidget);
   });
 
   testWidgets('« Partager » sends the profile\'s page, or copies it', (tester) async {
@@ -750,38 +725,34 @@ void main() {
     );
     expect(find.byType(ReviewLikeButton), findsNothing);
   });
+}
 
-  testWidgets('« Modifier mon profil »: private account and social networks', (tester) async {
-    tester.view.physicalSize = const Size(600, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final auth = _FakeAuth();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          sessionProvider.overrideWith(_Signed.new),
-          socialRepositoryProvider.overrideWithValue(_SearchSocial([_social])),
-          authRepositoryProvider.overrideWithValue(auth),
-        ],
-        child: MaterialApp(theme: buildVixeoTheme(), home: const SocialProfileEditScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Compte privé'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Instagram'), ' @lea.cine ');
-    await tester.enterText(find.widgetWithText(TextField, 'Site web'), 'lea.fr');
-    await tester.tap(find.text('Enregistrer'));
-    await tester.pumpAndSettle();
-
-    final saved = auth.saved.single;
-    expect(saved['is_private'], isTrue);
-    final links = saved['social_links']! as Map<String, String?>;
-    expect(links['instagram'], '@lea.cine');
-    expect(links['website'], 'lea.fr');
-    expect(links['x'], isNull);
-  });
+/// A page of « Paramètres » ([location]) over a « Profil » page, saving with [auth].
+Future<void> _pumpSettings(WidgetTester tester, _FakeAuth auth, String location) async {
+  tester.view.physicalSize = const Size(600, 2400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  final router = GoRouter(
+    routes: [
+      GoRoute(path: '/', builder: (_, _) => const Scaffold(body: Text('Page Profil'))),
+      GoRoute(path: BioSettingsScreen.location, builder: (_, _) => const BioSettingsScreen()),
+      GoRoute(path: SocialLinksSettingsScreen.location, builder: (_, _) => const SocialLinksSettingsScreen()),
+      GoRoute(path: PrivateAccountSettingsScreen.location, builder: (_, _) => const PrivateAccountSettingsScreen()),
+    ],
+  );
+  addTearDown(router.dispose);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: <Override>[
+        sessionProvider.overrideWith(_Signed.new),
+        socialProfileProvider.overrideWith((ref, username) async => _social),
+        authRepositoryProvider.overrideWithValue(auth),
+      ],
+      child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
+    ),
+  );
+  router.push(location);
+  await tester.pumpAndSettle();
 }
 
 class _FakeSocial extends SocialRepository {
@@ -879,7 +850,14 @@ class _FakeAuth extends AuthRepository {
   @override
   Future<Profile> updateProfile(int profileId, Map<String, Object?> fields) async {
     saved.add(fields);
-    return Profile.fromJson({'id': profileId, 'name': fields['name'], 'username': fields['username'], 'bio': fields['bio']});
+    return Profile.fromJson({
+      'id': profileId,
+      'name': 'Léa',
+      'username': 'lea',
+      'bio': 'Fan de science-fiction.',
+      ...fields,
+      'social_links': null,
+    });
   }
 }
 

@@ -410,7 +410,9 @@ class AsyncView<T> extends StatelessWidget {
   };
 }
 
-/// Centered message for empty lists.
+/// The empty state of the app (developer's request, 23/11/2026: the design of the « Fil
+/// d'actualité » when it is empty, everywhere): an icon, a title and a sentence, centered. Used by
+/// the feed, « Notifications », the tabs of a profile page and every page with nothing to show.
 class EmptyState extends StatelessWidget {
   const EmptyState({super.key, required this.icon, required this.title, this.message, this.action});
 
@@ -422,28 +424,34 @@ class EmptyState extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 44, color: VxColors.textMuted),
-          const SizedBox(height: 16),
-          Text(title, textAlign: TextAlign.center, style: VxText.title(20)),
-          if (message != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              message!,
-              textAlign: TextAlign.center,
-              style: VxText.body(15, color: VxColors.textSecondary),
-            ),
-          ],
-          if (action != null) ...[const SizedBox(height: 24), action!],
-        ],
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(layout.size(32, tv: 48)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: layout.size(480, tv: 900)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: layout.size(44, tv: 72), color: VxColors.textMuted),
+              SizedBox(height: layout.size(16, tv: 24)),
+              Text(title, textAlign: TextAlign.center, style: VxText.title(layout.size(20, tv: 32))),
+              if (message != null) ...[
+                SizedBox(height: layout.size(8, tv: 12)),
+                Text(
+                  message!,
+                  textAlign: TextAlign.center,
+                  style: VxText.body(layout.size(15, tv: 24), color: VxColors.textSecondary),
+                ),
+              ],
+              if (action != null) ...[SizedBox(height: layout.size(24, tv: 36)), action!],
+            ],
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// Short alert at the bottom of the screen (« Marqué comme vu »…).

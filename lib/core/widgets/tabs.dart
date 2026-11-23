@@ -13,11 +13,20 @@ import 'focusable.dart';
 /// Flutter: a widget without state of its own (like a Vue component with a `v-model`): the page
 /// keeps [selected] and changes it in [onSelected].
 class VxTabs extends StatelessWidget {
-  const VxTabs({super.key, required this.labels, required this.selected, required this.onSelected});
+  const VxTabs({
+    super.key,
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+    this.autofocus = false,
+  });
 
   final List<String> labels;
   final int selected;
   final ValueChanged<int> onSelected;
+
+  /// The selected tab takes the focus on arrival (TV), when nothing above it does.
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +44,7 @@ class VxTabs extends StatelessWidget {
                 child: Semantics(
                   selected: i == selected,
                   child: VxFocusable(
+                    autofocus: autofocus && i == selected,
                     borderRadius: radius,
                     focusScale: 1.02,
                     semanticLabel: '$label, onglet ${i + 1} sur ${labels.length}',

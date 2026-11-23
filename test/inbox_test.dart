@@ -199,24 +199,29 @@ void main() {
     final (:inbox, :social, :container) = await _pumpInbox(tester);
 
     expect(find.text('Notifications'), findsOneWidget);
-    expect(find.text('Demandes d’abonnement'), findsOneWidget);
+    // Everything in one list: no sections (developer's request, 23/11/2026).
+    for (final section in ['Demandes d’abonnement', 'Prochains épisodes', 'Sortis cette semaine', 'Activité']) {
+      expect(find.text(section), findsNothing);
+    }
     expect(find.text('Nina'), findsOneWidget);
 
-    expect(find.text('Prochains épisodes'), findsOneWidget);
     expect(find.text('Les Hautes Terres'), findsOneWidget);
     expect(find.text('Saison 2, épisode 5 · Le Retour'), findsOneWidget);
     expect(find.text('Demain à 21:00'), findsOneWidget);
-    expect(find.text('Sortis cette semaine'), findsOneWidget);
     expect(find.text('Lupin'), findsOneWidget);
     expect(find.text('Sorti hier'), findsOneWidget);
 
-    expect(find.text('Activité'), findsOneWidget);
     expect(find.text('Max aime votre avis sur Fight Club.'), findsOneWidget);
     expect(find.text('Max vous suit.'), findsOneWidget);
     expect(find.text('il y a 5 min'), findsOneWidget);
     expect(find.text('il y a 3 h'), findsOneWidget);
-    // The request is in its own section, not twice.
+    // The request has its row with « Accepter » / « Refuser », not twice.
     expect(find.textContaining('demande à vous suivre'), findsNothing);
+    // In order: the request, the next episode, then the most recent first.
+    double top(Finder finder) => tester.getTopLeft(finder).dy;
+    expect(top(find.text('Nina')), lessThan(top(find.text('Les Hautes Terres'))));
+    expect(top(find.text('Les Hautes Terres')), lessThan(top(find.text('Max aime votre avis sur Fight Club.'))));
+    expect(top(find.text('Max vous suit.')), lessThan(top(find.text('Lupin'))));
     expect(_pressable('Max, @max, aime votre avis sur Fight Club., il y a 5 min, non lue'), findsOneWidget);
 
     // Shown: everything read, the badge is cleared.
@@ -227,7 +232,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(social.calls, ['accept nina']);
     expect(find.text('@nina vous suit désormais'), findsOneWidget);
-    expect(find.text('Demandes d’abonnement'), findsNothing);
+    expect(_pressable('Accepter la demande de @nina'), findsNothing);
   });
 
   testWidgets('a notification opens my review or the member; an episode, its show', (tester) async {

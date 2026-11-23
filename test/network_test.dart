@@ -401,16 +401,7 @@ void main() {
       expect(Profile.fromJson({'id': 1, 'name': 'A', 'rate_after_watching': false}).rateAfterWatching, isFalse);
       // An older API: no first launch.
       expect(Profile.fromJson({'id': 1, 'name': 'A'}).onboarded, isTrue);
-      final pinned = Profile.fromJson({
-        'id': 1,
-        'name': 'A',
-        'onboarded': false,
-        'pinned_titles': [
-          {'type': 'tv', 'id': 1399, 'title': 'Les Hautes Terres'},
-        ],
-      });
-      expect(pinned.onboarded, isFalse);
-      expect(pinned.pinnedTitles.single.type, MediaType.tv);
+      expect(Profile.fromJson({'id': 1, 'name': 'A', 'onboarded': false}).onboarded, isFalse);
     });
   });
 

@@ -387,6 +387,10 @@ lib/
   sortie que sous une autre `MaterialPageRoute` (avec une `CustomTransitionPage`, la page
   quittée restait visible dessous). Ne pas ajouter d'autre transition. Test :
   `test/page_transition_test.dart`.
+- **Page ou onglet vide** (demande du développeur, 23/11/2026 : le design du « Fil d'actualité »
+  vide, en un seul composant) : toujours **`EmptyState`** (`core/widgets/common.dart` : icône,
+  titre, phrase et bouton facultatif, centrés, tailles TV) : fil, « Notifications », onglets d'une
+  page de profil, pages de listes… Ne pas écrire d'autre message de liste vide.
 - **Rangées de l'accueil : « Voir tout »** (demande du développeur) : à droite du titre de chaque
   rangée, un bouton rond à flèche (`SectionHeader(onSeeAll:)`) ouvre la liste entière
   (`TitleListScreen`, `catalog/list_screen.dart`, `/liste/:type/:list?titre=…`) : bouton retour,
@@ -429,22 +433,30 @@ lib/
   3 notifications non lues »). Pastille : `unreadNotificationsProvider` (`GET /notifications/count`),
   relue à l'arrivée de la navigation, à chaque changement de page (30 s au plus entre deux,
   `_UnreadWatcher` d'`AppShell`), au retour au premier plan et à l'arrivée d'un push du canal
-  `social` ; **pas de minuterie**. La page : « Demandes d'abonnement » (compte privé : `AccountTile`,
-  « Accepter » ✓ et « Refuser » ✕, `followRequestsProvider`), « Prochains épisodes » des séries de
-  « À voir » (rangée horizontale : image, série, « Saison 2, épisode 5 · Titre », « Demain à
-  21:00 » ; `episodeCalendarProvider`, `GET /notifications/episodes`) et « Sortis cette semaine »,
-  puis « Activité » (`activityFeedProvider`, 30 par page, « Afficher plus » : avatar, « **Max** vous
-  suit. », « … aime votre avis sur Dune. », « il y a 5 min », point vert tant que non lue ; les
-  demandes n'y sont pas, elles ont leur section). Un appui ouvre la page du membre, mon avis
-  (`ReviewScreen`) ou la série. **Ouvrir la page lit tout** (`POST /notifications/read`, après le
+  `social` ; **pas de minuterie**. La page : **tout dans une seule liste, sans sections** (demande
+  du développeur, 23/11/2026 : ne pas séparer activité et prochains épisodes) : d'abord les
+  demandes d'abonnement (compte privé : `AccountTile`, « Accepter » ✓ et « Refuser » ✕,
+  `followRequestsProvider`), puis les prochains épisodes des séries « À voir » (le plus proche
+  d'abord ; `_EpisodeTile` : image, série, « Saison 2, épisode 5 · Titre », « Demain à 21:00 » en
+  vert ; `episodeCalendarProvider`, `GET /notifications/episodes`), puis ce qui s'est passé, le plus
+  récent d'abord : l'activité des membres (`activityFeedProvider`, 30 par page, « Afficher plus » :
+  avatar, « **Max** vous suit. », « … aime votre avis sur Dune. », « il y a 5 min », point vert tant
+  que non lue ; les demandes n'y sont pas une deuxième fois) mêlée aux épisodes sortis cette
+  semaine (« Sorti hier »). Rien : l'`EmptyState` du « Fil d'actualité » (« Aucune
+  notification »). Un appui ouvre la page du membre, mon avis (`ReviewScreen`) ou la série. **Ouvrir la page lit tout** (`POST /notifications/read`, après le
   premier chargement ; les points restent jusqu'à la visite suivante). Dates en français :
   `episodeWhen`, `timeAgo`, `dayLabel`. Test : `test/inbox_test.dart`.
 - **Compte privé, réseaux sociaux, J'aime** (`features/social`, demande du développeur,
-  21/11/2026, comme Twitter ; API : `vixeo_backend/docs/social.md`) : « Modifier mon profil »
-  (`SocialProfileEditScreen`) a l'interrupteur « Compte privé » et un champ par réseau
-  (`SocialNetwork` : Instagram, X, TikTok, YouTube, Letterboxd, Threads, Bluesky, site web ; le
-  pseudo ou l'adresse, l'API garde le pseudo ; champ vidé = retiré), envoyés par
-  `PUT /profiles/{id}` (`is_private`, `social_links`). En-tête du profil (`ProfileHeader`) : cadenas
+  21/11/2026, comme Twitter ; API : `vixeo_backend/docs/social.md`) : **« Paramètres » → « Profil
+  public »** (demande du développeur, 23/11/2026 : plus de page « Modifier mon profil » ni de bouton
+  « Modifier le profil » ; `features/social/public_profile_settings.dart`) : **« Biographie »**
+  (`BioSettingsScreen`, `/profil/biographie`, 160 caractères au plus), **« Réseaux sociaux »**
+  (`SocialLinksSettingsScreen`, `/profil/reseaux-sociaux` : un champ par réseau, `SocialNetwork` :
+  Instagram, X, TikTok, YouTube, Letterboxd, Threads, Bluesky, site web ; le pseudo ou l'adresse,
+  l'API garde le pseudo ; champ vidé = retiré) et **« Compte privé »**
+  (`PrivateAccountSettingsScreen`, `/profil/compte-prive`, enregistré tout de suite), envoyés par
+  `PUT /profiles/{id}` (`bio`, `social_links`, `is_private`, `saveProfile`). Le nom et le pseudo se
+  changent dans « Qui regarde ? » → « Gérer les profils ». En-tête du profil (`ProfileHeader`) : cadenas
   après le nom d'un compte privé, puis les réseaux sous la biographie (`SocialLinkChip` : icône et
   « @pseudo », ouvre la page dans le navigateur ; sur TV, affichés seulement). Page d'un membre
   privé qu'on ne suit pas (`can_view` faux) : en-tête et compteurs seulement, carte « Ce compte est
@@ -648,11 +660,12 @@ lib/
     « À voir » puis les listes (`ProfileListsSection`, « Nouvelle liste »). **Avis** : les 10
     derniers. **Aimés** : grille des J'aime (`ProfileTitlesSection(grid: true)`) et personnes
     suivies. **Vus** : « Mon année 2026 » et grille des titres vus (`LibraryState.watched`, un
-    membre : `socialWatchedProvider`, `GET /social/profiles/{pseudo}/watched`). **« Mes 4
-    favoris »** sous l'en-tête (`PinnedTitles`, choisis dans « Modifier mon profil »,
-    `pinned_titles`), **rien quand il n'y en a pas** (plus d'invitation « Choisissez vos 4
-    films… », demande du développeur, 23/11/2026) ; un membre : « … » (masquer du fil, bloquer,
-    signaler : `showMemberMenu`) et « 82 % de goûts en commun » (`ProfileHeader(compatibility:)`).
+    membre : `socialWatchedProvider`, `GET /social/profiles/{pseudo}/watched` ; le bouton de l'année
+    seulement s'il y a des titres vus). **Un onglet vide** montre l'`EmptyState` du « Fil
+    d'actualité » (icône, titre, phrase ; demande du développeur, 23/11/2026). **Plus de « Mes 4
+    favoris »** (supprimé le 23/11/2026, et `pinned_titles` côté API) ; un membre : « … » (masquer
+    du fil, bloquer, signaler : `showMemberMenu`) et « 82 % de goûts en commun »
+    (`ProfileHeader(compatibility:)`).
     **Bilan de l'année** (`YearStatsScreen`, `/profil/bilan?annee=2026` : chiffres, mois, genres,
     mieux notés, série de l'année) ; **« Partager en image »** d'un avis, d'une liste ou de l'année
     (`StoryScreen`, format story 1080 × 1920 : feuille de partage d'Android, dossier
@@ -700,7 +713,7 @@ lib/
   filtre de type de la recherche. Ne pas les réintroduire.
 - **« J'aime » ❤ et personnes suivies** (demande du développeur, 20/11/2026 ; **le cœur est un
   J'aime, pas des favoris**, précisé le 23/11/2026 : « J’aime » / « Je n’aime plus », « Ajouté à vos
-  J’aime », « Mes J’aime », « Ses J’aime » ; « Mes 4 favoris » est autre chose) : groupes `liked` et `followed` de la synchro
+  J’aime », « Mes J’aime », « Ses J’aime ») : groupes `liked` et `followed` de la synchro
   (`LibraryController.setLiked` / `setFollowed`, API : `vixeo_backend/docs/synchronisation.md`),
   indépendants de « À voir ». Cœur `LikedButton` sur la fiche (films, séries ; pas sur les
   épisodes ni les chaînes), après « Ajouter à une liste » ; un J'aime va au fil d'actualité des
@@ -721,7 +734,9 @@ lib/
   (« Ajouter à une liste » : il ouvre le choix des listes, voir « Listes »).
   Chaque action se confirme par une alerte (`showVxSnack`) : « Ajouté à « À voir » », « Retiré
   de « À voir » », « Marqué comme vu », « Marqué comme non vu » (`features/library/actions.dart`),
-  « Note enregistrée : 8/10 », « Note supprimée ».
+  « Note enregistrée : 8/10 », « Note supprimée ». **Noter un film, une série ou un épisode le
+  marque vu** (l'API le fait pour un nouvel avis, demande du développeur, 23/11/2026 ;
+  `TmdbRatings` relit la bibliothèque juste après : « Vu » s'affiche tout de suite).
 - **Avis** (`features/tmdb`, nom historique ; API : `vixeo_backend/docs/avis.md`) : tout profil
   connecté note, modifie et supprime ses avis (`canRateProvider` = connecté avec un profil),
   **gardés par Vixeo seulement**. **Plus de liaison d'un compte TMDb ni de synchronisation**
@@ -897,12 +912,15 @@ lib/
   le composant `ProfileView` (`features/social/profile_view.dart`) et ses morceaux
   `ProfileHeader`, `ProfileCounters`, `ProfileTitlesSection`, `ProfileReviewsSection`,
   `ProfileSectionMessage` / `ProfileSectionLoading`. **Modifier la page = modifier ce fichier**
-  (pas de copie dans les écrans) ; chaque écran ne donne que ses données et son bouton. En haut,
+  (pas de copie dans les écrans) ; chaque écran ne donne que ses données et son bouton. En haut à
+  droite, **« Partager le profil »** puis « Paramètres » (le mien, téléphone) ou « … » (un membre) ;
   avatar, nom, @pseudo, « 12 abonnés » et « 3 abonnements » (ouvrent la liste), biographie
-  (**160 caractères au plus**, demande du développeur, 21/11/2026 : `SocialProfileEditScreen.bioMaxLength`,
-  même limite dans l'API), puis
-  le bouton (focus à l'arrivée) : « Modifier le profil » (le mien), « Suivre » / « Ne plus
-  suivre » (un membre ; invité : « Se connecter pour suivre ») ; puis une carte de compteurs
+  (**160 caractères au plus**, demande du développeur, 21/11/2026 : `BioSettingsScreen.maxLength`,
+  même limite dans l'API ; rien quand il n'y en a pas) et réseaux, puis, pour un membre, le bouton
+  (focus à l'arrivée) « Suivre » / « Ne plus suivre » (invité : « Se connecter pour suivre ») ;
+  **pas de bouton sur ma page** (demande du développeur, 23/11/2026 : biographie, réseaux et compte
+  privé dans « Paramètres » → « Profil public » ; l'onglet affiché prend le focus à l'arrivée,
+  `ProfileView(focusTabs:)`) ; puis une carte de compteurs
   (Avis, Vus, À voir) ; puis les cinq onglets (voir « Page de profil » du réseau social :
   Activité, Listes, Avis, Aimés, Vus ; grilles d'une seule requête `titlesByIdProvider` via
   `withCatalogDetails`) ; le bouton rond « Voir tout » ouvre `/listes/a-voir`, `/avis`,
@@ -920,11 +938,10 @@ lib/
   de page. **Comptes** (recherche, abonnés) : `AccountTile` = avatar, nom, @pseudo, **sans le
   nombre d'abonnés** (demande du développeur). **La recherche ne montre jamais le profil actif
   lui-même** (demande du développeur, 20/11/2026 : on ouvre son profil par la navigation,
-  « Profil ») : l'API le retire et `socialSearchProvider` aussi. **« Modifier mon profil »**
-  (`SocialProfileEditScreen`, `/profil/social/edition`) : **nom** (demande du développeur,
-  21/11/2026), pseudo et biographie, enregistrés par `PUT /profiles/{id}`. **« Partager »**
-  (demande du développeur, 21/11/2026) : bouton rond à côté du bouton principal
-  (`ProfileHeader(onShare:)`, mon profil et celui d'un membre ; **pas sur TV**, `canShareLinks`),
+  « Profil ») : l'API le retire et `socialSearchProvider` aussi. **« Partager le profil »**
+  (demande du développeur, 21/11/2026 ; **en haut à droite, à côté de « Paramètres »** depuis le
+  23/11/2026) : bouton rond des `actions` de `ProfileView` (mon profil et celui d'un membre ; **pas
+  sur TV**, `canShareLinks`),
   qui envoie la page du profil sur le site (`share_url` de l'API, `www.vixeo.app/pseudo`, **sans @,
   comme Twitter**, demande du développeur, 21/11/2026) :
   feuille de partage d'Android (`LinkSharer`, `core/share.dart`, canal `app.vixeo/share` de
@@ -1000,7 +1017,7 @@ lib/
   réseaux sociaux du profil, J'aime sur les avis des autres membres, push « Activité ».
 - Fait aussi (23/11/2026) : réseau social des films et séries (fil d'actualité avec avis, vus,
   J'aime et listes, avis et commentaires avec spoilers, listes ordonnées avec « À voir » en tête,
-  choix de la liste au marque-page, 4 favoris, page de profil en cinq onglets dont l'activité datée,
+  choix de la liste au marque-page, page de profil en cinq onglets dont l'activité datée,
   bilan de l'année, partage en image, fiche sociale, goûts en commun, premier lancement, signaler /
   bloquer / masquer, note proposée en fin de lecture avec son réglage). **Pas encore vérifié sur un
   appareil** (la CI compile et teste).

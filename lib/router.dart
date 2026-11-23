@@ -45,6 +45,7 @@ import 'features/profiles/row_preferences.dart';
 import 'features/profiles/rows_settings_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/social/profile_screen.dart';
+import 'features/social/public_profile_settings.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
 import 'features/tv/channel_screen.dart';
@@ -93,7 +94,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         '/accueil', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/membre',
       };
       const accountOnly = {
-        '/profils', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/aimes', '/profil/social/vus', '/profil/social/personnes', '/profil/social/abonnements', '/profil/social/abonnes',
+        '/profils', '/avis', '/profil', '/parametres', '/profil/social/aimes', '/profil/social/vus', '/profil/social/personnes', '/profil/social/abonnements', '/profil/social/abonnes',
         '/profil/parametres', '/profil/compte', '/profil/appareils', '/profil/notifications', '/profil/avance', '/profil/plugins', '/tv',
         InboxScreen.location, ConversationsScreen.location, FeedScreen.location, '/listes', OnboardingScreen.location,
       };
@@ -290,7 +291,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           // Former page: managing is on « Qui regarde ? » now.
           GoRoute(path: '/parametres', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
-          GoRoute(path: '/profil/social/edition', builder: (_, _) => const SocialProfileEditScreen()),
+          // What members see on my page, changed from « Paramètres » (no « Modifier le profil » page).
+          GoRoute(path: BioSettingsScreen.location, redirect: socialOnly, builder: (_, _) => const BioSettingsScreen()),
+          GoRoute(
+            path: SocialLinksSettingsScreen.location,
+            redirect: socialOnly,
+            builder: (_, _) => const SocialLinksSettingsScreen(),
+          ),
+          GoRoute(
+            path: PrivateAccountSettingsScreen.location,
+            redirect: socialOnly,
+            builder: (_, _) => const PrivateAccountSettingsScreen(),
+          ),
           GoRoute(path: '/membre/:username', builder: (_, state) => PublicProfileScreen(username: state.pathParameters['username'] ?? '')),
           GoRoute(
             path: '/membre/:username/listes',
