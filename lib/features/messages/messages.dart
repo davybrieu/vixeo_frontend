@@ -81,6 +81,7 @@ class ChatMessage {
     this.readBy = const [],
     this.createdAt,
     this.attachments = const [],
+    this.shared,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
@@ -94,6 +95,7 @@ class ChatMessage {
       for (final item in json['attachments'] as List? ?? const [])
         if (item is Map<String, dynamic>) ChatAttachment.fromJson(item),
     ],
+    shared: json['shared'] is Map<String, dynamic> ? SharedCard.fromJson(json['shared'] as Map<String, dynamic>) : null,
   );
 
   static List<ChatMessage> listOf(Object? json) => [
@@ -114,6 +116,81 @@ class ChatMessage {
   /// Local time.
   final DateTime? createdAt;
   final List<ChatAttachment> attachments;
+
+  /// A title, a review or a list sent with the message (« Envoyer à un ami »).
+  final SharedCard? shared;
+}
+
+/// A title, a review or a list in a message (`shared`, vixeo_backend/docs/messagerie.md): what it
+/// was when it was sent (picture, title, a line), and the page a press opens.
+class SharedCard {
+  const SharedCard({
+    required this.kind,
+    required this.title,
+    required this.path,
+    this.subtitle,
+    this.excerpt,
+    this.images = const [],
+  });
+
+  factory SharedCard.fromJson(Map<String, dynamic> json) {
+    final author = json['author'] is Map<String, dynamic> ? json['author'] as Map<String, dynamic> : null;
+    final by = author == null ? null : (author['username'] as String? ?? '');
+    switch (json['type']) {
+      case 'review':
+        final value = (json['value'] as num?)?.toDouble();
+        final season = json['season_number'] as int?;
+        final episode = json['episode_number'] as int?;
+        return SharedCard(
+          kind: 'review',
+          title: '${json['title'] as String? ?? ''}${episode == null ? '' : ' · S$season · É$episode'}',
+          path: '/avis/${json['review_id']}',
+          subtitle: [
+            if (by != null && by.isNotEmpty) 'Avis de @$by',
+            if (value != null) '★ ${value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(1).replaceAll('.', ',')}/10',
+          ].join(' · '),
+          excerpt: json['excerpt'] as String?,
+          images: [if (json['poster_url'] case final String url) url],
+        );
+      case 'list':
+        final count = json['items_count'] as int? ?? 0;
+        return SharedCard(
+          kind: 'list',
+          title: json['title'] as String? ?? '',
+          path: '/listes/${json['list_id']}',
+          subtitle: [
+            json['kind'] == 'top' ? 'Top 10' : 'Liste',
+            '$count ${count > 1 ? 'titres' : 'titre'}',
+            if (by != null && by.isNotEmpty) '@$by',
+          ].join(' · '),
+          images: [for (final url in json['cover'] as List? ?? const []) if (url is String) url],
+        );
+      default:
+        final type = json['media_type'] == 'tv' ? 'tv' : 'movie';
+        final year = json['year'] as int?;
+        return SharedCard(
+          kind: 'title',
+          title: json['title'] as String? ?? '',
+          path: '/titre/$type/${json['id']}',
+          subtitle: [type == 'tv' ? 'Série' : 'Film', if (year != null) '$year'].join(' · '),
+          images: [if (json['poster_url'] case final String url) url],
+        );
+    }
+  }
+
+  /// `title`, `review` or `list`.
+  final String kind;
+  final String title;
+
+  /// The page it opens (`/titre/movie/550`, `/avis/12`, `/listes/3`).
+  final String path;
+  final String? subtitle;
+
+  /// The beginning of a review's comment (none with spoilers).
+  final String? excerpt;
+
+  /// Its poster, or the first posters of a list.
+  final List<String> images;
 }
 
 /// A date of the API (ISO 8601 with its time zone), in local time.

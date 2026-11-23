@@ -28,6 +28,13 @@ import 'features/messages/conversation_screen.dart';
 import 'features/messages/conversations_screen.dart';
 import 'features/messages/group_screen.dart';
 import 'features/messages/messages.dart' show newGroupLocation;
+import 'features/network/feed_screen.dart';
+import 'features/network/hidden_accounts_screen.dart';
+import 'features/network/list_screen.dart';
+import 'features/network/network.dart' show ListKind;
+import 'features/network/onboarding_screen.dart';
+import 'features/network/profile_pages.dart';
+import 'features/network/review_screen.dart';
 import 'features/playback/player_screen.dart';
 import 'features/profiles/advanced_settings_screen.dart';
 import 'features/profiles/profile_editor_screen.dart';
@@ -63,6 +70,10 @@ final routerProvider = Provider<GoRouter>((ref) {
   Widget guarded(String location, Widget child) => BackNavigationGuard(location: location, child: child);
   // Live TV is hidden for now (core/features.dart): its pages lead to the home page.
   String? liveTvOnly(BuildContext context, GoRouterState state) => ref.read(liveTvProvider) ? null : '/accueil';
+  // The social network: not for a guest nor a child's profile.
+  String? socialOnly(BuildContext context, GoRouterState state) =>
+      socialAvailable(ref.read(sessionProvider)) ? null : '/accueil';
+  int? idOf(GoRouterState state) => int.tryParse(state.pathParameters['id'] ?? '');
 
   return GoRouter(
     initialLocation: '/accueil',
@@ -85,7 +96,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         '/profils', '/profils/gestion', '/ma-liste', '/avis', '/profil', '/parametres', '/profil/social/edition', '/profil/social/avis', '/profil/social/liste', '/profil/social/abonnements', '/profil/social/abonnes', '/profil/avatar', '/profil/controle-parental',
         '/profil/code-pin', '/profil/parametres', '/profil/compte', '/profil/appareils',
         '/profil/connexions', '/profil/tmdb', '/profil/notes', '/profil/notifications', '/profil/avance', '/profil/plugins', '/tv',
-        InboxScreen.location, ConversationsScreen.location,
+        InboxScreen.location, ConversationsScreen.location, FeedScreen.location, '/listes', OnboardingScreen.location,
       };
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
         if (location != '/demarrage') {
@@ -142,7 +153,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         return picker ? null : '/profils';
       }
       if (authPages.contains(location) || location == '/profils' || location == '/demarrage') {
-        final target = pending ?? '/accueil';
+        // A new profile: the first launch first (rate a few titles, accounts to follow).
+        final target = pending ?? (OnboardingScreen.needed(session) ? OnboardingScreen.location : '/accueil');
         pending = null;
         return target;
       }
@@ -194,6 +206,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/ma-liste', pageBuilder: (_, state) => tab(state, const MyListScreen())),
           // "Mes avis": the profile's ratings and comments (vixeo_backend/docs/avis.md).
           GoRoute(path: '/avis', pageBuilder: (_, state) => tab(state, const ReviewsScreen())),
+          // A review as a publication, with its comments (vixeo_backend/docs/social.md).
+          GoRoute(
+            path: '/avis/:id',
+            redirect: (context, state) => socialOnly(context, state) ?? (idOf(state) == null ? '/avis' : null),
+            builder: (_, state) => ReviewThreadScreen(id: idOf(state)!),
+          ),
           // "Mon avis": one review, to change or remove (/avis/tv/1399?saison=1&episode=2 for an episode).
           GoRoute(
             path: '/avis/:type/:id',
@@ -206,6 +224,41 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: InboxScreen.location,
             redirect: (_, _) => socialAvailable(ref.read(sessionProvider)) ? null : '/accueil',
             pageBuilder: (_, state) => tab(state, const InboxScreen()),
+          ),
+          // « Fil »: what the followed members did (phones, tablets, computers).
+          GoRoute(
+            path: FeedScreen.location,
+            redirect: socialOnly,
+            pageBuilder: (_, state) => tab(state, const FeedScreen()),
+          ),
+          // Lists and top 10. « nouvelle » before « :id ».
+          GoRoute(
+            path: ListEditorScreen.newLocation,
+            redirect: socialOnly,
+            builder: (_, state) => ListEditorScreen(
+              kind: ListKind.parse(state.uri.queryParameters['type']),
+              title: state.uri.queryParameters['titre'],
+              item: state.uri.queryParameters['item'],
+            ),
+          ),
+          GoRoute(
+            path: '/listes/:id',
+            redirect: (context, state) => socialOnly(context, state) ?? (idOf(state) == null ? '/accueil' : null),
+            builder: (_, state) => ListDetailsScreen(id: idOf(state)!),
+          ),
+          GoRoute(
+            path: '/listes/:id/modifier',
+            redirect: (context, state) => socialOnly(context, state) ?? (idOf(state) == null ? '/accueil' : null),
+            builder: (_, state) => ListEditorScreen(id: idOf(state)!),
+          ),
+          GoRoute(path: HiddenAccountsScreen.location, redirect: socialOnly, builder: (_, _) => const HiddenAccountsScreen()),
+          // My lists, diary and year (the « Listes » and « Journal » tabs of my page).
+          GoRoute(path: '/profil/listes', redirect: socialOnly, builder: (_, _) => const ProfileListsScreen()),
+          GoRoute(path: '/profil/journal', redirect: socialOnly, builder: (_, _) => const DiaryScreen()),
+          GoRoute(
+            path: '/profil/bilan',
+            redirect: socialOnly,
+            builder: (_, state) => YearStatsScreen(year: int.tryParse(state.uri.queryParameters['annee'] ?? '')),
           ),
           GoRoute(path: '/profil', pageBuilder: (_, state) => tab(state, const ProfileScreen())),
           // « Messages » (vixeo_backend/docs/messagerie.md): not for a guest nor a child's profile.
@@ -243,6 +296,24 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/parametres', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
           GoRoute(path: '/profil/social/edition', builder: (_, _) => const SocialProfileEditScreen()),
           GoRoute(path: '/membre/:username', builder: (_, state) => PublicProfileScreen(username: state.pathParameters['username'] ?? '')),
+          GoRoute(
+            path: '/membre/:username/listes',
+            redirect: socialOnly,
+            builder: (_, state) => ProfileListsScreen(username: state.pathParameters['username']),
+          ),
+          GoRoute(
+            path: '/membre/:username/journal',
+            redirect: socialOnly,
+            builder: (_, state) => DiaryScreen(username: state.pathParameters['username']),
+          ),
+          GoRoute(
+            path: '/membre/:username/bilan',
+            redirect: socialOnly,
+            builder: (_, state) => YearStatsScreen(
+              username: state.pathParameters['username'],
+              year: int.tryParse(state.uri.queryParameters['annee'] ?? ''),
+            ),
+          ),
           GoRoute(path: '/membre/:username/:section', builder: (_, state) => SocialCollectionScreen(
             username: state.pathParameters['username'], section: state.pathParameters['section'] ?? 'list',
           )),
@@ -256,7 +327,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           // (« Qui regarde ? » → « Gérer les profils »), the parental PIN in « Mon compte ».
           GoRoute(path: '/profil/controle-parental', redirect: (_, _) => '/profil/compte'),
           GoRoute(path: '/profil/code-pin', redirect: (_, _) => '/profil/compte'),
-          GoRoute(path: '/profil/parametres', builder: (_, _) => const ProfilePreferencesScreen()),
+          GoRoute(
+            path: ProfilePreferencesScreen.location,
+            builder: (_, state) => ProfilePreferencesScreen(setting: state.uri.queryParameters['reglage']),
+          ),
           // Order and visibility of the rows of the home page and of the « Chaînes TV » page.
           GoRoute(
             path: RowsSettingsScreen.homeLocation,
@@ -341,6 +415,17 @@ final routerProvider = Provider<GoRouter>((ref) {
               id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
             ),
           ),
+          // « Avis populaires » of a title page: every review of the title.
+          GoRoute(
+            path: '/titre/:type/:id/avis',
+            redirect: (context, state) =>
+                socialOnly(context, state) == null ? null : '/titre/${state.pathParameters['type']}/${state.pathParameters['id']}',
+            builder: (_, state) => TitleReviewsScreen(
+              type: MediaType.parse(state.pathParameters['type']),
+              id: idOf(state) ?? 0,
+              title: state.uri.queryParameters['titre'],
+            ),
+          ),
           GoRoute(
             path: '/titre/:type/:id/distribution',
             builder: (_, state) => CreditsScreen(
@@ -350,6 +435,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
         ],
+      ),
+      // The first launch of a profile with social features (no navigation).
+      GoRoute(
+        path: OnboardingScreen.location,
+        redirect: (_, _) => socialAvailable(ref.read(sessionProvider)) ? null : '/accueil',
+        builder: (_, state) => guarded(state.uri.path, const OnboardingScreen()),
       ),
       GoRoute(
         path: '/lecture/:type/:id',

@@ -52,6 +52,12 @@ class MainActivity : FlutterActivity() {
                         if (text == null) result.error("bad_args", "text missing", null)
                         else result.success(share(text, call.argument<String>("subject")))
                     }
+                    // « Partager en image » (lib/features/network/share_image.dart).
+                    "shareImage" -> {
+                        val path = call.argument<String>("path")
+                        if (path == null) result.error("bad_args", "path missing", null)
+                        else result.success(shareImage(File(path), call.argument<String>("text")))
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -63,6 +69,25 @@ class MainActivity : FlutterActivity() {
         if (subject != null) send.putExtra(Intent.EXTRA_SUBJECT, subject)
         return try {
             startActivity(Intent.createChooser(send, null))
+            true
+        } catch (e: ActivityNotFoundException) {
+            false
+        }
+    }
+
+    /** Opens Android's share sheet with a PNG image of our cache (a review, a top 10, a year). */
+    private fun shareImage(image: File, text: String?): Boolean {
+        val shared = File(cacheDir, "shared").canonicalFile
+        // Only the images « Partager en image » made.
+        if (!image.canonicalFile.startsWith(shared) || !image.exists()) return false
+        val uri = FileProvider.getUriForFile(this, "$packageName.updates", image)
+        val send = Intent(Intent.ACTION_SEND)
+            .setType("image/png")
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        if (text != null) send.putExtra(Intent.EXTRA_TEXT, text)
+        return try {
+            startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
             true
         } catch (e: ActivityNotFoundException) {
             false

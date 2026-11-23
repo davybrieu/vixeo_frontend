@@ -28,6 +28,20 @@ class LinkSharer {
   }
 }
 
+extension ImageSharing on LinkSharer {
+  /// Opens the share sheet with a PNG of the app's cache (`cache/shared/`); false elsewhere.
+  Future<bool> shareImage(String path, {String? text}) async {
+    if (!Platform.isAndroid) return false;
+    try {
+      return await LinkSharer._channel.invokeMethod<bool>('shareImage', {'path': path, 'text': ?text}) ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+}
+
 final linkSharerProvider = Provider<LinkSharer>((ref) => const LinkSharer());
 
 /// Whether a share button makes sense here: not on a TV (no share sheet, nothing to paste into).

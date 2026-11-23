@@ -401,7 +401,8 @@ class _ActivityTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final actor = activity.actor;
-    final name = actor.name.trim().isEmpty ? '@${actor.username}' : actor.name;
+    final name = activity.actorName;
+    final moderation = activity.type == ActivityType.moderation;
     final avatar = layout.size(44, tv: 72);
     final ago = activity.createdAt == null ? null : timeAgo(activity.createdAt!, now);
     final poster = activity.review?.posterUrl;
@@ -410,11 +411,11 @@ class _ActivityTile extends StatelessWidget {
       autofocus: autofocus,
       borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
       semanticLabel: [
-        '$name, @${actor.username}, ${activity.message}',
+        moderation ? '$name, ${activity.message}' : '$name, @${actor.username}, ${activity.message}',
         ?ago,
         if (!activity.read) 'non lue',
       ].join(', '),
-      onPressed: () => context.push(activity.path),
+      onPressed: moderation ? null : () => context.push(activity.path),
       child: Padding(
         padding: EdgeInsets.all(layout.space(VxSpace.xxs)),
         child: Row(
@@ -427,12 +428,20 @@ class _ActivityTile extends StatelessWidget {
                   : const DecoratedBox(decoration: BoxDecoration(color: VxColors.accent, shape: BoxShape.circle)),
             ),
             SizedBox(width: layout.space(VxSpace.xs)),
-            AvatarTile(
-              avatarId: actor.avatar,
-              initial: ProfileHeader.initialOf(actor.name),
-              size: avatar,
-              radius: avatar / 2,
-            ),
+            if (moderation)
+              Container(
+                width: avatar,
+                height: avatar,
+                decoration: const BoxDecoration(color: VxColors.surfaceHigh, shape: BoxShape.circle),
+                child: Icon(Icons.shield_outlined, size: avatar * 0.5, color: VxColors.textSoft),
+              )
+            else
+              AvatarTile(
+                avatarId: actor.avatar,
+                initial: ProfileHeader.initialOf(actor.name),
+                size: avatar,
+                radius: avatar / 2,
+              ),
             SizedBox(width: layout.space(VxSpace.s)),
             Expanded(
               child: Column(

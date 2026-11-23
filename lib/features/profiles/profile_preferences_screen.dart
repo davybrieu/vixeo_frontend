@@ -10,10 +10,20 @@ import 'no_spoiler.dart';
 import 'profile_settings_screen.dart';
 import 'settings_rows.dart';
 
-/// General profile preferences: appearance, no-spoil, languages and automatic skips.
-/// Values are saved on the profile and synchronized between its devices.
+/// General profile preferences: appearance, no-spoil, languages, automatic skips and the rating
+/// proposed at the end of a movie or an episode. Values are saved on the profile and synchronized
+/// between its devices.
 class ProfilePreferencesScreen extends ConsumerWidget {
-  const ProfilePreferencesScreen({super.key});
+  const ProfilePreferencesScreen({super.key, this.setting});
+
+  static const location = '/profil/parametres';
+
+  /// « Désactiver dans les paramètres » of the rating proposed after watching: this page, with
+  /// the focus on « Proposer de noter à la fin ».
+  static const rateAfterWatchingLocation = '$location?reglage=noter';
+
+  /// The setting to put forward (`?reglage=noter`): it has the focus on arrival.
+  final String? setting;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -92,7 +102,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
               icon: Icons.palette_outlined,
               label: 'Format des affiches',
               value: profile.posterFormat.label,
-              autofocus: true,
+              autofocus: setting != 'noter',
               onPressed: pickAppearance,
             ),
           ],
@@ -129,6 +139,24 @@ class ProfilePreferencesScreen extends ConsumerWidget {
               label: 'Sous-titres',
               value: subtitleLanguageLabel(profile.subtitleLanguage),
               onPressed: pickSubtitles,
+            ),
+          ],
+        ),
+        SettingsSection(
+          'Après la lecture',
+          scale: s,
+          children: [
+            SettingsSwitchRow(
+              label: 'Proposer de noter à la fin',
+              detail: 'À la fin d’un film ou d’un épisode, Vixeo propose de le noter et d’écrire un avis.',
+              value: profile.rateAfterWatching,
+              autofocus: setting == 'noter',
+              onChanged: (value) => saveProfile(
+                context,
+                {'rate_after_watching': value},
+                done: value ? 'Note proposée à la fin de la lecture' : 'Note plus proposée à la fin de la lecture',
+                icon: Icons.star_outline_rounded,
+              ),
             ),
           ],
         ),

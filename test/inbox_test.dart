@@ -143,10 +143,12 @@ Future<({_FakeInbox inbox, _FakeSocial social, ProviderContainer container})> _p
       GoRoute(path: '/', builder: (_, _) => const Scaffold(body: InboxScreen())),
       GoRoute(path: '/membre/:username', builder: (_, state) => page('Membre ${state.pathParameters['username']}')),
       GoRoute(path: '/titre/:type/:id', builder: (_, state) => page('Fiche ${state.pathParameters['id']}')),
+      GoRoute(path: '/avis/:id', builder: (_, state) => page('Avis ${state.pathParameters['id']}')),
       GoRoute(
         path: '/avis/:type/:id',
         builder: (_, state) => page('Avis ${state.pathParameters['type']} ${state.pathParameters['id']}'),
       ),
+      GoRoute(path: '/listes/:id', builder: (_, state) => page('Liste ${state.pathParameters['id']}')),
     ],
   );
   addTearDown(router.dispose);
@@ -229,10 +231,11 @@ void main() {
   });
 
   testWidgets('a notification opens my review or the member; an episode, its show', (tester) async {
+    // My review with its comments (`/avis/31`).
     await _pumpInbox(tester);
     await tester.tap(find.text('Max aime votre avis sur Fight Club.'));
     await tester.pumpAndSettle();
-    expect(find.text('Avis movie 550'), findsOneWidget);
+    expect(find.text('Avis 31'), findsOneWidget);
 
     await _pumpInbox(tester);
     await tester.tap(find.text('Max vous suit.'));
@@ -257,23 +260,27 @@ void main() {
     addTearDown(tester.view.reset);
     tester.view.devicePixelRatio = 1;
 
-    // Phone: a tab between « Recherche » and « Profil ».
+    // Phone: 5 tabs, Accueil · Fil · Recherche · Notifications · Profil (23/11/2026); « Messages »
+    // is in the feed, its number on « Fil ».
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpWidget(_shell(const Profile(id: 2, name: 'Léa')));
     await tester.pump();
     expect(find.text('3'), findsOneWidget);
     Finder tab(String label) => find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label);
     expect(tab('Notifications, 3 notifications non lues'), findsOneWidget);
+    final home = tester.getCenter(tab('Accueil'));
+    final feed = tester.getCenter(tab('Fil, 12 messages non lus'));
     final search = tester.getCenter(tab('Recherche'));
     final inbox = tester.getCenter(tab('Notifications, 3 notifications non lues'));
     final profile = tester.getCenter(tab('Profil'));
+    expect(home.dx, lessThan(feed.dx));
+    expect(feed.dx, lessThan(search.dx));
     expect(search.dx, lessThan(inbox.dx));
     expect(inbox.dx, lessThan(profile.dx));
-    // « Messages »: 12 unread messages, written « 9+ ».
+    // 12 unread messages, written « 9+ »; « Paramètres » is on the profile page.
     expect(find.text('9+'), findsOneWidget);
-    final messages = tester.getCenter(tab('Messages, 12 messages non lus'));
-    expect(inbox.dx, lessThan(messages.dx));
-    expect(messages.dx, lessThan(profile.dx));
+    expect(tab('Messages, 12 messages non lus'), findsNothing);
+    expect(tab('Paramètres'), findsNothing);
 
     // Large screen: in the rail, read with its number.
     tester.view.physicalSize = const Size(1280, 800);
@@ -373,9 +380,45 @@ void main() {
       });
       expect(activity.type, ActivityType.reviewLike);
       expect(activity.message, 'aime votre avis sur Les Hautes Terres · S1 · É2.');
-      expect(activity.path, '/avis/tv/1399?saison=1&episode=2');
+      // The review with its comments (`/avis/:id`).
+      expect(activity.path, '/avis/31');
       expect(Activity.fromJson({'id': 2, 'type': 'follow', 'actor': {'id': 7, 'username': 'max'}}).path, '/membre/max');
       expect(Activity.fromJson({'id': 3, 'type': 'new_thing', 'actor': {'id': 7}}).type, ActivityType.unknown);
+
+      // The social network (23/11/2026): comments, a liked list, the moderation.
+      final comment = Activity.fromJson({
+        'id': 4,
+        'type': 'review_comment',
+        'actor': {'id': 7, 'username': 'max', 'name': 'Max'},
+        'review': {'review_id': 31, 'type': 'movie', 'id': 550, 'title': 'Fight Club', 'value': 9},
+        'comment': {'id': 5, 'body': 'Tellement d’accord !', 'contains_spoilers': false},
+      });
+      expect(comment.message, 'a commenté votre avis sur Fight Club : « Tellement d’accord ! »');
+      expect(comment.path, '/avis/31');
+      final spoiler = Activity.fromJson({
+        'id': 5,
+        'type': 'list_comment',
+        'actor': {'id': 7, 'username': 'max', 'name': 'Max'},
+        'list': {'id': 3, 'title': 'Mon top 10', 'kind': 'top'},
+        'comment': {'id': 6, 'body': 'La fin !', 'contains_spoilers': true},
+      });
+      expect(spoiler.message, 'a commenté votre liste « Mon top 10 ».');
+      expect(spoiler.path, '/listes/3');
+      final liked = Activity.fromJson({
+        'id': 6,
+        'type': 'list_like',
+        'actor': {'id': 7, 'username': 'max', 'name': 'Max'},
+        'list': {'id': 3, 'title': 'Mon top 10', 'kind': 'top'},
+      });
+      expect(liked.message, 'aime votre liste « Mon top 10 ».');
+      final moderation = Activity.fromJson({
+        'id': 7,
+        'type': 'moderation',
+        'actor': {'id': 2, 'username': 'lea', 'name': 'Léa'},
+        'text': 'Votre avis sur Dune a été masqué : spoiler non signalé.',
+      });
+      expect(moderation.actorName, 'Modération');
+      expect(moderation.message, 'Votre avis sur Dune a été masqué : spoiler non signalé.');
 
       final episode = ShowEpisode.fromJson({
         'show': {'id': 1399, 'name': 'Les Hautes Terres', 'poster_url': null, 'backdrop_url': null},

@@ -19,6 +19,7 @@ import 'package:vixeo/features/tmdb/rating_dialog.dart';
 import 'package:vixeo/features/tmdb/review_screen.dart';
 import 'package:vixeo/features/tmdb/reviews_screen.dart';
 import 'package:vixeo/features/tmdb/tmdb.dart';
+import 'package:vixeo/features/network/network.dart' show TitleSocial, titleSocialProvider;
 
 const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
 
@@ -102,6 +103,8 @@ Future<void> pumpPage(
         sessionProvider.overrideWith(WithProfile.new),
         tmdbRepositoryProvider.overrideWithValue(tmdb),
         libraryProvider.overrideWith(EmptyLibrary.new),
+        // The social part of a title page: nothing asked to a server.
+        titleSocialProvider.overrideWith((ref, title) async => const TitleSocial()),
         ...overrides,
       ],
       child: MaterialApp.router(

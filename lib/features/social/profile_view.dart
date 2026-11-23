@@ -33,49 +33,153 @@ const profileTitlesShown = 20;
 /// Reviews shown on a profile page (the most recent).
 const profileReviewsShown = 3;
 
-/// A profile's page: header, counters, then its sections (a list, reviews…), in a page that
-/// scrolls and refreshes when pulled down. [back]: a round back button above the header (a member's
-/// page, opened over another page).
-class ProfileView extends StatelessWidget {
+/// A tab of a profile page (« Activité », « Listes », « Journal »): its sections.
+typedef ProfileTab = ({String label, List<Widget> sections});
+
+/// A profile's page: header, « Mes 4 favoris » ([pinned]), counters, then its sections (a list,
+/// reviews…), in a page that scrolls and refreshes when pulled down. With several [tabs], a row of
+/// tabs under the counters chooses the sections shown. [back]: a round back button above the
+/// header (a member's page, opened over another page); [actions]: round buttons at the top right
+/// (« Paramètres » of my page on a phone, « … » of a member).
+class ProfileView extends StatefulWidget {
   const ProfileView({
     super.key,
     required this.header,
     required this.counters,
-    required this.sections,
+    required this.tabs,
     required this.onRefresh,
+    this.pinned,
     this.back = false,
+    this.actions = const [],
   });
 
   final Widget header;
   final Widget counters;
-  final List<Widget> sections;
+  final List<ProfileTab> tabs;
   final Future<void> Function() onRefresh;
+  final Widget? pinned;
   final bool back;
+  final List<Widget> actions;
+
+  @override
+  State<ProfileView> createState() => _ProfileViewState();
+}
+
+class _ProfileViewState extends State<ProfileView> {
+  int _tab = 0;
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
+    final tabs = widget.tabs;
+    final tab = _tab < tabs.length ? _tab : 0;
+    final top = widget.back || widget.actions.isNotEmpty;
     return SafeArea(
       bottom: false,
       child: RefreshIndicator(
-        onRefresh: onRefresh,
+        onRefresh: widget.onRefresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.only(
-            top: back ? layout.space(VxSpace.xs) : layout.space(VxSpace.m),
+            top: top ? layout.space(VxSpace.xs) : layout.space(VxSpace.m),
             bottom: pageBottomPadding(context),
           ),
           children: [
-            if (back) ...[
-              ProfileColumn(child: Align(alignment: Alignment.centerLeft, child: const VxBackButton())),
+            if (top) ...[
+              ProfileColumn(
+                child: Row(
+                  children: [
+                    if (widget.back) const VxBackButton(),
+                    const Spacer(),
+                    for (final (i, action) in widget.actions.indexed) ...[
+                      if (i > 0) SizedBox(width: layout.space(VxSpace.xs)),
+                      action,
+                    ],
+                  ],
+                ),
+              ),
               SizedBox(height: layout.space(VxSpace.m)),
             ],
-            ProfileColumn(child: header),
+            ProfileColumn(child: widget.header),
+            if (widget.pinned case final pinned?) ...[
+              SizedBox(height: layout.sectionGap),
+              ProfileColumn(child: pinned),
+            ],
             SizedBox(height: layout.sectionGap),
-            ProfileColumn(child: counters),
-            for (final section in sections) ...[SizedBox(height: layout.sectionGap), section],
+            ProfileColumn(child: widget.counters),
+            if (tabs.length > 1) ...[
+              SizedBox(height: layout.sectionGap),
+              ProfileColumn(
+                child: FocusTraversalGroup(
+                  policy: vxTraversalPolicy,
+                  child: _ProfileTabs(
+                    labels: [for (final t in tabs) t.label],
+                    selected: tab,
+                    onSelected: (i) => setState(() => _tab = i),
+                  ),
+                ),
+              ),
+            ],
+            for (final section in tabs.isEmpty ? const <Widget>[] : tabs[tab].sections) ...[
+              SizedBox(height: layout.sectionGap),
+              section,
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The tabs of a profile page: a segmented bar (one press, or OK with the remote, changes the tab).
+class _ProfileTabs extends StatelessWidget {
+  const _ProfileTabs({required this.labels, required this.selected, required this.onSelected});
+
+  final List<String> labels;
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final radius = layout.size(VxRadius.button, tv: VxRadius.buttonTv);
+    return Container(
+      padding: EdgeInsets.all(layout.space(VxSpace.xxs)),
+      decoration: BoxDecoration(color: VxColors.surface, borderRadius: BorderRadius.circular(radius + 4)),
+      child: Row(
+        children: [
+          for (final (i, label) in labels.indexed)
+            Expanded(
+              child: Semantics(
+                selected: i == selected,
+                child: VxFocusable(
+                  borderRadius: radius,
+                  focusScale: 1.02,
+                  semanticLabel: '$label, onglet ${i + 1} sur ${labels.length}',
+                  onPressed: () => onSelected(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: EdgeInsets.symmetric(vertical: layout.space(VxSpace.xs)),
+                    decoration: BoxDecoration(
+                      color: i == selected ? VxColors.surfaceHigh : Colors.transparent,
+                      borderRadius: BorderRadius.circular(radius),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: VxText.body(
+                        layout.captionSize,
+                        weight: FontWeight.w700,
+                        color: i == selected ? VxColors.text : VxColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -122,6 +226,7 @@ class ProfileHeader extends StatelessWidget {
     this.onShare,
     this.isPrivate = false,
     this.links = const [],
+    this.compatibility,
   });
 
   final String name;
@@ -153,6 +258,10 @@ class ProfileHeader extends StatelessWidget {
 
   /// Its accounts on social networks, under the bio (a press opens the page).
   final List<SocialLink> links;
+
+  /// Tastes in common with the active profile, 0 to 100 (a member's page): « 82 % de goûts en
+  /// commun ».
+  final int? compatibility;
 
   /// "L" for "Léa", as `Profile.initial`.
   static String initialOf(String name) => name.isEmpty ? '?' : String.fromCharCode(name.runes.first).toUpperCase();
@@ -225,6 +334,19 @@ class ProfileHeader extends StatelessWidget {
             ),
           ],
         ),
+        if (compatibility case final score?) ...[
+          SizedBox(height: layout.space(VxSpace.s)),
+          Row(
+            children: [
+              Icon(Icons.favorite_rounded, size: layout.size(16, tv: 26), color: VxColors.accent),
+              SizedBox(width: layout.space(VxSpace.xs)),
+              Text(
+                '$score % de goûts en commun',
+                style: VxText.body(layout.captionSize, weight: FontWeight.w700, color: VxColors.accent),
+              ),
+            ],
+          ),
+        ],
         if (text.isNotEmpty || emptyBio != null) ...[
           SizedBox(height: layout.space(VxSpace.m)),
           Text(

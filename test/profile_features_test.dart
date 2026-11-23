@@ -271,16 +271,16 @@ void main() {
   testWidgets('the side rail fits a low screen (smaller icons), then scrolls', (tester) async {
     addTearDown(tester.view.reset);
     tester.view.devicePixelRatio = 1;
-    const labels = ['Accueil', 'Chaînes TV', 'Recherche', 'Notifications', 'Profil', 'Paramètres'];
+    const labels = ['Accueil', 'Chaînes TV', 'Fil', 'Recherche', 'Notifications', 'Messages', 'Profil', 'Paramètres'];
 
     // A phone held sideways: everything is visible, with smaller icons than the usual 52.
-    tester.view.physicalSize = const Size(700, 380);
+    tester.view.physicalSize = const Size(700, 440);
     await tester.pumpWidget(app(const AppShell(location: '/recherche', child: SizedBox()), liveTv: true));
     await tester.pump();
     expect(tester.takeException(), isNull);
     for (final label in labels) {
       final item = tester.getRect(find.byTooltip(label));
-      expect(item.bottom, lessThanOrEqualTo(380), reason: label);
+      expect(item.bottom, lessThanOrEqualTo(440), reason: label);
       expect(item.height, lessThan(52), reason: label);
     }
 
@@ -371,6 +371,7 @@ void main() {
       (heading('Apparence'), row('Format des affiches'), row('Format des affiches')),
       (heading('No spoil'), row('Activer No spoil'), row('Activer No spoil')),
       (heading('Langues'), row('Langue audio préférée'), row('Sous-titres')),
+      (heading('Après la lecture'), row('Proposer de noter à la fin'), row('Proposer de noter à la fin')),
       (heading('Passer automatiquement'), row('Générique de début'), row('Aperçu de la suite')),
     ];
     final underTitles = {for (final (title, first, _) in sections) first.top - title.bottom};

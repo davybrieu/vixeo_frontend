@@ -12,6 +12,8 @@ import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../addons/addons_screen.dart';
 import '../auth/session.dart';
+import '../network/hidden_accounts_screen.dart';
+import '../notifications/inbox.dart' show socialAvailable;
 import '../notifications/notifications_screen.dart';
 import 'advanced_settings_screen.dart';
 import 'profiles_screen.dart';
@@ -59,7 +61,8 @@ class ProfileSettingsScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const VxPageHeader(title: 'Paramètres'),
+          // On a phone, a profile with a page opens « Paramètres » from it (not a tab): back button.
+          VxPageHeader(title: 'Paramètres', back: layout.isPhone && socialAvailable(ref.watch(sessionProvider))),
           Expanded(
             child: ListView(
               padding: pageContentPadding(context),
@@ -116,14 +119,22 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       scale: s,
                       icon: Icons.tune_rounded,
                       title: 'Paramètres',
-                      subtitle: 'Apparence, No spoil, langues et lecture automatique.',
+                      subtitle: 'Apparence, No spoil, langues, lecture automatique, note à la fin.',
                       onPressed: () => context.push('/profil/parametres'),
                     ),
+                    if (socialAvailable(ref.watch(sessionProvider)))
+                      _SettingsTile(
+                        scale: s,
+                        icon: Icons.block_rounded,
+                        title: 'Comptes bloqués et masqués',
+                        subtitle: 'Débloquer un compte, réafficher un compte masqué dans le fil.',
+                        onPressed: () => context.push(HiddenAccountsScreen.location),
+                      ),
                     _SettingsTile(
                       scale: s,
                       icon: Icons.notifications_outlined,
                       title: 'Notifications',
-                      subtitle: 'Nouveaux épisodes des séries de Ma liste.',
+                      subtitle: 'Nouveaux épisodes des séries de Ma liste, activité.',
                       onPressed: () => context.push(NotificationsScreen.location),
                     ),
                     _SettingsTile(

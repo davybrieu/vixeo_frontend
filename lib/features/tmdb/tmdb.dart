@@ -50,22 +50,28 @@ class RatingTarget {
 /// The profile's rating of a title and its comment.
 @immutable
 class MyRating {
-  const MyRating(this.value, {this.comment});
+  const MyRating(this.value, {this.comment, this.spoilers = false});
 
   factory MyRating.fromJson(Map<String, dynamic> json) => MyRating(
     (json['value'] as num).toDouble(),
     comment: (json['comment'] as String?)?.trim().isEmpty ?? true ? null : json['comment'] as String,
+    spoilers: json['contains_spoilers'] as bool? ?? false,
   );
 
   /// 0.5 to 10.
   final double value;
   final String? comment;
 
-  @override
-  bool operator ==(Object other) => other is MyRating && other.value == value && other.comment == comment;
+  /// The comment reveals the story (« Contient des spoilers »): hidden from the other members until
+  /// they ask.
+  final bool spoilers;
 
   @override
-  int get hashCode => Object.hash(value, comment);
+  bool operator ==(Object other) =>
+      other is MyRating && other.value == value && other.comment == comment && other.spoilers == spoilers;
+
+  @override
+  int get hashCode => Object.hash(value, comment, spoilers);
 }
 
 /// A review of "Mes avis": rating and comment (API `RatedItemResource`).
@@ -89,6 +95,8 @@ class RatedItem {
     this.reviewId,
     this.likesCount = 0,
     this.liked = false,
+    this.spoilers = false,
+    this.commentsCount = 0,
   });
 
   factory RatedItem.fromJson(Map<String, dynamic> json) => RatedItem(
@@ -109,6 +117,8 @@ class RatedItem {
     reviewId: json['review_id'] as int?,
     likesCount: json['likes_count'] as int? ?? 0,
     liked: json['liked'] as bool? ?? false,
+    spoilers: json['contains_spoilers'] as bool? ?? false,
+    commentsCount: json['comments_count'] as int? ?? 0,
   );
 
   final RatedType type;
@@ -143,13 +153,19 @@ class RatedItem {
   /// The active profile likes this review (another member's).
   final bool liked;
 
+  /// The comment reveals the story (« Contient des spoilers »).
+  final bool spoilers;
+
+  /// Comments of other members on this review.
+  final int commentsCount;
+
   MediaType get mediaType => type == RatedType.movie ? MediaType.movie : MediaType.tv;
 
   RatingTarget get target => type == RatedType.episode
       ? RatingTarget.episode(id, seasonNumber ?? 0, episodeNumber ?? 0)
       : RatingTarget.title(mediaType, id);
 
-  MyRating get rating => MyRating(value, comment: comment);
+  MyRating get rating => MyRating(value, comment: comment, spoilers: spoilers);
 
   /// "Film · 2021", "Série", "Saison 1, épisode 2 · Le Départ"…
   String get subtitle => type == RatedType.episode
@@ -185,6 +201,8 @@ class RatedItem {
     reviewId: reviewId,
     likesCount: likesCount,
     liked: liked,
+    spoilers: rating.spoilers,
+    commentsCount: commentsCount,
   );
 }
 
@@ -232,7 +250,7 @@ class TmdbRepository {
   /// Saves the rating and the comment (null removes it).
   Future<void> rate(int profileId, RatingTarget target, MyRating rating) => _api.put(
     '/profiles/$profileId/tmdb/ratings/${target.path}',
-    body: {'value': rating.value, 'comment': rating.comment},
+    body: {'value': rating.value, 'comment': rating.comment, 'contains_spoilers': rating.spoilers},
   );
 
   Future<void> unrate(int profileId, RatingTarget target) =>

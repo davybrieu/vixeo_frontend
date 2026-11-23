@@ -143,6 +143,7 @@ class _RatingFormState extends State<RatingForm> {
 
   late double _value = widget.current?.value ?? 0;
   late final _comment = TextEditingController(text: widget.current?.comment ?? '');
+  late bool _spoilers = widget.current?.spoilers ?? false;
 
   @override
   void dispose() {
@@ -153,7 +154,9 @@ class _RatingFormState extends State<RatingForm> {
   void _save() {
     if (_value == 0 || widget.saving) return;
     final comment = _comment.text.trim();
-    widget.onSave(MyRating(_value, comment: comment.isEmpty ? null : comment));
+    widget.onSave(
+      MyRating(_value, comment: comment.isEmpty ? null : comment, spoilers: comment.isNotEmpty && _spoilers),
+    );
   }
 
   @override
@@ -195,7 +198,9 @@ class _RatingFormState extends State<RatingForm> {
             alignLabelWithHint: true,
           ),
         ),
-        SizedBox(height: 18 * s),
+        // The comment reveals the story: the other members see « Contient des spoilers · Afficher ».
+        SpoilerSwitch(value: _spoilers, scale: s, onChanged: (value) => setState(() => _spoilers = value)),
+        SizedBox(height: 10 * s),
         VxButton(
           label: 'Enregistrer',
           icon: Icons.check_rounded,
@@ -353,4 +358,50 @@ class _RatingArrows extends DirectionalFocusOrFirstAction {
     TraversalDirection.right => onStep(0.5),
     _ => move(intent),
   };
+}
+
+/// « Contient des spoilers », under a review or a comment: the whole line is the switch (remote: OK
+/// toggles it).
+class SpoilerSwitch extends StatelessWidget {
+  const SpoilerSwitch({super.key, required this.value, required this.onChanged, this.scale = 1});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = scale;
+    return Semantics(
+      toggled: value,
+      child: VxFocusable(
+        borderRadius: 12 * s,
+        focusScale: 1.02,
+        semanticLabel: 'Contient des spoilers, ${value ? 'activé' : 'désactivé'}',
+        onPressed: () => onChanged(!value),
+        child: ExcludeSemantics(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 4 * s),
+            child: Row(
+              children: [
+                // The line handles taps and the remote: the switch only shows the state.
+                IgnorePointer(
+                  child: ExcludeFocus(
+                    child: Transform.scale(
+                      scale: s * 0.85,
+                      child: Switch(value: value, onChanged: (_) {}, activeThumbColor: VxColors.accent),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 6 * s),
+                Expanded(
+                  child: Text('Contient des spoilers', style: VxText.body(14 * s, color: VxColors.textSoft)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

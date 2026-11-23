@@ -11,9 +11,19 @@ import 'focusable.dart';
 /// 16 above the title, 16 between the title and the field, 12 before the filters, 16 before the
 /// content (×1.5 on TV). The filter bar scrolls sideways and brings its own side margins.
 class VxPageHeader extends StatelessWidget {
-  const VxPageHeader({super.key, required this.title, this.search, this.filters, this.back = false});
+  const VxPageHeader({
+    super.key,
+    required this.title,
+    this.search,
+    this.filters,
+    this.back = false,
+    this.actions = const [],
+  });
 
   final String title;
+
+  /// Round buttons on the right of the title (« Messages » of the feed…).
+  final List<Widget> actions;
   final Widget? search;
   final Widget? filters;
 
@@ -38,7 +48,18 @@ class VxPageHeader extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (back) ...[const VxBackButton(), SizedBox(height: layout.space(VxSpace.m))],
-              Text(title, style: VxText.title(layout.pageTitleSize)),
+              if (actions.isEmpty)
+                Text(title, style: VxText.title(layout.pageTitleSize))
+              else
+                Row(
+                  children: [
+                    Expanded(child: Text(title, style: VxText.title(layout.pageTitleSize))),
+                    for (final (i, action) in actions.indexed) ...[
+                      if (i > 0) SizedBox(width: layout.space(VxSpace.xs)),
+                      action,
+                    ],
+                  ],
+                ),
               if (search != null) ...[
                 SizedBox(height: layout.space(VxSpace.m)),
                 ConstrainedBox(

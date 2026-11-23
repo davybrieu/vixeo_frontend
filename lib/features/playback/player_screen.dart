@@ -20,6 +20,7 @@ import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../catalog/models.dart';
 import '../catalog/catalog_repository.dart';
+import '../network/rate_prompt.dart';
 import '../tv/models.dart';
 import '../tv/fullscreen/fullscreen.dart';
 import 'engine/engine_factory.dart';
@@ -230,6 +231,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// The play / pause button: the screen's focus on arrival, and again when a key brings the
   /// controls back (remote).
   final _playFocus = FocusNode(debugLabel: 'player-play');
+
+  /// Playback reached the credits once ([atTheEnd]): the title is marked as watched, and the card
+  /// « Noter » ([_finishedTitle]) may show.
+  bool _reachedEnd = false;
+  FinishedTitle? _finishedTitle;
 
   PlaybackItem get _item => (type: widget.type, id: widget.id, season: _season, episode: _episode);
 
@@ -444,6 +450,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (value.hasError) {
       _fail(engine, value.error);
       return;
+    }
+    if (!_reachedEnd && !widget.live && atTheEnd(value.position, value.duration)) {
+      _reachedEnd = true;
+      unawaited(_onReachedEnd());
     }
     // The browser refused to start with sound and started muted: the sound button says so, and
     // pressing it (a gesture the browser sees) turns the sound on.
@@ -814,6 +824,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
   }
 
+  /// The credits: the movie or the episode is watched (« Vu », the diary); then, unless the profile
+  /// turned it off or already rated it, the card proposes to rate it (developer's request,
+  /// 23/11/2026). Not for a guest.
+  Future<void> _onReachedEnd() async {
+    final guest = widget.guestOverride ?? ref.read(sessionProvider).isGuest;
+    if (guest) return;
+    final TitleDetails details;
+    try {
+      details = await ref.read(titleProvider((widget.type, widget.id)).future);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    final episode = widget.type == MediaType.tv && _season != null && _episode != null;
+    final FinishedTitle finished = (
+      title: details.asItem,
+      season: episode ? _season : null,
+      episode: episode ? _episode : null,
+    );
+    await markFinished(ref, finished);
+    if (!mounted || !await shouldProposeRating(ref, finished) || !mounted) return;
+    setState(() => _finishedTitle = finished);
+  }
+
   Future<void> _playNextEpisode() async {
     final details = await ref.read(titleProvider((MediaType.tv, widget.id)).future);
     if (!mounted) return;
@@ -1134,6 +1168,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         ),
                       ),
                     ),
+                  ),
+                ),
+              // The end of a movie or an episode: « Noter », over the picture (the video goes on).
+              if (_finishedTitle case final finished? when error == null && !_sourcesPanelOpen)
+                Positioned(
+                  right: layout.gutter,
+                  bottom: visible ? layout.size(150, tv: 260) : layout.size(24, tv: 48),
+                  child: RateAfterWatchingCard(
+                    finished: finished,
+                    onClose: () => setState(() => _finishedTitle = null),
                   ),
                 ),
               // Above the error: « Retour » stays within reach.

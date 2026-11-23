@@ -16,6 +16,12 @@ enum ActivityType {
   followRequest('follow_request'),
   followAccepted('follow_accepted'),
   reviewLike('review_like'),
+  reviewComment('review_comment'),
+  listLike('list_like'),
+  listComment('list_comment'),
+
+  /// A decision of the moderation about my content or my report (vixeo_backend/docs/moderation.md).
+  moderation('moderation'),
 
   /// A type this app doesn't know (a newer API): not shown.
   unknown('');
@@ -37,6 +43,9 @@ class Activity {
     this.createdAt,
     this.read = false,
     this.review,
+    this.list,
+    this.comment,
+    this.text,
   });
 
   factory Activity.fromJson(Map<String, dynamic> json) => Activity(
@@ -49,6 +58,18 @@ class Activity {
       final Map<String, dynamic> review => RatedItem.fromJson(review),
       _ => null,
     },
+    list: switch (json['list']) {
+      {'id': final int id, 'title': final String title} => (id: id, title: title),
+      _ => null,
+    },
+    comment: switch (json['comment']) {
+      {'body': final String body} => (
+        body: body,
+        spoilers: (json['comment'] as Map<String, dynamic>)['contains_spoilers'] as bool? ?? false,
+      ),
+      _ => null,
+    },
+    text: json['text'] as String?,
   );
 
   final int id;
@@ -57,8 +78,29 @@ class Activity {
   final DateTime? createdAt;
   final bool read;
 
-  /// My review liked ([ActivityType.reviewLike]).
+  /// My review liked or commented ([ActivityType.reviewLike], [ActivityType.reviewComment]).
   final RatedItem? review;
+
+  /// My list liked or commented.
+  final ({int id, String title})? list;
+
+  /// The comment (its beginning), hidden when it has spoilers.
+  final ({String body, bool spoilers})? comment;
+
+  /// The sentence of the moderation.
+  final String? text;
+
+  /// Who it comes from: the member, or « Modération ».
+  String get actorName => type == ActivityType.moderation
+      ? 'Modération'
+      : actor.name.trim().isEmpty
+      ? '@${actor.username}'
+      : actor.name;
+
+  String get _said => switch (comment) {
+    (body: final body, spoilers: false) when body.trim().isNotEmpty => ' : « ${body.trim()} »',
+    _ => '.',
+  };
 
   /// After the member's name: "vous suit.", "aime votre avis sur Dune."…
   String get message => switch (type) {
@@ -66,12 +108,19 @@ class Activity {
     ActivityType.followRequest => 'demande à vous suivre.',
     ActivityType.followAccepted => 'a accepté votre demande d’abonnement.',
     ActivityType.reviewLike => 'aime votre avis sur ${review?.label ?? 'un titre'}.',
+    ActivityType.reviewComment => 'a commenté votre avis sur ${review?.label ?? 'un titre'}$_said',
+    ActivityType.listLike => 'aime votre liste « ${list?.title ?? ''} ».',
+    ActivityType.listComment => 'a commenté votre liste « ${list?.title ?? ''} »$_said',
+    ActivityType.moderation => text ?? '',
     ActivityType.unknown => '',
   };
 
-  /// The page a press opens: my review liked, otherwise the member's page.
-  String get path => switch (review) {
-    final review? when type == ActivityType.reviewLike => ReviewScreen.location(review.target),
+  /// The page a press opens: my review (with its comments), my list, otherwise the member's page.
+  String get path => switch (type) {
+    ActivityType.reviewLike || ActivityType.reviewComment when review != null =>
+      review!.reviewId != null ? '/avis/${review!.reviewId}' : ReviewScreen.location(review!.target),
+    ActivityType.listLike || ActivityType.listComment when list != null => '/listes/${list!.id}',
+    ActivityType.moderation => '/notifications',
     _ => '/membre/${Uri.encodeComponent(actor.username)}',
   };
 }

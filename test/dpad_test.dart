@@ -110,7 +110,7 @@ void main() {
     expect(_focused(), 'Navigation /parametres');
 
     // Up and Down stay in the rail.
-    for (var i = 0; i < 6; i++) {
+    for (var i = 0; i < 7; i++) {
       await _press(tester, LogicalKeyboardKey.arrowUp);
     }
     expect(_focused(), startsWith('Mon profil'));

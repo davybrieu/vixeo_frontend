@@ -114,6 +114,13 @@ lib/
     messages/    messagerie : modèles, dépôt et providers (`messages.dart`, canal temps réel
                  `conversationChannel`), « Messages » (`conversations_screen.dart`), une conversation
                  (`conversation_screen.dart`), créer / gérer un groupe (`group_screen.dart`)
+    network/     réseau social des films et séries : modèles, dépôt et providers (`network.dart`),
+                 cartes (`widgets.dart`), menus (`actions.dart` : signaler, bloquer, masquer, listes,
+                 envoyer à un ami), « Fil » (`feed_screen.dart`), avis et commentaires
+                 (`review_screen.dart`, `comments.dart`), listes et top 10 (`list_screen.dart`),
+                 journal et bilan (`profile_sections.dart`, `profile_pages.dart`), fiche sociale
+                 (`title_social.dart`), image à partager (`share_image.dart`), premier lancement
+                 (`onboarding_screen.dart`), note en fin de lecture (`rate_prompt.dart`)
 ```
 
 ## Conventions
@@ -546,8 +553,9 @@ lib/
   Dart, `tools/scraper-runner` le JavaScript. Tests : `test/scraper_models_test.dart`, `scraper_runner_test.dart`,
   `addons_test.dart`, doublures dans `test/scraper_fakes.dart`.
 - **Messagerie** (`features/messages`, le développeur, 22/11/2026, comme Instagram ; API :
-  `vixeo_backend/docs/messagerie.md`) : onglet / entrée du rail **« Messages »** après
-  « Notifications » (`ConversationsScreen`, `/messages` ; pas pour un invité ni un profil enfant :
+  `vixeo_backend/docs/messagerie.md`) : entrée du rail **« Messages »** après « Notifications » ;
+  **sur téléphone, bouton rond en haut du « Fil »** (pastille sur l'onglet « Fil », lue
+  « Fil, 12 messages non lus » ; la page a alors un bouton retour) (`ConversationsScreen`, `/messages` ; pas pour un invité ni un profil enfant :
   `socialAvailable`, la route mène à l'accueil) : `VxPageHeader` avec « Écrire à un membre… »
   (recherche des comptes, `MemberSearchResults`) et « Créer un groupe » (`VxIconAction`), les
   **demandes reçues** (« Accepter » ✓ / « Refuser » ✕) puis les conversations (avatar ou icône du
@@ -582,6 +590,61 @@ lib/
   « Notifications ») ; reconnexion (1 s, 2 s… 30 s) puis `resync` ; sans clé Reverb, rien ne
   s'ouvre (la page relit la conversation après chaque action). Dates de l'API en ISO 8601 avec fuseau, affichées en heure
   locale. Confirmations : `showVxConfirm` (`core/widgets/choice.dart`). Test : `test/messages_test.dart`.
+- **Réseau social des films et séries** (`features/network`, demande du développeur, 23/11/2026 :
+  « comme Twitter mais sans tweet de texte » ; API : `vixeo_backend/docs/social.md`,
+  `docs/moderation.md`) : **toute publication porte sur une œuvre** (avis, visionnage, liste /
+  top 10), la conversation est dans les commentaires.
+  - **Navigation du téléphone : 5 onglets** Accueil · Fil · Recherche · Notifications · Profil
+    (« Messages » en haut du « Fil », « Paramètres » en haut de la page « Profil », bouton rond ;
+    un profil enfant garde l'onglet « Paramètres »). Tablette et ordinateur : « Fil » dans le
+    rail, après « Chaînes TV ». **Pas de « Fil » ni de « Messages » sur TV** (la TV sert à
+    regarder ; ce qui aide à choisir est sur la fiche).
+  - **« Fil »** (`FeedScreen`, `/fil`, `feedProvider`, `GET /social/feed?before=`) : avis
+    (`ReviewPost`), listes (`ListPost`), titres vus regroupés (`WatchedPost` : « Léa et Max ont
+    vu… »), la page suivante en arrivant à la fin ; « Comptes à suivre » (`SuggestionCard`,
+    `GET /social/suggestions`, « 82 % de goûts en commun ») après le 3ᵉ élément, ou seuls quand le
+    fil est vide.
+  - **Avis** : un avis a sa page (`ReviewThreadScreen`, `/avis/:id`) avec ses **commentaires**
+    (`CommentsSection` : « Contient des spoilers » `SpoilerSwitch`, « Publier » ; lus seulement
+    sur TV) ; un avis ou un commentaire avec spoilers est caché derrière « Contient des spoilers ·
+    Afficher » (`SpoilerText`), sauf pour son auteur ; la fenêtre de note a aussi
+    « Contient des spoilers » (`MyRating.spoilers`, `contains_spoilers`). « Avis » sur la fiche :
+    « Voir tout » → `TitleReviewsScreen` (`/titre/:type/:id/avis`, Populaires / Récents).
+  - **Listes et top 10** (`ListDetailsScreen`, `/listes/:id` ; `ListEditorScreen`,
+    `/listes/nouvelle?type=top&item=movie:550`, `/listes/:id/modifier`) : titre (idées : « Mon top 10
+    de 2026 »…), description, top 10 (numéroté, 10 titres) ou liste (100), titres choisis par
+    `pickTitle` et rangés avec « monter » / « descendre » / « retirer » (des boutons : télécommande) ;
+    J'aime (`ListLikeButton`), commentaires. Fiche : « Ajouter à une liste » (`showAddToList`) et
+    « Envoyer à un ami » (`recommendToFriend` : une conversation ou un membre, `share` de
+    `POST /messages/{id}` ; la bulle montre la carte, `SharedCard`, un appui l'ouvre).
+  - **Page de profil** (`ProfileView`) : **onglets** Activité · Listes · Journal (`ProfileTab`,
+    `_ProfileTabs`) ; **« Mes 4 favoris »** sous l'en-tête (`PinnedTitles`, choisis dans
+    « Modifier mon profil », `pinned_titles`) ; un membre : « … » (masquer du fil, bloquer,
+    signaler : `showMemberMenu`) et « 82 % de goûts en commun » (`ProfileHeader(compatibility:)`).
+    Journal (`DiaryScreen`, `/profil/journal`, `/membre/:username/journal` : par mois, appui long
+    = retirer) et **bilan de l'année** (`YearStatsScreen`, `/profil/bilan?annee=2026` : chiffres,
+    mois, genres, mieux notés, série de l'année) ; **« Partager en image »** d'un avis, d'une
+    liste ou de l'année (`StoryScreen`, format story 1080 × 1920 : feuille de partage d'Android,
+    dossier Téléchargements sur Windows ; pas sur TV).
+  - **Fiche** : `TitleSocialSection` (`GET /social/titles/{type}/{id}`) : abonnés qui l'ont vu,
+    leur moyenne, avis populaires, listes qui l'ont ; rien pour un invité ou un titre sans activité.
+  - **Note en fin de lecture** (demande du développeur, 23/11/2026) : dans les derniers 8 % d'un
+    film ou d'un épisode (5 min au plus, `atTheEnd`), le lecteur marque le titre vu (film :
+    « Vu » ; épisode : synchro `episode:…` et journal) puis, si le profil a gardé
+    **« Proposer de noter à la fin »** (« Paramètres du profil » → « Après la lecture »,
+    `rate_after_watching`, activé par défaut) et n'a pas encore noté le titre, une carte
+    (`RateAfterWatchingCard`) : « Noter », « Plus tard » et le lien **« Désactiver dans les
+    paramètres »**, qui remplace le lecteur par `/profil/parametres?reglage=noter`
+    (`ProfilePreferencesScreen.rateAfterWatchingLocation` : le réglage a le focus).
+  - **Premier lancement** (`OnboardingScreen`, `/bienvenue`, ouvert après « Qui regarde ? » quand
+    `onboarded` est faux ; pas sur TV) : noter des titres connus, puis des comptes à suivre ;
+    « Passer » à tout moment (`PUT /profiles/{id}` `onboarded: true`).
+  - **Signaler, bloquer, masquer** partout (profil, avis, liste, commentaire, message : `report`,
+    raisons de `GET /social/report-reasons`) ; « Paramètres » → **« Comptes bloqués et masqués »**
+    (`HiddenAccountsScreen`, `/profil/comptes-masques`). Notifications : `review_comment`,
+    `list_like`, `list_comment`, `moderation` (« Modération »).
+  - Mots d'une page de l'appli réservés côté API (`Usernames::RESERVED`) : `fil`, `listes`,
+    `bienvenue`, `messages`, `description`, `journal`, `bilan`. Tests : `test/network_test.dart`.
 - **Résumé et biographie** (`DescriptionLink`, `catalog/description_screen.dart`) : sur la fiche et
   la page d'une personne, les 5 premières lignes puis, **seulement si le texte est plus long**,
   « Lire la suite », qui ouvre le texte entier sur une page à part (`DescriptionScreen`,
@@ -893,6 +956,10 @@ lib/
 - Fait aussi : page « Notifications » de la navigation (demandes d'abonnement, prochains épisodes
   de « Ma liste », activité, pastille des non lues), compte privé et demandes d'abonnement,
   réseaux sociaux du profil, J'aime sur les avis des autres membres, push « Activité ».
+- Fait aussi (23/11/2026) : réseau social des films et séries (fil, avis et commentaires avec
+  spoilers, listes et top 10, 4 favoris, journal et bilan de l'année, partage en image, fiche
+  sociale, goûts en commun, premier lancement, signaler / bloquer / masquer, note proposée en fin
+  de lecture avec son réglage). **Pas encore vérifié sur un appareil** (la CI compile et teste).
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
 - Vérifié de bout en bout (ancienne version web) contre l'API Laravel locale avec un faux TMDb.
 - Pas encore vérifié sur un vrai PC Windows : lecture (media_kit), plug-ins (QuickJS de

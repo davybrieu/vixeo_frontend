@@ -209,6 +209,22 @@ class LibraryController extends AsyncNotifier<LibraryState> {
     if (value) 'progress': {'position_ms': 0, 'continue_watching': false, 'at': _now()},
   });
 
+  /// An episode watched to the end (the player): `episode:1399:1:3`, under its show
+  /// (vixeo_backend/docs/synchronisation.md).
+  Future<void> setEpisodeWatched(MediaItem show, {required int season, required int episode}) => _pushRaw({
+    'source': 'tmdb',
+    'item_id': 'episode:${show.id}:$season:$episode',
+    'type': 'episode',
+    'parent_item_id': show.syncId,
+    'season_number': season,
+    'episode_number': episode,
+    'title': show.title,
+    'poster_url': show.posterUrl,
+    'backdrop_url': show.backdropUrl,
+    'watched': {'value': true, 'at': _now()},
+    'progress': {'position_ms': 0, 'continue_watching': false, 'at': _now()},
+  });
+
   Future<void> removeFromContinueWatching(ProfileItem item) => _pushRaw({
     'source': item.source,
     'item_id': item.itemId,

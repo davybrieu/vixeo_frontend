@@ -17,6 +17,7 @@ import '../catalog/catalog_repository.dart';
 import '../messages/conversations_screen.dart';
 import '../messages/messages.dart' show unreadMessagesProvider;
 import '../notifications/inbox.dart';
+import '../network/feed_screen.dart';
 import '../notifications/inbox_screen.dart';
 import '../profiles/avatars.dart';
 import 'back_navigation_guard.dart';
@@ -53,15 +54,24 @@ const _messages = _Destination(
   Icons.chat_bubble_rounded,
 );
 
+/// « Fil »: what the followed members did (not for a guest nor a child's profile, nor on a TV).
+const _feed = _Destination(FeedScreen.location, 'Fil', Icons.dynamic_feed_outlined, Icons.dynamic_feed_rounded);
+
+/// Phone (developer's request, 23/11/2026: 5 tabs at most): Accueil · Fil · Recherche ·
+/// Notifications · Profil. « Messages » is a button at the top of the feed (its number on the « Fil »
+/// tab), « Paramètres » a button at the top of the profile page; a child's profile, without them,
+/// keeps the « Paramètres » tab.
 const _phoneTabs = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
+  _feed,
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _notifications,
-  _messages,
   _Destination('/profil', 'Profil', Icons.person_outline_rounded, Icons.person_rounded),
-  _Destination('/parametres', 'Paramètres', Icons.settings_outlined, Icons.settings_rounded),
+  _settings,
 ];
+
+const _settings = _Destination('/parametres', 'Paramètres', Icons.settings_outlined, Icons.settings_rounded);
 
 /// Extra bottom inset so list content clears the floating pill (pill ~50 + margins).
 const _phoneNavClearance = 66.0;
@@ -72,9 +82,12 @@ const _guestRailItems = [
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
 ];
 
+/// Tablet, computer: everything. TV: no « Fil » nor « Messages » (the TV is for watching; what helps
+/// choose is on the title pages).
 const _railItems = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
+  _feed,
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _notifications,
   _messages,
@@ -102,16 +115,22 @@ class AppShell extends ConsumerWidget {
     final liveTv = ref.watch(liveTvProvider);
     final inbox = socialAvailable(session);
     // The numbers on « Notifications » and « Messages » (not for a guest nor a child's profile).
+    final unreadMessages = inbox ? ref.watch(unreadMessagesProvider) : 0;
     final badges = inbox
         ? {
             InboxScreen.location: ref.watch(unreadNotificationsProvider),
-            ConversationsScreen.location: ref.watch(unreadMessagesProvider),
+            ConversationsScreen.location: unreadMessages,
+            // On a phone, « Messages » is in the feed: its number is on « Fil ».
+            if (layout.isPhone) FeedScreen.location: unreadMessages,
           }
         : const <String, int>{};
+    final tv = DeviceInfo.isTv;
     bool shown(_Destination d) => switch (d.path) {
       '/chaines-tv' => liveTv,
       InboxScreen.location => inbox,
-      ConversationsScreen.location => inbox,
+      FeedScreen.location || ConversationsScreen.location => inbox && !tv,
+      // A phone's « Paramètres » is on the profile page, except for a child's profile.
+      '/parametres' when layout.isPhone => !inbox,
       _ => true,
     };
     final phoneTabs = [for (final d in guest ? _guestPhoneTabs : _phoneTabs) if (shown(d)) d];
@@ -141,11 +160,12 @@ class AppShell extends ConsumerWidget {
           : {
               '/accueil',
               '/chaines-tv',
+              FeedScreen.location,
               '/recherche',
               InboxScreen.location,
-              ConversationsScreen.location,
               '/profil',
-              '/parametres',
+              // A child's profile: « Paramètres » is a tab (no profile page to reach it from).
+              if (!inbox) '/parametres',
             };
       final showNavigation = navigationPages.contains(location);
       final index = phoneTabs.indexWhere((d) => location == d.path);
@@ -675,8 +695,9 @@ String unreadLabel(int count) => count > 1 ? '$count notifications non lues' : '
 String unreadMessagesLabel(int count) => count > 1 ? '$count messages non lus' : '$count message non lu';
 
 /// What the number on a destination means, read after its name.
-String badgeLabel(String path, int count) =>
-    path == ConversationsScreen.location ? unreadMessagesLabel(count) : unreadLabel(count);
+String badgeLabel(String path, int count) => path == ConversationsScreen.location || path == FeedScreen.location
+    ? unreadMessagesLabel(count)
+    : unreadLabel(count);
 
 /// A number in a small round badge, at the top right of a navigation icon ("9+" above 9); just the
 /// icon at 0.

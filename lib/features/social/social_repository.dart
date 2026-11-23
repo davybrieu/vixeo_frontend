@@ -29,7 +29,8 @@ class SocialProfile {
     this.isFollowing = false, this.isSelf = false,
     this.reviewsCount = 0, this.watchedCount = 0, this.listCount = 0, this.shareUrl,
     this.isPrivate = false, FollowStatus? followStatus, this.canView = true, this.socialLinks = const [],
-    this.requestedAt,
+    this.requestedAt, this.pinned = const [], this.compatibility, this.commonRatings = 0, this.isBlocked = false,
+    this.isMuted = false, this.listsCount = 0, this.diaryCount = 0,
   }) : _followStatus = followStatus; // ignore: prefer_initializing_formals (a named parameter can't be private)
 
   factory SocialProfile.fromJson(Map<String, dynamic> json) => SocialProfile(
@@ -51,6 +52,16 @@ class SocialProfile {
     canView: json['can_view'] as bool? ?? true,
     socialLinks: SocialLink.listOf(json['social_links']),
     requestedAt: DateTime.tryParse(json['requested_at'] as String? ?? '')?.toLocal(),
+    pinned: [
+      for (final item in json['pinned'] as List? ?? const [])
+        if (item is Map<String, dynamic>) ?SocialRepository.titleOf(item),
+    ],
+    compatibility: (json['compatibility'] as Map<String, dynamic>?)?['score'] as int?,
+    commonRatings: (json['compatibility'] as Map<String, dynamic>?)?['common'] as int? ?? 0,
+    isBlocked: json['is_blocked'] as bool? ?? false,
+    isMuted: json['is_muted'] as bool? ?? false,
+    listsCount: json['lists_count'] as int? ?? 0,
+    diaryCount: json['diary_count'] as int? ?? 0,
   );
 
   final int id;
@@ -87,6 +98,23 @@ class SocialProfile {
 
   /// When a follow request was sent (`GET /social/requests`).
   final DateTime? requestedAt;
+
+  /// « Mes 4 favoris », at the top of the page.
+  final List<MediaItem> pinned;
+
+  /// Tastes in common with the active profile, 0 to 100 (null: not enough titles rated by both).
+  final int? compatibility;
+
+  /// Titles both rated.
+  final int commonRatings;
+
+  /// The active profile blocked it (« Débloquer »).
+  final bool isBlocked;
+
+  /// Hidden from the active profile's feed (« Masquer »).
+  final bool isMuted;
+  final int listsCount;
+  final int diaryCount;
 }
 
 /// What a like of a review leaves: liked or not, and its number of likes.

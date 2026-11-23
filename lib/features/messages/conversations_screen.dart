@@ -177,6 +177,8 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
         children: [
           VxPageHeader(
             title: 'Messages',
+            // On a phone it opens from the feed (« Fil »): a page over another one.
+            back: Layout.of(context).isPhone,
             search: Row(
               children: [
                 Expanded(

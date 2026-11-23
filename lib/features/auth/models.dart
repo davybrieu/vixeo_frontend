@@ -1,3 +1,4 @@
+import '../catalog/models.dart';
 import '../social/social_links.dart';
 
 /// Account returned by `GET /me` (UserResource).
@@ -88,6 +89,9 @@ class Profile {
     this.skipPreview = false,
     this.isPrivate = false,
     this.socialLinks = const [],
+    this.rateAfterWatching = true,
+    this.onboarded = true,
+    this.pinnedTitles = const [],
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
@@ -112,6 +116,21 @@ class Profile {
     skipPreview: json['skip_preview'] as bool? ?? false,
     isPrivate: json['is_private'] as bool? ?? false,
     socialLinks: SocialLink.listOf(json['social_links']),
+    rateAfterWatching: json['rate_after_watching'] as bool? ?? true,
+    // An older API doesn't say: no first launch.
+    onboarded: json['onboarded'] as bool? ?? true,
+    pinnedTitles: [
+      for (final item in json['pinned_titles'] as List? ?? const [])
+        if (item is Map<String, dynamic> && item['id'] is int)
+          MediaItem(
+            id: item['id'] as int,
+            type: MediaType.parse(item['type']),
+            title: item['title'] as String? ?? '',
+            year: item['year'] as int?,
+            posterUrl: item['poster_url'] as String?,
+            backdropUrl: item['backdrop_url'] as String?,
+          ),
+    ],
   );
 
   final int id;
@@ -155,6 +174,16 @@ class Profile {
 
   /// Its accounts on social networks (« Modifier mon profil »), shown on its page.
   final List<SocialLink> socialLinks;
+
+  /// At the end of a movie or an episode, the player proposes to rate it (« Paramètres du
+  /// profil » → « Proposer de noter à la fin »).
+  final bool rateAfterWatching;
+
+  /// The first launch (rate known titles, accounts to follow) was done or skipped.
+  final bool onboarded;
+
+  /// « Mes 4 favoris », at the top of the profile page.
+  final List<MediaItem> pinnedTitles;
 
   /// First letter, shown on the avatar tile.
   String get initial => name.isEmpty ? '?' : String.fromCharCode(name.runes.first).toUpperCase();

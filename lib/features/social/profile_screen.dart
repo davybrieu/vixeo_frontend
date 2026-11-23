@@ -9,6 +9,7 @@ import '../../core/share.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
@@ -17,6 +18,10 @@ import '../catalog/widgets.dart';
 import '../library/library.dart';
 import '../library/my_list_screen.dart';
 import '../messages/messages.dart' show conversationLocation, startConversation;
+import '../network/actions.dart' show showMemberMenu;
+import '../network/network.dart' show diaryProvider, memberListsProvider, myListsProvider;
+import '../network/profile_sections.dart';
+import '../network/title_picker.dart';
 import '../notifications/inbox.dart';
 import '../profiles/profiles_screen.dart';
 import '../profiles/settings_rows.dart';
@@ -102,13 +107,29 @@ class ProfileScreen extends ConsumerWidget {
     }
     // « Mes avis ».
     final reviews = ref.watch(reviewsProvider);
+    final layout = Layout.of(context);
 
     return ProfileView(
       onRefresh: () async {
-        if (username.isNotEmpty) ref.invalidate(socialProfileProvider(username));
+        if (username.isNotEmpty) {
+          ref.invalidate(socialProfileProvider(username));
+          ref.invalidate(diaryProvider(username));
+        }
+        ref.invalidate(myListsProvider);
         ref.invalidate(reviewsProvider);
         await ref.read(libraryProvider.notifier).refresh();
       },
+      // On a phone, « Paramètres » is here (the tab bar has 5 tabs at most).
+      actions: [
+        if (layout.isPhone)
+          VxIconAction(
+            icon: Icons.settings_outlined,
+            label: 'Paramètres',
+            dense: true,
+            onPressed: () => context.push('/parametres'),
+          ),
+      ],
+      pinned: username.isEmpty ? null : PinnedTitles(titles: profile.pinnedTitles, mine: true),
       header: ProfileHeader(
         name: profile.name,
         avatarId: profile.avatar,
@@ -146,32 +167,41 @@ class ProfileScreen extends ConsumerWidget {
         watched: social?.watchedCount,
         titles: favorites?.length ?? social?.listCount,
       ),
-      sections: [
-        ProfileTitlesSection(
-          title: 'Ma liste',
-          titles: titles,
-          emptyMessage: 'Ajoutez des films et des séries avec « Ma liste » : ils apparaîtront ici.',
-          onSeeAll: () => context.push('/ma-liste'),
+      tabs: [
+        (
+          label: 'Activité',
+          sections: [
+            ProfileTitlesSection(
+              title: 'Ma liste',
+              titles: titles,
+              emptyMessage: 'Ajoutez des films et des séries avec « Ma liste » : ils apparaîtront ici.',
+              onSeeAll: () => context.push('/ma-liste'),
+            ),
+            ProfileTitlesSection(
+              title: 'Favoris',
+              titles: liked,
+              emptyMessage: 'Ajoutez des films et des séries à vos favoris avec le cœur de leur fiche : ils apparaîtront ici.',
+              onSeeAll: () => context.push('/profil/social/favoris'),
+            ),
+            ProfilePeopleSection(
+              title: 'Personnes suivies',
+              people: people,
+              emptyMessage: 'Suivez des acteurs et des réalisateurs depuis leur page : ils apparaîtront ici.',
+              onSeeAll: () => context.push('/profil/social/personnes'),
+            ),
+            ProfileReviewsSection(
+              title: 'Mes avis',
+              reviews: reviews,
+              mine: true,
+              emptyMessage: 'Notez un film, une série ou un épisode depuis sa fiche : votre avis apparaîtra ici.',
+              onSeeAll: () => context.push('/avis'),
+            ),
+          ],
         ),
-        ProfileTitlesSection(
-          title: 'Favoris',
-          titles: liked,
-          emptyMessage: 'Ajoutez des films et des séries à vos favoris avec le cœur de leur fiche : ils apparaîtront ici.',
-          onSeeAll: () => context.push('/profil/social/favoris'),
-        ),
-        ProfilePeopleSection(
-          title: 'Personnes suivies',
-          people: people,
-          emptyMessage: 'Suivez des acteurs et des réalisateurs depuis leur page : ils apparaîtront ici.',
-          onSeeAll: () => context.push('/profil/social/personnes'),
-        ),
-        ProfileReviewsSection(
-          title: 'Mes avis',
-          reviews: reviews,
-          mine: true,
-          emptyMessage: 'Notez un film, une série ou un épisode depuis sa fiche : votre avis apparaîtra ici.',
-          onSeeAll: () => context.push('/avis'),
-        ),
+        if (username.isNotEmpty) ...[
+          (label: 'Listes', sections: [ProfileListsSection(username: username, mine: true)]),
+          (label: 'Journal', sections: [ProfileDiarySection(username: username, mine: true)]),
+        ],
       ],
     );
   }
@@ -242,6 +272,8 @@ class PublicProfileScreen extends ConsumerWidget {
       body: ProfileView(
         back: true,
         onRefresh: () async {
+          ref.invalidate(memberListsProvider(username));
+          ref.invalidate(diaryProvider(username));
           ref.invalidate(socialTitlesProvider(username));
           ref.invalidate(socialLikedProvider(username));
           ref.invalidate(socialPeopleProvider(username));
@@ -249,11 +281,23 @@ class PublicProfileScreen extends ConsumerWidget {
           ref.invalidate(socialProfileProvider(username));
           await ref.read(socialProfileProvider(username).future);
         },
+        // « … »: mute, block, report.
+        actions: [
+          if (!social.isSelf && socialAvailable(ref.watch(sessionProvider)))
+            VxIconAction(
+              icon: Icons.more_horiz_rounded,
+              label: 'Options du profil de @${social.username}',
+              dense: true,
+              onPressed: () => showMemberMenu(context, ref, social),
+            ),
+        ],
+        pinned: canView && social.pinned.isNotEmpty ? PinnedTitles(titles: social.pinned) : null,
         header: ProfileHeader(
           name: social.name,
           avatarId: social.avatar,
           username: social.username,
           isPrivate: social.isPrivate,
+          compatibility: social.isSelf ? null : social.compatibility,
           links: social.socialLinks,
           bio: social.bio,
           followers: social.followersCount,
@@ -291,7 +335,29 @@ class PublicProfileScreen extends ConsumerWidget {
           titles: social.listCount,
           titlesLabel: 'Sa liste',
         ),
-        sections: canView ? _sections(context, ref) : [_PrivateAccount(profile: social)],
+        tabs: social.isBlocked
+            ? [
+                (
+                  label: 'Profil',
+                  sections: [
+                    ProfileSectionMessage(
+                      title: 'Compte bloqué',
+                      message:
+                          'Vous avez bloqué @${social.username} : vous ne voyez plus ses publications et il ne voit plus '
+                          'les vôtres. « … » en haut de la page pour le débloquer.',
+                    ),
+                  ],
+                ),
+              ]
+            : canView
+            ? [
+                (label: 'Activité', sections: _sections(context, ref)),
+                (label: 'Listes', sections: [ProfileListsSection(username: username)]),
+                (label: 'Journal', sections: [ProfileDiarySection(username: username)]),
+              ]
+            : [
+                (label: 'Profil', sections: [_PrivateAccount(profile: social)]),
+              ],
       ),
     );
   }
@@ -498,6 +564,9 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
   final _bio = TextEditingController();
   final _links = {for (final network in SocialNetwork.values) network: TextEditingController()};
   bool _private = false;
+
+  /// « Mes 4 favoris », in order.
+  final _pinned = <MediaItem>[];
   late final Future<SocialProfile?> _social = _load();
   bool _loading = false;
   String? _error;
@@ -511,7 +580,24 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
     _username.text = profile?.username ?? '';
     _bio.text = profile?.bio ?? '';
     _private = profile?.isPrivate ?? false;
+    _pinned.addAll(profile?.pinnedTitles ?? const []);
     _fillLinks(profile?.socialLinks ?? const []);
+  }
+
+  Future<void> _pin(int index) async {
+    final title = await pickTitle(
+      context,
+      title: 'Mes 4 favoris',
+      chosen: {for (final t in _pinned) '${t.type.name}:${t.id}'},
+    );
+    if (title == null || !mounted) return;
+    setState(() {
+      if (index < _pinned.length) {
+        _pinned[index] = title;
+      } else {
+        _pinned.add(title);
+      }
+    });
   }
 
   void _fillLinks(List<SocialLink> links) {
@@ -567,6 +653,7 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
         'username': _username.text.trim(),
         'bio': _bio.text.trim(),
         'is_private': _private,
+        'pinned_titles': [for (final t in _pinned) '${t.type.name}:${t.id}'],
         // Every network: an emptied field removes its account (null).
         'social_links': {
           for (final MapEntry(key: network, value: field) in _links.entries)
@@ -623,6 +710,19 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
                 decoration: const InputDecoration(labelText: 'Biographie'),
               ),
               const SizedBox(height: 8),
+              Text('Mes 4 favoris', style: VxText.title(18)),
+              const SizedBox(height: 4),
+              Text(
+                'Les films ou séries qui vous définissent, en haut de votre page.',
+                style: VxText.body(14, color: VxColors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              _PinnedEditor(
+                titles: _pinned,
+                onPick: _pin,
+                onRemove: (i) => setState(() => _pinned.removeAt(i)),
+              ),
+              const SizedBox(height: 24),
               SettingsSwitchRow(
                 label: 'Compte privé',
                 detail:
@@ -663,6 +763,86 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
           );
         },
       ),
+    );
+  }
+}
+
+/// The 4 places of « Mes 4 favoris »: a poster (a press changes it, ✕ removes it) or « + ».
+class _PinnedEditor extends StatelessWidget {
+  const _PinnedEditor({required this.titles, required this.onPick, required this.onRemove});
+
+  final List<MediaItem> titles;
+  final ValueChanged<int> onPick;
+  final ValueChanged<int> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = layout.cardGap;
+        final width = ((constraints.maxWidth - gap * 3) / 4).clamp(0.0, layout.size(120, tv: 200));
+        return Row(
+          children: [
+            for (var i = 0; i < 4; i++) ...[
+              if (i > 0) SizedBox(width: gap),
+              if (i < titles.length)
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    VxFocusable(
+                      borderRadius: width * 0.08,
+                      semanticLabel: 'Favori ${i + 1} : ${titles[i].title}. Changer',
+                      onPressed: () => onPick(i),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(width * 0.08),
+                        child: SizedBox(
+                          width: width,
+                          height: width * 1.5,
+                          child: NetImage(url: titles[i].posterUrl, seed: titles[i].id),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: VxFocusable(
+                        borderRadius: 16,
+                        semanticLabel: 'Retirer ${titles[i].title} des favoris',
+                        onPressed: () => onRemove(i),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: const BoxDecoration(color: VxColors.surfaceHigh, shape: BoxShape.circle),
+                          child: const Icon(Icons.close_rounded, size: 16, color: VxColors.text),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                VxFocusable(
+                  borderRadius: width * 0.08,
+                  semanticLabel: i == titles.length ? 'Ajouter un favori' : 'Place libre',
+                  onPressed: i == titles.length ? () => onPick(i) : null,
+                  child: Container(
+                    width: width,
+                    height: width * 1.5,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(width * 0.08),
+                      border: Border.all(color: VxColors.line),
+                    ),
+                    child: Icon(
+                      Icons.add_rounded,
+                      color: i == titles.length ? VxColors.textSoft : VxColors.textMuted,
+                      size: width * 0.3,
+                    ),
+                  ),
+                ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

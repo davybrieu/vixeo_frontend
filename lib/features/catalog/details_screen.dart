@@ -15,6 +15,9 @@ import '../../core/widgets/page_header.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
+import '../network/actions.dart' show recommendToFriend, showAddToList;
+import '../network/title_social.dart';
+import '../notifications/inbox.dart' show socialAvailable;
 import '../profiles/no_spoiler.dart';
 import '../ratings/rating_view.dart';
 import '../ratings/ratings_sheet.dart';
@@ -106,6 +109,7 @@ class _Actions extends ConsumerWidget {
     final layout = Layout.of(context);
     final item = title.asItem;
     final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
+    final social = socialAvailable(ref.watch(sessionProvider)) && !DeviceInfo.isTv;
     return Wrap(
       spacing: layout.isLarge ? layout.tv(20) : 14,
       runSpacing: 12,
@@ -114,6 +118,22 @@ class _Actions extends ConsumerWidget {
         if (!guest) LikedButton(item: item),
         if (!guest && title.type == MediaType.movie) WatchedButton(item: item),
         if (!guest && ref.watch(canRateProvider)) RateTitleButton(type: title.type, id: title.id, name: title.title),
+        // The social network (not on a TV): put it in one of my lists, send it to a friend.
+        if (social)
+          VxIconAction(
+            icon: Icons.playlist_add_rounded,
+            label: 'Ajouter à une liste',
+            onPressed: () => showAddToList(context, item),
+          ),
+        if (social)
+          VxIconAction(
+            icon: Icons.send_outlined,
+            label: 'Envoyer à un ami',
+            onPressed: () => recommendToFriend(
+              context,
+              (type: 'title', id: '${title.type.name}:${title.id}', label: title.title),
+            ),
+          ),
         if (title.trailer != null)
           VxIconAction(
             icon: Icons.smart_display_outlined,
@@ -643,6 +663,8 @@ List<Widget> _lowerSections(BuildContext context, Layout layout, TitleDetails t)
   return [
     if (t.type == MediaType.tv && t.seasons.isNotEmpty) ...[gap, _Episodes(title: t)],
     if (t.cast.isNotEmpty || t.crew.isNotEmpty) ...[gap, _PeopleRow(title: t)],
+    // What the members say about it: followed members, popular reviews, lists.
+    TitleSocialSection(type: t.type, id: t.id, name: t.title),
     if (t.recommended.isNotEmpty) ...[
       gap,
       PosterRow(

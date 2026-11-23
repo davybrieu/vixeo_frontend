@@ -16,6 +16,8 @@ import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
+import '../network/actions.dart' show report;
+import '../network/network.dart' show ReportSubject;
 import '../social/profile_view.dart' show AccountTile;
 import 'messages.dart';
 import 'widgets.dart';
@@ -142,6 +144,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       options: [
         if (message.body.trim().isNotEmpty) ('copy', 'Copier le texte'),
         if (mine) ('delete', 'Supprimer pour tout le monde'),
+        // Another member's message: to the moderation (docs/moderation.md).
+        if (!mine) ('report', 'Signaler le message'),
       ],
       selected: null,
     );
@@ -165,6 +169,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         } catch (error) {
           _alert(error, 'Le message n’a pas pu être supprimé.');
         }
+      case ('report',):
+        await report(context, ref, ReportSubject.message, message.id);
     }
   }
 
@@ -503,7 +509,8 @@ class _MessageBubble extends StatelessWidget {
     final attachment = message.attachments.firstOrNull;
     final createdAt = message.createdAt;
     final time = createdAt == null ? '' : hourMinute(createdAt);
-    final canAct = !message.deleted && (body.isNotEmpty || mine);
+    // Copy, delete (mine) or report (another member's).
+    final canAct = !message.deleted;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -521,6 +528,10 @@ class _MessageBubble extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (attachment != null && !message.deleted) _AttachmentView(attachment: attachment, width: maxWidth),
+              if (message.shared case final shared? when !message.deleted) ...[
+                _SharedCardView(card: shared),
+                if (body.isNotEmpty) SizedBox(height: layout.space(VxSpace.xs)),
+              ],
               if (body.isNotEmpty)
                 Text(
                   body,
@@ -531,9 +542,15 @@ class _MessageBubble extends StatelessWidget {
             ],
           ),
         );
+        final shared = message.deleted ? null : message.shared;
         final label = [
           ?senderName,
           if (attachment != null && !message.deleted) attachment.isImage ? 'Photo' : 'Vidéo',
+          if (shared != null) '${switch (shared.kind) {
+            'review' => 'Avis',
+            'list' => 'Liste',
+            _ => 'Titre',
+          }} partagé : ${shared.title}',
           if (body.isNotEmpty) body,
           if (time.isNotEmpty) time,
           if (read) 'lu',
@@ -556,7 +573,9 @@ class _MessageBubble extends StatelessWidget {
                 borderRadius: radius,
                 focusScale: 1.02,
                 semanticLabel: label,
-                onPressed: attachment != null && attachment.isImage && !message.deleted
+                onPressed: shared != null
+                    ? () => context.push(shared.path)
+                    : attachment != null && attachment.isImage && !message.deleted
                     ? () => _openImage(context, attachment)
                     : null,
                 onLongPress: canAct ? onActions : null,
@@ -584,6 +603,82 @@ class _MessageBubble extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// A title, a review or a list sent in a message: its poster(s), its title, a line (« Film · 1999 »,
+/// « Avis de @lea · ★ 8/10 », « Top 10 · 10 titres »), the beginning of a review. A press on the
+/// bubble opens it.
+class _SharedCardView extends StatelessWidget {
+  const _SharedCardView({required this.card});
+
+  final SharedCard card;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final poster = layout.size(52, tv: 84);
+    final radius = layout.size(8, tv: 12);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (card.images.isEmpty)
+          Container(
+            width: poster,
+            height: poster * 1.5,
+            decoration: BoxDecoration(color: VxColors.surface, borderRadius: BorderRadius.circular(radius)),
+            child: Icon(
+              card.kind == 'list' ? Icons.playlist_play_rounded : Icons.movie_outlined,
+              color: VxColors.textMuted,
+            ),
+          )
+        else
+          ClipRRect(
+            borderRadius: BorderRadius.circular(radius),
+            child: SizedBox(
+              width: poster,
+              height: poster * 1.5,
+              child: NetImage(url: card.images.first, seed: card.title.hashCode),
+            ),
+          ),
+        SizedBox(width: layout.space(VxSpace.s)),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                card.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: VxText.body(layout.bodySize, weight: FontWeight.w700),
+              ),
+              if ((card.subtitle ?? '').isNotEmpty)
+                Text(card.subtitle!, style: VxText.body(layout.captionSize, color: VxColors.textSecondary)),
+              if ((card.excerpt ?? '').isNotEmpty) ...[
+                SizedBox(height: layout.space(VxSpace.xxs)),
+                Text(
+                  '« ${card.excerpt} »',
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: VxText.body(layout.captionSize, color: VxColors.textSoft),
+                ),
+              ],
+              SizedBox(height: layout.space(VxSpace.xxs)),
+              Text(
+                switch (card.kind) {
+                  'review' => 'Lire l’avis',
+                  'list' => 'Voir la liste',
+                  _ => 'Voir la fiche',
+                },
+                style: VxText.body(layout.captionSize, weight: FontWeight.w700, color: VxColors.accent),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
