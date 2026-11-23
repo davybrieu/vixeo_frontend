@@ -105,9 +105,10 @@ class PushApi extends ApiClient {
   @override
   Future<Map<String, dynamic>> put(String path, {Object? body}) async {
     expect(path, '/push/device');
-    registrations.add(Map<String, dynamic>.from(body! as Map));
+    final registration = Map<String, dynamic>.from(body! as Map);
+    registrations.add(registration);
     return {
-      'data': {'id': 7, 'target': body['platform'] == 'windows' ? 'realtime' : 'fid'},
+      'data': {'id': 7, 'target': registration['platform'] == 'windows' ? 'realtime' : 'fid'},
     };
   }
 
