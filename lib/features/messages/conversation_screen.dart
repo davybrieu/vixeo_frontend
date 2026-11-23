@@ -122,6 +122,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         await ref.read(messagesRepositoryProvider).decline(widget.id);
         if (!mounted) return;
         ref.invalidate(inboxProvider);
+        unawaited(ref.read(unreadMessagesProvider.notifier).refresh(force: true));
         showVxSnack(context, 'Demande refusée');
         _leave();
       }

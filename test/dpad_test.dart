@@ -12,6 +12,7 @@ import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/hero.dart';
 import 'package:vixeo/features/catalog/models.dart';
+import 'package:vixeo/features/messages/messages.dart';
 import 'package:vixeo/features/notifications/inbox.dart';
 import 'package:vixeo/features/shell/app_shell.dart';
 
@@ -30,12 +31,19 @@ class _NoUnread extends UnreadNotifications {
   Future<void> refresh({bool force = false}) async {}
 }
 
+/// No unread message, nothing asked to the server.
+class _NoUnreadMessages extends UnreadMessages {
+  @override
+  Future<void> refresh({bool force = false}) async {}
+}
+
 /// The app's keys and navigation around [home].
 Widget _app(Widget home) => ProviderScope(
   overrides: [
     sessionProvider.overrideWith(_Session.new),
     liveTvProvider.overrideWithValue(false),
     unreadNotificationsProvider.overrideWith(_NoUnread.new),
+    unreadMessagesProvider.overrideWith(_NoUnreadMessages.new),
   ],
   child: MaterialApp(
     theme: buildVixeoTheme(),

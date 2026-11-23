@@ -277,6 +277,10 @@ class MessagesRepository {
     );
   }
 
+  /// Messages of the others not read yet, in every conversation, the requests received included
+  /// (the badge of « Messages »).
+  Future<int> unreadCount() async => (await _api.get('/messages/count'))['unread_count'] as int? ?? 0;
+
   Future<List<MessageRequest>> requests() async {
     final json = await _api.get('/messages/requests');
     return [
@@ -347,6 +351,40 @@ final inboxProvider = FutureProvider.autoDispose<Inbox>((ref) async {
   final requests = await repository.requests();
   return Inbox(conversations: list.conversations, requests: requests, unreadCount: list.unreadCount);
 });
+
+/// Unread messages: the badge of « Messages » in the navigation (« 9+ » above 9). Read again when
+/// the navigation is shown or changes page (30 s at most between two), when the app comes back to
+/// the foreground, when a push of the `social` channel arrives (messages are pushed there) and
+/// after a conversation is read or a request declined; no timer.
+final unreadMessagesProvider = NotifierProvider<UnreadMessages, int>(UnreadMessages.new);
+
+class UnreadMessages extends Notifier<int> {
+  DateTime? _readAt;
+
+  /// Shortest time between two readings, unless forced.
+  static const minInterval = Duration(seconds: 30);
+
+  @override
+  int build() {
+    ref.watch(sessionProvider.select((s) => (s.status, s.profile?.id)));
+    _readAt = null;
+    return 0;
+  }
+
+  Future<void> refresh({bool force = false}) async {
+    if (!socialAvailable(ref.read(sessionProvider))) return;
+    final now = DateTime.now();
+    final last = _readAt;
+    if (!force && last != null && now.difference(last) < minInterval) return;
+    _readAt = now;
+    try {
+      final count = await ref.read(messagesRepositoryProvider).unreadCount();
+      if (ref.mounted) state = count;
+    } catch (_) {
+      // Offline, server down: the badge stays as it was.
+    }
+  }
+}
 
 /// The bytes of an attachment (members only, with the token): kept 5 minutes after the last
 /// message showing it left the screen, so scrolling back doesn't download it again.
@@ -503,9 +541,11 @@ class ConversationController extends AsyncNotifier<ConversationState> {
     _listChanged();
   }
 
-  /// « Messages » reads its list again (last message, unread counts).
+  /// « Messages » reads its list again (last message, unread counts), and the badge its number.
   void _listChanged() {
-    if (ref.mounted) ref.invalidate(inboxProvider);
+    if (!ref.mounted) return;
+    ref.invalidate(inboxProvider);
+    unawaited(ref.read(unreadMessagesProvider.notifier).refresh(force: true));
   }
 
   /// Marks the conversation read when it shows messages of the others not read yet.

@@ -12,6 +12,7 @@ import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/actions.dart';
 import 'package:vixeo/features/library/library.dart';
+import 'package:vixeo/features/messages/messages.dart';
 import 'package:vixeo/features/notifications/inbox.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
@@ -81,6 +82,12 @@ class _NoUnread extends UnreadNotifications {
   Future<void> refresh({bool force = false}) async {}
 }
 
+/// No unread message, nothing asked to the server (the badge of « Messages »).
+class _NoUnreadMessages extends UnreadMessages {
+  @override
+  Future<void> refresh({bool force = false}) async {}
+}
+
 Widget app(
   Widget child, {
   Profile profile = const Profile(id: 1, name: 'Davy'),
@@ -94,6 +101,7 @@ Widget app(
     sessionProvider.overrideWith(() => FakeSession(profile)),
     liveTvProvider.overrideWithValue(liveTv),
     unreadNotificationsProvider.overrideWith(_NoUnread.new),
+    unreadMessagesProvider.overrideWith(_NoUnreadMessages.new),
     ...overrides,
   ],
   child: MaterialApp(

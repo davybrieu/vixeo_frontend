@@ -538,7 +538,13 @@ lib/
   `socialAvailable`, la route mène à l'accueil) : `VxPageHeader` avec « Écrire à un membre… »
   (recherche des comptes, `MemberSearchResults`) et « Créer un groupe » (`VxIconAction`), les
   **demandes reçues** (« Accepter » ✓ / « Refuser » ✕) puis les conversations (avatar ou icône du
-  groupe, « Vous : … », date, pastille des non lus). Une conversation (`ConversationScreen`,
+  groupe, « Vous : … », date, pastille des non lus). **Pastille de la navigation** sur « Messages »
+  (onglet et rail, comme « Notifications » : `NavigationBadge`, « 9+ » au-delà de 9, lue
+  « Messages, 12 messages non lus ») : `unreadMessagesProvider` (`GET /messages/count` : messages
+  des autres non lus dans toutes les conversations, demandes reçues comprises), relue avec celle
+  des notifications (`_UnreadWatcher` : arrivée de la navigation, changement de page à 30 s au
+  plus, retour au premier plan), à l'arrivée d'un push du canal `social`, après la lecture d'une
+  conversation et le refus d'une demande ; pas de minuterie. Une conversation (`ConversationScreen`,
   `/messages/:id`, sans la barre d'onglets) : en-tête (retour, nom : la page du membre ou
   « Gérer le groupe », focus à l'arrivée ; options : « Voir le profil », « Bloquer » /
   « Débloquer »), messages (liste inversée, les plus anciens chargés en remontant, jour au-dessus

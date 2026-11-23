@@ -83,6 +83,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
       }
       if (!mounted) return;
       ref.invalidate(inboxProvider);
+      unawaited(ref.read(unreadMessagesProvider.notifier).refresh(force: true));
       if (accept) {
         unawaited(context.push(conversationLocation(id)));
       } else {

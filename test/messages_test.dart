@@ -21,12 +21,12 @@ import 'package:vixeo/features/profiles/avatars.dart';
 // and the pages « Messages » and a conversation.
 
 class _Session extends SessionController {
+  _Session([this.profile = const Profile(id: 2, name: 'Léa', username: 'lea')]);
+
+  final Profile profile;
+
   @override
-  SessionState build() => const SessionState(
-    status: SessionStatus.signedIn,
-    token: 't',
-    profile: Profile(id: 2, name: 'Léa', username: 'lea'),
-  );
+  SessionState build() => SessionState(status: SessionStatus.signedIn, token: 't', profile: profile);
 }
 
 const _max = ChatMember(id: 7, username: 'max', name: 'Max');
@@ -37,6 +37,13 @@ class _FakeMessages extends MessagesRepository {
 
   ConversationPage page;
   final calls = <String>[];
+  int unread = 4;
+
+  @override
+  Future<int> unreadCount() async {
+    calls.add('count');
+    return unread;
+  }
 
   @override
   Future<({List<ConversationSummary> conversations, int unreadCount})> conversations() async => (
@@ -329,6 +336,43 @@ void main() {
     });
   });
 
+  group('badge', () {
+    ProviderContainer container(_FakeMessages repository, {Profile? profile}) {
+      final container = ProviderContainer(
+        overrides: [
+          sessionProvider.overrideWith(() => profile == null ? _Session() : _Session(profile)),
+          messagesRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test('the unread messages, read again 30 s apart at most unless forced', () async {
+      final repository = _FakeMessages(_page());
+      final badge = container(repository);
+
+      await badge.read(unreadMessagesProvider.notifier).refresh();
+      expect(badge.read(unreadMessagesProvider), 4);
+
+      repository.unread = 12;
+      await badge.read(unreadMessagesProvider.notifier).refresh();
+      expect(badge.read(unreadMessagesProvider), 4);
+      await badge.read(unreadMessagesProvider.notifier).refresh(force: true);
+      expect(badge.read(unreadMessagesProvider), 12);
+      expect(repository.calls, ['count', 'count']);
+    });
+
+    test('a child\'s profile: no badge, nothing asked', () async {
+      final repository = _FakeMessages(_page());
+      final badge = container(repository, profile: const Profile(id: 3, name: 'Tom', isKid: true));
+
+      await badge.read(unreadMessagesProvider.notifier).refresh(force: true);
+      expect(badge.read(unreadMessagesProvider), 0);
+      expect(repository.calls, isEmpty);
+    });
+  });
+
   group('pages', () {
     testWidgets('« Messages »: the requests to answer, then the conversations', (tester) async {
       final repository = await _pump(tester, const ConversationsScreen());
@@ -358,6 +402,8 @@ void main() {
       // Read by Max: ✓✓.
       expect(find.byIcon(Icons.done_all_rounded), findsOneWidget);
       expect(repository.calls, contains('read 5'));
+      // Read: the badge of « Messages » is read again.
+      expect(repository.calls, contains('count'));
 
       await tester.enterText(find.byType(TextField), '  À ce soir  ');
       await tester.tap(_pressable('Envoyer'));

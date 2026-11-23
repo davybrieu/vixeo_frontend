@@ -15,6 +15,7 @@ import '../auth/models.dart';
 import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
 import '../messages/conversations_screen.dart';
+import '../messages/messages.dart' show unreadMessagesProvider;
 import '../notifications/inbox.dart';
 import '../notifications/inbox_screen.dart';
 import '../profiles/avatars.dart';
@@ -43,7 +44,8 @@ const _notifications = _Destination(
   Icons.notifications_rounded,
 );
 
-/// « Messages »: conversations between members (not for a guest nor a child's profile).
+/// « Messages »: conversations between members, with the number of unread messages (not for a guest
+/// nor a child's profile).
 const _messages = _Destination(
   ConversationsScreen.location,
   'Messages',
@@ -99,7 +101,13 @@ class AppShell extends ConsumerWidget {
     // « Chaînes TV » only while live TV is shown (hidden for now: core/features.dart).
     final liveTv = ref.watch(liveTvProvider);
     final inbox = socialAvailable(session);
-    final unread = inbox ? ref.watch(unreadNotificationsProvider) : 0;
+    // The numbers on « Notifications » and « Messages » (not for a guest nor a child's profile).
+    final badges = inbox
+        ? {
+            InboxScreen.location: ref.watch(unreadNotificationsProvider),
+            ConversationsScreen.location: ref.watch(unreadMessagesProvider),
+          }
+        : const <String, int>{};
     bool shown(_Destination d) => switch (d.path) {
       '/chaines-tv' => liveTv,
       InboxScreen.location => inbox,
@@ -108,7 +116,7 @@ class AppShell extends ConsumerWidget {
     };
     final phoneTabs = [for (final d in guest ? _guestPhoneTabs : _phoneTabs) if (shown(d)) d];
     final railItems = [for (final d in guest ? _guestRailItems : _railItems) if (shown(d)) d];
-    // The badge is read again when the navigation changes page or the app comes back.
+    // The badges are read again when the navigation changes page or the app comes back.
     Widget watched(Widget shell) => _UnreadWatcher(location: location, enabled: inbox, child: shell);
 
     // First load of the home page after the start: the start-up loading stays alone on screen,
@@ -130,7 +138,15 @@ class AppShell extends ConsumerWidget {
     if (layout.isPhone) {
       final navigationPages = guest
           ? {'/accueil', '/recherche', '/chaines-tv'}
-          : {'/accueil', '/chaines-tv', '/recherche', InboxScreen.location, ConversationsScreen.location, '/profil', '/parametres'};
+          : {
+              '/accueil',
+              '/chaines-tv',
+              '/recherche',
+              InboxScreen.location,
+              ConversationsScreen.location,
+              '/profil',
+              '/parametres',
+            };
       final showNavigation = navigationPages.contains(location);
       final index = phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
@@ -170,7 +186,7 @@ class AppShell extends ConsumerWidget {
                     profile: profile,
                     tabs: phoneTabs,
                     guest: guest,
-                    unread: unread,
+                    badges: badges,
                     onDestinationSelected: (i) {
                       if (guest && i == phoneTabs.length) {
                         context.go('/connexion?redirect=${Uri.encodeComponent(location)}');
@@ -194,7 +210,7 @@ class AppShell extends ConsumerWidget {
           items: railItems,
           guest: guest,
           profile: profile,
-          unread: unread,
+          badges: badges,
           isSelected: _isSelected,
           onSignIn: () => context.go('/connexion'),
           child: child,
@@ -221,14 +237,16 @@ class _LargeShell extends StatefulWidget {
     required this.isSelected,
     required this.onSignIn,
     required this.child,
-    this.unread = 0,
+    this.badges = const {},
   });
 
   final Layout layout;
   final List<_Destination> items;
   final bool guest;
   final Profile? profile;
-  final int unread;
+
+  /// The number on a destination, by path (unread notifications, unread messages).
+  final Map<String, int> badges;
   final bool Function(String path) isSelected;
   final VoidCallback onSignIn;
   final Widget child;
@@ -298,7 +316,7 @@ class _LargeShellState extends State<_LargeShell> {
                 items: widget.items,
                 guest: widget.guest,
                 profile: widget.profile,
-                unread: widget.unread,
+                badges: widget.badges,
                 isSelected: widget.isSelected,
                 itemNode: _itemNode,
               ),
@@ -343,7 +361,7 @@ class _Rail extends StatefulWidget {
     required this.profile,
     required this.isSelected,
     required this.itemNode,
-    this.unread = 0,
+    this.badges = const {},
   });
 
   final double width;
@@ -356,8 +374,8 @@ class _Rail extends StatefulWidget {
   final Profile? profile;
   final bool Function(String path) isSelected;
 
-  /// Unread notifications: the badge of « Notifications ».
-  final int unread;
+  /// The number on a destination, by path (unread notifications, unread messages).
+  final Map<String, int> badges;
 
   /// The focus node of a destination (Left from a page focuses the current one).
   final FocusNode Function(String path) itemNode;
@@ -434,7 +452,7 @@ class _RailState extends State<_Rail> {
                       selected: widget.isSelected(d.path),
                       size: size,
                       focusNode: widget.itemNode(d.path),
-                      badge: d.path == InboxScreen.location ? widget.unread : 0,
+                      badge: widget.badges[d.path] ?? 0,
                     ),
                   ),
               ],
@@ -493,7 +511,7 @@ class _RailItem extends StatelessWidget {
   final double size;
   final FocusNode? focusNode;
 
-  /// A number on the icon (unread notifications); none at 0.
+  /// A number on the icon (unread notifications or messages); none at 0.
   final int badge;
 
   @override
@@ -504,7 +522,7 @@ class _RailItem extends StatelessWidget {
       borderRadius: size * 0.25,
       focusScale: 1.08,
       focusNode: focusNode,
-      semanticLabel: badge > 0 ? '${destination.label}, ${unreadLabel(badge)}' : destination.label,
+      semanticLabel: badge > 0 ? '${destination.label}, ${badgeLabel(destination.path, badge)}' : destination.label,
       child: Container(
         width: size,
         height: size,
@@ -536,7 +554,7 @@ class _PhoneNavigationBar extends StatelessWidget {
     required this.tabs,
     required this.guest,
     required this.onDestinationSelected,
-    this.unread = 0,
+    this.badges = const {},
   });
 
   final int selectedIndex;
@@ -545,8 +563,8 @@ class _PhoneNavigationBar extends StatelessWidget {
   final bool guest;
   final ValueChanged<int> onDestinationSelected;
 
-  /// Unread notifications: the badge of « Notifications ».
-  final int unread;
+  /// The number on a tab, by path (unread notifications, unread messages).
+  final Map<String, int> badges;
 
   @override
   Widget build(BuildContext context) {
@@ -580,15 +598,15 @@ class _PhoneNavigationBar extends StatelessWidget {
                           onPressed: () => onDestinationSelected(i),
                           label: i == tabs.length
                               ? 'Se connecter'
-                              : tabs[i].path == InboxScreen.location && unread > 0
-                                  ? '${tabs[i].label}, ${unreadLabel(unread)}'
+                              : (badges[tabs[i].path] ?? 0) > 0
+                                  ? '${tabs[i].label}, ${badgeLabel(tabs[i].path, badges[tabs[i].path]!)}'
                                   : tabs[i].label,
                           child: i == tabs.length
                               ? const Icon(Icons.login_rounded, size: 24)
                               : tabs[i].path == '/profil'
                                   ? ProfileAvatar(profile: profile, size: 28, radius: 15)
                                   : NavigationBadge(
-                                      count: tabs[i].path == InboxScreen.location ? unread : 0,
+                                      count: badges[tabs[i].path] ?? 0,
                                       size: 16,
                                       child: Icon(selectedIndex == i ? tabs[i].selectedIcon : tabs[i].icon, size: 24),
                                     ),
@@ -618,7 +636,7 @@ class _PhoneNavigationItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      // One node per tab for screen readers: its name (and the unread notifications), pressable.
+      // One node per tab for screen readers: its name (and its unread items), pressable.
       child: Semantics(
         container: true,
         label: label,
@@ -652,6 +670,13 @@ class _PhoneNavigationItem extends StatelessWidget {
 
 /// "1 notification non lue", "3 notifications non lues".
 String unreadLabel(int count) => count > 1 ? '$count notifications non lues' : '$count notification non lue';
+
+/// "1 message non lu", "3 messages non lus".
+String unreadMessagesLabel(int count) => count > 1 ? '$count messages non lus' : '$count message non lu';
+
+/// What the number on a destination means, read after its name.
+String badgeLabel(String path, int count) =>
+    path == ConversationsScreen.location ? unreadMessagesLabel(count) : unreadLabel(count);
 
 /// A number in a small round badge, at the top right of a navigation icon ("9+" above 9); just the
 /// icon at 0.
@@ -697,8 +722,8 @@ class NavigationBadge extends StatelessWidget {
   }
 }
 
-/// Reads the number of unread notifications again (the badge): on arrival, when the page changes
-/// (30 s at most between two readings) and when the app comes back to the foreground.
+/// Reads the numbers of unread notifications and messages again (the badges): on arrival, when the
+/// page changes (30 s at most between two readings) and when the app comes back to the foreground.
 class _UnreadWatcher extends ConsumerStatefulWidget {
   const _UnreadWatcher({required this.location, required this.enabled, required this.child});
 
@@ -736,7 +761,9 @@ class _UnreadWatcherState extends ConsumerState<_UnreadWatcher> {
   void _refresh({bool force = false}) {
     if (!widget.enabled) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && widget.enabled) ref.read(unreadNotificationsProvider.notifier).refresh(force: force);
+      if (!mounted || !widget.enabled) return;
+      ref.read(unreadNotificationsProvider.notifier).refresh(force: force);
+      ref.read(unreadMessagesProvider.notifier).refresh(force: force);
     });
   }
 

@@ -8,6 +8,7 @@ import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/core/widgets/focusable.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
+import 'package:vixeo/features/messages/messages.dart';
 import 'package:vixeo/features/notifications/inbox.dart';
 import 'package:vixeo/features/notifications/inbox_screen.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
@@ -167,6 +168,14 @@ class _Unread extends UnreadNotifications {
   Future<void> refresh({bool force = false}) async {}
 }
 
+class _UnreadMessages extends UnreadMessages {
+  @override
+  int build() => 12;
+
+  @override
+  Future<void> refresh({bool force = false}) async {}
+}
+
 Widget _shell(Profile profile) => ProviderScope(
   // A new scope each time (its overrides are read once).
   key: UniqueKey(),
@@ -174,6 +183,7 @@ Widget _shell(Profile profile) => ProviderScope(
     sessionProvider.overrideWith(() => _Session(profile)),
     liveTvProvider.overrideWithValue(false),
     unreadNotificationsProvider.overrideWith(_Unread.new),
+    unreadMessagesProvider.overrideWith(_UnreadMessages.new),
     avatarCatalogProvider.overrideWith((ref) async => const <AvatarLicense>[]),
   ],
   child: MaterialApp(
@@ -243,7 +253,7 @@ void main() {
     expect(find.text('Demande de @nina refusée'), findsOneWidget);
   });
 
-  testWidgets('the navigation: « Notifications » with the number of unread ones', (tester) async {
+  testWidgets('the navigation: « Notifications » and « Messages » with their unread numbers', (tester) async {
     addTearDown(tester.view.reset);
     tester.view.devicePixelRatio = 1;
 
@@ -259,6 +269,11 @@ void main() {
     final profile = tester.getCenter(tab('Profil'));
     expect(search.dx, lessThan(inbox.dx));
     expect(inbox.dx, lessThan(profile.dx));
+    // « Messages »: 12 unread messages, written « 9+ ».
+    expect(find.text('9+'), findsOneWidget);
+    final messages = tester.getCenter(tab('Messages, 12 messages non lus'));
+    expect(inbox.dx, lessThan(messages.dx));
+    expect(messages.dx, lessThan(profile.dx));
 
     // Large screen: in the rail, read with its number.
     tester.view.physicalSize = const Size(1280, 800);
@@ -266,11 +281,14 @@ void main() {
     await tester.pump();
     expect(find.byTooltip('Notifications'), findsOneWidget);
     expect(_pressable('Notifications, 3 notifications non lues'), findsOneWidget);
+    expect(_pressable('Messages, 12 messages non lus'), findsOneWidget);
+    expect(find.text('9+'), findsOneWidget);
 
     // A child's profile: no notifications.
     await tester.pumpWidget(_shell(const Profile(id: 3, name: 'Tom', isKid: true)));
     await tester.pump();
     expect(find.byTooltip('Notifications'), findsNothing);
+    expect(find.byTooltip('Messages'), findsNothing);
     expect(find.byTooltip('Recherche'), findsOneWidget);
   });
 

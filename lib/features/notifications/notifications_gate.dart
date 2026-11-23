@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../router.dart';
 import '../auth/session.dart';
+import '../messages/messages.dart' show inboxProvider, unreadMessagesProvider;
 import 'episode_alerts.dart';
 import 'inbox.dart';
 import 'push_messaging.dart';
@@ -65,10 +66,13 @@ class _NotificationsGateState extends ConsumerState<NotificationsGate> {
   void _register() => ref.read(pushRegistrationProvider).sync();
 
   /// Android only shows the push of a closed app: the app shows the others itself. One of the
-  /// `social` channel also updates the badge and the « Notifications » page.
+  /// `social` channel also updates the badges and the « Notifications » and « Messages » pages.
   void _show(PushNotification notification) {
     if (notification.channel == NotificationChannel.social.id) {
       ref.read(unreadNotificationsProvider.notifier).refresh(force: true);
+      // Messages are pushed on this channel too.
+      ref.read(unreadMessagesProvider.notifier).refresh(force: true);
+      ref.invalidate(inboxProvider);
       ref
         ..invalidate(activityFeedProvider)
         ..invalidate(followRequestsProvider);
