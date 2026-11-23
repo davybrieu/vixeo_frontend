@@ -45,28 +45,23 @@ class RatingLabel extends StatelessWidget {
   }
 }
 
-/// The logo of a rating's site, next to a text of [size]: IMDb's (`assets/images/ratings/imdb.png`,
-/// from `brand/ratings/imdb.svg`), TMDb's official one ([TmdbLogo]). Not read by screen readers:
-/// the rating's label names the site.
+/// The logo of a rating's site, next to a text of [size] (`RatingSite.logoHeight`: wide logos
+/// lower, square ones higher): `assets/images/ratings/<site>.png` (from `brand/ratings`), TMDb's
+/// official one ([TmdbLogo]). Not read by screen readers: the rating's label names the site.
 class RatingLogo extends StatelessWidget {
   const RatingLogo(this.site, {super.key, required this.size});
 
   final RatingSite site;
   final double size;
 
-  /// Width / height of IMDb's logo.
-  static const imdbAspectRatio = 1.981;
-
   @override
   Widget build(BuildContext context) {
-    // As high as the capital letters for TMDb's wide logo, a little higher for IMDb's plate.
-    if (site == RatingSite.tmdb) return TmdbLogo(height: size * 0.7);
-    if (site != RatingSite.imdb) return Text(site.shortLabel, style: VxText.body(size * 0.8, weight: FontWeight.w800, color: VxColors.textSecondary));
-    final height = size * 0.95;
+    final height = size * site.logoHeight;
+    if (site == RatingSite.tmdb) return TmdbLogo(height: height);
     return Image.asset(
-      'assets/images/ratings/imdb.png',
+      site.logoAsset,
       height: height,
-      width: height * imdbAspectRatio,
+      width: height * site.logoAspect,
       filterQuality: FilterQuality.medium,
       excludeFromSemantics: true,
     );

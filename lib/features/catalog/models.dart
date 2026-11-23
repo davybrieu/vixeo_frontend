@@ -317,18 +317,20 @@ class SeasonSummary {
 
 /// A site whose rating the app shows: IMDb's (imported from IMDb's datasets by the API), else
 /// TMDb's (vixeo_backend/docs/notes.md). The others are only in « Notes » of a movie or a show
-/// (MDBList, asked when it opens), each on its own [scale].
+/// (MDBList, asked when it opens), each on its own [scale]. Each has its logo
+/// (`assets/images/ratings/<name>.png`, rendered from `brand/ratings/*.svg` by
+/// `brand/tools/rating_logos.py`; TMDb: its official logo, `TmdbLogo`).
 enum RatingSite {
-  imdb('IMDb', 10),
-  tmdb('TMDb', 10),
-  trakt('Trakt', 100),
-  letterboxd('Letterboxd', 5),
-  tomatoes('Rotten Tomatoes', 100),
-  audience('Rotten Tomatoes — public', 100),
-  metacritic('Metacritic', 100),
-  mal('MyAnimeList', 10);
+  imdb('IMDb', 10, 1.981, 0.95),
+  tmdb('TMDb', 10, 820 / 106, 0.7),
+  trakt('Trakt', 100, 1, 1.1),
+  letterboxd('Letterboxd', 5, 2.703, 0.75),
+  tomatoes('Rotten Tomatoes', 100, 1, 1.15),
+  audience('Rotten Tomatoes — public', 100, 1, 1.15),
+  metacritic('Metacritic', 100, 1, 1.1),
+  mal('MyAnimeList', 10, 1.789, 0.95);
 
-  const RatingSite(this.label, this.scale);
+  const RatingSite(this.label, this.scale, this.logoAspect, this.logoHeight);
 
   /// Name shown in « Notes » and read by screen readers.
   final String label;
@@ -336,20 +338,19 @@ enum RatingSite {
   /// Highest rating of the site (« 79 / 100 », « 4,3 / 5 »).
   final int scale;
 
+  /// Width / height of the logo (printed by `brand/tools/rating_logos.py`).
+  final double logoAspect;
+
+  /// Height of the logo next to a text of size 1: wide logos lower, square ones higher, so that
+  /// they look the same size.
+  final double logoHeight;
+
+  /// The logo's file (TMDb: `assets/images/tmdb_short.png`, drawn by `TmdbLogo`).
+  String get logoAsset => 'assets/images/ratings/$name.png';
+
   /// The sites of « Notes » besides IMDb and TMDb, in their order (`ratings` of the API's
   /// `/catalog/ratings`, whose keys are their names).
   static const external = [trakt, letterboxd, tomatoes, audience, metacritic, mal];
-
-  /// Short mark written instead of a logo for the [external] sites (« RT », « MC »).
-  String get shortLabel => switch (this) {
-    RatingSite.imdb => 'IMDb',
-    RatingSite.tmdb => 'TMDb',
-    RatingSite.trakt => 'TRAKT',
-    RatingSite.letterboxd => 'LETTERBOXD',
-    RatingSite.tomatoes || RatingSite.audience => 'RT',
-    RatingSite.metacritic => 'MC',
-    RatingSite.mal => 'MAL',
-  };
 
   /// A rating as the site writes it: « 79 » on a scale of 100, « 8,8 » otherwise.
   String format(double value) => scale == 100 ? '${value.round()}' : formatRating(value);

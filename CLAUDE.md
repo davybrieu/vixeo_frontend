@@ -641,7 +641,9 @@ lib/
   `externalRatingsProvider` demande `GET /catalog/ratings` (MDBList côté API) : Trakt,
   Letterboxd, Rotten Tomatoes (critiques et public), Metacritic, MyAnimeList, sous IMDb et TMDb,
   chacun sur son échelle (`RatingSite.scale`, `RatingSite.format` : « 79 / 100 », « 4,3 / 5 »),
-  marqués par un sigle (`RatingSite.shortLabel`, pas de logo) ; un site sans note n'apparaît pas ;
+  chacun avec son logo (`RatingLogo`, `RatingSite.logoAsset` : `assets/images/ratings/<site>.png`,
+  tirés de `brand/ratings` : Simple Icons CC0, popcorn de Lucide ISC pour le public de Rotten
+  Tomatoes, licence dans « Licences ») ; un site sans note n'apparaît pas ;
   `externalRatingsFromJson`. L'API importe chaque
   jour les jeux de données d'IMDb et donne `ratings` = `{imdb: {id, rating, votes} | null, tmdb:
   {rating, votes}}` avec la fiche (`TitleDetails.ratings`), chaque épisode d'une saison
@@ -653,8 +655,8 @@ lib/
   (`catalog/models.dart`) ; aucune requête de note par carte. Affichage (`TitleRatings.shown`,
   `MediaItem.shownRating`) : **la note d'IMDb, sinon celle de TMDb**, chacune avec son logo
   (`RatingLabel` : étoile verte, « 8,8 », `RatingLogo` : `assets/images/ratings/imdb.png`, tiré de
-  `brand/ratings/imdb.svg` par `brand/tools/rating_logos.py`, Simple Icons CC0 ; TMDb : son logo
-  officiel, `TmdbRating`), lu « Note IMDb : 8,8 sur 10 ». Cartes du téléphone (`CardRating`),
+  `brand/ratings/imdb.svg` par `brand/tools/rating_logos.py`, Simple Icons CC0 ; taille et forme
+  par site : `RatingSite.logoHeight` / `logoAspect` ; TMDb : son logo officiel, `TmdbRating`), lu « Note IMDb : 8,8 sur 10 ». Cartes du téléphone (`CardRating`),
   grande image et carrousel (`TitleFacts`, avec le reste : rien ne bouge), fiche, épisodes.
   **Fiche : un appui sur la note** (`RatingButton`, petite flèche, focalisable à la télécommande)
   ouvre **« Notes »** (`showAllRatings`, `ratings_sheet.dart` : feuille du bas sur téléphone,

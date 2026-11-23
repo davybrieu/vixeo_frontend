@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/theme.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
@@ -29,6 +32,23 @@ class _NoLibrary extends LibraryController {
 /// IMDb's logo, drawn from its file.
 final imdbLogo = find.byWidgetPredicate(
   (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == 'assets/images/ratings/imdb.png',
+);
+
+/// The other sites of « Notes » (MDBList through the API): Rotten Tomatoes and Letterboxd only.
+class _OtherSites extends CatalogRepository {
+  _OtherSites() : super(ApiClient(token: () => null, profileId: () => null));
+
+  final asked = <(MediaType, int)>[];
+
+  @override
+  Future<Map<RatingSite, SiteRating>> externalRatings(MediaType type, int id) async {
+    asked.add((type, id));
+    return const {RatingSite.tomatoes: SiteRating(79, 0), RatingSite.letterboxd: SiteRating(4.3, 0)};
+  }
+}
+
+Finder _logo(RatingSite site) => find.byWidgetPredicate(
+  (w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName == site.logoAsset,
 );
 
 Widget app(Widget child, {Key? key}) => ProviderScope(
@@ -212,6 +232,56 @@ void main() {
       expect(imdbLogo, findsNothing);
       expect(find.byType(TmdbRating), findsNothing);
       expect(find.text('7,8'), findsNothing);
+    });
+
+    testWidgets('« Notes » of a title: the other sites, with their logos, on their scales', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final catalog = _OtherSites();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sessionProvider.overrideWith(_Session.new),
+            libraryProvider.overrideWith(_NoLibrary.new),
+            catalogRepositoryProvider.overrideWithValue(catalog),
+          ],
+          child: MaterialApp(
+            theme: buildVixeoTheme(),
+            home: const Scaffold(
+              body: Center(
+                child: RatingButton(
+                  ratings: TitleRatings(imdb: SiteRating(8.8, 2400000), tmdb: SiteRating(8.4, 30000)),
+                  name: 'Fight Club',
+                  title: (type: MediaType.movie, id: 550),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      // Nothing asked before the window opens.
+      expect(catalog.asked, isEmpty);
+      await tester.tap(find.byType(RatingButton));
+      await tester.pumpAndSettle();
+
+      expect(catalog.asked, [(MediaType.movie, 550)]);
+      expect(find.text('Rotten Tomatoes'), findsOneWidget);
+      expect(find.text('Letterboxd'), findsOneWidget);
+      expect(_logo(RatingSite.tomatoes), findsOneWidget);
+      expect(_logo(RatingSite.letterboxd), findsOneWidget);
+      // No rating on Metacritic: no line, no logo.
+      expect(find.text('Metacritic'), findsNothing);
+      expect(_logo(RatingSite.metacritic), findsNothing);
+      expect(find.bySemanticsLabel('Rotten Tomatoes : 79 sur 100'), findsOneWidget);
+      expect(find.bySemanticsLabel('Letterboxd : 4,3 sur 5'), findsOneWidget);
+    });
+
+    test('every rating site has its logo', () {
+      for (final site in RatingSite.values) {
+        if (site == RatingSite.tmdb) continue;
+        expect(File(site.logoAsset).existsSync(), isTrue, reason: site.logoAsset);
+      }
     });
 
     testWidgets('« Notes »: both sites with their votes, « Pas de note » for a missing one', (tester) async {
