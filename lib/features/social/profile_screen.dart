@@ -565,8 +565,11 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
   final _links = {for (final network in SocialNetwork.values) network: TextEditingController()};
   bool _private = false;
 
-  /// « Mes 4 favoris », in order.
+  /// « Mes 4 favoris », in order (sent only when changed).
   final _pinned = <MediaItem>[];
+  late final String _pinnedBefore;
+
+  String get _pinnedIds => [for (final t in _pinned) '${t.type.name}:${t.id}'].join(',');
   late final Future<SocialProfile?> _social = _load();
   bool _loading = false;
   String? _error;
@@ -581,6 +584,7 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
     _bio.text = profile?.bio ?? '';
     _private = profile?.isPrivate ?? false;
     _pinned.addAll(profile?.pinnedTitles ?? const []);
+    _pinnedBefore = _pinnedIds;
     _fillLinks(profile?.socialLinks ?? const []);
   }
 
@@ -653,7 +657,7 @@ class _SocialProfileEditScreenState extends ConsumerState<SocialProfileEditScree
         'username': _username.text.trim(),
         'bio': _bio.text.trim(),
         'is_private': _private,
-        'pinned_titles': [for (final t in _pinned) '${t.type.name}:${t.id}'],
+        if (_pinnedIds != _pinnedBefore) 'pinned_titles': [for (final t in _pinned) '${t.type.name}:${t.id}'],
         // Every network: an emptied field removes its account (null).
         'social_links': {
           for (final MapEntry(key: network, value: field) in _links.entries)
