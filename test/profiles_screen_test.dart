@@ -203,7 +203,8 @@ void main() {
     List<Profile>? profiles,
     String start = '/profils',
   }) async {
-    tester.view.physicalSize = const Size(430, 1400);
+    // Tall: the whole editor fits (the scrolled positions are laid out at the next frame).
+    tester.view.physicalSize = const Size(430, 2200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     auth = ProfilesAuth(parental: parental, profiles: profiles);
@@ -327,6 +328,7 @@ void main() {
     expect(find.bySemanticsLabel('Bram, choisi'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Créer un profil'));
+    await tester.pump();
     await tester.tap(find.text('Créer un profil'));
     await tester.pumpAndSettle();
 
@@ -342,6 +344,7 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Nom du profil'), 'Tom');
     await tester.pump();
     await tester.ensureVisible(find.text('Créer un profil'));
+    await tester.pump();
     await tester.tap(find.text('Créer un profil'));
     await tester.pumpAndSettle();
 
@@ -367,6 +370,7 @@ void main() {
 
     // The PIN: typed twice.
     await tester.ensureVisible(find.text('Ajouter un code PIN'));
+    await tester.pump();
     await tester.tap(find.text('Ajouter un code PIN'));
     await tester.pumpAndSettle();
     expect(find.text('Saisir un nouveau code PIN'), findsOneWidget);
@@ -377,6 +381,7 @@ void main() {
     expect(find.text('Ce profil est protégé par un code PIN.'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Enregistrer les modifications'));
+    await tester.pump();
     await tester.tap(find.text('Enregistrer les modifications'));
     await tester.pumpAndSettle();
     expect(auth.updates.last, {'id': 1, 'name': 'David', 'username': 'david_b', 'avatar': 'bear'});
@@ -394,6 +399,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Retirer le code PIN'));
+    await tester.pump();
     await tester.tap(find.text('Retirer le code PIN'));
     await tester.pumpAndSettle();
     await typePin(tester, '9999');
@@ -409,6 +415,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Supprimer le profil'));
+    await tester.pump();
     await tester.tap(find.text('Supprimer le profil'));
     await tester.pumpAndSettle();
     expect(find.text('Toutes les données de « Léa » seront définitivement supprimées.'), findsOneWidget);
@@ -432,6 +439,7 @@ void main() {
     expect(find.text('Profil enfant'), findsNothing);
     // Unrated titles: only with an age limit.
     await tester.ensureVisible(find.text('Titres sans classification'));
+    await tester.pump();
     await tester.tap(find.text('Titres sans classification'));
     await tester.pump();
     SettingsSwitchRow unrated() =>
@@ -444,11 +452,13 @@ void main() {
     await tester.tap(find.text('12 ans'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Titres sans classification'));
+    await tester.pump();
     await tester.tap(find.text('Titres sans classification'));
     await tester.pump();
     expect(unrated().value, isTrue);
 
     await tester.ensureVisible(find.text('Créer un profil'));
+    await tester.pump();
     await tester.tap(find.text('Créer un profil'));
     await tester.pumpAndSettle();
     expect(auth.restrictions.single, {'is_kid': false, 'max_age_rating': 12, 'allow_unrated': true});
@@ -467,9 +477,11 @@ void main() {
 
     expect(find.bySemanticsLabel('Âge maximum : 10 ans'), findsOneWidget);
     await tester.ensureVisible(find.text('Titres sans classification'));
+    await tester.pump();
     await tester.tap(find.text('Titres sans classification'));
     await tester.pump();
     await tester.ensureVisible(find.text('Enregistrer les modifications'));
+    await tester.pump();
     await tester.tap(find.text('Enregistrer les modifications'));
     await tester.pumpAndSettle();
 
@@ -482,6 +494,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Âge maximum'));
+    await tester.pump();
     await tester.tap(find.text('Âge maximum'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('12 ans'));
@@ -489,6 +502,7 @@ void main() {
     expect(find.bySemanticsLabel('Âge maximum : 12 ans'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Enregistrer les modifications'));
+    await tester.pump();
     await tester.tap(find.text('Enregistrer les modifications'));
     await tester.pumpAndSettle();
     expect(find.text('Nécessaire pour changer les restrictions'), findsOneWidget);
@@ -524,6 +538,7 @@ void main() {
     // With the photo, no avatar is marked as chosen.
     expect(find.bySemanticsLabel(RegExp(r'^Milo, choisi')), findsNothing);
     await tester.ensureVisible(find.text('Retirer la photo'));
+    await tester.pump();
     await tester.tap(find.text('Retirer la photo'));
     await tester.pump();
     expect(find.text('Importer une photo'), findsOneWidget);
@@ -532,6 +547,7 @@ void main() {
     expect(find.bySemanticsLabel(RegExp(r'^Milo, choisi')), findsOneWidget);
 
     await tester.ensureVisible(find.text('Enregistrer les modifications'));
+    await tester.pump();
     await tester.tap(find.text('Enregistrer les modifications'));
     await tester.pumpAndSettle();
     expect(auth.photoRemovals, [1]);
@@ -552,10 +568,12 @@ void main() {
     await tester.ensureVisible(find.text('Retirer la photo'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.bySemanticsLabel(RegExp(r'^Bram')));
+    await tester.pump();
     await tester.tap(find.bySemanticsLabel(RegExp(r'^Bram')));
     await tester.pump();
     expect(find.text('Retirer la photo'), findsNothing);
     await tester.ensureVisible(find.text('Enregistrer les modifications'));
+    await tester.pump();
     await tester.tap(find.text('Enregistrer les modifications'));
     await tester.pumpAndSettle();
     expect(auth.updates.last, {'id': 1, 'avatar': 'bear'});
@@ -591,11 +609,13 @@ void main() {
 
     // A cover chosen replaces the image.
     await tester.ensureVisible(find.bySemanticsLabel(RegExp('^Couverture Rideau')));
+    await tester.pump();
     await tester.tap(find.bySemanticsLabel(RegExp('^Couverture Rideau')));
     await tester.pump();
     expect(find.bySemanticsLabel('Couverture Rideau, choisie'), findsOneWidget);
     expect(find.text('Retirer l’image'), findsNothing);
     await tester.ensureVisible(find.text('Enregistrer les modifications'));
+    await tester.pump();
     await tester.tap(find.text('Enregistrer les modifications'));
     await tester.pumpAndSettle();
     expect(auth.updates.last, {'id': 1, 'cover': 'rideau'});
@@ -608,6 +628,7 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Nom du profil'), 'Tom');
     await tester.pump();
     await tester.ensureVisible(find.text('Créer un profil'));
+    await tester.pump();
     await tester.tap(find.text('Créer un profil'));
     await tester.pumpAndSettle();
     expect(auth.createdCovers.single, isIn(['aurore', 'rideau']));
