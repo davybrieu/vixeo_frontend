@@ -419,7 +419,7 @@ void main() {
     expect(find.text('Dune'), findsOneWidget);
   });
 
-  testWidgets('a member\'s followers and « À voir »: 20 first, the next ones as the page scrolls', (tester) async {
+  testWidgets('a member\'s followers: 20 first, the next ones as the list scrolls', (tester) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -442,20 +442,6 @@ void main() {
               totalPages: 2,
             );
           }),
-          socialTitlesProvider.overrideWith((ref, key) async {
-            asked.add('à voir ${key.$2}');
-            final first = (key.$2 - 1) * 20 + 1;
-            final last = key.$2 == 1 ? 20 : 23;
-            return Paged(
-              items: [for (var i = first; i <= last; i++) MediaItem(id: i, type: MediaType.movie, title: 'Film $i')],
-              page: key.$2,
-              totalPages: 2,
-            );
-          }),
-          titlesByIdProvider.overrideWith((ref, key) async {
-            asked.add('titles ${key.split(',').length}');
-            return const <TitleRef, MediaItem>{};
-          }),
         ],
         child: MaterialApp(
           theme: buildVixeoTheme(),
@@ -468,8 +454,15 @@ void main() {
     expect(find.text('Fan 1'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Fan 25'), 400, scrollable: find.byType(Scrollable).last);
     expect(asked, ['followers 1', 'followers 2']);
+  });
 
-    asked.clear();
+  testWidgets('a member\'s « À voir »: 20 titles first (their details in one request), then the next page', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final asked = <String>[];
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
