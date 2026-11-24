@@ -13,6 +13,7 @@ import 'package:vixeo/features/auth/auth_repository.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
+import 'package:vixeo/features/profiles/covers.dart';
 import 'package:vixeo/features/profiles/manage_profiles_screen.dart';
 import 'package:vixeo/features/profiles/profile_editor_screen.dart';
 import 'package:vixeo/features/profiles/profile_photo.dart';
@@ -33,6 +34,21 @@ class ProfilesAuth extends AuthRepository {
   final deleted = <(int, String?)>[];
   final photos = <(int, int)>[];
   final photoRemovals = <int>[];
+  final createdCovers = <String?>[];
+  final covers = <(int, int)>[];
+  final coverRemovals = <int>[];
+
+  @override
+  Future<Profile> uploadProfileCover(int profileId, Uint8List png) async {
+    covers.add((profileId, png.length));
+    return list.firstWhere((p) => p.id == profileId);
+  }
+
+  @override
+  Future<Profile> deleteProfileCover(int profileId) async {
+    coverRemovals.add(profileId);
+    return list.firstWhere((p) => p.id == profileId);
+  }
 
   @override
   Future<Profile> uploadProfilePhoto(int profileId, Uint8List png) async {
@@ -62,12 +78,14 @@ class ProfilesAuth extends AuthRepository {
     required String name,
     String? username,
     String? avatar,
+    String? cover,
     bool isKid = false,
     int? maxAgeRating,
     bool allowUnrated = false,
     String? parentalPin,
   }) async {
     created.add({'name': name, 'username': username, 'avatar': avatar, 'parental_pin': parentalPin});
+    createdCovers.add(cover);
     restrictions.add({'is_kid': isKid, 'max_age_rating': maxAgeRating, 'allow_unrated': allowUnrated});
     final profile = Profile(id: 10 + created.length, name: name, avatar: avatar);
     list = [...list, profile];
@@ -152,6 +170,28 @@ const _catalog = [
   ),
 ];
 
+const _covers = [
+  CoverStyle(
+    id: 'degrades',
+    name: 'Dégradés',
+    covers: [
+      CoverDef(id: 'aurore', name: 'Aurore', pattern: CoverPattern.linear, colors: [Color(0xFF03140A), Color(0xFF2EE58A)]),
+    ],
+  ),
+  CoverStyle(
+    id: 'cinema',
+    name: 'Cinéma',
+    covers: [
+      CoverDef(
+        id: 'rideau',
+        name: 'Rideau',
+        pattern: CoverPattern.curtain,
+        colors: [Color(0xFF2A0508), Color(0xFF8C1C24), Color(0xFFD4A017)],
+      ),
+    ],
+  ),
+];
+
 void main() {
   late ProfilesAuth auth;
   late Choosing session;
@@ -187,6 +227,7 @@ void main() {
           sessionProvider.overrideWith(() => session),
           authRepositoryProvider.overrideWithValue(auth),
           avatarCatalogProvider.overrideWith((ref) async => _catalog),
+          coverCatalogProvider.overrideWith((ref) async => _covers),
         ],
         child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
       ),
@@ -519,6 +560,108 @@ void main() {
     await tester.pumpAndSettle();
     expect(auth.updates.last, {'id': 1, 'avatar': 'bear'});
     expect(auth.photoRemovals, [1]);
+  });
+
+  testWidgets('a cover of the catalog by style, or an image of its own; a new profile gets one at random', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      start: ManageProfilesScreen.location,
+      profiles: [
+        const Profile(
+          id: 1,
+          name: 'Davy',
+          avatar: 'lion',
+          cover: 'aurore',
+          coverUrl: 'https://api.vixeo.test/api/v1/profile-covers/davy.webp',
+        ),
+        const Profile(id: 2, name: 'Léa', cover: 'aurore'),
+      ],
+    );
+    await tester.tap(find.text('Davy'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Couverture'), findsOneWidget);
+    expect(find.text('Dégradés'), findsOneWidget);
+    expect(find.text('Cinéma'), findsOneWidget);
+    // With its image, no cover of the catalog is marked.
+    expect(find.text('Changer l’image'), findsOneWidget);
+    expect(find.bySemanticsLabel('Couverture Aurore, choisie'), findsNothing);
+
+    // A cover chosen replaces the image.
+    await tester.ensureVisible(find.bySemanticsLabel(RegExp('^Couverture Rideau')));
+    await tester.tap(find.bySemanticsLabel(RegExp('^Couverture Rideau')));
+    await tester.pump();
+    expect(find.bySemanticsLabel('Couverture Rideau, choisie'), findsOneWidget);
+    expect(find.text('Retirer l’image'), findsNothing);
+    await tester.ensureVisible(find.text('Enregistrer les modifications'));
+    await tester.tap(find.text('Enregistrer les modifications'));
+    await tester.pumpAndSettle();
+    expect(auth.updates.last, {'id': 1, 'cover': 'rideau'});
+    expect(auth.coverRemovals, [1]);
+    expect(auth.covers, isEmpty);
+
+    // A new profile: a cover of the catalog, at random.
+    await tester.tap(find.text('Ajouter un profil'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Nom du profil'), 'Tom');
+    await tester.pump();
+    await tester.ensureVisible(find.text('Créer un profil'));
+    await tester.tap(find.text('Créer un profil'));
+    await tester.pumpAndSettle();
+    expect(auth.createdCovers.single, isIn(['aurore', 'rideau']));
+  });
+
+  testWidgets('« Cadrer la couverture » gives back a 3:1 banner of 1,500 × 500 pixels', (tester) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final png = await tester.runAsync(() async {
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder).drawRect(const Rect.fromLTWH(0, 0, 900, 900), Paint()..color = const Color(0xFF2EE58A));
+      final image = await recorder.endRecording().toImage(900, 900);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      return data!.buffer.asUint8List();
+    });
+    Uint8List? framed;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildVixeoTheme(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () async => framed = await framePhoto(context, png!, shape: FramingShape.cover),
+                child: const Text('Cadrer'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Cadrer'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Cadrer la couverture'), findsOneWidget);
+    expect(find.text('Déplacez l’image et zoomez pour la cadrer.'), findsOneWidget);
+
+    await tester.tap(find.text('Utiliser cette image'));
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(framed, isNotNull);
+    final size = await tester.runAsync(() async {
+      final codec = await ui.instantiateImageCodec(framed!);
+      final frame = await codec.getNextFrame();
+      return (frame.image.width, frame.image.height);
+    });
+    expect(size, (1500, 500));
   });
 
   testWidgets('« Cadrer la photo » gives back a square of 512 pixels', (tester) async {

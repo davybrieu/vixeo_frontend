@@ -92,6 +92,7 @@ class AuthRepository {
     required String name,
     String? username,
     String? avatar,
+    String? cover,
     bool isKid = false,
     int? maxAgeRating,
     bool allowUnrated = false,
@@ -103,6 +104,7 @@ class AuthRepository {
         'name': name,
         if (username != null && username.isNotEmpty) 'username': username,
         'avatar': ?avatar,
+        'cover': ?cover,
         'is_kid': isKid,
         'max_age_rating': ?maxAgeRating,
         'allow_unrated': allowUnrated,
@@ -135,6 +137,24 @@ class AuthRepository {
   /// Back to the avatar.
   Future<Profile> deleteProfilePhoto(int profileId) async {
     final json = await _api.delete('/profiles/$profileId/photo');
+    return Profile.fromJson(json['data'] as Map<String, dynamic>);
+  }
+
+  /// Its own cover image (a 3:1 PNG framed on the device), instead of its cover of the catalog.
+  Future<Profile> uploadProfileCover(int profileId, Uint8List png) async {
+    final json = await _api.upload(
+      '/profiles/$profileId/cover',
+      field: 'cover',
+      stream: () => Stream.value(png),
+      length: png.length,
+      filename: 'cover.png',
+    );
+    return Profile.fromJson(json['data'] as Map<String, dynamic>);
+  }
+
+  /// Back to its cover of the catalog.
+  Future<Profile> deleteProfileCover(int profileId) async {
+    final json = await _api.delete('/profiles/$profileId/cover');
     return Profile.fromJson(json['data'] as Map<String, dynamic>);
   }
 

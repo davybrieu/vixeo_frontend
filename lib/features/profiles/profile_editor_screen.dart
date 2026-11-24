@@ -19,6 +19,7 @@ import '../auth/models.dart';
 import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
 import 'avatars.dart';
+import 'covers.dart';
 import 'parental_pin.dart';
 import 'profile_photo.dart';
 import 'pin_pad.dart';
@@ -40,8 +41,9 @@ int? effectiveMaxAge(Profile profile) => profile.maxAgeRating ?? (profile.isKid 
 /// « Ajouter un profil » and « Modifier le profil », opened from « Paramètres » → « Profil »
 /// (« Modifier le profil », « Gérer les profils »; demande du développeur, 24/11/2026: no longer
 /// on « Qui regarde ? »): the avatar, name and
-/// pseudo as they will look, the name, the pseudo, « Photo de profil » (its own photo instead of the
-/// avatar, demande du développeur, 23/11/2026), the avatars by license, the restrictions
+/// pseudo as they will look (under the cover), the name, the pseudo, « Photo de profil » (its own
+/// photo instead of the avatar, demande du développeur, 23/11/2026), the avatars by license,
+/// « Couverture » (a cover of the catalog by style, or its own image, 24/11/2026), the restrictions
 /// (maximum age, unrated titles; no « profil enfant », demande du développeur), then (to change
 /// one) « Sécurité » (the profile's PIN) and « Supprimer le profil ». With parental control on, the
 /// parental PIN is asked to create or delete a profile and to change its restrictions
@@ -70,6 +72,15 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
 
   /// The profile's photo is to be removed (« Retirer la photo », or an avatar chosen).
   bool _removePhoto = false;
+
+  /// Cover of the catalog (`GET /covers`).
+  String? _cover;
+
+  /// A cover image framed here, sent with « Enregistrer » / « Créer un profil ».
+  Uint8List? _newCover;
+
+  /// The profile's cover image is to be removed (« Retirer l'image », or a cover chosen).
+  bool _removeCover = false;
   int? _maxAge;
   bool _allowUnrated = false;
   bool _ready = false;
@@ -116,6 +127,28 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
     return null;
   }
 
+  /// The profile shows a cover image: a new one, or its own unless removed.
+  bool _hasCoverImage(Profile? profile) => _newCover != null || (!_removeCover && profile?.coverUrl != null);
+
+  Future<void> _chooseCover() async {
+    final cover = await chooseProfileImage(context, FramingShape.cover);
+    if (cover == null || !mounted) return;
+    setState(() {
+      _newCover = cover;
+      _removeCover = false;
+    });
+  }
+
+  /// Sends the cover image framed here, or removes the profile's: the profile as the API returns
+  /// it, or null when there is nothing to do.
+  Future<Profile?> _saveCover(int profileId, Profile? before) async {
+    final repository = ref.read(authRepositoryProvider);
+    final cover = _newCover;
+    if (cover != null) return repository.uploadProfileCover(profileId, cover);
+    if (_removeCover && before?.coverUrl != null) return repository.deleteProfileCover(profileId);
+    return null;
+  }
+
   /// The restrictions differ from the profile's (a new profile: from no restriction).
   bool _restrictionsChanged(Profile? profile) => profile == null
       ? _maxAge != null || _allowUnrated
@@ -158,26 +191,30 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           name: name,
           username: username,
           avatar: _avatar,
+          cover: _cover,
           maxAgeRating: _maxAge,
           allowUnrated: _allowUnrated,
           parentalPin: parentalPin,
         );
-        // The profile exists: a photo that can't be sent doesn't keep the page (« Créer » again
+        // The profile exists: an image that can't be sent doesn't keep the page (« Créer » again
         // would make a second profile). It can be sent again from « Modifier le profil ».
-        String? photoError;
+        String? imageError;
         try {
           await _savePhoto(created.id, null);
         } on ApiException catch (e) {
-          photoError = e.field('photo') ?? e.message;
+          imageError = 'la photo n’a pas été envoyée : ${e.field('photo') ?? e.message}';
+        }
+        try {
+          await _saveCover(created.id, null);
+        } on ApiException catch (e) {
+          imageError ??= 'l’image de couverture n’a pas été envoyée : ${e.field('cover') ?? e.message}';
         }
         ref.invalidate(profilesProvider);
         if (!mounted) return;
         showVxSnack(
           context,
-          photoError == null
-              ? 'Profil « $name » créé'
-              : 'Profil « $name » créé, mais la photo n’a pas été envoyée : $photoError',
-          icon: photoError == null ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded,
+          imageError == null ? 'Profil « $name » créé' : 'Profil « $name » créé, mais $imageError',
+          icon: imageError == null ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded,
         );
         context.pop(true);
         return;
@@ -186,6 +223,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           if (name != profile.name) 'name': name,
           if (username.isNotEmpty && username != profile.username) 'username': username,
           if (_avatar != null && _avatar != profile.avatar) 'avatar': _avatar,
+          if (_cover != null && _cover != profile.cover) 'cover': _cover,
           // A former « profil enfant » becomes a profile with an explicit age limit.
           if (restrictions && profile.isKid) 'is_kid': false,
           if (restrictions && (_maxAge != profile.maxAgeRating || profile.isKid)) 'max_age_rating': _maxAge,
@@ -196,10 +234,12 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           ref.read(sessionProvider.notifier).updateProfile(await repository.updateProfile(profile.id, fields));
         }
         try {
-          final updated = await _savePhoto(profile.id, profile);
-          if (updated != null) ref.read(sessionProvider.notifier).updateProfile(updated);
+          final withPhoto = await _savePhoto(profile.id, profile);
+          if (withPhoto != null) ref.read(sessionProvider.notifier).updateProfile(withPhoto);
+          final withCover = await _saveCover(profile.id, profile);
+          if (withCover != null) ref.read(sessionProvider.notifier).updateProfile(withCover);
         } on ApiException {
-          // The other changes are saved: the page compares the photo with the profile read again.
+          // The other changes are saved: the page compares the images with the profile read again.
           ref.invalidate(profilesProvider);
           rethrow;
         }
@@ -314,6 +354,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
     final layout = Layout.of(context);
     final profiles = ref.watch(profilesProvider);
     final catalog = ref.watch(avatarCatalogProvider);
+    final covers = ref.watch(coverCatalogProvider);
     final profile = _profile(profiles.value);
     final gap = layout.sectionGap;
 
@@ -325,12 +366,18 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
         _maxAge = effectiveMaxAge(profile);
         _allowUnrated = profile.allowUnrated;
         _avatar = profile.avatar;
+        _cover = profile.cover;
         _ready = true;
       } else if (_creating && catalog.hasValue) {
         final avatars = [for (final license in catalog.value!) ...license.avatars];
         if (avatars.isNotEmpty) _avatar = avatars[Random().nextInt(avatars.length)].id;
         _ready = true;
       }
+    }
+    // A new profile: a cover at random too, as the API would give.
+    if (_creating && _cover == null && covers.hasValue) {
+      final all = [for (final style in covers.value!) ...style.covers];
+      if (all.isNotEmpty) _cover = all[Random().nextInt(all.length)].id;
     }
 
     final title = _creating ? 'Ajouter un profil' : 'Modifier le profil';
@@ -360,6 +407,21 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // The cover as it will look at the top of the profile page.
+              AspectRatio(
+                aspectRatio: coverAspectRatio,
+                child: _newCover != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(VxRadius.button * s),
+                        child: Image.memory(_newCover!, fit: BoxFit.cover, gaplessPlayback: true),
+                      )
+                    : ProfileCover(
+                        coverId: _cover,
+                        imageUrl: _removeCover ? null : profile?.coverUrl,
+                        borderRadius: VxRadius.button * s,
+                      ),
+              ),
+              SizedBox(height: 16 * s),
               Row(
                 children: [
                   AvatarTile(
@@ -469,6 +531,28 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
               ),
             ],
           ),
+        ),
+        SizedBox(height: gap),
+        _CoverCard(
+          covers: covers,
+          // With an image, no cover of the catalog is shown: none is marked.
+          selected: _hasCoverImage(profile) ? null : _cover,
+          hasImage: _hasCoverImage(profile),
+          error: error?.field('cover'),
+          onRetry: () => ref.invalidate(coverCatalogProvider),
+          onChoose: canChooseProfilePhoto && !_saving ? _chooseCover : null,
+          onRemove: _saving
+              ? null
+              : () => setState(() {
+                  _newCover = null;
+                  _removeCover = true;
+                }),
+          // A cover chosen replaces the image.
+          onPick: (id) => setState(() {
+            _cover = id;
+            _newCover = null;
+            _removeCover = true;
+          }),
         ),
         SizedBox(height: gap),
         // Restrictions of the profile (the « Contrôle parental » page is gone, demande du développeur).
@@ -596,6 +680,125 @@ class _PhotoCard extends StatelessWidget {
               onPressed: onRemove,
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// « Couverture »: the banner at the top of the profile page. Import an image (framed on « Cadrer la
+/// couverture »), change it or remove it, or choose a cover of the catalog by style; choosing one
+/// removes the image. TV: no import (no files to browse).
+class _CoverCard extends StatelessWidget {
+  const _CoverCard({
+    required this.covers,
+    required this.selected,
+    required this.hasImage,
+    required this.onPick,
+    required this.onRetry,
+    this.onChoose,
+    this.onRemove,
+    this.error,
+  });
+
+  final AsyncValue<List<CoverStyle>> covers;
+  final String? selected;
+  final bool hasImage;
+  final ValueChanged<String> onPick;
+  final VoidCallback onRetry;
+  final VoidCallback? onChoose;
+  final VoidCallback? onRemove;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = uiScale(context);
+    final layout = Layout.of(context);
+    final error = this.error;
+    final width = layout.isLarge ? layout.tv(270) : 132.0;
+    final gap = 12 * s;
+    return VxCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Couverture', style: VxText.title(17 * s)),
+          SizedBox(height: 6 * s),
+          Text(
+            hasImage
+                ? 'Votre image est affichée en haut de votre page. Choisir une couverture la retire.'
+                : 'En haut de votre page : une couverture ci-dessous, ou votre propre image.',
+            style: VxText.body(14 * s, color: VxColors.textSecondary),
+          ),
+          if (error != null) ...[
+            SizedBox(height: 8 * s),
+            Text(error, style: VxText.body(14 * s, color: VxColors.error)),
+          ],
+          if (canChooseProfilePhoto) ...[
+            SizedBox(height: 14 * s),
+            VxButton(
+              label: hasImage ? 'Changer l’image' : 'Importer une image',
+              icon: Icons.add_photo_alternate_outlined,
+              kind: VxButtonKind.secondary,
+              expand: true,
+              onPressed: onChoose,
+            ),
+          ],
+          if (hasImage) ...[
+            SizedBox(height: 10 * s),
+            VxButton(
+              label: 'Retirer l’image',
+              icon: Icons.hide_image_outlined,
+              kind: VxButtonKind.secondary,
+              expand: true,
+              onPressed: onRemove,
+            ),
+          ],
+          SizedBox(height: 18 * s),
+          AsyncView(
+            value: covers,
+            onRetry: onRetry,
+            data: (styles) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final (i, style) in styles.indexed) ...[
+                  if (i > 0) SizedBox(height: 18 * s),
+                  Text(style.name, style: VxText.body(13 * s, color: VxColors.textMuted, weight: FontWeight.w600)),
+                  SizedBox(height: 10 * s),
+                  FocusTraversalGroup(
+                    policy: vxTraversalPolicy,
+                    child: Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: [
+                        for (final cover in style.covers)
+                          VxFocusable(
+                            borderRadius: VxRadius.button * s,
+                            focusScale: 1.05,
+                            semanticLabel: 'Couverture ${cover.name}${cover.id == selected ? ', choisie' : ''}',
+                            onPressed: () => onPick(cover.id),
+                            child: Container(
+                              padding: EdgeInsets.all(3 * s),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(VxRadius.button * s + 3 * s),
+                                border: Border.all(
+                                  color: cover.id == selected ? VxColors.accent : Colors.transparent,
+                                  width: 3 * s,
+                                ),
+                              ),
+                              child: SizedBox(
+                                width: width,
+                                height: width / coverAspectRatio,
+                                child: ProfileCover(coverId: cover.id, borderRadius: VxRadius.button * s - 2),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

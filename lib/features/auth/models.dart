@@ -73,6 +73,8 @@ class Profile {
     this.bio,
     this.avatar,
     this.photoUrl,
+    this.cover,
+    this.coverUrl,
     this.posterFormat = PosterFormat.portrait,
     this.isKid = false,
     this.maxAgeRating,
@@ -100,6 +102,8 @@ class Profile {
     bio: json['bio'] as String?,
     avatar: json['avatar'] as String?,
     photoUrl: json['photo_url'] as String?,
+    cover: json['cover'] as String?,
+    coverUrl: json['cover_url'] as String?,
     posterFormat: PosterFormat.parse(json['poster_format']),
     isKid: json['is_kid'] as bool? ?? false,
     maxAgeRating: json['max_age_rating'] as int?,
@@ -131,6 +135,12 @@ class Profile {
 
   /// Its own photo (`photo_url`), shown instead of [avatar]; null = the avatar.
   final String? photoUrl;
+
+  /// Cover id from `GET /covers`: the banner of its page.
+  final String? cover;
+
+  /// Its own cover image (`cover_url`), shown instead of [cover]; null = [cover].
+  final String? coverUrl;
   final PosterFormat posterFormat;
 
   final bool isKid;

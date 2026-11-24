@@ -87,8 +87,8 @@ lib/
     account/     Mon compte (export, suppression), appareils connectés
     updates/     vérification et installation des mises à jour Android / Windows (UpdateGate,
                  écrans, ApkInstaller : APK ou installateur Windows)
-    profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars et photo de profil
-                 (profile_photo.dart : cadrage), contrôle parental
+    profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, photo et couverture de profil
+                 (profile_photo.dart : cadrage, covers.dart : couvertures dessinées), contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
     library/     synchro par profil (« À voir », J’aime ❤, personnes suivies, vus, « Continuer à
                  regarder »), page « À voir » (aussi « Mes J’aime » et « Mes titres vus »),
@@ -949,14 +949,33 @@ lib/
   l'avatar sous la photo pendant son chargement), `photoUrl` dans `Profile`, `SocialProfile` et
   `ChatMember` (`photo_url` de l'API) : **tout `AvatarTile` d'un profil reçoit sa photo**. Tests :
   `test/profiles_screen_test.dart`, `test/models_test.dart`.
+  **Couverture** (demande du développeur, 24/11/2026 ; API : `vixeo_backend/docs/social.md`) : la
+  bannière 3:1 en haut de la page d'un profil. Une couverture du catalogue (`GET /covers`, par
+  style : Dégradés, Lumières, Motifs, Cinéma ; `coverCatalogProvider`, `coverByIdProvider`) n'est
+  pas une image : un motif et ses couleurs **dessinés par l'appli** (`profiles/covers.dart`,
+  `CoverPainter` : `linear`, `glow`, `stripes`, `dots`, `waves`, `grid`, `film`, `spotlight`,
+  `curtain`, `stars` ; motif inconnu : dégradé de ses couleurs ; sans couverture : « Aurore »,
+  `CoverDef.fallback`), ou **son image** (`cover_url`, `ProfileCover(imageUrl:)` : la couverture du
+  catalogue dessous pendant le chargement). **Un nouveau profil reçoit une couverture au hasard**
+  (l'API à l'inscription ; « Ajouter un profil » en tire une, montrée dans l'aperçu). Carte
+  « Couverture » de « Ajouter / Modifier le profil » (`_CoverCard`) : « Importer une image » /
+  « Changer l'image » / « Retirer l'image » (pas d'import sur TV), puis les couvertures par style
+  (vignettes 3:1, coche verte) ; **choisir une couverture retire l'image** ; l'image choisie s'ouvre
+  sur **« Cadrer la couverture »** (`PhotoFramingScreen(shape: FramingShape.cover)`, la même page que
+  la photo : cadre 3:1, PNG 1 500 × 500), envoyée à l'enregistrement (`uploadProfileCover`,
+  `POST /profiles/{id}/cover` ; retrait : `DELETE`). `cover` / `coverUrl` dans `Profile` et
+  `SocialProfile`. Tests : `test/covers_test.dart`, `test/profiles_screen_test.dart`.
 - **Pages de profil** (demande du développeur) : « Profil » (onglet `/profil`, `ProfileScreen`)
   et la page d'un membre (`/membre/:username`, `PublicProfileScreen`) sont **la même page** :
   le composant `ProfileView` (`features/social/profile_view.dart`) et ses morceaux
   `ProfileHeader`, `ProfileCounters`, `ProfileTitlesSection`, `ProfileReviewsSection`,
   `ProfileSectionMessage` / `ProfileSectionLoading`. **Modifier la page = modifier ce fichier**
-  (pas de copie dans les écrans) ; chaque écran ne donne que ses données et son bouton. En haut à
-  droite, **« Partager le profil »** puis « Paramètres » (le mien, téléphone) ou « … » (un membre) ;
-  **en-tête centré** (demande du développeur, 24/11/2026) : avatar, nom, @pseudo, « 12 abonnés »,
+  (pas de copie dans les écrans) ; chaque écran ne donne que ses données et son bouton. En haut,
+  **la couverture** (`ProfileView(cover: ProfileCover(…))`, 3:1, 200 de haut au plus (TV 340) :
+  toute la largeur sur téléphone, dans la colonne aux coins arrondis ailleurs ; voir « Avatars ») et
+  dessus le retour, **« Partager le profil »** puis « Paramètres » (le mien, téléphone) ou « … » (un
+  membre), sur une ombre légère ; **en-tête centré** (demande du développeur, 24/11/2026) : avatar
+  (à moitié sur la couverture, dans un anneau de la couleur de la page), nom, @pseudo, « 12 abonnés »,
   « 3 abonnements » et **« 8 personnes suivies »** (acteurs, réalisateurs… ; `people_count` de
   l'API, le mien depuis la synchro ; chacun ouvre sa liste), biographie
   (**160 caractères au plus**, demande du développeur, 21/11/2026 : `BioSettingsScreen.maxLength`,

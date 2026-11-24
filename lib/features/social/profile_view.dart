@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +18,7 @@ import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
 import '../catalog/widgets.dart';
 import '../profiles/avatars.dart';
+import '../profiles/covers.dart';
 import '../tmdb/reviews_screen.dart';
 import '../tmdb/tmdb.dart';
 import 'social_links.dart';
@@ -40,15 +43,17 @@ const profileGridShown = 18;
 /// A tab of a profile page (« Activité », « Listes », « Avis », « Aimés », « Vus »): its sections.
 typedef ProfileTab = ({String label, List<Widget> sections});
 
-/// A profile's page: header, counters, then its sections (a list, reviews…), in a page that
-/// scrolls and refreshes when pulled down. With several [tabs], a row of tabs under the counters
-/// chooses the sections shown. [back]: a round back button above the header (a member's page,
-/// opened over another page); [actions]: round buttons at the top right (« Partager le profil »,
-/// then « Paramètres » of my page on a phone or « … » of a member). [focusTabs]: the shown tab
-/// takes the focus on arrival (TV), when the header has no button to take it (my page).
+/// A profile's page: its cover (the banner at the top, [cover]: `ProfileCover`), header (its
+/// avatar over the bottom of the cover), counters, then its sections (a list, reviews…), in a page
+/// that scrolls and refreshes when pulled down. With several [tabs], a row of tabs under the
+/// counters chooses the sections shown. [back]: a round back button on the cover (a member's page,
+/// opened over another page); [actions]: round buttons at the top right of the cover (« Partager
+/// le profil », then « Paramètres » of my page on a phone or « … » of a member). [focusTabs]: the
+/// shown tab takes the focus on arrival (TV), when the header has no button to take it (my page).
 class ProfileView extends StatefulWidget {
   const ProfileView({
     super.key,
+    required this.cover,
     required this.header,
     required this.counters,
     required this.tabs,
@@ -58,6 +63,7 @@ class ProfileView extends StatefulWidget {
     this.focusTabs = false,
   });
 
+  final Widget cover;
   final Widget header;
   final Widget counters;
   final List<ProfileTab> tabs;
@@ -78,33 +84,15 @@ class _ProfileViewState extends State<ProfileView> {
     final layout = Layout.of(context);
     final tabs = widget.tabs;
     final tab = _tab < tabs.length ? _tab : 0;
-    final top = widget.back || widget.actions.isNotEmpty;
     return SafeArea(
       bottom: false,
       child: RefreshIndicator(
         onRefresh: widget.onRefresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.only(
-            top: top ? layout.space(VxSpace.xs) : layout.space(VxSpace.m),
-            bottom: pageBottomPadding(context),
-          ),
+          padding: EdgeInsets.only(top: layout.isPhone ? 0 : layout.space(VxSpace.xs), bottom: pageBottomPadding(context)),
           children: [
-            if (top) ...[
-              ProfileColumn(
-                child: Row(
-                  children: [
-                    if (widget.back) const VxBackButton(),
-                    const Spacer(),
-                    for (final (i, action) in widget.actions.indexed) ...[
-                      if (i > 0) SizedBox(width: layout.space(VxSpace.xs)),
-                      action,
-                    ],
-                  ],
-                ),
-              ),
-              SizedBox(height: layout.space(VxSpace.m)),
-            ],
+            _ProfileBanner(cover: widget.cover, back: widget.back, actions: widget.actions),
             ProfileColumn(child: widget.header),
             SizedBox(height: layout.sectionGap),
             ProfileColumn(child: widget.counters),
@@ -130,6 +118,70 @@ class _ProfileViewState extends State<ProfileView> {
   }
 }
 
+/// The cover at the top of a profile page, 3:1: across the whole screen on a phone, in the reading
+/// column with rounded corners elsewhere; the back button and the [actions] on it, over a light
+/// shade that keeps them readable on a bright cover.
+class _ProfileBanner extends StatelessWidget {
+  const _ProfileBanner({required this.cover, required this.back, required this.actions});
+
+  final Widget cover;
+  final bool back;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final buttons = back || actions.isNotEmpty;
+    Widget banner(double width, double radius) {
+      final height = math.min(width / coverAspectRatio, layout.size(200, tv: 340));
+      return SizedBox(
+        height: height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRRect(borderRadius: BorderRadius.circular(radius), child: cover),
+            if (buttons) ...[
+              IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(radius),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.center,
+                      colors: [Colors.black.withValues(alpha: 0.35), Colors.black.withValues(alpha: 0)],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: layout.space(VxSpace.xs),
+                left: layout.isPhone ? layout.gutter : layout.space(VxSpace.s),
+                right: layout.isPhone ? layout.gutter : layout.space(VxSpace.s),
+                child: Row(
+                  children: [
+                    if (back) const VxBackButton(),
+                    const Spacer(),
+                    for (final (i, action) in actions.indexed) ...[
+                      if (i > 0) SizedBox(width: layout.space(VxSpace.xs)),
+                      action,
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    if (layout.isPhone) {
+      return LayoutBuilder(builder: (context, constraints) => banner(constraints.maxWidth, 0));
+    }
+    final radius = layout.size(VxRadius.card, tv: VxRadius.cardTv);
+    return ProfileColumn(child: LayoutBuilder(builder: (context, constraints) => banner(constraints.maxWidth, radius)));
+  }
+}
+
 /// The reading column of a profile page: page margins, 900 wide at most (TV 1500), on the left.
 class ProfileColumn extends StatelessWidget {
   const ProfileColumn({super.key, required this.child});
@@ -152,7 +204,8 @@ class ProfileColumn extends StatelessWidget {
   }
 }
 
-/// The top of a profile page, centered (developer's request, 24/11/2026): avatar, name, @username,
+/// The top of a profile page, centered (developer's request, 24/11/2026), under its cover: avatar
+/// (half over the cover), name, @username,
 /// tastes in common, followers, following and followed people (actors, directors…: a press opens
 /// each list), bio, networks, then the page's button ([action]: « Suivre » of a member, which takes
 /// the focus on arrival; none on my page: its biography and networks are changed in
@@ -228,7 +281,22 @@ class ProfileHeader extends StatelessWidget {
       width: double.infinity,
       child: Column(
         children: [
-          AvatarTile(avatarId: avatarId, photoUrl: photoUrl, initial: initialOf(name), size: avatar, radius: avatar / 2),
+          // Half over the bottom of the cover, in a ring of the page's color.
+          Align(
+            alignment: Alignment.bottomCenter,
+            heightFactor: 0.5,
+            child: Container(
+              padding: EdgeInsets.all(layout.size(4, tv: 6)),
+              decoration: const BoxDecoration(color: VxColors.background, shape: BoxShape.circle),
+              child: AvatarTile(
+                avatarId: avatarId,
+                photoUrl: photoUrl,
+                initial: initialOf(name),
+                size: avatar,
+                radius: avatar / 2,
+              ),
+            ),
+          ),
           SizedBox(height: layout.space(VxSpace.s)),
           Row(
             mainAxisSize: MainAxisSize.min,

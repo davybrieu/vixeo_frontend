@@ -1,8 +1,11 @@
+import 'dart:ui' show Color;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/messages/messages.dart';
+import 'package:vixeo/features/profiles/covers.dart';
 import 'package:vixeo/features/social/social_repository.dart';
 import 'package:vixeo/features/tv/models.dart';
 
@@ -48,6 +51,27 @@ void main() {
     expect(Profile.fromJson({'id': 3, 'name': 'Léa', 'avatar': 'lion'}).photoUrl, isNull);
     expect(SocialProfile.fromJson({'id': 3, 'username': 'lea', 'name': 'Léa', 'photo_url': url}).photoUrl, url);
     expect(ChatMember.fromJson({'id': 3, 'username': 'lea', 'name': 'Léa', 'photo_url': url}).photoUrl, url);
+  });
+
+  test('reads the cover of a profile and of a member, and the cover catalog', () {
+    const url = 'https://api.vixeo.app/api/v1/profile-covers/abc.webp';
+    final mine = Profile.fromJson({'id': 3, 'name': 'Léa', 'cover': 'rideau', 'cover_url': url});
+    expect((mine.cover, mine.coverUrl), ('rideau', url));
+    final member = SocialProfile.fromJson({'id': 3, 'username': 'lea', 'name': 'Léa', 'cover': 'neon'});
+    expect((member.cover, member.coverUrl), ('neon', null));
+
+    final style = CoverStyle.fromJson({
+      'id': 'cinema',
+      'name': 'Cinéma',
+      'covers': [
+        {'id': 'rideau', 'name': 'Rideau', 'pattern': 'curtain', 'colors': ['#2A0508', '#8C1C24', '#D4A017'], 'angle': 135},
+        // A pattern this version doesn't know: a gradient of its colors.
+        {'id': 'demain', 'name': 'Demain', 'pattern': 'hologram', 'colors': ['#000000', '#FFFFFF']},
+      ],
+    });
+    expect(style.covers.first.pattern, CoverPattern.curtain);
+    expect(style.covers.first.colors, const [Color(0xFF2A0508), Color(0xFF8C1C24), Color(0xFFD4A017)]);
+    expect(style.covers.last.pattern, CoverPattern.linear);
   });
 
   test('reads how many people (actors, directors…) a member follows', () {

@@ -21,6 +21,7 @@ import '../network/actions.dart' show showMemberMenu;
 import '../network/network.dart' show activityProvider, memberListsProvider, myListsProvider;
 import '../network/profile_sections.dart';
 import '../notifications/inbox.dart';
+import '../profiles/covers.dart';
 import '../tmdb/reviews_screen.dart';
 import '../tmdb/tmdb.dart';
 import 'profile_view.dart';
@@ -81,6 +82,10 @@ class ProfileScreen extends ConsumerWidget {
     final year = DateTime.now().year;
 
     return ProfileView(
+      // Mine, as this device keeps it (a change shows at once).
+      cover: profile.cover != null
+          ? ProfileCover(coverId: profile.cover, imageUrl: profile.coverUrl)
+          : ProfileCover(coverId: social?.cover, imageUrl: social?.coverUrl),
       onRefresh: () async {
         if (username.isNotEmpty) {
           ref.invalidate(socialProfileProvider(username));
@@ -280,6 +285,7 @@ class PublicProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       body: ProfileView(
+        cover: ProfileCover(coverId: social.cover, imageUrl: social.coverUrl),
         back: true,
         onRefresh: () async {
           ref.invalidate(memberListsProvider);
