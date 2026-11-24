@@ -15,8 +15,8 @@ import 'social_repository.dart';
 
 // What the members see on the profile's page, changed from « Paramètres » (developer's request,
 // 23/11/2026: no « Modifier le profil » button on the page any more): the biography, the social
-// networks and « Compte privé ». The name and the @username are changed in « Qui regarde ? » →
-// « Gérer les profils ». Saved by `PUT /profiles/{id}` (vixeo_backend/docs/social.md).
+// networks and « Compte privé ». The name and the @username are changed in « Paramètres » →
+// « Modifier le profil ». Saved by `PUT /profiles/{id}` (vixeo_backend/docs/social.md).
 //
 // Flutter: each page is a `ConsumerStatefulWidget` (like a Vue component with `data()`): its text
 // fields keep what is typed in `TextEditingController`s, created once in `initState` and freed in

@@ -196,9 +196,13 @@ class SessionController extends Notifier<SessionState> {
     await selectProfile(previous);
   }
 
-  /// A profile deleted (« Qui regarde ? » → « Gérer les profils »): never back to it.
-  void forgetProfile(int profileId) {
+  /// A profile deleted (« Paramètres » → « Gérer les profils »): never back to it. The profile in
+  /// use deleted: back to « Qui regarde ? ».
+  Future<void> forgetProfile(int profileId) async {
     if (_previous?.id == profileId) _previous = null;
+    if (state.profile?.id != profileId) return;
+    await _storage.writeProfileId(null);
+    state = state.copyWith(clearProfile: true);
   }
 
   /// Explicitly enter guest mode from the login screen.

@@ -12,7 +12,7 @@ import 'pin_pad.dart';
 
 // Parental PIN of the account (vixeo_backend/docs/controle-parental.md). It is set in « Mon compte »
 // (`ParentalPinSection`) and asked, on the keypad, to create or delete a profile and to change its
-// restrictions (« Gérer les profils », `askParentalPin`). The former « Contrôle parental » and
+// restrictions (« Paramètres » → « Gérer les profils », `askParentalPin`). The former « Contrôle parental » and
 // « Code PIN » pages are gone (demande du développeur).
 
 /// The parental PIN, checked by the API, or null when the person closes the keypad. Null at once

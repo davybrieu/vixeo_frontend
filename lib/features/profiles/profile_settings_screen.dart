@@ -17,6 +17,8 @@ import '../notifications/inbox.dart' show socialAvailable;
 import '../notifications/notifications_screen.dart';
 import '../social/public_profile_settings.dart';
 import 'advanced_settings_screen.dart';
+import 'manage_profiles_screen.dart';
+import 'profile_editor_screen.dart';
 import 'profiles_screen.dart';
 import 'rows_settings_screen.dart';
 
@@ -45,9 +47,11 @@ Future<bool> saveProfile(
   }
 }
 
-/// Settings hub: grouped cards (account, public profile, general), using the app's own
-/// destinations. « Profil public » (developer's request, 23/11/2026: no « Modifier le profil » on
-/// the profile page any more): the biography, the social networks and « Compte privé ».
+/// Settings hub: grouped cards (profile, account, general), using the app's own destinations.
+/// « Profil » first (demande du développeur, 24/11/2026; formerly « Profil public »): « Changer de
+/// profil » first, the profile in use (« Modifier le profil ») and all of them (« Gérer les
+/// profils », no longer on « Qui regarde ? »), then, with a public page, the biography, the social
+/// networks and « Compte privé » (no « Modifier le profil » button on the profile page).
 class ProfileSettingsScreen extends ConsumerWidget {
   const ProfileSettingsScreen({super.key});
 
@@ -71,16 +75,64 @@ class ProfileSettingsScreen extends ConsumerWidget {
               padding: pageContentPadding(context),
               children: [
                 _SettingsSection(
-                  label: 'Compte',
+                  label: 'Profil',
                   scale: s,
                   children: [
                     _SettingsTile(
                       scale: s,
-                      icon: Icons.group_outlined,
+                      icon: Icons.switch_account_outlined,
                       title: 'Changer de profil',
                       subtitle: 'Basculer vers un autre profil.',
                       onPressed: () => ref.read(sessionProvider.notifier).switchProfile(),
                     ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.edit_outlined,
+                      title: 'Modifier le profil',
+                      subtitle: 'Nom, pseudo, avatar ou photo, restrictions, code PIN.',
+                      onPressed: () => context.push(ProfileEditorScreen.editLocation(profile.id)),
+                    ),
+                    _SettingsTile(
+                      scale: s,
+                      icon: Icons.group_outlined,
+                      title: 'Gérer les profils',
+                      subtitle: 'Ajouter, modifier ou supprimer les profils du compte.',
+                      onPressed: () => context.push(ManageProfilesScreen.location),
+                    ),
+                    if (socialAvailable(ref.watch(sessionProvider))) ...[
+                      _SettingsTile(
+                        scale: s,
+                        icon: Icons.notes_rounded,
+                        title: 'Biographie',
+                        subtitle: _bioSummary(profile.bio),
+                        onPressed: () => context.push(BioSettingsScreen.location),
+                      ),
+                      _SettingsTile(
+                        scale: s,
+                        icon: Icons.alternate_email_rounded,
+                        title: 'Réseaux sociaux',
+                        subtitle: profile.socialLinks.isEmpty
+                            ? 'Instagram, X, TikTok, YouTube, Letterboxd… sur votre profil.'
+                            : [for (final link in profile.socialLinks) link.network.label].join(', '),
+                        onPressed: () => context.push(SocialLinksSettingsScreen.location),
+                      ),
+                      _SettingsTile(
+                        scale: s,
+                        icon: profile.isPrivate ? Icons.lock_outline_rounded : Icons.public_rounded,
+                        title: 'Compte privé',
+                        subtitle: profile.isPrivate
+                            ? 'Activé : seuls vos abonnés acceptés voient votre profil.'
+                            : 'Désactivé : tout le monde voit votre profil.',
+                        onPressed: () => context.push(PrivateAccountSettingsScreen.location),
+                      ),
+                    ],
+                  ],
+                ),
+                SizedBox(height: layout.sectionGap),
+                _SettingsSection(
+                  label: 'Compte',
+                  scale: s,
+                  children: [
                     _SettingsTile(
                       scale: s,
                       icon: Icons.person_outline_rounded,
@@ -114,40 +166,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
                   ],
                 ),
                 SizedBox(height: layout.sectionGap),
-                if (socialAvailable(ref.watch(sessionProvider))) ...[
-                  _SettingsSection(
-                    label: 'Profil public',
-                    scale: s,
-                    children: [
-                      _SettingsTile(
-                        scale: s,
-                        icon: Icons.notes_rounded,
-                        title: 'Biographie',
-                        subtitle: _bioSummary(profile.bio),
-                        onPressed: () => context.push(BioSettingsScreen.location),
-                      ),
-                      _SettingsTile(
-                        scale: s,
-                        icon: Icons.alternate_email_rounded,
-                        title: 'Réseaux sociaux',
-                        subtitle: profile.socialLinks.isEmpty
-                            ? 'Instagram, X, TikTok, YouTube, Letterboxd… sur votre profil.'
-                            : [for (final link in profile.socialLinks) link.network.label].join(', '),
-                        onPressed: () => context.push(SocialLinksSettingsScreen.location),
-                      ),
-                      _SettingsTile(
-                        scale: s,
-                        icon: profile.isPrivate ? Icons.lock_outline_rounded : Icons.public_rounded,
-                        title: 'Compte privé',
-                        subtitle: profile.isPrivate
-                            ? 'Activé : seuls vos abonnés acceptés voient votre profil.'
-                            : 'Désactivé : tout le monde voit votre profil.',
-                        onPressed: () => context.push(PrivateAccountSettingsScreen.location),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: layout.sectionGap),
-                ],
                 _SettingsSection(
                   label: 'Général',
                   scale: s,

@@ -37,8 +37,9 @@ String ageLabel(int? age) => switch (age) {
 /// The age limit that applies: a former « profil enfant » without an age is limited to 10 (API).
 int? effectiveMaxAge(Profile profile) => profile.maxAgeRating ?? (profile.isKid ? 10 : null);
 
-/// « Ajouter un profil » and « Modifier le profil », opened from « Qui regarde ? » →
-/// « Gérer les profils » (demande du développeur, like other media centers): the avatar, name and
+/// « Ajouter un profil » and « Modifier le profil », opened from « Paramètres » → « Profil »
+/// (« Modifier le profil », « Gérer les profils »; demande du développeur, 24/11/2026: no longer
+/// on « Qui regarde ? »): the avatar, name and
 /// pseudo as they will look, the name, the pseudo, « Photo de profil » (its own photo instead of the
 /// avatar, demande du développeur, 23/11/2026), the avatars by license, the restrictions
 /// (maximum age, unrated titles; no « profil enfant », demande du développeur), then (to change
@@ -298,11 +299,13 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
         return;
       }
     }
-    ref.read(sessionProvider.notifier).forgetProfile(profile.id);
     ref.invalidate(profilesProvider);
     if (!mounted) return;
+    final session = ref.read(sessionProvider.notifier);
     showVxSnack(context, 'Profil supprimé', icon: Icons.delete_outline_rounded);
     context.pop(true);
+    // The profile in use: « Qui regarde ? » (the router goes there once no profile is chosen).
+    await session.forgetProfile(profile.id);
   }
 
   @override

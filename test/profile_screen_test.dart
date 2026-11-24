@@ -18,6 +18,7 @@ import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/library/my_list_screen.dart';
 import 'package:vixeo/features/network/network.dart';
+import 'package:vixeo/features/profiles/profile_settings_screen.dart';
 import 'package:vixeo/features/social/profile_screen.dart';
 import 'package:vixeo/features/social/public_profile_settings.dart';
 import 'package:vixeo/features/social/review_likes.dart';
@@ -499,6 +500,32 @@ void main() {
     expect(auth.saved.single, {'is_private': true});
     expect(_pressable('Compte privé, activé'), findsOneWidget);
     expect(find.text('Compte privé activé'), findsOneWidget);
+  });
+
+  testWidgets('« Paramètres »: « Profil » first, « Changer de profil » first in it', (tester) async {
+    tester.view.physicalSize = const Size(600, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith(_Signed.new)],
+        child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: ProfileSettingsScreen())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    double top(String text) => tester.getTopLeft(find.text(text)).dy;
+    // The sections, « Profil » (formerly « Profil public ») first.
+    expect(find.text('PROFIL PUBLIC'), findsNothing);
+    expect(top('PROFIL'), lessThan(top('COMPTE')));
+    expect(top('COMPTE'), lessThan(top('GÉNÉRAL')));
+    // « Profil »: changing profile first, then the profiles, then the public page.
+    const profile = ['Changer de profil', 'Modifier le profil', 'Gérer les profils', 'Biographie', 'Réseaux sociaux'];
+    for (var i = 1; i < profile.length; i++) {
+      expect(top(profile[i - 1]), lessThan(top(profile[i])), reason: profile[i]);
+    }
+    expect(top('Compte privé'), lessThan(top('COMPTE')));
+    expect(top('PROFIL'), lessThan(top('Changer de profil')));
   });
 
   testWidgets('« Partager » sends the profile\'s page, or copies it', (tester) async {

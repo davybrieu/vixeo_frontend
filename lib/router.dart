@@ -37,6 +37,7 @@ import 'features/network/profile_sections.dart' show WatchlistCard;
 import 'features/network/review_screen.dart';
 import 'features/playback/player_screen.dart';
 import 'features/profiles/advanced_settings_screen.dart';
+import 'features/profiles/manage_profiles_screen.dart';
 import 'features/profiles/profile_editor_screen.dart';
 import 'features/profiles/profile_preferences_screen.dart';
 import 'features/profiles/profile_settings_screen.dart';
@@ -148,9 +149,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         return target;
       }
       if (session.profile == null) {
-        // « Qui regarde ? » and its « Ajouter / Modifier un profil » pages.
-        final picker = location == '/profils' || location.startsWith('/profils/');
-        return picker ? null : '/profils';
+        // « Qui regarde ? » only: the profiles are managed from a profile's « Paramètres ».
+        return location == '/profils' ? null : '/profils';
       }
       if (authPages.contains(location) || location == '/profils' || location == '/demarrage') {
         // A new profile: the first launch first (rate a few titles, accounts to follow).
@@ -169,7 +169,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => guarded(state.uri.path, PasswordResetScreen(initialEmail: state.extra as String?)),
       ),
       GoRoute(path: '/profils', builder: (_, state) => guarded(state.uri.path, const ProfilesScreen())),
-      // « Gérer les profils » (« Qui regarde ? »): add and change a profile, without the navigation.
+      // « Ajouter / Modifier le profil » (« Paramètres » → « Profil »), without the navigation.
       GoRoute(path: ProfileEditorScreen.newLocation, builder: (_, _) => const ProfileEditorScreen()),
       GoRoute(
         path: '/profils/modifier/:id',
@@ -289,8 +289,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                 : null,
             builder: (_, state) => GroupSettingsScreen(id: int.parse(state.pathParameters['id']!)),
           ),
-          // Former page: managing is on « Qui regarde ? » now.
           GoRoute(path: '/parametres', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
+          // « Paramètres » → « Profil » → « Gérer les profils » (no longer on « Qui regarde ? »).
+          GoRoute(path: ManageProfilesScreen.location, builder: (_, _) => const ManageProfilesScreen()),
           // What members see on my page, changed from « Paramètres » (no « Modifier le profil » page).
           GoRoute(path: BioSettingsScreen.location, redirect: socialOnly, builder: (_, _) => const BioSettingsScreen()),
           GoRoute(

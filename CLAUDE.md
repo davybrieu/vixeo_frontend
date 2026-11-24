@@ -229,15 +229,26 @@ lib/
 - **« Qui regarde ? »** (`profiles_screen.dart`, `/profils` ; demande du développeur, d'après
   une vidéo d'un autre media center) : fond sombre éclairé de vert en haut, « Qui regarde ? »
   (**sans logo**), avatars **ronds** avec le nom dessous (cadenas si le profil a un code ; plus
-  de badge « Enfant ») et, **tout en bas de l'écran**, le bouton « Gérer les profils » / « Terminé ».
-  **Pas de « Se déconnecter »** sur cette page (il est dans « Paramètres »). « Gérer les profils » : un crayon sur chaque avatar (un appui ouvre
-  « Modifier le profil »), la tuile « Ajouter un profil » (moins de 5 profils) et « Terminé ».
+  de badge « Enfant »), **rien d'autre** : **plus de gestion des profils sur cette page** (ni
+  « Gérer les profils », ni crayon, ni « Ajouter un profil », ni « Terminé » ; demande du
+  développeur, 24/11/2026 : elle est dans « Paramètres » → « Profil »). **Pas de « Se
+  déconnecter »** sur cette page (il est dans « Paramètres »). Sans profil choisi, le routeur
+  n'ouvre que `/profils`.
   Flèche retour en haut à gauche seulement après « Changer de profil » : elle revient au profil
   quitté (`SessionController.previousProfile` / `cancelSwitch`). Code d'un profil : le pavé
   numérique `showPinPad` (`pin_pad.dart` : 4 points, touches 0-9 focalisables, chiffres du
-  clavier ou de la télécommande, `confirm` = saisi deux fois). **« Ajouter un profil »**
+  clavier ou de la télécommande, `confirm` = saisi deux fois).
+  **« Paramètres » → « Profil »** (demande du développeur, 24/11/2026 : ancienne rubrique « Profil
+  public », renommée et **placée en premier**, `ProfileSettingsScreen`) : **« Changer de profil »
+  en premier**, puis « Modifier le profil » (le profil actuel), « Gérer les profils »
+  (`ManageProfilesScreen`, `/profil/profils`, `manage_profiles_screen.dart` : les profils du compte,
+  « Profil actuel » marqué, un appui ouvre « Modifier le profil » ; « Ajouter un profil » sous la
+  liste, moins de 5 profils), puis, avec une page publique, « Biographie », « Réseaux sociaux » et
+  « Compte privé » ; ensuite « Compte » et « Général ». **« Ajouter un profil »**
   (`/profils/nouveau`) et **« Modifier le profil »** (`/profils/modifier/:id`) :
-  `ProfileEditorScreen` (`profile_editor_screen.dart`, hors de la navigation) : aperçu (avatar,
+  `ProfileEditorScreen` (`profile_editor_screen.dart`, hors de la navigation, ouvert depuis
+  « Paramètres ») ; supprimer le profil actuel ramène à « Qui regarde ? »
+  (`SessionController.forgetProfile`) : aperçu (avatar,
   nom et @pseudo tapés ; **pas de ligne « Avatar : … »**), « Nom du profil », « Pseudo » (choisi à
   l'ajout comme à la modification ; vide à l'ajout : l'API en fait un), « Choisir un avatar » (par
   licence, ronds, avatar au hasard pour un nouveau profil), « Restrictions » (« Âge maximum »
@@ -448,16 +459,17 @@ lib/
   premier chargement ; les points restent jusqu'à la visite suivante). Dates en français :
   `episodeWhen`, `timeAgo`, `dayLabel`. Test : `test/inbox_test.dart`.
 - **Compte privé, réseaux sociaux, J'aime** (`features/social`, demande du développeur,
-  21/11/2026, comme Twitter ; API : `vixeo_backend/docs/social.md`) : **« Paramètres » → « Profil
-  public »** (demande du développeur, 23/11/2026 : plus de page « Modifier mon profil » ni de bouton
-  « Modifier le profil » ; `features/social/public_profile_settings.dart`) : **« Biographie »**
+  21/11/2026, comme Twitter ; API : `vixeo_backend/docs/social.md`) : **« Paramètres » → « Profil »**
+  (ancienne rubrique « Profil public », renommée le 24/11/2026 ; demande du développeur, 23/11/2026 :
+  plus de page « Modifier mon profil » ni de bouton « Modifier le profil » sur la page du profil ;
+  `features/social/public_profile_settings.dart`) : **« Biographie »**
   (`BioSettingsScreen`, `/profil/biographie`, 160 caractères au plus), **« Réseaux sociaux »**
   (`SocialLinksSettingsScreen`, `/profil/reseaux-sociaux` : un champ par réseau, `SocialNetwork` :
   Instagram, X, TikTok, YouTube, Letterboxd, Threads, Bluesky, site web ; le pseudo ou l'adresse,
   l'API garde le pseudo ; champ vidé = retiré) et **« Compte privé »**
   (`PrivateAccountSettingsScreen`, `/profil/compte-prive`, enregistré tout de suite), envoyés par
   `PUT /profiles/{id}` (`bio`, `social_links`, `is_private`, `saveProfile`). Le nom et le pseudo se
-  changent dans « Qui regarde ? » → « Gérer les profils ». En-tête du profil (`ProfileHeader`) : cadenas
+  changent dans « Paramètres » → « Modifier le profil ». En-tête du profil (`ProfileHeader`) : cadenas
   après le nom d'un compte privé, puis les réseaux sous la biographie (`SocialLinkChip` : icône et
   « @pseudo », ouvre la page dans le navigateur ; sur TV, affichés seulement). Page d'un membre
   privé qu'on ne suit pas (`can_view` faux) : en-tête et compteurs seulement, carte « Ce compte est
@@ -904,8 +916,8 @@ lib/
   pixel art dessiné par `PixelAvatarPainter`, ou `image_url`) ; `ProfileAvatar` partout où le
   profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits. Chaque
   nouveau profil (y compris celui créé à l'inscription) reçoit un avatar du catalogue au hasard
-  (côté API) ; l'avatar se choisit dans « Ajouter / Modifier le profil » (« Qui regarde ? » →
-  « Gérer les profils ») : **plus de page ni de tuile « Avatar » dans les paramètres** (demande
+  (côté API) ; l'avatar se choisit dans « Ajouter / Modifier le profil » (« Paramètres » →
+  « Profil ») : **plus de page ni de tuile « Avatar » dans les paramètres** (demande
   du développeur). L'initiale reste affichée pour un
   ancien profil sans avatar.
   **Photo de profil** (demande du développeur, 23/11/2026 : « pour laisser le choix » ; API :
@@ -933,7 +945,7 @@ lib/
   même limite dans l'API ; rien quand il n'y en a pas) et réseaux, puis, pour un membre, le bouton
   (focus à l'arrivée) « Suivre » / « Ne plus suivre » (invité : « Se connecter pour suivre ») ;
   **pas de bouton sur ma page** (demande du développeur, 23/11/2026 : biographie, réseaux et compte
-  privé dans « Paramètres » → « Profil public » ; l'onglet affiché prend le focus à l'arrivée,
+  privé dans « Paramètres » → « Profil » ; l'onglet affiché prend le focus à l'arrivée,
   `ProfileView(focusTabs:)`) ; puis une carte de compteurs
   (Avis, Vus, À voir) ; puis les cinq onglets (voir « Page de profil » du réseau social :
   Activité, Listes, Avis, Aimés, Vus ; grilles d'une seule requête `titlesByIdProvider` via

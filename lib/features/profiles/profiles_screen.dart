@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
@@ -14,7 +13,6 @@ import '../auth/models.dart';
 import '../auth/session.dart';
 import 'avatars.dart';
 import 'pin_pad.dart';
-import 'profile_editor_screen.dart';
 
 final profilesProvider = FutureProvider.autoDispose<List<Profile>>((ref) {
   ref.watch(sessionProvider.select((s) => s.token));
@@ -24,11 +22,10 @@ final profilesProvider = FutureProvider.autoDispose<List<Profile>>((ref) {
 /// Profiles per account, at most (the API refuses a sixth).
 const maxProfiles = 5;
 
-/// « Qui regarde ? » (demande du développeur, like other media centers): the title, the round
-/// avatars and, at the bottom of the screen, « Gérer les profils ». Managing: a pencil on each
-/// profile (a tap opens « Modifier le profil »), « Ajouter un profil », and « Terminé ». No logo
-/// and no « Se déconnecter » here (it is in « Paramètres »). The back button returns to the
-/// profile left with « Changer de profil ».
+/// « Qui regarde ? » (demande du développeur, like other media centers): the title and the round
+/// avatars, nothing else. The profiles are managed in « Paramètres » → « Profil » → « Gérer les
+/// profils » (demande du développeur, 24/11/2026). No logo and no « Se déconnecter » here (it is
+/// in « Paramètres »). The back button returns to the profile left with « Changer de profil ».
 class ProfilesScreen extends ConsumerStatefulWidget {
   const ProfilesScreen({super.key});
 
@@ -37,13 +34,7 @@ class ProfilesScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
-  bool _managing = false;
-
   Future<void> _open(Profile profile) async {
-    if (_managing) {
-      await context.push(ProfileEditorScreen.editLocation(profile.id));
-      return;
-    }
     if (profile.hasPin) {
       final pin = await showPinPad(
         context,
@@ -112,14 +103,8 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                                         _ProfileTile(
                                           profile: profile,
                                           size: tile,
-                                          managing: _managing,
                                           autofocus: i == 0,
                                           onPressed: () => _open(profile),
-                                        ),
-                                      if (_managing && list.length < maxProfiles)
-                                        _AddTile(
-                                          size: tile,
-                                          onPressed: () => context.push(ProfileEditorScreen.newLocation),
                                         ),
                                     ],
                                   ),
@@ -144,16 +129,6 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                   ],
                 ),
               ),
-              // At the bottom of the screen (developer's request), once the profiles are there.
-              if (profiles.hasValue)
-                Padding(
-                  padding: EdgeInsets.fromLTRB(layout.gutter, 8, layout.gutter, layout.space(VxSpace.l)),
-                  child: VxButton(
-                    label: _managing ? 'Terminé' : 'Gérer les profils',
-                    kind: _managing ? VxButtonKind.secondary : VxButtonKind.outline,
-                    onPressed: () => setState(() => _managing = !_managing),
-                  ),
-                ),
             ],
           ),
         ),
@@ -162,28 +137,19 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
   }
 }
 
-/// A profile: its round avatar and its name. Managing: a pencil instead of the lock.
+/// A profile: its round avatar and its name, a lock when it has a code.
 class _ProfileTile extends StatelessWidget {
-  const _ProfileTile({
-    required this.profile,
-    required this.size,
-    required this.managing,
-    required this.onPressed,
-    this.autofocus = false,
-  });
+  const _ProfileTile({required this.profile, required this.size, required this.onPressed, this.autofocus = false});
 
   final Profile profile;
   final double size;
-  final bool managing;
   final VoidCallback onPressed;
   final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     final badge = size * 0.28;
-    final label = managing
-        ? 'Modifier le profil de ${profile.name}'
-        : [profile.name, if (profile.hasPin) 'protégé par un code'].join(', ');
+    final label = [profile.name, if (profile.hasPin) 'protégé par un code'].join(', ');
     return SizedBox(
       width: size + 24,
       child: Column(
@@ -206,7 +172,7 @@ class _ProfileTile extends StatelessWidget {
                     size: size,
                     radius: size / 2,
                   ),
-                  if (managing || profile.hasPin)
+                  if (profile.hasPin)
                     Positioned(
                       right: 0,
                       bottom: 0,
@@ -214,15 +180,11 @@ class _ProfileTile extends StatelessWidget {
                         width: badge,
                         height: badge,
                         decoration: BoxDecoration(
-                          color: managing ? VxColors.text : VxColors.background,
+                          color: VxColors.background,
                           shape: BoxShape.circle,
                           border: Border.all(color: VxColors.background, width: size * 0.025),
                         ),
-                        child: Icon(
-                          managing ? Icons.edit_rounded : Icons.lock_outline_rounded,
-                          size: badge * 0.5,
-                          color: managing ? VxColors.background : VxColors.text,
-                        ),
+                        child: Icon(Icons.lock_outline_rounded, size: badge * 0.5, color: VxColors.text),
                       ),
                     ),
                 ],
@@ -247,49 +209,4 @@ class _ProfileTile extends StatelessWidget {
       ),
     );
   }
-}
-
-/// « Ajouter un profil » (managing only): a dark circle with a +.
-class _AddTile extends StatelessWidget {
-  const _AddTile({required this.size, required this.onPressed});
-
-  final double size;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: size + 24,
-    child: Column(
-      children: [
-        VxFocusable(
-          onPressed: onPressed,
-          borderRadius: size,
-          focusScale: 1.08,
-          semanticLabel: 'Ajouter un profil',
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: VxColors.text.withValues(alpha: 0.08),
-              border: Border.all(color: VxColors.line, width: 1.5),
-            ),
-            child: Icon(Icons.add_rounded, size: size * 0.32, color: VxColors.textSecondary),
-          ),
-        ),
-        SizedBox(height: size * 0.1),
-        GestureDetector(
-          onTap: onPressed,
-          child: ExcludeSemantics(
-            child: Text(
-              'Ajouter un profil',
-            maxLines: 2,
-            textAlign: TextAlign.center,
-              style: VxText.body(size * 0.14, weight: FontWeight.w500, color: VxColors.textSecondary),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
 }

@@ -140,7 +140,7 @@ class ProfileScreen extends ConsumerWidget {
                 icon: Icons.alternate_email_rounded,
                 title: 'Choisissez un pseudo',
                 message:
-                    'Dans « Qui regarde ? » → « Gérer les profils » : votre activité, vos listes et votre page '
+                    'Dans « Paramètres » → « Modifier le profil » : votre activité, vos listes et votre page '
                     'apparaîtront ici.',
               )
             else
