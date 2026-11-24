@@ -10,6 +10,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
+import '../catalog/paging.dart' show LoadMoreSentinel;
 import '../catalog/models.dart';
 import '../catalog/widgets.dart' show titlePath;
 import '../profiles/avatars.dart';
@@ -168,19 +169,15 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final (i, row) in rows.indexed) ...[if (i > 0) SizedBox(height: layout.listGap), row],
-            if (feed.value?.hasMore ?? false) ...[
-              SizedBox(height: layout.space(VxSpace.m)),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: VxButton(
-                  label: 'Afficher plus',
-                  kind: VxButtonKind.secondary,
-                  dense: true,
-                  loading: feed.value!.loadingMore,
-                  onPressed: () => ref.read(activityFeedProvider.notifier).loadMore(),
+            // 20 at a time: the next ones as the page scrolls near the end.
+            if (feed.value?.hasMore ?? false)
+              LoadMoreSentinel(
+                onVisible: () => ref.read(activityFeedProvider.notifier).loadMore(),
+                child: const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator()),
                 ),
               ),
-            ],
             if (feed.hasError && !feed.hasValue || calendar.hasError && !calendar.hasValue) ...[
               SizedBox(height: layout.space(VxSpace.m)),
               Text(

@@ -14,6 +14,7 @@ import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/tabs.dart';
+import '../catalog/paging.dart' show LoadMoreSentinel;
 import '../profiles/avatars.dart';
 import '../social/profile_view.dart' show AccountTile, ProfileHeader;
 import '../social/social_repository.dart';
@@ -110,16 +111,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           SizedBox(height: layout.sectionGap),
           const _Suggestions(),
         ],
+        // 20 at a time: the next ones as the page scrolls near the end.
         if (page.next != null)
-          Padding(
-            padding: EdgeInsets.only(top: layout.sectionGap),
-            child: Center(
-              child: VxButton(
-                label: 'Afficher plus',
-                kind: VxButtonKind.outline,
-                dense: true,
-                onPressed: () => ref.read(feedProvider(tab).notifier).loadMore(),
-              ),
+          LoadMoreSentinel(
+            onVisible: () => unawaited(ref.read(feedProvider(tab).notifier).loadMore()),
+            child: Padding(
+              padding: EdgeInsets.only(top: layout.sectionGap),
+              child: const Center(child: CircularProgressIndicator()),
             ),
           ),
       ],

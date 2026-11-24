@@ -123,7 +123,9 @@ class _FakeNetwork extends NetworkRepository {
   /// The « Activité » of a member: each action with its date.
   @override
   Future<FeedPage> activity(String username, {int? before}) async {
-    calls.add('activity $username');
+    calls.add('activity $username${before == null ? '' : ' before $before'}');
+    // The next page: the end.
+    if (before != null) return (items: <FeedItem>[], next: null);
     return (
       items: [
         FeedItem.fromJson({
@@ -148,9 +150,9 @@ class _FakeNetwork extends NetworkRepository {
 
   /// My lists, and which ones have the title asked.
   @override
-  Future<List<SocialList>> myLists({String? item}) async {
+  Future<Paged<SocialList>> myLists({String? item, int page = 1}) async {
     calls.add('my lists $item');
-    return [SocialList.fromJson({..._list, 'author': _lea, 'is_mine': true, 'contains': true})];
+    return Paged(items: [SocialList.fromJson({..._list, 'author': _lea, 'is_mine': true, 'contains': true})]);
   }
 
   @override
@@ -471,7 +473,8 @@ void main() {
       tester,
       const SingleChildScrollView(child: ProfileActivitySection(username: 'lea', mine: true)),
     );
-    expect(network.calls, ['activity lea']);
+    // The next page as soon as the end of the list is near (here, on screen).
+    expect(network.calls, ['activity lea', 'activity lea before 2']);
     expect(find.text('Mon activité'), findsOneWidget);
     expect(find.text('Aujourd’hui'), findsOneWidget);
     expect(find.text('Aimé'), findsOneWidget);
@@ -479,7 +482,8 @@ void main() {
     // Another year: the date says it.
     expect(find.textContaining('2025'), findsOneWidget);
     expect(find.text('Vu · 3 épisodes'), findsOneWidget);
-    expect(find.text('Afficher plus'), findsOneWidget);
+    expect(find.text('Afficher plus'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
 
     await tester.tap(find.text('Matrix'));
     await tester.pumpAndSettle();

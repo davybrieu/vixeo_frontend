@@ -11,6 +11,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
+import '../catalog/paging.dart';
 import '../catalog/widgets.dart' show titlePath;
 import '../library/library.dart';
 import '../messages/messages.dart' show ChatMember, inboxProvider, startConversation;
@@ -396,9 +397,9 @@ class _AddToListSheetState extends ConsumerState<_AddToListSheet> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final lists = ref.watch(myListsProvider(_item));
     final library = ref.watch(libraryProvider).value;
     final inToWatch = library?.forItem(widget.title)?.isFavorite ?? false;
+    FutureProvider<Paged<SocialList>> page(int page) => myListsProvider((_item, page));
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
@@ -411,43 +412,59 @@ class _AddToListSheetState extends ConsumerState<_AddToListSheet> {
               child: Text('Ajouter « ${widget.title.title} » à une liste', style: VxText.title(layout.size(20, tv: 32))),
             ),
             Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                padding: EdgeInsets.symmetric(horizontal: layout.space(VxSpace.s)),
-                children: [
-                  // « À voir »: always there, first.
-                  _line(
-                    contains: inToWatch,
-                    busy: _busyToWatch,
-                    title: 'À voir',
-                    summary: titleCount(library?.toWatch.length ?? 0),
-                    icon: Icons.bookmark_rounded,
-                    autofocus: true,
-                    onPressed: () => _toggleToWatch(inToWatch),
-                  ),
-                  ...switch (lists) {
-                    AsyncValue(:final value?) => [
-                      for (final list in value)
-                        _line(
-                          contains: list.contains,
-                          busy: _busy.contains(list.id),
-                          title: list.title,
-                          summary: list.summary,
-                          onPressed: () => _toggle(list),
-                        ),
-                    ],
-                    AsyncValue(:final error?) => [
-                      Padding(
-                        padding: EdgeInsets.all(layout.space(VxSpace.m)),
-                        child: Text(
-                          error is ApiException ? error.message : 'Impossible de charger vos listes.',
-                          style: VxText.body(layout.bodySize, color: VxColors.textSecondary),
-                        ),
-                      ),
-                    ],
-                    _ => [const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))],
-                  },
-                ],
+              // My lists 20 at a time, the next ones as the sheet scrolls.
+              child: PagedBuilder<SocialList>(
+                page: page,
+                builder: (context, pages, nearEnd) {
+                  final lists = pages.items;
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.symmetric(horizontal: layout.space(VxSpace.s)),
+                    // « À voir », the lists, then what comes under them.
+                    itemCount: lists.length + 2,
+                    itemBuilder: (context, i) {
+                      if (i == 0) {
+                        // « À voir »: always there, first.
+                        return _line(
+                          contains: inToWatch,
+                          busy: _busyToWatch,
+                          title: 'À voir',
+                          summary: titleCount(library?.toWatch.length ?? 0),
+                          icon: Icons.bookmark_rounded,
+                          autofocus: true,
+                          onPressed: () => _toggleToWatch(inToWatch),
+                        );
+                      }
+                      if (i == lists.length + 1) {
+                        if (pages.error case final error?) {
+                          return Padding(
+                            padding: EdgeInsets.all(layout.space(VxSpace.m)),
+                            child: Text(
+                              error is ApiException ? error.message : 'Impossible de charger vos listes.',
+                              style: VxText.body(layout.bodySize, color: VxColors.textSecondary),
+                            ),
+                          );
+                        }
+                        if (pages.loaded == 0) {
+                          return const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        return PagedFooter(pages: pages, page: page);
+                      }
+                      final list = lists[i - 1];
+                      nearEnd(i - 1, lists.length);
+                      return _line(
+                        contains: list.contains,
+                        busy: _busy.contains(list.id),
+                        title: list.title,
+                        summary: list.summary,
+                        onPressed: () => _toggle(list),
+                      );
+                    },
+                  );
+                },
               ),
             ),
             Padding(

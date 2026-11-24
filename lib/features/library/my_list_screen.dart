@@ -10,6 +10,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/page_header.dart';
 import '../catalog/catalog_repository.dart';
 import '../catalog/models.dart';
+import '../catalog/paging.dart';
 import '../catalog/widgets.dart';
 import '../search/filter_bar.dart';
 import '../search/search_filters.dart';
@@ -47,6 +48,21 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
   /// Titles already read (logo, rating, genres), kept while the list changes.
   final _known = <TitleRef, MediaItem>{};
 
+  /// Titles shown, 20 by 20 ([pageSize]): more as the grid scrolls.
+  int _shown = pageSize;
+  late final _nextTitles = NextPage(() {
+    if (mounted) setState(() => _shown += pageSize);
+  });
+
+  /// A search, a filter or an order: every title is looked at (a member's: every page, 20 a
+  /// request).
+  bool get _everything => _query.isNotEmpty || !_filters.isDefault;
+
+  /// Filters that need what the catalog says of each title (genres, rating): its details for every
+  /// title, 20 a request.
+  bool get _needsDetails =>
+      _filters.genre != null || _filters.hasRatingBounds || _filters.sortFor(withText: false) == SearchSort.rating;
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -54,7 +70,10 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
   }
 
   void _setFilters(SearchFilters filters) {
-    setState(() => _filters = filters);
+    setState(() {
+      _filters = filters;
+      _shown = pageSize;
+    });
   }
 
   @override
@@ -82,11 +101,17 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
               fontSize: layout.size(16, tv: 24),
               onChanged: (value) {
                 final query = value.trim();
-                setState(() => _query = query);
+                setState(() {
+                  _query = query;
+                  _shown = pageSize;
+                });
               },
               onClear: () {
                 _searchController.clear();
-                setState(() => _query = '');
+                setState(() {
+                  _query = '';
+                  _shown = pageSize;
+                });
               },
             ),
             filters: SearchFilterBar(
@@ -106,10 +131,10 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
           Expanded(
             child: member == null
                 ? _mine(context)
-                : _member(context, switch (collection) {
-                    TitleCollection.toWatch => socialTitlesProvider(member),
-                    TitleCollection.liked => socialLikedProvider(member),
-                    TitleCollection.watched => socialWatchedProvider(member),
+                : _member(context, (page) => switch (collection) {
+                    TitleCollection.toWatch => socialTitlesProvider((member, page)),
+                    TitleCollection.liked => socialLikedProvider((member, page)),
+                    TitleCollection.watched => socialWatchedProvider((member, page)),
                   }),
           ),
         ],
@@ -117,20 +142,33 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
     );
   }
 
-  /// A member's « À voir », likes or titles watched ([provider]).
-  Widget _member(BuildContext context, FutureProvider<List<MediaItem>> provider) => AsyncView(
-    value: ref.watch(provider),
-    onRetry: () => ref.invalidate(provider),
-    data: (titles) => _titles(
-      context,
-      titles,
-      mine: false,
-      onRefresh: () async {
-        ref.invalidate(provider);
-        await ref.read(provider.future);
-      },
-    ),
-  );
+  /// A member's « À voir », likes or titles watched ([page]): 20 at a time, the next ones as the
+  /// grid scrolls; every page (one after the other) for a search, a filter or an order.
+  Widget _member(BuildContext context, FutureProvider<Paged<MediaItem>> Function(int page) page) =>
+      PagedBuilder<MediaItem>(
+        page: page,
+        all: _everything,
+        builder: (context, pages, nearEnd) {
+          if (pages.error case final error?) {
+            return ErrorPanel(error: error, onRetry: () => ref.invalidate(page(1)));
+          }
+          if (pages.loaded == 0) return const Center(child: CircularProgressIndicator());
+          return _titles(
+            context,
+            pages.items,
+            mine: false,
+            complete: pages.complete,
+            footer: PagedFooter(pages: pages, page: page),
+            loadMore: () => nearEnd(pages.items.length, pages.items.length),
+            onRefresh: () async {
+              for (var p = 1; p <= pages.loaded; p++) {
+                ref.invalidate(page(p));
+              }
+              await ref.read(page(1).future);
+            },
+          );
+        },
+      );
 
   /// My « À voir »: channels (« Chaînes TV ») or titles, from the synced library. My likes and my
   /// titles watched: titles.
@@ -246,60 +284,48 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
     );
   }
 
-  /// The movies and series of the list (most recently added first), completed by the catalog in
-  /// one request (logo, rating, genres: never one per card), then searched, filtered and sorted.
+  /// The movies and series of the list (most recently added first), completed by the catalog 20 at a
+  /// time (logo, rating, genres: never one request per card), then searched, filtered and sorted.
+  /// [titles]: every title (mine), or the pages read so far (a member's: [complete] once every page
+  /// is read; [loadMore] reads the next one, [footer] under the grid).
   Widget _titles(
     BuildContext context,
     List<MediaItem> titles, {
     required bool mine,
     required Future<void> Function() onRefresh,
+    bool complete = true,
+    VoidCallback? loadMore,
+    Widget? footer,
   }) {
-    final refs = [for (final t in titles) (type: t.type, id: t.id)];
-    final batch = ref.watch(titlesByIdProvider(titlesKey(refs)));
-    _known.addAll(batch.value ?? const {});
-    // First visit: the cards come with their logo, not before it.
-    if (_known.isEmpty && refs.isNotEmpty && batch.isLoading) {
+    // An episode in the list counts for its series: once.
+    final seen = <TitleRef>{};
+    final unique = [
+      for (final title in titles)
+        if (seen.add((type: title.type, id: title.id))) title,
+    ];
+
+    final List<MediaItem> matching;
+    final List<MediaItem> shown;
+    final bool detailsLoading;
+    if (_needsDetails) {
+      // Genre, rating: the catalog's details of every title first (20 a request).
+      final (ready, loading) = _details(unique);
+      matching = _sorted(_matching(ready));
+      shown = matching.take(_shown).toList();
+      detailsLoading = loading;
+    } else {
+      // Type, years, text: the list's own data. The catalog's details of the titles shown only.
+      matching = _sorted(_matching(unique));
+      final (ready, loading) = _details(matching.take(_shown).toList());
+      shown = [for (final item in ready) item.withDetails(_known[(type: item.type, id: item.id)])];
+      detailsLoading = loading;
+    }
+    final more = detailsLoading || !complete || matching.length > shown.length;
+
+    // Still reading: the first cards, or titles a search or a filter may match.
+    if (shown.isEmpty && more) {
       return const Center(child: CircularProgressIndicator());
     }
-
-    // « Note », « Votants » and « Mieux notés »: the rating each card shows (IMDb's, given with the
-    // titles of the batch, else TMDb's) and its voters, ranges checked like the API's.
-    double? ratingOf(MediaItem item) => item.shownRating?.$2.value;
-
-    final matching = <MediaItem>[];
-    final seen = <TitleRef>{};
-    for (final title in titles) {
-      final key = (type: title.type, id: title.id);
-      // An episode in the list counts for its series: once.
-      if (!seen.add(key)) continue;
-      if (_filters.kind.mediaType != null && title.type != _filters.kind.mediaType) continue;
-      if (_query.isNotEmpty && !title.title.toLowerCase().contains(_query.toLowerCase())) continue;
-
-      final details = _known[key];
-      final item = title.withDetails(details);
-      if (!_filters.yearWithin(item.year)) continue;
-      if (!_filters.ratingWithin(ratingOf(item), item.shownRating?.$2.votes ?? 0)) continue;
-      if (_filters.genre != null && details != null && !details.genreIds.contains(_filters.genre!.id)) continue;
-      matching.add(item);
-    }
-
-    switch (_filters.sortFor(withText: false)) {
-      case SearchSort.rating:
-        // Without any rating: last.
-        matching.sort((a, b) => (ratingOf(b) ?? -1).compareTo(ratingOf(a) ?? -1));
-        break;
-      case SearchSort.recent:
-        matching.sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));
-        break;
-      case SearchSort.oldest:
-        matching.sort((a, b) => (a.year ?? 9999).compareTo(b.year ?? 9999));
-        break;
-      case SearchSort.relevance:
-      case SearchSort.popularity:
-        // Keep the list's own order (most recently added first).
-        break;
-    }
-
     if (matching.isEmpty) {
       final isEmpty = titles.isEmpty;
       return switch (widget.collection) {
@@ -332,7 +358,100 @@ class _MyListScreenState extends ConsumerState<MyListScreen> {
 
     return RefreshIndicator(
       onRefresh: onRefresh,
-      child: PosterGrid(items: matching, alwaysScrollable: true, padding: pageContentPadding(context)),
+      child: PosterGrid(
+        items: shown,
+        alwaysScrollable: true,
+        padding: pageContentPadding(context),
+        // Near the end of the cards: 20 more (a member's next page when every title read is shown).
+        onBuild: (i) {
+          if (i < shown.length - NextPage.margin) return;
+          // Not while the titles asked are still coming.
+          if (shown.length >= _shown && (matching.length > _shown || !complete)) _nextTitles.request();
+          if (!complete) loadMore?.call();
+        },
+        footer: detailsLoading ? const _MoreComing() : footer,
+      ),
     );
   }
+
+  /// The beginning of [titles] whose catalog details are read (or that the catalog doesn't know),
+  /// and whether more are on their way. The details missing are asked 20 titles a request, one
+  /// request after the other.
+  (List<MediaItem>, bool) _details(List<MediaItem> titles) {
+    final unknown = [
+      for (final t in titles)
+        if (!_known.containsKey((type: t.type, id: t.id))) (type: t.type, id: t.id),
+    ];
+    final answered = <TitleRef>{};
+    var loading = false;
+    for (var i = 0; i < unknown.length; i += pageSize) {
+      final chunk = unknown.skip(i).take(pageSize).toList();
+      final batch = ref.watch(titlesByIdProvider(titlesKey(chunk)));
+      if (!batch.hasValue && !batch.hasError) {
+        loading = true;
+        break;
+      }
+      _known.addAll(batch.value ?? const {});
+      answered.addAll(chunk);
+    }
+    final ready = <MediaItem>[];
+    for (final t in titles) {
+      final key = (type: t.type, id: t.id);
+      if (!_known.containsKey(key) && !answered.contains(key)) break;
+      ready.add(t);
+    }
+    return (ready, loading);
+  }
+
+  /// « Note », « Votants » and « Mieux notés »: the rating each card shows (IMDb's, given with the
+  /// catalog's details, else TMDb's) and its voters, ranges checked like the API's.
+  double? _ratingOf(MediaItem item) => item.shownRating?.$2.value;
+
+  /// The titles that match the search and the filters, with what the catalog says of them.
+  List<MediaItem> _matching(List<MediaItem> titles) {
+    final found = <MediaItem>[];
+    for (final title in titles) {
+      final details = _known[(type: title.type, id: title.id)];
+      final item = title.withDetails(details);
+      if (_matches(item, details)) found.add(item);
+    }
+    return found;
+  }
+
+  bool _matches(MediaItem item, MediaItem? details) {
+    if (_filters.kind.mediaType != null && item.type != _filters.kind.mediaType) return false;
+    if (_query.isNotEmpty && !item.title.toLowerCase().contains(_query.toLowerCase())) return false;
+    if (!_filters.yearWithin(item.year)) return false;
+    if (!_filters.ratingWithin(_ratingOf(item), item.shownRating?.$2.votes ?? 0)) return false;
+    if (_filters.genre != null && details != null && !details.genreIds.contains(_filters.genre!.id)) return false;
+    return true;
+  }
+
+  List<MediaItem> _sorted(List<MediaItem> items) {
+    switch (_filters.sortFor(withText: false)) {
+      case SearchSort.rating:
+        // Without any rating: last.
+        items.sort((a, b) => (_ratingOf(b) ?? -1).compareTo(_ratingOf(a) ?? -1));
+      case SearchSort.recent:
+        items.sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));
+      case SearchSort.oldest:
+        items.sort((a, b) => (a.year ?? 9999).compareTo(b.year ?? 9999));
+      case SearchSort.relevance:
+      case SearchSort.popularity:
+        // Keep the list's own order (most recently added first).
+        break;
+    }
+    return items;
+  }
+}
+
+/// Under the grid while the next titles come.
+class _MoreComing extends StatelessWidget {
+  const _MoreComing();
+
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.all(24),
+    child: Center(child: CircularProgressIndicator()),
+  );
 }

@@ -129,13 +129,15 @@ class SocialRepository {
     return SocialProfile.fromJson(json['data'] as Map<String, dynamic>);
   }
 
-  /// The movies and series of a member's « À voir », the most recently added first.
-  Future<List<MediaItem>> titles(String username) async {
-    final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/list');
-    return [
-      for (final item in (json['data'] as List).whereType<Map<String, dynamic>>()) ?titleOf(item),
-    ];
-  }
+  /// A page of a member's lists (20 items: `GET /social/profiles/{pseudo}/{section}?page=`).
+  Future<Paged<T>> _page<T>(String username, String section, int page, T? Function(Map<String, dynamic>) parse) async =>
+      Paged.fromJson(
+        await _api.get('/social/profiles/${Uri.encodeComponent(username)}/$section', query: {'page': page}),
+        parse,
+      );
+
+  /// A page of the movies and series of a member's « À voir », the most recently added first.
+  Future<Paged<MediaItem>> titles(String username, {int page = 1}) => _page(username, 'list', page, titleOf);
 
   /// A title of a member's list (`{type, item_id: "movie:550", title, year, poster_url}`), or null
   /// for what is not a movie or a series (a channel…).
@@ -153,41 +155,22 @@ class SocialRepository {
     );
   }
 
-  /// A member's « J'aime » ❤ (movies and series liked), the most recently liked first.
-  Future<List<MediaItem>> liked(String username) async {
-    final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/liked');
-    return [
-      for (final item in (json['data'] as List).whereType<Map<String, dynamic>>()) ?titleOf(item),
-    ];
-  }
+  /// A page of a member's « J'aime » ❤ (movies and series liked), the most recently liked first.
+  Future<Paged<MediaItem>> liked(String username, {int page = 1}) => _page(username, 'liked', page, titleOf);
 
-  /// The movies and series a member watched (« Vus »), the most recently watched first.
-  Future<List<MediaItem>> watched(String username) async {
-    final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/watched');
-    return [
-      for (final item in (json['data'] as List).whereType<Map<String, dynamic>>()) ?titleOf(item),
-    ];
-  }
+  /// A page of the movies and series a member watched (« Vus »), the most recently watched first.
+  Future<Paged<MediaItem>> watched(String username, {int page = 1}) => _page(username, 'watched', page, titleOf);
 
-  /// The people (actors, directors…) a member follows, the most recently followed first.
-  Future<List<Person>> people(String username) async {
-    final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/people');
-    return (json['data'] as List).whereType<Map<String, dynamic>>().map(Person.fromJson).toList();
-  }
+  /// A page of the people (actors, directors…) a member follows, the most recently followed first.
+  Future<Paged<Person>> people(String username, {int page = 1}) => _page(username, 'people', page, Person.fromJson);
 
-  /// A member's reviews, the most recently rated first (the fields of « Mes avis »).
-  Future<List<RatedItem>> reviews(String username) async {
-    final json = await _api.get('/social/profiles/${Uri.encodeComponent(username)}/reviews');
-    return (json['data'] as List).whereType<Map<String, dynamic>>().map(RatedItem.fromJson).toList();
-  }
+  /// A page of a member's reviews, the most recently rated first (the fields of « Mes avis »).
+  Future<Paged<RatedItem>> reviews(String username, {int page = 1}) =>
+      _page(username, 'reviews', page, RatedItem.fromJson);
 
-  /// The profiles following a member ([followers]), or followed by them.
-  Future<List<SocialProfile>> connections(String username, {required bool followers}) async {
-    final json = await _api.get(
-      '/social/profiles/${Uri.encodeComponent(username)}/${followers ? 'followers' : 'following'}',
-    );
-    return (json['data'] as List).whereType<Map<String, dynamic>>().map(SocialProfile.fromJson).toList();
-  }
+  /// A page of the profiles following a member ([followers]), or followed by them.
+  Future<Paged<SocialProfile>> connections(String username, {required bool followers, int page = 1}) =>
+      _page(username, followers ? 'followers' : 'following', page, SocialProfile.fromJson);
 
   /// Follows a member: at once for a public account, a request for a private one.
   Future<FollowStatus> follow(String username) async {
@@ -238,33 +221,36 @@ final socialSearchProvider = FutureProvider.autoDispose.family<List<SocialProfil
   ];
 });
 
-/// A member's « À voir » (movies and series), by username.
-final socialTitlesProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>(
-  (ref, username) => ref.read(socialRepositoryProvider).titles(username),
+/// A page of a member's list (username, page: 20 items; the next one as the page scrolls).
+typedef MemberPage = (String username, int page);
+
+/// A page of a member's « À voir » (movies and series).
+final socialTitlesProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, MemberPage>(
+  (ref, key) => ref.read(socialRepositoryProvider).titles(key.$1, page: key.$2),
 );
 
-/// A member's « J'aime » ❤ (movies and series liked), by username.
-final socialLikedProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>(
-  (ref, username) => ref.read(socialRepositoryProvider).liked(username),
+/// A page of a member's « J'aime » ❤ (movies and series liked).
+final socialLikedProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, MemberPage>(
+  (ref, key) => ref.read(socialRepositoryProvider).liked(key.$1, page: key.$2),
 );
 
-/// The movies and series a member watched (« Vus »), by username.
-final socialWatchedProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>(
-  (ref, username) => ref.read(socialRepositoryProvider).watched(username),
+/// A page of the movies and series a member watched (« Vus »).
+final socialWatchedProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, MemberPage>(
+  (ref, key) => ref.read(socialRepositoryProvider).watched(key.$1, page: key.$2),
 );
 
-/// The people a member follows, by username.
-final socialPeopleProvider = FutureProvider.autoDispose.family<List<Person>, String>(
-  (ref, username) => ref.read(socialRepositoryProvider).people(username),
+/// A page of the people a member follows.
+final socialPeopleProvider = FutureProvider.autoDispose.family<Paged<Person>, MemberPage>(
+  (ref, key) => ref.read(socialRepositoryProvider).people(key.$1, page: key.$2),
 );
 
-/// A member's reviews, by username.
-final socialReviewsProvider = FutureProvider.autoDispose.family<List<RatedItem>, String>(
-  (ref, username) => ref.read(socialRepositoryProvider).reviews(username),
+/// A page of a member's reviews.
+final socialReviewsProvider = FutureProvider.autoDispose.family<Paged<RatedItem>, MemberPage>(
+  (ref, key) => ref.read(socialRepositoryProvider).reviews(key.$1, page: key.$2),
 );
 
-/// The followers (`followers: true`) or the followed profiles of a member.
+/// A page of the followers (`followers: true`) or of the followed profiles of a member.
 final socialConnectionsProvider =
-    FutureProvider.autoDispose.family<List<SocialProfile>, ({String username, bool followers})>(
-      (ref, key) => ref.read(socialRepositoryProvider).connections(key.username, followers: key.followers),
+    FutureProvider.autoDispose.family<Paged<SocialProfile>, ({String username, bool followers, int page})>(
+      (ref, key) => ref.read(socialRepositoryProvider).connections(key.username, followers: key.followers, page: key.page),
     );

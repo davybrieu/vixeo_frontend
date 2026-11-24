@@ -532,12 +532,15 @@ class NetworkRepository {
     ];
   }
 
-  /// My lists; with [item] (`movie:550`), which ones have it.
-  Future<List<SocialList>> myLists({String? item}) async =>
-      _list((await _api.get('/social/lists', query: {'item': item}))['data'], SocialList.fromJson);
+  /// A page of my lists (20); with [item] (`movie:550`), which ones have it.
+  Future<Paged<SocialList>> myLists({String? item, int page = 1}) async =>
+      Paged.fromJson(await _api.get('/social/lists', query: {'item': item, 'page': page}), SocialList.fromJson);
 
-  Future<List<SocialList>> memberLists(String username) async =>
-      _list((await _api.get('/social/profiles/${_user(username)}/lists'))['data'], SocialList.fromJson);
+  /// A page of a member's lists (20).
+  Future<Paged<SocialList>> memberLists(String username, {int page = 1}) async => Paged.fromJson(
+    await _api.get('/social/profiles/${_user(username)}/lists', query: {'page': page}),
+    SocialList.fromJson,
+  );
 
   Future<SocialList> list(int id) async =>
       SocialList.fromJson((await _api.get('/social/lists/$id'))['data'] as Map<String, dynamic>);
@@ -721,7 +724,7 @@ class Feed extends AsyncNotifier<FeedPage> {
       if (!ref.mounted) return;
       state = AsyncData((items: [...current.items, ...page.items], next: page.next));
     } catch (_) {
-      // Kept as it is: « Afficher plus » tries again.
+      // Kept as it is: scrolling again tries again.
     } finally {
       _loading = false;
     }
@@ -758,15 +761,15 @@ final suggestionsProvider = FutureProvider.autoDispose<List<Suggestion>>(
   (ref) => ref.read(networkRepositoryProvider).suggestions(),
 );
 
-/// My lists; with an item id (`movie:550`), which ones have it.
-final myListsProvider = FutureProvider.autoDispose.family<List<SocialList>, String?>((ref, item) {
+/// A page of my lists (item, page); with an item id (`movie:550`), which ones have it.
+final myListsProvider = FutureProvider.autoDispose.family<Paged<SocialList>, (String?, int)>((ref, key) {
   ref.watch(sessionProvider.select((s) => s.profile?.id));
-  return ref.read(networkRepositoryProvider).myLists(item: item);
+  return ref.read(networkRepositoryProvider).myLists(item: key.$1, page: key.$2);
 });
 
-/// A member's lists.
-final memberListsProvider = FutureProvider.autoDispose.family<List<SocialList>, String>(
-  (ref, username) => ref.read(networkRepositoryProvider).memberLists(username),
+/// A page of a member's lists (username, page).
+final memberListsProvider = FutureProvider.autoDispose.family<Paged<SocialList>, MemberPage>(
+  (ref, key) => ref.read(networkRepositoryProvider).memberLists(key.$1, page: key.$2),
 );
 
 /// A list, with its titles.
@@ -816,7 +819,7 @@ class ProfileActivity extends AsyncNotifier<FeedPage> {
       if (!ref.mounted) return;
       state = AsyncData((items: [...current.items, ...page.items], next: page.next));
     } catch (_) {
-      // Kept as it is: « Afficher plus » tries again.
+      // Kept as it is: scrolling again tries again.
     } finally {
       _loading = false;
     }

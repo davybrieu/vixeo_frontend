@@ -354,7 +354,7 @@ void main() {
             sessionProvider.overrideWith(_Session.new),
             libraryProvider.overrideWith(_NoLibrary.new),
             allGenresProvider.overrideWith((ref) async => const {MediaType.movie: <Genre>[], MediaType.tv: <Genre>[]}),
-            socialTitlesProvider.overrideWith((ref, username) async => const [a, b, c]),
+            socialTitlesProvider.overrideWith((ref, key) async => const Paged(items: [a, b, c])),
             titlesByIdProvider.overrideWith((ref, key) async => details),
           ],
           child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: MyListScreen(username: 'max'))),

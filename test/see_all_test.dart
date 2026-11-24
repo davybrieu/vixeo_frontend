@@ -135,16 +135,28 @@ void main() {
   });
 
   testWidgets('title page: « Créateur et distribution » opens everyone, the director first', (tester) async {
+    final asked = <int>[];
     await _pump(
       tester,
       '/titre/movie/550',
       overrides: [
-        titleCreditsProvider.overrideWith(
-          (ref, key) async => TitleCredits(
-            crew: const [Person(id: 9, name: 'Ines Dahl')],
-            cast: [for (var i = 1; i <= 25; i++) Person(id: i, name: 'Acteur $i', role: 'Rôle $i')],
-          ),
-        ),
+        // Two pages of 20: the director and 19 actors, then 6 more actors.
+        titleCreditsProvider.overrideWith((ref, key) async {
+          asked.add(key.$3);
+          return key.$3 == 1
+              ? Paged(
+                  items: [
+                    const Person(id: 9, name: 'Ines Dahl', role: 'Réalisation'),
+                    for (var i = 1; i <= 19; i++) Person(id: i, name: 'Acteur $i', role: 'Rôle $i'),
+                  ],
+                  totalPages: 2,
+                )
+              : Paged(
+                  items: [for (var i = 20; i <= 25; i++) Person(id: i, name: 'Acteur $i', role: 'Rôle $i')],
+                  page: 2,
+                  totalPages: 2,
+                );
+        }),
       ],
     );
 
@@ -157,10 +169,13 @@ void main() {
     final cards = tester.widgetList<PersonCard>(find.byType(PersonCard)).toList();
     expect('${cards.first.person.name} (${cards.first.role})', 'Ines Dahl (Réalisation)');
     expect('${cards[1].person.name} (${cards[1].role})', 'Acteur 1 (Rôle 1)');
+    // 20 people first.
+    expect(asked, [1]);
 
-    // The whole cast, further down the grid.
+    // The rest of the cast, read as the grid scrolls.
     await tester.scrollUntilVisible(find.text('Acteur 25'), 300, scrollable: _pageScroll);
     expect(find.text('Rôle 25'), findsOneWidget);
+    expect(asked, [1, 2]);
   });
 
   testWidgets('person page: the filmography is a horizontal row, like « Connu pour »', (tester) async {
@@ -181,11 +196,13 @@ void main() {
   });
 
   testWidgets('person page: « Connu pour » and « Filmographie » open every title', (tester) async {
-    final asked = <(int, PersonCreditsSort)>[];
+    final asked = <(int, PersonCreditsSort, int)>[];
     final overrides = <Override>[
       personCreditsProvider.overrideWith((ref, key) async {
         asked.add(key);
-        return [for (var i = 1; i <= 3; i++) _movie(200 + i, key.$2 == PersonCreditsSort.popular ? 'Célèbre $i' : 'Récent $i')];
+        return Paged(
+          items: [for (var i = 1; i <= 3; i++) _movie(200 + i, key.$2 == PersonCreditsSort.popular ? 'Célèbre $i' : 'Récent $i')],
+        );
       }),
     ];
 
@@ -203,6 +220,6 @@ void main() {
     expect(find.text('Filmographie'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Récent 1')), findsOneWidget);
 
-    expect(asked, [(287, PersonCreditsSort.popular), (287, PersonCreditsSort.date)]);
+    expect(asked, [(287, PersonCreditsSort.popular, 1), (287, PersonCreditsSort.date, 1)]);
   });
 }

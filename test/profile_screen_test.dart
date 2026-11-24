@@ -94,18 +94,26 @@ class _Tmdb extends TmdbRepository {
   _Tmdb() : super(ApiClient(token: () => null, profileId: () => null));
 
   @override
-  Future<List<RatedItem>> reviews(int profileId) async => [
-    for (var i = 1; i <= 5; i++)
-      RatedItem(
-        type: RatedType.movie,
-        id: i,
-        title: 'Film noté $i',
-        value: 7,
-        comment: i == 1 ? 'Superbe.' : null,
-        reviewId: 100 + i,
-        likesCount: i == 1 ? 4 : 0,
-      ),
-  ];
+  Future<Paged<RatedItem>> reviews(
+    int profileId, {
+    RatedType? type,
+    RatedOrder order = RatedOrder.recent,
+    int page = 1,
+  }) async => Paged(
+    items: [
+      for (var i = 1; i <= 5; i++)
+        RatedItem(
+          type: RatedType.movie,
+          id: i,
+          title: 'Film noté $i',
+          value: 7,
+          comment: i == 1 ? 'Superbe.' : null,
+          reviewId: 100 + i,
+          likesCount: i == 1 ? 4 : 0,
+        ),
+    ],
+    totalResults: 5,
+  );
 }
 
 const _social = SocialProfile(
@@ -150,10 +158,10 @@ class _FakeNetwork extends NetworkRepository {
   ];
 
   @override
-  Future<List<SocialList>> myLists({String? item}) async => _lists;
+  Future<Paged<SocialList>> myLists({String? item, int page = 1}) async => Paged(items: _lists);
 
   @override
-  Future<List<SocialList>> memberLists(String username) async => _lists;
+  Future<Paged<SocialList>> memberLists(String username, {int page = 1}) async => Paged(items: _lists);
 }
 
 /// Opens the tab [label] of a profile page (« Activité », « Listes », « Avis », « Aimés », « Vus »).
@@ -378,10 +386,10 @@ void main() {
         overrides: <Override>[
           sessionProvider.overrideWith(_Signed.new),
           socialReviewsProvider.overrideWith(
-            (ref, username) async => const [
+            (ref, key) async => const Paged(items: [
               RatedItem(type: RatedType.movie, id: 1, title: 'Dune', value: 6),
               RatedItem(type: RatedType.tv, id: 2, title: 'Les Hautes Terres', value: 9, comment: 'Superbe.'),
-            ],
+            ]),
           ),
         ],
         child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: ReviewsScreen(username: 'max'))),
@@ -411,6 +419,92 @@ void main() {
     expect(find.text('Dune'), findsOneWidget);
   });
 
+  testWidgets('a member\'s followers and « À voir »: 20 first, the next ones as the page scrolls', (tester) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final asked = <String>[];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          sessionProvider.overrideWith(_Signed.new),
+          libraryProvider.overrideWith(_Library.new),
+          allGenresProvider.overrideWith((ref) async => const {MediaType.movie: <Genre>[], MediaType.tv: <Genre>[]}),
+          socialConnectionsProvider.overrideWith((ref, key) async {
+            asked.add('followers ${key.page}');
+            final first = (key.page - 1) * 20 + 1;
+            final last = key.page == 1 ? 20 : 25;
+            return Paged(
+              items: [
+                for (var i = first; i <= last; i++) SocialProfile(id: 100 + i, username: 'fan$i', name: 'Fan $i'),
+              ],
+              page: key.page,
+              totalPages: 2,
+            );
+          }),
+          socialTitlesProvider.overrideWith((ref, key) async {
+            asked.add('à voir ${key.$2}');
+            final first = (key.$2 - 1) * 20 + 1;
+            final last = key.$2 == 1 ? 20 : 23;
+            return Paged(
+              items: [for (var i = first; i <= last; i++) MediaItem(id: i, type: MediaType.movie, title: 'Film $i')],
+              page: key.$2,
+              totalPages: 2,
+            );
+          }),
+          titlesByIdProvider.overrideWith((ref, key) async {
+            asked.add('titles ${key.split(',').length}');
+            return const <TitleRef, MediaItem>{};
+          }),
+        ],
+        child: MaterialApp(
+          theme: buildVixeoTheme(),
+          home: const SocialCollectionScreen(section: 'abonnes', username: 'max'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(asked, ['followers 1']);
+    expect(find.text('Fan 1'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Fan 25'), 400, scrollable: find.byType(Scrollable).last);
+    expect(asked, ['followers 1', 'followers 2']);
+
+    asked.clear();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          sessionProvider.overrideWith(_Signed.new),
+          libraryProvider.overrideWith(_Library.new),
+          allGenresProvider.overrideWith((ref) async => const {MediaType.movie: <Genre>[], MediaType.tv: <Genre>[]}),
+          socialTitlesProvider.overrideWith((ref, key) async {
+            asked.add('à voir ${key.$2}');
+            final first = (key.$2 - 1) * 20 + 1;
+            final last = key.$2 == 1 ? 20 : 23;
+            return Paged(
+              items: [for (var i = first; i <= last; i++) MediaItem(id: i, type: MediaType.movie, title: 'Film $i')],
+              page: key.$2,
+              totalPages: 2,
+            );
+          }),
+          titlesByIdProvider.overrideWith((ref, key) async {
+            asked.add('titles ${key.split(',').length}');
+            return const <TitleRef, MediaItem>{};
+          }),
+        ],
+        child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: MyListScreen(username: 'max'))),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // The first page, and the catalog's details of its 20 titles in one request.
+    expect(asked, ['à voir 1', 'titles 20']);
+    await tester.scrollUntilVisible(
+      find.bySemanticsLabel(RegExp(r'^Film 23\b')),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(asked, ['à voir 1', 'titles 20', 'à voir 2', 'titles 3']);
+  });
+
   testWidgets('a member\'s « À voir », with the search and the filters of mine', (tester) async {
     tester.view.physicalSize = const Size(430, 1400);
     tester.view.devicePixelRatio = 1;
@@ -422,10 +516,10 @@ void main() {
           libraryProvider.overrideWith(_Library.new),
           allGenresProvider.overrideWith((ref) async => const {MediaType.movie: <Genre>[], MediaType.tv: <Genre>[]}),
           socialTitlesProvider.overrideWith(
-            (ref, username) async => const [
+            (ref, key) async => const Paged(items: [
               MediaItem(id: 1, type: MediaType.movie, title: 'Dune', year: 2021),
               MediaItem(id: 2, type: MediaType.tv, title: 'Les Hautes Terres', year: 2011),
-            ],
+            ]),
           ),
           titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
         ],
@@ -543,11 +637,11 @@ void main() {
           linkSharerProvider.overrideWithValue(sharer),
           socialProfileProvider.overrideWith((ref, username) async => shared),
           networkRepositoryProvider.overrideWithValue(_FakeNetwork()),
-          socialTitlesProvider.overrideWith((ref, username) async => const <MediaItem>[]),
-          socialLikedProvider.overrideWith((ref, username) async => const <MediaItem>[]),
-          socialWatchedProvider.overrideWith((ref, username) async => const <MediaItem>[]),
-          socialPeopleProvider.overrideWith((ref, username) async => const <Person>[]),
-          socialReviewsProvider.overrideWith((ref, username) async => const <RatedItem>[]),
+          socialTitlesProvider.overrideWith((ref, key) async => const Paged<MediaItem>(items: [])),
+          socialLikedProvider.overrideWith((ref, key) async => const Paged<MediaItem>(items: [])),
+          socialWatchedProvider.overrideWith((ref, key) async => const Paged<MediaItem>(items: [])),
+          socialPeopleProvider.overrideWith((ref, key) async => const Paged<Person>(items: [])),
+          socialReviewsProvider.overrideWith((ref, key) async => const Paged<RatedItem>(items: [])),
           titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
         ],
         child: MaterialApp(theme: buildVixeoTheme(), home: const PublicProfileScreen(username: 'max')),
@@ -844,21 +938,21 @@ Future<_FakeSocial> _pumpMember(
         socialRepositoryProvider.overrideWithValue(social),
         networkRepositoryProvider.overrideWithValue(_FakeNetwork()),
         socialWatchedProvider.overrideWith(
-          (ref, username) async => const [MediaItem(id: 238, type: MediaType.movie, title: 'Le Parrain', year: 1972)],
+          (ref, key) async => const Paged(items: [MediaItem(id: 238, type: MediaType.movie, title: 'Le Parrain', year: 1972)]),
         ),
         socialProfileProvider.overrideWith((ref, username) async => member),
         socialTitlesProvider.overrideWith(
-          (ref, username) async => const [MediaItem(id: 438631, type: MediaType.movie, title: 'Dune', year: 2021)],
+          (ref, key) async => const Paged(items: [MediaItem(id: 438631, type: MediaType.movie, title: 'Dune', year: 2021)]),
         ),
         socialReviewsProvider.overrideWith(
-          (ref, username) async => const [
+          (ref, key) async => const Paged(items: [
             RatedItem(type: RatedType.movie, id: 550, title: 'Fight Club', value: 9, reviewId: 31, likesCount: 2),
-          ],
+          ]),
         ),
         socialLikedProvider.overrideWith(
-          (ref, username) async => const [MediaItem(id: 13, type: MediaType.movie, title: 'Forrest Gump', year: 1994)],
+          (ref, key) async => const Paged(items: [MediaItem(id: 13, type: MediaType.movie, title: 'Forrest Gump', year: 1994)]),
         ),
-        socialPeopleProvider.overrideWith((ref, username) async => const [Person(id: 287, name: 'Brad Pitt')]),
+        socialPeopleProvider.overrideWith((ref, key) async => const Paged(items: [Person(id: 287, name: 'Brad Pitt')])),
         titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
       ],
       child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),

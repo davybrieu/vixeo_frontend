@@ -568,25 +568,50 @@ class _PosterGridDelegate extends SliverGridDelegate {
 
 /// Grid of title cards (À voir, genres), following the profile's poster format.
 class PosterGrid extends ConsumerWidget {
-  const PosterGrid({super.key, required this.items, this.padding, this.alwaysScrollable = false});
+  const PosterGrid({
+    super.key,
+    required this.items,
+    this.padding,
+    this.alwaysScrollable = false,
+    this.onBuild,
+    this.footer,
+  });
 
   final List<MediaItem> items;
   final EdgeInsetsGeometry? padding;
   final bool alwaysScrollable;
 
+  /// Called with the index of each card built: near the end, the page reads the next titles.
+  final void Function(int index)? onBuild;
+
+  /// Under the cards: the next titles coming, « Réessayer »…
+  final Widget? footer;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final format = posterFormatOf(ref);
-    return GridView.builder(
+    final resolved = (padding ?? EdgeInsets.all(layout.gutter)).resolve(Directionality.of(context));
+    return CustomScrollView(
       physics: alwaysScrollable ? const AlwaysScrollableScrollPhysics() : null,
-      padding: padding ?? EdgeInsets.all(layout.gutter),
-      gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
-      itemCount: items.length,
-      itemBuilder: (context, i) => LayoutBuilder(
-        builder: (context, c) =>
-            PosterCard(item: items[i], width: c.maxWidth, format: format, autofocus: i == 0 && layout.isLarge),
-      ),
+      slivers: [
+        SliverPadding(
+          padding: resolved.copyWith(bottom: 0),
+          sliver: SliverGrid.builder(
+            gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
+            itemCount: items.length,
+            itemBuilder: (context, i) {
+              onBuild?.call(i);
+              return LayoutBuilder(
+                builder: (context, c) =>
+                    PosterCard(item: items[i], width: c.maxWidth, format: format, autofocus: i == 0 && layout.isLarge),
+              );
+            },
+          ),
+        ),
+        if (footer case final footer?) SliverToBoxAdapter(child: footer),
+        SliverToBoxAdapter(child: SizedBox(height: resolved.bottom)),
+      ],
     );
   }
 }

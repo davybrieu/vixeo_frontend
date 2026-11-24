@@ -51,12 +51,12 @@ class CatalogRepository {
   Future<PersonDetails> person(int id) async =>
       PersonDetails.fromJson((await _api.get('/catalog/person/$id'))['data'] as Map<String, dynamic>);
 
-  /// Every title of a person, each once: « Connu pour » or « Filmographie » → « Voir tout » (the
-  /// person page only has their start).
-  Future<List<MediaItem>> personCredits(int id, PersonCreditsSort sort) async {
-    final json = await _api.get('/catalog/person/$id/credits', query: {'sort': sort.name});
-    return (json['data'] as List).whereType<Map<String, dynamic>>().map(MediaItem.fromJson).toList();
-  }
+  /// One page (20 titles) of a person's titles, each once: « Connu pour » or « Filmographie » →
+  /// « Voir tout » (the person page has the first 20).
+  Future<Paged<MediaItem>> personCredits(int id, PersonCreditsSort sort, {int page = 1}) async => Paged.fromJson(
+    await _api.get('/catalog/person/$id/credits', query: {'sort': sort.name, 'page': page}),
+    MediaItem.fromJson,
+  );
 
   /// One page of « Vous pourriez aussi aimer » (the title page has the first 20).
   Future<Paged<MediaItem>> recommendations(MediaType type, int id, {int page = 1}) async => Paged.fromJson(
@@ -64,9 +64,24 @@ class CatalogRepository {
     MediaItem.fromJson,
   );
 
-  /// Everyone of « Créateur et distribution » (the title page has 20 cast members).
-  Future<TitleCredits> credits(MediaType type, int id) async =>
-      TitleCredits.fromJson((await _api.get('/catalog/${type.name}/$id/credits'))['data'] as Map<String, dynamic>);
+  /// One page of « Créateur et distribution » → « Voir tout »: the directors (movie) or creators
+  /// (TV show) first, on the first page, their role « Réalisation » / « Création »; then 20 cast
+  /// members a page, their role the character.
+  Future<Paged<Person>> credits(MediaType type, int id, {int page = 1}) async {
+    final json = await _api.get('/catalog/${type.name}/$id/credits', query: {'page': page});
+    final credits = TitleCredits.fromJson(json['data'] as Map<String, dynamic>);
+    final crewRole = type == MediaType.movie ? 'Réalisation' : 'Création';
+    final meta = Paged<Person>.fromJson({'meta': json['meta']}, (_) => null);
+    return Paged(
+      items: [
+        for (final p in credits.crew) Person(id: p.id, name: p.name, role: crewRole, profileUrl: p.profileUrl),
+        ...credits.cast,
+      ],
+      page: meta.page,
+      totalPages: meta.totalPages,
+      totalResults: meta.totalResults,
+    );
+  }
 
   /// Movies, TV shows and people at once. With filters or another order than relevance, the
   /// API filters and sorts the first results (and leaves people out when a filter is set).
@@ -163,10 +178,14 @@ final personProvider = FutureProvider.autoDispose.family<PersonDetails, int>((re
   return ref.read(catalogRepositoryProvider).person(id);
 });
 
-/// Every title of a person (id, order): « Voir tout » of « Connu pour » and « Filmographie ».
-final personCreditsProvider = FutureProvider.autoDispose.family<List<MediaItem>, (int, PersonCreditsSort)>((ref, key) {
+/// One page of a person's titles (id, order, page): « Voir tout » of « Connu pour » and
+/// « Filmographie ».
+final personCreditsProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, (int, PersonCreditsSort, int)>((
+  ref,
+  key,
+) {
   ref.watch(_profileIdProvider);
-  return ref.read(catalogRepositoryProvider).personCredits(key.$1, key.$2);
+  return ref.read(catalogRepositoryProvider).personCredits(key.$1, key.$2, page: key.$3);
 });
 
 /// One page of « Vous pourriez aussi aimer » (type, id, page): its « Voir tout » page.
@@ -175,10 +194,11 @@ final recommendationsProvider = FutureProvider.autoDispose.family<Paged<MediaIte
   return ref.read(catalogRepositoryProvider).recommendations(key.$1, key.$2, page: key.$3);
 });
 
-/// Everyone of a title (type, id): « Voir tout » of « Créateur et distribution ».
-final titleCreditsProvider = FutureProvider.autoDispose.family<TitleCredits, (MediaType, int)>((ref, key) {
+/// One page of the people of a title (type, id, page): « Voir tout » of « Créateur et
+/// distribution ».
+final titleCreditsProvider = FutureProvider.autoDispose.family<Paged<Person>, (MediaType, int, int)>((ref, key) {
   ref.watch(_profileIdProvider);
-  return ref.read(catalogRepositoryProvider).credits(key.$1, key.$2);
+  return ref.read(catalogRepositoryProvider).credits(key.$1, key.$2, page: key.$3);
 });
 
 final searchProvider = FutureProvider.autoDispose.family<SearchResults, (String, SearchFilters)>((ref, key) {

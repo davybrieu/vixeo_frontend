@@ -223,20 +223,29 @@ class TitleSummary {
 }
 
 class Paged<T> {
-  const Paged({required this.items, this.page = 1, this.totalPages = 1});
+  const Paged({required this.items, this.page = 1, this.totalPages = 1, this.totalResults});
 
-  factory Paged.fromJson(Map<String, dynamic> json, T Function(Map<String, dynamic>) parse) {
+  /// `meta` of the catalog (`page`, `total_pages`, `total_results`) or of the social network's
+  /// lists (`current_page`, `last_page`).
+  factory Paged.fromJson(Map<String, dynamic> json, T? Function(Map<String, dynamic>) parse) {
     final meta = json['meta'] is Map ? json['meta'] as Map : const {};
     return Paged(
-      items: _list(json['data'], parse),
-      page: meta['page'] as int? ?? 1,
-      totalPages: meta['total_pages'] as int? ?? 1,
+      items: [
+        for (final item in json['data'] is List ? json['data'] as List : const [])
+          if (item is Map<String, dynamic>) ?parse(item),
+      ],
+      page: (meta['page'] ?? meta['current_page']) as int? ?? 1,
+      totalPages: (meta['total_pages'] ?? meta['last_page']) as int? ?? 1,
+      totalResults: meta['total_results'] as int?,
     );
   }
 
   final List<T> items;
   final int page;
   final int totalPages;
+
+  /// Every item of the list, when the API gives it.
+  final int? totalResults;
 
   bool get hasMore => page < totalPages;
 }

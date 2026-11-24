@@ -8,6 +8,8 @@ import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../auth/session.dart';
+import '../catalog/models.dart' show Paged;
+import '../catalog/paging.dart';
 import '../tmdb/tmdb.dart' show formatScore;
 import 'actions.dart' show newListLocation;
 import 'network.dart';
@@ -22,7 +24,7 @@ import 'widgets.dart';
 String? _who(WidgetRef ref, String? username) => username ?? ref.watch(sessionProvider).profile?.username;
 
 /// Every list of a profile (`/profil/listes`, `/membre/:username/listes`): « À voir » first (it
-/// can't be deleted), then the others.
+/// can't be deleted), then the others, 20 at a time (the next ones as the page scrolls).
 class ProfileListsScreen extends ConsumerWidget {
   const ProfileListsScreen({super.key, this.username});
 
@@ -33,44 +35,49 @@ class ProfileListsScreen extends ConsumerWidget {
     final layout = Layout.of(context);
     final mine = username == null;
     final who = _who(ref, username) ?? '';
-    final lists = mine ? ref.watch(myListsProvider(null)) : ref.watch(memberListsProvider(who));
-    final value = lists.value;
-    void reload() {
-      if (mine) {
-        ref.invalidate(myListsProvider);
-      } else {
-        ref.invalidate(memberListsProvider(who));
-      }
-    }
+    FutureProvider<Paged<SocialList>> page(int page) =>
+        mine ? myListsProvider((null, page)) : memberListsProvider((who, page));
 
-    return NetworkPage(
-      title: mine ? 'Mes listes' : 'Listes de @$who',
-      actions: [
-        if (mine)
-          VxIconAction(
-            icon: Icons.add_rounded,
-            label: 'Nouvelle liste',
-            dense: true,
-            onPressed: () => context.push(newListLocation()),
-          ),
-      ],
-      onRefresh: () async {
-        reload();
-      },
-      children: [
-        if (value == null)
-          NetworkLoading(
-            error: lists.error,
-            onRetry: reload,
-          )
-        else ...[
-          WatchlistCard(username: mine ? null : who),
-          for (final list in value) ...[
-            SizedBox(height: layout.listGap),
-            ListPost(list: list, showAuthor: false),
+    return PagedBuilder<SocialList>(
+      page: page,
+      builder: (context, pages, nearEnd) => LoadMoreOnScroll(
+        // The lists are built at once: the next page when the end of the page comes into view.
+        onEnd: pages.complete ? null : () => nearEnd(pages.items.length, pages.items.length),
+        child: NetworkPage(
+          title: mine ? 'Mes listes' : 'Listes de @$who',
+          actions: [
+            if (mine)
+              VxIconAction(
+                icon: Icons.add_rounded,
+                label: 'Nouvelle liste',
+                dense: true,
+                onPressed: () => context.push(newListLocation()),
+              ),
           ],
-        ],
-      ],
+          onRefresh: () async {
+            if (mine) {
+              ref.invalidate(myListsProvider);
+            } else {
+              ref.invalidate(memberListsProvider);
+            }
+          },
+          children: [
+            if (pages.loaded == 0)
+              NetworkLoading(
+                error: pages.error,
+                onRetry: () => ref.invalidate(page(1)),
+              )
+            else ...[
+              WatchlistCard(username: mine ? null : who),
+              for (final list in pages.items) ...[
+                SizedBox(height: layout.listGap),
+                ListPost(list: list, showAuthor: false),
+              ],
+              PagedFooter(pages: pages, page: page),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

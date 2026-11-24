@@ -42,11 +42,6 @@ class Favorites extends LibraryController {
   });
 }
 
-class NoReviews extends Reviews {
-  @override
-  Future<List<RatedItem>> build() async => const [];
-}
-
 /// Signed in with a profile, no storage, no network.
 class WithProfile extends SessionController {
   @override
@@ -106,7 +101,7 @@ Future<void> pumpPage(
           };
         }),
         libraryProvider.overrideWith(Favorites.new),
-        reviewsProvider.overrideWith(NoReviews.new),
+        myReviewsProvider.overrideWith((ref, key) async => const Paged<RatedItem>(items: [])),
         ...overrides,
       ],
       child: MaterialApp(

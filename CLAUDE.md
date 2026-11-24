@@ -416,8 +416,23 @@ lib/
   d'abord, puis toute la distribution, `titleCreditsProvider`), « Connu pour » et
   « Filmographie » (`PersonTitlesScreen`, `/personne/:id/connu-pour` et `/filmographie`, tous les
   titres, `personCreditsProvider`). Mêmes pages que « Voir tout » de l'accueil (`_SeeAllPage` :
-  retour, titre, grille). **La filmographie est une rangée horizontale** comme les autres
-  (`PosterRow`, 20 titres, plus de grille sur la page). Test : `test/see_all_test.dart`.
+  retour, titre, grille `PagedGrid` : **20 d'abord, les suivants en défilant**, voir « Pages de
+  20 »). **La filmographie est une rangée horizontale** comme les autres (`PosterRow`, les 20
+  titres que donne la page d'une personne, plus de grille sur la page). Test :
+  `test/see_all_test.dart`.
+- **Pages de 20** (demande du développeur, 24/11/2026 : « éviter les trop grosses requêtes ») :
+  **toute liste longue se lit 20 éléments à la fois**, la page suivante quand la fin approche en
+  défilant (`catalog/paging.dart` : `pageSize`, un provider par page comme `PagedGrid`,
+  `PagedBuilder` / `watchPages`, `PagedFooter` (cercle ou « Réessayer » sous la liste),
+  `LoadMoreOnScroll` et `LoadMoreSentinel` pour une liste construite d'un coup ; jamais de bouton
+  « Afficher plus ») : « Voir tout » du catalogue, distribution, titres d'une personne, pages d'un
+  membre (« À voir », J'aime, vus, personnes, avis, abonnés, abonnements, listes), mes listes (et
+  « Ajouter à une liste »), « Mes avis » (l'API filtre le type et trie, `myReviewsProvider`),
+  notifications, activité d'un profil, fil, commentaires, messages. Mes « À voir », J'aime et vus
+  viennent de la synchro (tous sur l'appareil) : leurs fiches (`/catalog/titles`) sont demandées
+  **20 titres à la fois**, au fil du défilement. Une recherche, un filtre ou un tri que l'API ne
+  fait pas lit toutes les pages, **l'une après l'autre** (20 par requête). Tests :
+  `test/see_all_test.dart`, `test/profile_screen_test.dart`, `test/tmdb_test.dart`.
 - **Page « Chaînes TV »** (`/chaines-tv`, `TvChannelsScreen` ; demande du développeur : comme
   l'accueil) : une **rangée par catégorie** (`channelCategorySections`, `tvChannelRowsProvider` :
   catégories et chaînes demandées une fois, 24 chaînes par rangée, catégorie vide masquée), avec
@@ -451,7 +466,7 @@ lib/
   `followRequestsProvider`), puis les prochains épisodes des séries « À voir » (le plus proche
   d'abord ; `_EpisodeTile` : image, série, « Saison 2, épisode 5 · Titre », « Demain à 21:00 » en
   vert ; `episodeCalendarProvider`, `GET /notifications/episodes`), puis ce qui s'est passé, le plus
-  récent d'abord : l'activité des membres (`activityFeedProvider`, 30 par page, « Afficher plus » :
+  récent d'abord : l'activité des membres (`activityFeedProvider`, 20 par page, chargées en défilant :
   avatar, « **Max** vous suit. », « … aime votre avis sur Dune. », « il y a 5 min », point vert tant
   que non lue ; les demandes n'y sont pas une deuxième fois) mêlée aux épisodes sortis cette
   semaine (« Sorti hier »). Rien : l'`EmptyState` du « Fil d'actualité » (« Aucune
@@ -669,7 +684,7 @@ lib/
     (supprimé le 23/11/2026, ni page ni adresse). **Activité** (`ProfileActivitySection`,
     `activityProvider`, `GET /social/profiles/{pseudo}/activity`) : « la liste de tes actions avec
     la date » : avis, listes, titres vus et aimés sous leur jour (« Aujourd’hui », « Mercredi
-    12 mars 2025 »), chacun avec son heure (`ActivityRow`), « Afficher plus ». **Listes** :
+    12 mars 2025 »), chacun avec son heure (`ActivityRow`), 20 par page en défilant. **Listes** :
     « À voir » puis les listes (`ProfileListsSection`, « Nouvelle liste »). **Avis** : les 10
     derniers. **Aimés** : grille des J'aime (`ProfileTitlesSection(grid: true)`) et personnes
     suivies. **Vus** : « Mon année 2026 » et grille des titres vus (`LibraryState.watched`, un
@@ -777,9 +792,10 @@ lib/
   du développeur) : un appui ouvre « Mon avis » (`ReviewScreen`, `/avis/movie/550`,
   `/avis/tv/1399`), où l'on change les étoiles et le commentaire (`RatingForm`,
   la même page que « Noter », `RatingSubject.of(item)`) ; « Enregistrer » et « Supprimer »
-  (confirmation) ramènent à la liste, « Voir la fiche » ouvre le titre. Toutes les notes sont chargées d'un coup
-  (`reviewsProvider`). Toute écriture passe par `TmdbRatings`, qui rafraîchit la fiche et
-  « Avis ». Les notes vont de 0,5 à 10.
+  (confirmation) ramènent à la liste, « Voir la fiche » ouvre le titre. Les avis arrivent 20 par
+  20 en défilant (`myReviewsProvider` : type et tri par l'API ; recherche, années, note et tri par
+  titre : toutes les pages, l'une après l'autre). Toute écriture passe par `TmdbRatings`, qui
+  rafraîchit la fiche et « Avis ». Les notes vont de 0,5 à 10.
 - **Notes des titres : IMDb, sinon TMDb** (`features/ratings`, demande du développeur,
   21/11/2026 ; API : `vixeo_backend/docs/notes.md`). **Plus de « Source des notes »** (supprimé le
   21/11/2026 : réglage `rating_source`, `RatingSource`, `RatingsLoader`). **Les autres sites
@@ -906,8 +922,8 @@ lib/
   libellé pour les lecteurs d'écran. En horizontal, le logo du
   titre s'affiche quand le titre le donne (rangées de l'accueil) : **jamais de requête de fiche par
   carte** (`titleProvider` dans `PosterCard` = une requête par titre affiché, au-delà de la limite
-  de l'API). « À voir » demande tous ses titres en une requête (`titlesByIdProvider`, API
-  `/catalog/titles`). Sur une carte horizontale, le logo est demandé en w300 (`cardLogoUrl`) et
+  de l'API). « À voir » demande ses titres 20 à la fois, au fil du défilement (`titlesByIdProvider`,
+  API `/catalog/titles`). Sur une carte horizontale, le logo est demandé en w300 (`cardLogoUrl`) et
   apparaît avec l'image (`ImagesTogether` : les deux une fois chargées), jamais après. Badge « Ma
   liste » sur l'affiche, « vu » dans le libellé. Titre de rangée et lien « Voir tout » :
   `SectionHeader(title, onSeeAll: …)`. Pages principales (Recherche, « À voir », Avis) : même en-tête
@@ -957,8 +973,8 @@ lib/
   (`ReviewsScreen(username:)`), avec recherche, filtres et tri (demande du développeur) ;
   `SocialCollectionScreen` n'affiche lui-même que les abonnés / abonnements et les personnes. Ouvertes par-dessus une autre page, elles ont le bouton retour de
   `VxPageHeader(back:)` (`VxBackButton`) ; pas les onglets. Un avis d'un membre (`ReviewRow(mine: false)`) ouvre la fiche du
-  titre, pas « Mon avis ». Le mien : liste et avis des providers locaux (`libraryProvider`,
-  `reviewsProvider`). Un membre :
+  titre, pas « Mon avis ». Le mien : liste de la synchro (`libraryProvider`) et première page de
+  mes avis (`myReviewsProvider`). Un membre (première page de chacun) :
   `socialProfileProvider`, `socialTitlesProvider`, `socialWatchedProvider`, `socialReviewsProvider` (API
   `/social/profiles/{username}…` ; les avis ont les champs de « Mes avis »). Profil enfant : pas
   de page. **Comptes** (recherche, abonnés) : `AccountTile` = avatar, nom, @pseudo, **sans le

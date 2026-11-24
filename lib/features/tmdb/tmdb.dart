@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
+import '../catalog/paging.dart' show pageSize;
 import '../library/library.dart';
 
 // The active profile's reviews: a rating and an optional comment per movie, TV show or episode
@@ -259,20 +260,19 @@ class TmdbRepository {
   Future<void> unrate(int profileId, RatingTarget target) =>
       _api.delete('/profiles/$profileId/tmdb/ratings/${target.path}');
 
-  /// Every review of the profile, the most recently rated first.
-  Future<List<RatedItem>> reviews(int profileId) async {
-    final items = <RatedItem>[];
-    var page = 1;
-    while (true) {
-      final result = Paged.fromJson(
-        await _api.get('/profiles/$profileId/tmdb/ratings', query: {'per_page': 500, 'page': page}),
+  /// A page of the profile's reviews (20), of a [type] (null: every type), in an [order].
+  Future<Paged<RatedItem>> reviews(
+    int profileId, {
+    RatedType? type,
+    RatedOrder order = RatedOrder.recent,
+    int page = 1,
+  }) async => Paged.fromJson(
+        await _api.get(
+          '/profiles/$profileId/tmdb/ratings',
+          query: {'type': type?.name, 'sort': order.name, 'per_page': pageSize, 'page': page},
+        ),
         RatedItem.fromJson,
       );
-      items.addAll(result.items);
-      if (!result.hasMore || page >= 20) return items;
-      page++;
-    }
-  }
 }
 
 final tmdbRepositoryProvider = Provider<TmdbRepository>((ref) => TmdbRepository(ref.read(apiClientProvider)));
@@ -333,7 +333,8 @@ class TmdbRatings {
     } else {
       _ref.invalidate(titleRatingProvider(target));
     }
-    if (_ref.exists(reviewsProvider)) _ref.read(reviewsProvider.notifier).changed(target, rating);
+    // « Mes avis » and the profile page: read again (the pages they show).
+    _ref.invalidate(myReviewsProvider);
     if (rating != null && _ref.exists(libraryProvider)) {
       // In the background: a failed read changes nothing to the saved review.
       unawaited(_ref.read(libraryProvider.notifier).refresh().catchError((Object _) {}));
@@ -341,34 +342,17 @@ class TmdbRatings {
   }
 }
 
-/// Every review of the profile ("Mes avis"), the most recently rated first. Loaded at once: the
-/// page filters and searches them without asking the API again.
-final reviewsProvider = AsyncNotifierProvider.autoDispose<Reviews, List<RatedItem>>(Reviews.new);
+/// The orders of « Mes avis » the API applies (`sort`): the most recent first, the oldest first,
+/// the best rated first, the worst rated first.
+enum RatedOrder { recent, oldest, highest, lowest }
 
-class Reviews extends AsyncNotifier<List<RatedItem>> {
-  @override
-  Future<List<RatedItem>> build() async {
-    final profileId = ref.watch(sessionProvider.select((s) => s.profile?.id));
-    if (profileId == null || !ref.watch(canRateProvider)) return const [];
-    return ref.read(tmdbRepositoryProvider).reviews(profileId);
-  }
+/// A page of « Mes avis » (type, order, page).
+typedef MyReviewsPage = ({RatedType? type, RatedOrder order, int page});
 
-  /// A rating changed (here or on a title page): moved on top, updated, removed, or (new
-  /// rating) the list is read again.
-  void changed(RatingTarget target, MyRating? rating) {
-    final current = state.value;
-    if (current == null) return;
-    final index = current.indexWhere((i) => i.target == target);
-    if (index < 0) {
-      if (rating != null) ref.invalidateSelf();
-      return;
-    }
-    final items = [...current];
-    final item = items.removeAt(index);
-    if (rating != null) {
-      final updated = item.rated(rating);
-      items.insert(updated.ratedAt == item.ratedAt ? index : 0, updated);
-    }
-    state = AsyncData(items);
-  }
-}
+/// A page of the profile's reviews (« Mes avis », the profile page): 20 at a time, the next ones as
+/// the page scrolls.
+final myReviewsProvider = FutureProvider.autoDispose.family<Paged<RatedItem>, MyReviewsPage>((ref, key) async {
+  final profileId = ref.watch(sessionProvider.select((s) => s.profile?.id));
+  if (profileId == null || !ref.watch(canRateProvider)) return const Paged(items: []);
+  return ref.read(tmdbRepositoryProvider).reviews(profileId, type: key.type, order: key.order, page: key.page);
+});

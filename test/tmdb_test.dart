@@ -61,16 +61,47 @@ class FakeTmdb extends TmdbRepository {
   Future<void> rate(int profileId, RatingTarget target, MyRating rating) async {
     calls.add('rate ${target.path} ${rating.value}${rating.comment == null ? '' : ' « ${rating.comment} »'}');
     ratings[target.path] = rating;
+    // Like the API: the review changed, on top (rated again).
+    final index = ratedItems.indexWhere((item) => item.target == target);
+    if (index >= 0) ratedItems.insert(0, ratedItems.removeAt(index).rated(rating));
   }
 
   @override
   Future<void> unrate(int profileId, RatingTarget target) async {
     calls.add('unrate ${target.path}');
     ratings.remove(target.path);
+    ratedItems.removeWhere((item) => item.target == target);
   }
 
+  /// Pages asked (`movie recent 1`…).
+  final pages = <String>[];
+
+  /// Like the API: of a type, in an order, 20 a page.
   @override
-  Future<List<RatedItem>> reviews(int profileId) async => ratedItems;
+  Future<Paged<RatedItem>> reviews(
+    int profileId, {
+    RatedType? type,
+    RatedOrder order = RatedOrder.recent,
+    int page = 1,
+  }) async {
+    pages.add('${type?.name ?? 'all'} ${order.name} $page');
+    final items = [
+      for (final item in ratedItems)
+        if (type == null || item.type == type) item,
+    ];
+    final sorted = switch (order) {
+      RatedOrder.recent => items,
+      RatedOrder.oldest => items.reversed.toList(),
+      RatedOrder.highest => [...items]..sort((a, b) => b.value.compareTo(a.value)),
+      RatedOrder.lowest => [...items]..sort((a, b) => a.value.compareTo(b.value)),
+    };
+    return Paged(
+      items: sorted.skip((page - 1) * 20).take(20).toList(),
+      page: page,
+      totalPages: (sorted.length / 20).ceil().clamp(1, 1000).toInt(),
+      totalResults: sorted.length,
+    );
+  }
 }
 
 Future<void> pumpPage(
@@ -461,6 +492,28 @@ void main() {
       await tester.enterText(find.byType(TextField), 'introuvable');
       await tester.pumpAndSettle();
       expect(find.text('Aucun résultat'), findsOneWidget);
+    });
+
+    testWidgets('20 reviews first, the next ones as the list scrolls; the type asked to the API', (tester) async {
+      final tmdb = FakeTmdb()
+        ..ratedItems = [
+          for (var i = 1; i <= 25; i++) RatedItem(type: RatedType.movie, id: i, title: 'Film $i', value: 7),
+          episode,
+        ];
+      await pumpPage(tester, const Scaffold(body: ReviewsScreen()), tmdb: tmdb);
+
+      expect(tmdb.pages, ['all recent 1']);
+      expect(find.text('Film 1'), findsOneWidget);
+
+      await tester.scrollUntilVisible(find.text('Les Hautes Terres'), 400, scrollable: find.byType(Scrollable).last);
+      expect(tmdb.pages, ['all recent 1', 'all recent 2']);
+
+      // The type: asked to the API, from its first page.
+      await tester.tap(find.text('Épisodes'));
+      await tester.pumpAndSettle();
+      expect(tmdb.pages.last, 'episode recent 1');
+      expect(find.text('Saison 1, épisode 2 · La route'), findsOneWidget);
+      expect(find.text('Film 1'), findsNothing);
     });
 
     testWidgets('a review opens its page, where it is changed or removed', (tester) async {

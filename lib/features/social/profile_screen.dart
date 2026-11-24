@@ -12,6 +12,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
+import '../catalog/paging.dart';
 import '../catalog/widgets.dart';
 import '../library/library.dart';
 import '../library/my_list_screen.dart';
@@ -73,8 +74,9 @@ class ProfileScreen extends ConsumerWidget {
       AsyncValue(:final error?) => AsyncError<List<Person>>(error, StackTrace.empty),
       _ => const AsyncLoading<List<Person>>(),
     };
-    // « Mes avis ».
-    final reviews = ref.watch(reviewsProvider);
+    // « Mes avis »: the first page (20; the tab shows the latest ones) and how many there are.
+    final reviewsPage = ref.watch(myReviewsProvider((type: null, order: RatedOrder.recent, page: 1)));
+    final reviews = reviewsPage.whenData((page) => page.items);
     final layout = Layout.of(context);
     final year = DateTime.now().year;
 
@@ -85,7 +87,7 @@ class ProfileScreen extends ConsumerWidget {
           ref.invalidate(activityProvider(username));
           ref.invalidate(myListsProvider);
         }
-        ref.invalidate(reviewsProvider);
+        ref.invalidate(myReviewsProvider);
         await ref.read(libraryProvider.notifier).refresh();
       },
       // « Partager le profil » (not on TV), then « Paramètres » on a phone (the tab bar has 6 tabs at
@@ -127,7 +129,7 @@ class ProfileScreen extends ConsumerWidget {
         onFollowing: () => context.push('/profil/social/abonnements'),
       ),
       counters: ProfileCounters(
-        reviews: reviews.value?.length ?? social?.reviewsCount,
+        reviews: reviewsPage.value?.totalResults ?? social?.reviewsCount,
         watched: library.value?.watched.length ?? social?.watchedCount,
         titles: library.value?.toWatch.length ?? social?.listCount,
       ),
@@ -277,13 +279,13 @@ class PublicProfileScreen extends ConsumerWidget {
       body: ProfileView(
         back: true,
         onRefresh: () async {
-          ref.invalidate(memberListsProvider(username));
+          ref.invalidate(memberListsProvider);
           ref.invalidate(activityProvider(username));
-          ref.invalidate(socialTitlesProvider(username));
-          ref.invalidate(socialWatchedProvider(username));
-          ref.invalidate(socialLikedProvider(username));
-          ref.invalidate(socialPeopleProvider(username));
-          ref.invalidate(socialReviewsProvider(username));
+          ref.invalidate(socialTitlesProvider);
+          ref.invalidate(socialWatchedProvider);
+          ref.invalidate(socialLikedProvider);
+          ref.invalidate(socialPeopleProvider);
+          ref.invalidate(socialReviewsProvider);
           ref.invalidate(socialProfileProvider(username));
           await ref.read(socialProfileProvider(username).future);
         },
@@ -361,10 +363,11 @@ class PublicProfileScreen extends ConsumerWidget {
 
   /// Their activity, lists, reviews, likes (and followed people) and titles watched.
   List<ProfileTab> _tabs(BuildContext context, WidgetRef ref) {
-    final liked = ref.watch(socialLikedProvider(username));
-    final watched = ref.watch(socialWatchedProvider(username));
-    final people = ref.watch(socialPeopleProvider(username));
-    final reviews = ref.watch(socialReviewsProvider(username));
+    // The first page of each (20 items): the rest is behind « Voir tout ».
+    final liked = ref.watch(socialLikedProvider((username, 1))).whenData((page) => page.items);
+    final watched = ref.watch(socialWatchedProvider((username, 1))).whenData((page) => page.items);
+    final people = ref.watch(socialPeopleProvider((username, 1))).whenData((page) => page.items);
+    final reviews = ref.watch(socialReviewsProvider((username, 1))).whenData((page) => page.items);
     AsyncValue<List<MediaItem>> titles(AsyncValue<List<MediaItem>> value) => switch (value.value) {
       final list? => withCatalogDetails(ref, list.take(profileGridShown).toList()),
       null when value.hasError => AsyncError<List<MediaItem>>(value.error!, StackTrace.empty),
@@ -535,10 +538,11 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
       if (!mounted) return;
       // Its counters, and its lists (shown or hidden for a private account).
       ref
-        ..invalidate(socialTitlesProvider(profile.username))
-        ..invalidate(socialLikedProvider(profile.username))
-        ..invalidate(socialPeopleProvider(profile.username))
-        ..invalidate(socialReviewsProvider(profile.username));
+        ..invalidate(socialTitlesProvider)
+        ..invalidate(socialLikedProvider)
+        ..invalidate(socialWatchedProvider)
+        ..invalidate(socialPeopleProvider)
+        ..invalidate(socialReviewsProvider);
       ref.invalidate(socialProfileProvider(profile.username));
       showVxSnackOn(messenger, message);
     } on ApiException catch (e) {
@@ -647,15 +651,25 @@ class SocialCollectionScreen extends ConsumerWidget {
             Expanded(
               child: handle == null || handle.isEmpty
                   ? const EmptyState(icon: Icons.person_outline_rounded, title: 'Aucun profil choisi')
-                  : _Async(
-                      value: ref.watch(socialConnectionsProvider((username: handle, followers: followers))),
-                      empty: followers ? 'Aucun abonné pour l’instant.' : 'Aucun abonnement pour l’instant.',
-                      builder: (profiles) => ListView.separated(
-                        padding: pageContentPadding(context),
-                        itemCount: profiles.length,
-                        separatorBuilder: (_, _) => SizedBox(height: layout.listGap),
-                        itemBuilder: (_, i) =>
-                            ProfileColumn(child: AccountTile(profile: profiles[i], autofocus: i == 0)),
+                  // 20 at a time, the next ones as the list scrolls.
+                  : PagedBuilder<SocialProfile>(
+                      page: (page) =>
+                          socialConnectionsProvider((username: handle, followers: followers, page: page)),
+                      builder: (context, pages, nearEnd) => _Paged(
+                        pages: pages,
+                        page: (page) =>
+                            socialConnectionsProvider((username: handle, followers: followers, page: page)),
+                        empty: followers ? 'Aucun abonné pour l’instant.' : 'Aucun abonnement pour l’instant.',
+                        builder: (profiles, footer) => ListView.separated(
+                          padding: pageContentPadding(context),
+                          itemCount: profiles.length + 1,
+                          separatorBuilder: (_, _) => SizedBox(height: layout.listGap),
+                          itemBuilder: (_, i) {
+                            if (i == profiles.length) return footer;
+                            nearEnd(i, profiles.length);
+                            return ProfileColumn(child: AccountTile(profile: profiles[i], autofocus: i == 0));
+                          },
+                        ),
                       ),
                     ),
             ),
@@ -679,9 +693,31 @@ class _PeopleScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final member = username;
-    final AsyncValue<List<Person>> people = member == null
-        ? ref.watch(libraryProvider).whenData((state) => state.followedPeople)
-        : ref.watch(socialPeopleProvider(member));
+    Widget grid(List<Person> all, {Widget footer = const SizedBox.shrink(), void Function(int, int)? nearEnd}) =>
+        CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: pageContentPadding(context).copyWith(bottom: 0),
+              sliver: SliverGrid.builder(
+                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: PersonCard.widthOf(layout) + layout.cardGap,
+                  mainAxisExtent: PersonCard.heightOf(layout, withRole: false) + layout.cardGap,
+                ),
+                itemCount: all.length,
+                itemBuilder: (_, i) {
+                  nearEnd?.call(i, all.length);
+                  return Center(child: PersonCard(person: all[i]));
+                },
+              ),
+            ),
+            SliverToBoxAdapter(child: footer),
+            SliverToBoxAdapter(child: SizedBox(height: pageContentPadding(context).bottom)),
+          ],
+        );
+    final empty = member == null
+        ? 'Vous ne suivez personne pour l’instant.'
+        : 'Aucune personne suivie pour l’instant.';
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -702,21 +738,23 @@ class _PeopleScreen extends ConsumerWidget {
               child: Text('Personnes suivies', style: VxText.title(layout.pageTitleSize)),
             ),
             Expanded(
-              child: _Async(
-                value: people,
-                empty: member == null
-                    ? 'Vous ne suivez personne pour l’instant.'
-                    : 'Aucune personne suivie pour l’instant.',
-                builder: (all) => GridView.builder(
-                  padding: pageContentPadding(context),
-                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: PersonCard.widthOf(layout) + layout.cardGap,
-                    mainAxisExtent: PersonCard.heightOf(layout, withRole: false) + layout.cardGap,
-                  ),
-                  itemCount: all.length,
-                  itemBuilder: (_, i) => Center(child: PersonCard(person: all[i])),
-                ),
-              ),
+              // Mine: from the synced library, on this device. A member's: 20 at a time, the next
+              // ones as the grid scrolls.
+              child: member == null
+                  ? _Async(
+                      value: ref.watch(libraryProvider).whenData((state) => state.followedPeople),
+                      empty: empty,
+                      builder: grid,
+                    )
+                  : PagedBuilder<Person>(
+                      page: (page) => socialPeopleProvider((member, page)),
+                      builder: (context, pages, nearEnd) => _Paged(
+                        pages: pages,
+                        page: (page) => socialPeopleProvider((member, page)),
+                        empty: empty,
+                        builder: (people, footer) => grid(people, footer: footer, nearEnd: nearEnd),
+                      ),
+                    ),
             ),
           ],
         ),
@@ -743,5 +781,26 @@ class _Async<T> extends StatelessWidget {
     }
     if (items.isEmpty) return EmptyState(icon: Icons.inbox_outlined, title: empty);
     return builder(items);
+  }
+}
+
+/// The pages read of a list ([pages]): loading, failed, empty, or [builder] with the items and the
+/// footer to put under them (next page coming, « Réessayer »).
+class _Paged<T> extends StatelessWidget {
+  const _Paged({required this.pages, required this.page, required this.empty, required this.builder});
+
+  final PagedItems<T> pages;
+  final FutureProvider<Paged<T>> Function(int page) page;
+  final String empty;
+  final Widget Function(List<T> items, Widget footer) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    if (pages.error != null) {
+      return const EmptyState(icon: Icons.error_outline_rounded, title: 'Impossible de charger cette page');
+    }
+    if (pages.loaded == 0) return const Center(child: CircularProgressIndicator());
+    if (pages.items.isEmpty && pages.complete) return EmptyState(icon: Icons.inbox_outlined, title: empty);
+    return builder(pages.items, PagedFooter(pages: pages, page: page));
   }
 }

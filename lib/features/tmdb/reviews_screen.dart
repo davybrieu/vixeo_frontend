@@ -9,6 +9,8 @@ import '../../core/widgets/choice.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
+import '../catalog/models.dart' show Paged;
+import '../catalog/paging.dart';
 import '../catalog/widgets.dart' show titlePath;
 import '../search/filter_bar.dart';
 import '../search/search_filters.dart' show ratingRangeLabel, yearRangeLabel;
@@ -112,28 +114,45 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
       sort: _sort,
     );
 
-    Widget body;
+    // 20 reviews at a time, the next ones as the list scrolls. Mine: the API filters the type and
+    // applies the order (except by title). What the API doesn't apply (a member's filters, the text,
+    // years, rating, order by title) is applied here, on every page (one request after the other).
+    final FutureProvider<Paged<RatedItem>> Function(int page) page;
+    final bool here;
     if (member != null) {
-      body = _ReviewsList(
-        reviews: ref.watch(socialReviewsProvider(member)),
-        filters: filters,
-        mine: false,
-        onRefresh: () async {
-          ref.invalidate(socialReviewsProvider(member));
-          await ref.read(socialReviewsProvider(member).future);
-        },
-      );
+      page = (number) => socialReviewsProvider((member, number));
+      here = _filtered || _query.trim().isNotEmpty;
     } else {
-      body = _ReviewsList(
-        reviews: ref.watch(reviewsProvider),
-        filters: filters,
-        mine: true,
-        onRefresh: () async {
-          ref.invalidate(reviewsProvider);
-          await ref.read(reviewsProvider.future);
-        },
-      );
+      final order = switch (_sort) {
+        ReviewSort.oldest => RatedOrder.oldest,
+        ReviewSort.best => RatedOrder.highest,
+        ReviewSort.worst => RatedOrder.lowest,
+        ReviewSort.recent || ReviewSort.title => RatedOrder.recent,
+      };
+      page = (number) => myReviewsProvider((type: _type, order: order, page: number));
+      here = _query.trim().isNotEmpty || _hasYears || _hasRating || _sort == ReviewSort.title;
     }
+    final body = PagedBuilder<RatedItem>(
+      // Another type or order asked to the API: from its first page.
+      key: ValueKey(member == null ? (_type, _sort == ReviewSort.title ? ReviewSort.recent : _sort) : member),
+      page: page,
+      all: here,
+      builder: (context, pages, nearEnd) => _ReviewsList(
+        pages: pages,
+        page: page,
+        nearEnd: nearEnd,
+        filters: filters,
+        // Mine: already in the API's order, except by title.
+        sortHere: member != null || _sort == ReviewSort.title,
+        mine: member == null,
+        onRefresh: () async {
+          for (var p = 1; p <= pages.loaded; p++) {
+            ref.invalidate(page(p));
+          }
+          await ref.read(page(1).future);
+        },
+      ),
+    );
 
     final gap = FilterBar.gapOf(layout);
     final divider = Container(
@@ -258,7 +277,7 @@ class _ReviewFilters {
     return true;
   }
 
-  /// [items] (the most recently rated first, as the API and `reviewsProvider` keep them) in this
+  /// [items] (the most recently rated first, as the API gives them) in this
   /// order. Equal ratings stay the most recent first.
   List<RatedItem> sorted(List<RatedItem> items) {
     final rank = {for (final (i, item) in items.indexed) item: i};
@@ -274,53 +293,71 @@ class _ReviewFilters {
 }
 
 class _ReviewsList extends StatelessWidget {
-  const _ReviewsList({required this.reviews, required this.filters, required this.mine, required this.onRefresh});
+  const _ReviewsList({
+    required this.pages,
+    required this.page,
+    required this.nearEnd,
+    required this.filters,
+    required this.sortHere,
+    required this.mine,
+    required this.onRefresh,
+  });
 
-  final AsyncValue<List<RatedItem>> reviews;
+  final PagedItems<RatedItem> pages;
+  final FutureProvider<Paged<RatedItem>> Function(int page) page;
+  final void Function(int index, int count) nearEnd;
   final _ReviewFilters filters;
+
+  /// The order is applied here (not by the API).
+  final bool sortHere;
   final bool mine;
   final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
+    if (pages.error case final error?) return ErrorPanel(error: error, onRetry: onRefresh);
+    if (pages.loaded == 0) return const Center(child: CircularProgressIndicator());
 
-    return AsyncView(
-      value: reviews,
-      onRetry: onRefresh,
-      data: (all) {
-        final items = filters.sorted([
-          for (final item in all)
-            if (filters.matches(item)) item,
-        ]);
-        if (items.isEmpty) {
-          return EmptyState(
-            icon: Icons.rate_review_outlined,
-            title: all.isEmpty ? 'Aucun avis' : 'Aucun résultat',
-            message: all.isEmpty
-                ? (mine
-                      ? 'Notez un film, une série ou un épisode depuis sa fiche : votre avis apparaîtra ici.'
-                      : 'Aucun avis pour l’instant.')
-                : 'Aucun ${mine ? 'de vos avis' : 'de ses avis'} ne correspond à cette recherche ou à ces filtres.',
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: onRefresh,
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: layout.size(900, tv: 1500)),
-              child: ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: pageContentPadding(context),
-                itemCount: items.length,
-                separatorBuilder: (_, _) => SizedBox(height: layout.space(VxSpace.s)),
-                itemBuilder: (_, i) => ReviewRow(item: items[i], mine: mine),
-              ),
-            ),
+    final all = pages.items;
+    final matching = [
+      for (final item in all)
+        if (filters.matches(item)) item,
+    ];
+    final items = sortHere ? filters.sorted(matching) : matching;
+    if (items.isEmpty) {
+      // Still reading: the next pages may have some.
+      if (!pages.complete) return const Center(child: CircularProgressIndicator());
+      return EmptyState(
+        icon: Icons.rate_review_outlined,
+        title: all.isEmpty ? 'Aucun avis' : 'Aucun résultat',
+        message: all.isEmpty
+            ? (mine
+                  ? 'Notez un film, une série ou un épisode depuis sa fiche : votre avis apparaîtra ici.'
+                  : 'Aucun avis pour l’instant.')
+            : 'Aucun ${mine ? 'de vos avis' : 'de ses avis'} ne correspond à cette recherche ou à ces filtres.',
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: layout.size(900, tv: 1500)),
+          child: ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: pageContentPadding(context),
+            // The reviews, then the next page coming (or « Réessayer »).
+            itemCount: items.length + 1,
+            separatorBuilder: (_, _) => SizedBox(height: layout.space(VxSpace.s)),
+            itemBuilder: (_, i) {
+              if (i == items.length) return PagedFooter(pages: pages, page: page);
+              nearEnd(i, items.length);
+              return ReviewRow(item: items[i], mine: mine);
+            },
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

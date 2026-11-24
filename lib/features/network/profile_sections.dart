@@ -9,6 +9,7 @@ import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../catalog/models.dart';
+import '../catalog/paging.dart' show LoadMoreSentinel;
 import '../catalog/widgets.dart' show titlePath;
 import '../library/library.dart';
 import '../notifications/inbox.dart' show dayLabel, hourMinute;
@@ -62,7 +63,8 @@ class WatchlistCard extends ConsumerWidget {
       titles = ref.watch(libraryProvider).value?.toWatch;
       count = titles?.length;
     } else {
-      titles = ref.watch(socialTitlesProvider(member)).value;
+      // The first page (20): the mosaic shows 4.
+      titles = ref.watch(socialTitlesProvider((member, 1))).value?.items;
       count = ref.watch(socialProfileProvider(member)).value?.listCount ?? titles?.length;
     }
     final covers = [
@@ -131,15 +133,17 @@ class ProfileListsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final lists = mine ? ref.watch(myListsProvider(null)) : ref.watch(memberListsProvider(username));
+    // The first page (20 lists): the tab shows 5.
+    final lists = mine ? ref.watch(myListsProvider((null, 1))) : ref.watch(memberListsProvider((username, 1)));
     final title = mine ? 'Mes listes' : 'Ses listes';
-    final value = lists.value;
+    final page = lists.value;
+    final value = page?.items;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
           title,
-          onSeeAll: (value?.length ?? 0) > shown
+          onSeeAll: (value?.length ?? 0) > shown || (page?.hasMore ?? false)
               ? () => context.push(profileSectionLocation(mine ? null : username, 'listes'))
               : null,
         ),
@@ -204,7 +208,7 @@ String activityDay(DateTime at, DateTime now) {
 
 /// The « Activité » tab (developer's request, 23/11/2026: « la liste de tes actions avec la
 /// date »): what a profile did, the most recent first, under the day it was done: reviews, lists,
-/// titles watched and liked, each with its time. « Afficher plus » reads the next page. Nothing
+/// titles watched and liked, each with its time, 20 at a time (the next ones as the page scrolls). Nothing
 /// yet: the [EmptyState] of the « Fil d'actualité ».
 class ProfileActivitySection extends ConsumerWidget {
   const ProfileActivitySection({super.key, required this.username, this.mine = false});
@@ -257,14 +261,12 @@ class ProfileActivitySection extends ConsumerWidget {
               ],
               if (page.next != null) ...[
                 SizedBox(height: layout.space(VxSpace.s)),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: VxButton(
-                    label: 'Afficher plus',
-                    icon: Icons.expand_more_rounded,
-                    kind: VxButtonKind.secondary,
-                    dense: true,
-                    onPressed: () => ref.read(activityProvider(username).notifier).loadMore(),
+                // 20 at a time: the next ones as the page scrolls near the end.
+                LoadMoreSentinel(
+                  onVisible: () => ref.read(activityProvider(username).notifier).loadMore(),
+                  child: const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
                   ),
                 ),
               ],
