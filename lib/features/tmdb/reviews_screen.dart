@@ -134,7 +134,7 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
     }
     final body = PagedBuilder<RatedItem>(
       // Another type or order asked to the API: from its first page.
-      key: ValueKey(member == null ? (_type, _sort == ReviewSort.title ? ReviewSort.recent : _sort) : member),
+      key: ValueKey(member ?? (_type, _sort == ReviewSort.title ? ReviewSort.recent : _sort)),
       page: page,
       all: here,
       builder: (context, pages, nearEnd) => _ReviewsList(
