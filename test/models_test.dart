@@ -50,6 +50,11 @@ void main() {
     expect(ChatMember.fromJson({'id': 3, 'username': 'lea', 'name': 'Léa', 'photo_url': url}).photoUrl, url);
   });
 
+  test('reads how many people (actors, directors…) a member follows', () {
+    expect(SocialProfile.fromJson({'id': 3, 'username': 'lea', 'name': 'Léa', 'people_count': 8}).peopleCount, 8);
+    expect(SocialProfile.fromJson({'id': 3, 'username': 'lea', 'name': 'Léa'}).peopleCount, 0);
+  });
+
   test('reads the playback settings of a profile', () {
     final profile = Profile.fromJson({
       'id': 3,

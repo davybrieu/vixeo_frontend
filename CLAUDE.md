@@ -956,7 +956,9 @@ lib/
   `ProfileSectionMessage` / `ProfileSectionLoading`. **Modifier la page = modifier ce fichier**
   (pas de copie dans les écrans) ; chaque écran ne donne que ses données et son bouton. En haut à
   droite, **« Partager le profil »** puis « Paramètres » (le mien, téléphone) ou « … » (un membre) ;
-  avatar, nom, @pseudo, « 12 abonnés » et « 3 abonnements » (ouvrent la liste), biographie
+  **en-tête centré** (demande du développeur, 24/11/2026) : avatar, nom, @pseudo, « 12 abonnés »,
+  « 3 abonnements » et **« 8 personnes suivies »** (acteurs, réalisateurs… ; `people_count` de
+  l'API, le mien depuis la synchro ; chacun ouvre sa liste), biographie
   (**160 caractères au plus**, demande du développeur, 21/11/2026 : `BioSettingsScreen.maxLength`,
   même limite dans l'API ; rien quand il n'y en a pas) et réseaux, puis, pour un membre, le bouton
   (focus à l'arrivée) « Suivre » / « Ne plus suivre » (invité : « Se connecter pour suivre ») ;

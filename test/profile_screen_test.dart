@@ -20,6 +20,7 @@ import 'package:vixeo/features/library/my_list_screen.dart';
 import 'package:vixeo/features/network/network.dart';
 import 'package:vixeo/features/profiles/profile_settings_screen.dart';
 import 'package:vixeo/features/social/profile_screen.dart';
+import 'package:vixeo/features/social/profile_view.dart';
 import 'package:vixeo/features/social/public_profile_settings.dart';
 import 'package:vixeo/features/social/review_likes.dart';
 import 'package:vixeo/features/social/social_links.dart';
@@ -217,6 +218,12 @@ void main() {
     expect(find.text('Fan de science-fiction.'), findsOneWidget);
     expect(_pressable('12 abonnés'), findsOneWidget);
     expect(_pressable('1 abonnement'), findsOneWidget);
+    // The people followed (actors, directors…), from this device's library.
+    expect(_pressable('1 personne suivie'), findsOneWidget);
+    // The top of the page is centered.
+    final page = tester.getRect(find.byType(ProfileView));
+    expect(tester.getCenter(find.text('Léa')).dx, moreOrLessEquals(page.center.dx, epsilon: 1));
+    expect(tester.getCenter(find.text('@lea')).dx, moreOrLessEquals(page.center.dx, epsilon: 1));
     // No « Modifier le profil » (the biography and networks are in « Paramètres »), « Paramètres »
     // at the top right on a phone.
     expect(find.text('Modifier le profil'), findsNothing);
@@ -298,11 +305,16 @@ void main() {
     expect(find.text('Page vus'), findsOneWidget);
   });
 
-  testWidgets('followers open their list', (tester) async {
+  testWidgets('followers and followed people open their list', (tester) async {
     await _pump(tester);
     await tester.tap(_pressable('12 abonnés'));
     await tester.pumpAndSettle();
     expect(find.text('Page abonnes'), findsOneWidget);
+
+    await _pump(tester);
+    await tester.tap(_pressable('1 personne suivie'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page personnes'), findsOneWidget);
   });
 
   testWidgets('a member\'s page: the same page and tabs, and « Suivre »', (tester) async {
@@ -312,6 +324,7 @@ void main() {
     expect(find.text('@max'), findsOneWidget);
     expect(find.text('Cinéphile.'), findsOneWidget);
     expect(_pressable('3 abonnés'), findsOneWidget);
+    expect(_pressable('2 personnes suivies'), findsOneWidget);
     expect(find.bySemanticsLabel('À voir : 1'), findsOneWidget);
     expect(find.text('Son activité'), findsOneWidget);
     expect(find.text('Matrix'), findsOneWidget);
@@ -903,6 +916,7 @@ const _member = SocialProfile(
   reviewsCount: 1,
   watchedCount: 9,
   listCount: 1,
+  peopleCount: 2,
 );
 
 Future<_FakeSocial> _pumpMember(

@@ -152,9 +152,11 @@ class ProfileColumn extends StatelessWidget {
   }
 }
 
-/// Avatar, name, @username, followers and following, bio, then the page's button ([action]:
-/// « Suivre » of a member, which takes the focus on arrival; none on my page: its biography and
-/// networks are changed in « Paramètres »).
+/// The top of a profile page, centered (developer's request, 24/11/2026): avatar, name, @username,
+/// tastes in common, followers, following and followed people (actors, directors…: a press opens
+/// each list), bio, networks, then the page's button ([action]: « Suivre » of a member, which takes
+/// the focus on arrival; none on my page: its biography and networks are changed in
+/// « Paramètres »).
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
@@ -165,8 +167,10 @@ class ProfileHeader extends StatelessWidget {
     this.bio,
     this.followers,
     this.following,
+    this.people,
     this.onFollowers,
     this.onFollowing,
+    this.onPeople,
     this.action,
     this.onMessage,
     this.isPrivate = false,
@@ -187,8 +191,12 @@ class ProfileHeader extends StatelessWidget {
   /// Null while they load: the line is not shown yet.
   final int? followers;
   final int? following;
+
+  /// Followed people (actors, directors…); null: not shown.
+  final int? people;
   final VoidCallback? onFollowers;
   final VoidCallback? onFollowing;
+  final VoidCallback? onPeople;
   final Widget? action;
 
   /// « Envoyer un message » (a round button beside [action]); none when null (my profile, a guest,
@@ -211,120 +219,118 @@ class ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final avatar = layout.size(88, tv: 160);
+    final avatar = layout.size(104, tv: 180);
     final handle = username?.trim() ?? '';
     final text = bio?.trim() ?? '';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            AvatarTile(
-              avatarId: avatarId,
-              photoUrl: photoUrl,
-              initial: initialOf(name),
-              size: avatar,
-              radius: avatar / 2,
-            ),
-            SizedBox(width: layout.space(VxSpace.m)),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: VxText.title(layout.size(24, tv: 48)),
-                        ),
-                      ),
-                      if (isPrivate) ...[
-                        SizedBox(width: layout.space(VxSpace.xs)),
-                        Icon(
-                          Icons.lock_outline_rounded,
-                          size: layout.size(20, tv: 36),
-                          color: VxColors.textSecondary,
-                          semanticLabel: 'Compte privé',
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (handle.isNotEmpty) ...[
-                    SizedBox(height: layout.space(VxSpace.xxs)),
-                    Text(
-                      '@$handle',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: VxText.body(layout.bodySize, color: VxColors.textSecondary),
-                    ),
-                  ],
-                  if (followers != null && following != null) ...[
-                    SizedBox(height: layout.space(VxSpace.xxs)),
-                    Wrap(
-                      spacing: layout.space(VxSpace.m),
-                      children: [
-                        _FollowLink(count: followers!, one: 'abonné', many: 'abonnés', onPressed: onFollowers),
-                        _FollowLink(
-                          count: following!,
-                          one: 'abonnement',
-                          many: 'abonnements',
-                          onPressed: onFollowing,
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-        if (compatibility case final score?) ...[
+    // As wide as the column: what it holds is centered in it.
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        children: [
+          AvatarTile(avatarId: avatarId, photoUrl: photoUrl, initial: initialOf(name), size: avatar, radius: avatar / 2),
           SizedBox(height: layout.space(VxSpace.s)),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.favorite_rounded, size: layout.size(16, tv: 26), color: VxColors.accent),
-              SizedBox(width: layout.space(VxSpace.xs)),
-              Text(
-                '$score % de goûts en commun',
-                style: VxText.body(layout.captionSize, weight: FontWeight.w700, color: VxColors.accent),
+              Flexible(
+                child: Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: VxText.title(layout.size(24, tv: 48)),
+                ),
               ),
-            ],
-          ),
-        ],
-        if (text.isNotEmpty) ...[
-          SizedBox(height: layout.space(VxSpace.m)),
-          Text(text, style: VxText.body(layout.bodySize, color: VxColors.textSoft)),
-        ],
-        if (links.isNotEmpty) ...[
-          SizedBox(height: layout.space(VxSpace.s)),
-          Wrap(
-            spacing: layout.space(VxSpace.xs),
-            runSpacing: layout.space(VxSpace.xs),
-            children: [for (final link in links) SocialLinkChip(link: link)],
-          ),
-        ],
-        if (action != null || onMessage != null) ...[
-          SizedBox(height: layout.space(VxSpace.m)),
-          Row(
-            children: [
-              if (action != null) Flexible(child: action!),
-              if (onMessage != null) ...[
-                if (action != null) SizedBox(width: layout.space(VxSpace.s)),
-                VxIconAction(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  label: username == null ? 'Envoyer un message' : 'Envoyer un message à @$username',
-                  dense: true,
-                  onPressed: onMessage,
+              if (isPrivate) ...[
+                SizedBox(width: layout.space(VxSpace.xs)),
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: layout.size(20, tv: 36),
+                  color: VxColors.textSecondary,
+                  semanticLabel: 'Compte privé',
                 ),
               ],
             ],
           ),
+          if (handle.isNotEmpty) ...[
+            SizedBox(height: layout.space(VxSpace.xxs)),
+            Text(
+              '@$handle',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: VxText.body(layout.bodySize, color: VxColors.textSecondary),
+            ),
+          ],
+          if (compatibility case final score?) ...[
+            SizedBox(height: layout.space(VxSpace.xs)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.favorite_rounded, size: layout.size(16, tv: 26), color: VxColors.accent),
+                SizedBox(width: layout.space(VxSpace.xs)),
+                Text(
+                  '$score % de goûts en commun',
+                  style: VxText.body(layout.captionSize, weight: FontWeight.w700, color: VxColors.accent),
+                ),
+              ],
+            ),
+          ],
+          if (followers != null && following != null) ...[
+            SizedBox(height: layout.space(VxSpace.xs)),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: layout.space(VxSpace.m),
+              children: [
+                _FollowLink(count: followers!, one: 'abonné', many: 'abonnés', onPressed: onFollowers),
+                _FollowLink(count: following!, one: 'abonnement', many: 'abonnements', onPressed: onFollowing),
+                if (people case final count?)
+                  _FollowLink(count: count, one: 'personne suivie', many: 'personnes suivies', onPressed: onPeople),
+              ],
+            ),
+          ],
+          if (text.isNotEmpty) ...[
+            SizedBox(height: layout.space(VxSpace.s)),
+            ConstrainedBox(
+              // A short line, easy to read under the centered name.
+              constraints: BoxConstraints(maxWidth: layout.size(560, tv: 1000)),
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: VxText.body(layout.bodySize, color: VxColors.textSoft),
+              ),
+            ),
+          ],
+          if (links.isNotEmpty) ...[
+            SizedBox(height: layout.space(VxSpace.s)),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: layout.space(VxSpace.xs),
+              runSpacing: layout.space(VxSpace.xs),
+              children: [for (final link in links) SocialLinkChip(link: link)],
+            ),
+          ],
+          if (action != null || onMessage != null) ...[
+            SizedBox(height: layout.space(VxSpace.m)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (action != null) Flexible(child: action!),
+                if (onMessage != null) ...[
+                  if (action != null) SizedBox(width: layout.space(VxSpace.s)),
+                  VxIconAction(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    label: username == null ? 'Envoyer un message' : 'Envoyer un message à @$username',
+                    dense: true,
+                    onPressed: onMessage,
+                  ),
+                ],
+              ],
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -380,7 +386,7 @@ class SocialLinkChip extends StatelessWidget {
   }
 }
 
-/// "12 abonnés": opens the list of followers (or of followed profiles).
+/// "12 abonnés": opens the list of followers (or of followed profiles, or of followed people).
 class _FollowLink extends StatelessWidget {
   const _FollowLink({required this.count, required this.one, required this.many, this.onPressed});
 
@@ -393,7 +399,7 @@ class _FollowLink extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final size = layout.bodySize;
-    // French: "0 abonné", "1 abonné", "2 abonnés".
+    // French: "0 abonné", "1 abonné", "2 abonnés"; "1 personne suivie", "2 personnes suivies".
     final word = count > 1 ? many : one;
     return VxFocusable(
       borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),

@@ -30,7 +30,7 @@ class SocialProfile {
     this.reviewsCount = 0, this.watchedCount = 0, this.listCount = 0, this.shareUrl,
     this.isPrivate = false, FollowStatus? followStatus, this.canView = true, this.socialLinks = const [],
     this.requestedAt, this.compatibility, this.commonRatings = 0, this.isBlocked = false,
-    this.isMuted = false, this.listsCount = 0,
+    this.isMuted = false, this.listsCount = 0, this.peopleCount = 0,
   }) : _followStatus = followStatus; // ignore: prefer_initializing_formals (a named parameter can't be private)
 
   factory SocialProfile.fromJson(Map<String, dynamic> json) => SocialProfile(
@@ -58,6 +58,7 @@ class SocialProfile {
     isBlocked: json['is_blocked'] as bool? ?? false,
     isMuted: json['is_muted'] as bool? ?? false,
     listsCount: json['lists_count'] as int? ?? 0,
+    peopleCount: json['people_count'] as int? ?? 0,
   );
 
   final int id;
@@ -110,6 +111,9 @@ class SocialProfile {
   /// Hidden from the active profile's feed (« Masquer »).
   final bool isMuted;
   final int listsCount;
+
+  /// Followed people (actors, directors…).
+  final int peopleCount;
 }
 
 /// What a like of a review leaves: liked or not, and its number of likes.

@@ -125,8 +125,11 @@ class ProfileScreen extends ConsumerWidget {
         bio: profile.bio ?? social?.bio,
         followers: social?.followersCount,
         following: social?.followingCount,
+        // Followed people: this device's library (a change shows at once).
+        people: library.value?.followedPeople.length ?? social?.peopleCount,
         onFollowers: () => context.push('/profil/social/abonnes'),
         onFollowing: () => context.push('/profil/social/abonnements'),
+        onPeople: () => context.push('/profil/social/personnes'),
       ),
       counters: ProfileCounters(
         reviews: reviewsPage.value?.totalResults ?? social?.reviewsCount,
@@ -324,8 +327,10 @@ class PublicProfileScreen extends ConsumerWidget {
           bio: social.bio,
           followers: social.followersCount,
           following: social.followingCount,
+          people: social.peopleCount,
           onFollowers: canView ? () => context.push(_section('abonnes')) : null,
           onFollowing: canView ? () => context.push(_section('abonnements')) : null,
+          onPeople: canView ? () => context.push(_section('personnes')) : null,
           action: social.isSelf ? null : _FollowButton(profile: social),
           // Write to the member (a request first, accepted or declined on its side).
           onMessage: !social.isSelf && socialAvailable(ref.watch(sessionProvider))
