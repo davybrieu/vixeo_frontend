@@ -17,6 +17,7 @@ import '../social/social_search.dart';
 import '../social/social_repository.dart';
 import '../catalog/hero.dart';
 import '../catalog/models.dart';
+import '../catalog/paging.dart' show NextPage;
 import '../catalog/widgets.dart';
 import '../auth/session.dart';
 import '../tv/channel_row.dart';
@@ -730,7 +731,7 @@ class _PagedGridState<T> extends ConsumerState<PagedGrid<T>> {
             gridDelegate: widget.gridDelegate,
             itemCount: items.length,
             itemBuilder: (context, i) {
-              if (next != null && i >= items.length - 6) _loadMore(next);
+              if (next != null && i >= items.length - NextPage.margin) _loadMore(next);
               return widget.itemBuilder(context, items[i]);
             },
           ),

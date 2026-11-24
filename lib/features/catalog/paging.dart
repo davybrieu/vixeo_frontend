@@ -85,8 +85,10 @@ class NextPage {
   final VoidCallback _load;
   bool _scheduled = false;
 
-  /// How close to the end of a list (in items) the next page is asked.
-  static const margin = 6;
+  /// How close to the end of a list (in items) the next page is asked: when its last item is built,
+  /// that is when the end of the list comes near the screen (lists build a little beyond what they
+  /// show). Not before: the first page alone when the page opens.
+  static const margin = 1;
 
   void request() {
     if (_scheduled) return;
@@ -198,8 +200,8 @@ class PagedFooter extends ConsumerWidget {
 }
 
 /// At the end of a list built at once inside a page that scrolls (like an IntersectionObserver):
-/// calls [onVisible] when it comes less than a screen below what is shown, then each time the page
-/// scrolls while it is that close. [child] (a loading circle…) is shown in its place.
+/// calls [onVisible] when it comes near the screen (a quarter of a screen below it), then each time
+/// the page scrolls while it is that close. [child] (a loading circle…) is shown in its place.
 class LoadMoreSentinel extends StatefulWidget {
   const LoadMoreSentinel({super.key, required this.onVisible, this.child = const SizedBox.shrink()});
 
@@ -246,7 +248,8 @@ class _LoadMoreSentinelState extends State<LoadMoreSentinel> {
     final viewport = _scrollable?.context.findRenderObject();
     if (box is! RenderBox || !box.attached || !box.hasSize || viewport is! RenderBox || !viewport.hasSize) return;
     final top = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
-    if (top < viewport.size.height * 2) onVisible();
+    // On screen, or a quarter of a screen below it.
+    if (top < viewport.size.height * 1.25) onVisible();
   }
 
   @override
