@@ -102,12 +102,15 @@ class _ProfileRow extends StatelessWidget {
         padding: EdgeInsets.all(layout.space(VxSpace.xxs)),
         child: Row(
           children: [
-            AvatarTile(
-              avatarId: profile.avatar,
-              photoUrl: profile.photoUrl,
-              initial: profile.initial,
-              size: avatar,
-              radius: avatar / 2,
+            // The row's label says it all (not the avatar's initial).
+            ExcludeSemantics(
+              child: AvatarTile(
+                avatarId: profile.avatar,
+                photoUrl: profile.photoUrl,
+                initial: profile.initial,
+                size: avatar,
+                radius: avatar / 2,
+              ),
             ),
             SizedBox(width: layout.space(VxSpace.s)),
             Expanded(
