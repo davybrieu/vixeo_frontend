@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/common.dart';
 import '../auth/session.dart';
-import '../catalog/models.dart';
 import '../network/actions.dart' show showAddToList;
 import '../notifications/inbox.dart' show socialAvailable;
 import 'library.dart';
@@ -79,24 +78,6 @@ Future<void> toggleLiked(BuildContext context, MediaItem item) async {
   }
 }
 
-/// Follows a person (actor, director…), or no longer, then confirms with an alert.
-Future<void> toggleFollowed(BuildContext context, Person person) async {
-  final container = ProviderScope.containerOf(context, listen: false);
-  final wasFollowed = container.read(libraryProvider).value?.forPerson(person.id)?.isFollowed ?? false;
-  try {
-    await container.read(libraryProvider.notifier).setFollowed(person, !wasFollowed);
-    if (context.mounted) {
-      showVxSnack(
-        context,
-        wasFollowed ? 'Vous ne suivez plus ${person.name}' : 'Vous suivez ${person.name}',
-        icon: wasFollowed ? Icons.person_remove_outlined : Icons.person_add_alt_1_rounded,
-      );
-    }
-  } catch (e) {
-    if (context.mounted) showVxSnack(context, '$e', icon: Icons.error_outline_rounded);
-  }
-}
-
 /// « J'aime » ❤ toggle (a like): the same round icon-only button as « Ajouter à une liste » and Vu.
 class LikedButton extends ConsumerWidget {
   const LikedButton({super.key, required this.item});
@@ -111,39 +92,6 @@ class LikedButton extends ConsumerWidget {
       label: liked ? 'Je n’aime plus' : 'J’aime',
       active: liked,
       onPressed: () => toggleLiked(context, item),
-    );
-  }
-}
-
-/// « Suivre » / « Ne plus suivre » on a person's page.
-class FollowPersonButton extends ConsumerStatefulWidget {
-  const FollowPersonButton({super.key, required this.person});
-
-  final Person person;
-
-  @override
-  ConsumerState<FollowPersonButton> createState() => _FollowPersonButtonState();
-}
-
-class _FollowPersonButtonState extends ConsumerState<FollowPersonButton> {
-  bool _busy = false;
-
-  Future<void> _toggle() async {
-    setState(() => _busy = true);
-    await toggleFollowed(context, widget.person);
-    if (mounted) setState(() => _busy = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final followed = ref.watch(libraryProvider).value?.forPerson(widget.person.id)?.isFollowed ?? false;
-    return VxButton(
-      label: followed ? 'Ne plus suivre' : 'Suivre',
-      icon: followed ? Icons.person_remove_outlined : Icons.person_add_alt_1_rounded,
-      kind: followed ? VxButtonKind.secondary : VxButtonKind.primary,
-      dense: true,
-      loading: _busy,
-      onPressed: _toggle,
     );
   }
 }
