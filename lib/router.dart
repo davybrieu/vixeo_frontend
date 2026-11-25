@@ -71,7 +71,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   Widget guarded(String location, Widget child) => BackNavigationGuard(location: location, child: child);
   // Live TV is hidden for now (core/features.dart): its pages lead to the home page.
   String? liveTvOnly(BuildContext context, GoRouterState state) => ref.read(liveTvProvider) ? null : '/accueil';
-  // The social network: not for a guest nor a child's profile.
+  // The social network: not for a child's profile.
   String? socialOnly(BuildContext context, GoRouterState state) =>
       socialAvailable(ref.read(sessionProvider)) ? null : '/accueil';
   int? idOf(GoRouterState state) => int.tryParse(state.pathParameters['id'] ?? '');
@@ -101,10 +101,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           return '/demarrage';
         }
         return null;
-      }
-      if (session.status == SessionStatus.signedOut) {
-        if (authPages.contains(location)) return null;
-        return '/connexion';
       }
       if (session.status == SessionStatus.signedOut) {
         if (authPages.contains(location)) return null;
