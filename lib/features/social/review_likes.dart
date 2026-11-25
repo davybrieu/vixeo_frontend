@@ -47,7 +47,7 @@ class ReviewLikes extends Notifier<Map<int, ReviewLikeState>> {
   }
 }
 
-/// The heart of another member's review and its number of likes. A guest is asked to sign in.
+/// The heart of another member's review and its number of likes. A signed-out visitor is asked to sign in.
 class ReviewLikeButton extends ConsumerStatefulWidget {
   const ReviewLikeButton({super.key, required this.review});
 
