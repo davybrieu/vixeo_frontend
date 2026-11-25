@@ -46,12 +46,15 @@ const _feed = _Destination(
   Icons.dynamic_feed_rounded,
 );
 
+const _releases = _Destination('/sorties', 'Sorties', Icons.calendar_month_outlined, Icons.calendar_month_rounded);
+
 /// Phone (developer's requests, 23/11/2026): Accueil · Fil · Recherche · Messages · Profil.
 /// « Messages » has its own tab (not in the feed); « Notifications » (developer's request,
 /// 25/11/2026) and « Paramètres » are buttons at the top of the profile page; a child's profile,
 /// without them, keeps the « Paramètres » tab.
 const _phoneTabs = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
+  _releases,
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
   _feed,
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
@@ -132,6 +135,7 @@ class AppShell extends ConsumerWidget {
     if (layout.isPhone) {
       final navigationPages = {
         '/accueil',
+        '/sorties',
         '/chaines-tv',
         FeedScreen.location,
         '/recherche',
