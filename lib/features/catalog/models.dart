@@ -109,9 +109,6 @@ class MediaItem {
   /// pass for the rating chosen while IMDb may have one.
   (RatingSite, SiteRating)? get shownRating => ratings?.shown;
 
-  /// Title logo at the size of a card (w300: lighter than the hero's w500, so it comes with the image).
-  String? get cardLogoUrl => tmdbImageSize(logoUrl, 'w300');
-
   /// Identity used by the sync API (`source` = "tmdb").
   String get syncId => '${type.name}:$id';
 

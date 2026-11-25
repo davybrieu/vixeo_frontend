@@ -193,7 +193,7 @@ void main() {
     expect(find.text('Marqué comme non vu'), findsOneWidget);
   });
 
-  testWidgets('rows use vertical posters by default and horizontal images when the profile asks', (tester) async {
+  testWidgets('rows use vertical posters, the only format', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -210,15 +210,6 @@ void main() {
     }
 
     expect(imageRatio(), closeTo(1.5, 0.01));
-
-    await tester.pumpWidget(
-      app(
-        row,
-        profile: const Profile(id: 2, name: 'Léa', posterFormat: PosterFormat.landscape),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(imageRatio(), closeTo(9 / 16, 0.01));
     // A title without any image shows its name in the image too (and in the caption).
     expect(find.text('Nord Sauvage'), findsNWidgets(2));
   });
@@ -238,30 +229,27 @@ void main() {
       backdropUrl: 'https://image.tmdb.org/t/p/w780/b.jpg',
     );
     // IMDb doesn't rate this title: TMDb's, with its logo.
-    for (final format in PosterFormat.values) {
-      await tester.pumpWidget(app(PosterCard(item: item, width: 116, format: format)));
-      await tester.pump();
-      final name = tester.widget<Text>(find.text('Nord Sauvage'));
-      expect(name.maxLines, 1, reason: format.name);
-      // Under the name, on one line: the year on the left, the rating and TMDb's logo on the right.
-      final nameY = tester.getCenter(find.text('Nord Sauvage')).dy;
-      final year = tester.getCenter(find.text('2026'));
-      final rating = tester.getCenter(find.byType(TmdbRating));
-      expect(year.dy, greaterThan(nameY), reason: format.name);
-      expect(rating.dy, closeTo(year.dy, 2), reason: format.name);
-      expect(rating.dx, greaterThan(year.dx), reason: format.name);
-      expect(find.descendant(of: find.byType(TmdbRating), matching: find.byType(TmdbLogo)), findsOneWidget);
-      // The card is exactly as high as its image and caption: rows and grids rely on it.
-      final context = tester.element(find.byType(PosterCard));
-      expect(
-        tester.getSize(find.byType(PosterCard)).height,
-        closeTo(PosterCard.heightFor(116, format) + PosterCard.captionHeightOf(context), 0.01),
-        reason: format.name,
-      );
-    }
+    await tester.pumpWidget(app(const PosterCard(item: item, width: 116)));
+    await tester.pump();
+    final name = tester.widget<Text>(find.text('Nord Sauvage'));
+    expect(name.maxLines, 1);
+    // Under the name, on one line: the year on the left, the rating and TMDb's logo on the right.
+    final nameY = tester.getCenter(find.text('Nord Sauvage')).dy;
+    final year = tester.getCenter(find.text('2026'));
+    final rating = tester.getCenter(find.byType(TmdbRating));
+    expect(year.dy, greaterThan(nameY));
+    expect(rating.dy, closeTo(year.dy, 2));
+    expect(rating.dx, greaterThan(year.dx));
+    expect(find.descendant(of: find.byType(TmdbRating), matching: find.byType(TmdbLogo)), findsOneWidget);
+    // The card is exactly as high as its image and caption: rows and grids rely on it.
+    final context = tester.element(find.byType(PosterCard));
+    expect(
+      tester.getSize(find.byType(PosterCard)).height,
+      closeTo(PosterCard.heightFor(116) + PosterCard.captionHeightOf(context), 0.01),
+    );
   });
 
-  testWidgets('tablet and TV: poster cards show the image without the name, in both formats', (tester) async {
+  testWidgets('tablet and TV: poster cards show the image without the name', (tester) async {
     const withImages = MediaItem(
       id: 551,
       type: MediaType.movie,
@@ -269,12 +257,10 @@ void main() {
       posterUrl: 'https://image.tmdb.org/t/p/w342/p.jpg',
       backdropUrl: 'https://image.tmdb.org/t/p/w780/b.jpg',
     );
-    for (final format in PosterFormat.values) {
-      await tester.pumpWidget(app(PosterCard(item: withImages, width: 200, format: format)));
-      await tester.pump();
-      expect(find.text('Nord Sauvage'), findsNothing, reason: format.name);
-      expect(find.bySemanticsLabel(RegExp('^Nord Sauvage, film')), findsOneWidget, reason: format.name);
-    }
+    await tester.pumpWidget(app(const PosterCard(item: withImages, width: 200)));
+    await tester.pump();
+    expect(find.text('Nord Sauvage'), findsNothing);
+    expect(find.bySemanticsLabel(RegExp('^Nord Sauvage, film')), findsOneWidget);
   });
 
   testWidgets('the side rail fits a low screen (smaller icons), then scrolls', (tester) async {
@@ -315,11 +301,6 @@ void main() {
     for (final label in ['Accueil', 'Recherche', 'Notifications', 'Profil', 'Paramètres']) {
       expect(find.byTooltip(label), findsOneWidget, reason: label);
     }
-  });
-
-  test('reads the poster format of a profile', () {
-    expect(Profile.fromJson({'id': 1, 'name': 'A'}).posterFormat, PosterFormat.portrait);
-    expect(Profile.fromJson({'id': 1, 'name': 'A', 'poster_format': 'landscape'}).posterFormat, PosterFormat.landscape);
   });
 
   test('reads avatars grouped by license', () {

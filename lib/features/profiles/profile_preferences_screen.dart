@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/choice.dart';
 import '../account/info_page.dart';
-import '../auth/models.dart';
 import '../auth/session.dart';
 import 'languages.dart';
 import 'no_spoiler.dart';
@@ -31,22 +30,6 @@ class ProfilePreferencesScreen extends ConsumerWidget {
     final s = uiScale(context);
     final noSpoiler = ref.watch(noSpoilerProvider);
     if (profile == null) return const SizedBox();
-
-    Future<void> pickAppearance() async {
-      final choice = await showVxChoice<PosterFormat>(
-        context,
-        title: 'Format des affiches',
-        selected: profile.posterFormat,
-        options: const [(PosterFormat.portrait, 'Vertical'), (PosterFormat.landscape, 'Horizontal')],
-      );
-      if (choice == null || !context.mounted || choice.$1 == profile.posterFormat) return;
-      await saveProfile(
-        context,
-        {'poster_format': choice.$1!.name},
-        done: 'Affiches au format ${choice.$1!.label.toLowerCase()}',
-        icon: Icons.palette_outlined,
-      );
-    }
 
     Future<void> pickAudio() async {
       final choice = await showVxChoice<String>(
@@ -92,20 +75,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
       fallback: '/profil',
       children: [
         const InfoIntro(
-          'Personnalisez l’apparence et la lecture de votre profil. Ces préférences sont synchronisées entre vos appareils.',
-        ),
-        SettingsSection(
-          'Apparence',
-          scale: s,
-          children: [
-            SettingsChoiceRow(
-              icon: Icons.palette_outlined,
-              label: 'Format des affiches',
-              value: profile.posterFormat.label,
-              autofocus: setting != 'noter',
-              onPressed: pickAppearance,
-            ),
-          ],
+          'Personnalisez l’affichage et la lecture de votre profil. Ces préférences sont synchronisées entre vos appareils.',
         ),
         SettingsSection(
           'No spoil',
@@ -113,6 +83,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
           children: [
             SettingsSwitchRow(
               label: 'Activer No spoil',
+              autofocus: setting != 'noter',
               detail: 'Masquer les informations et images des épisodes avant leur sélection.',
               value: noSpoiler,
               onChanged: (value) => saveProfile(

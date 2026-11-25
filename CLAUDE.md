@@ -412,8 +412,8 @@ lib/
 - **Rangées « légères » de l'accueil** (tendances du jour, plateformes, chaînes, studios,
   langues : l'API les donne sans logo ni `summary`) : `_HomeRow` (`home_screen.dart`) demande les
   titres qui n'en ont pas **en une requête par rangée** (`titlesByIdProvider`, API
-  `/catalog/titles`), quand la rangée est construite (près de l'écran) ; les cartes ont alors leur
-  logo et la grande image (TV) tout d'un coup, comme les autres rangées. `MediaItem.withDetails`
+  `/catalog/titles`), quand la rangée est construite (près de l’écran) ; les cartes ont alors leur
+  note et la grande image (TV) son logo et son résumé tout d'un coup, comme les autres rangées. `MediaItem.withDetails`
   complète un titre. Test : `test/home_tv_test.dart`.
 - **Transition entre les pages** (demande du développeur) : un **fondu enchaîné « fade
   through »** (300 ms, `vxPageFade`, `VxPageTransition` dans `core/theme.dart`), sans glissement :
@@ -940,22 +940,22 @@ lib/
   droite, l'étoile pour noter l'épisode et, après « Épisode 3 », « Ma note : 8/10 » (voir « Avis »). Hauteur de carte fixe (`_EpisodeCard.heightOf` : 16:9, plus haute
   seulement si le texte du système est très grand). Changer de saison revient au premier épisode. Test :
   `test/details_people_test.dart`.
-- **Format des affiches** : réglage du profil (`poster_format` : vertical par défaut, ou
-  horizontal 16:9), appliqué par `PosterRow` / `PosterGrid`. **Sur téléphone** (demande du
-  développeur), sous chaque affiche : le titre sur une ligne, puis l'année à gauche et la note
-  (IMDb, sinon TMDb) avec le logo du site à droite (`CardRating` ; `PosterCard`, hauteur `PosterCard.captionHeightOf(context)`, que
-  les rangées et les grilles ajoutent à l'image ; grilles : `posterGridDelegate(…,
-  captionHeight:)`). **Tablette et TV : pas de nom sur les affiches**, dans les deux formats
-  (l'image suffit) ; le nom n'est écrit que pour un titre sans aucune image, et reste dans le
-  libellé pour les lecteurs d'écran. En horizontal, le logo du
-  titre s'affiche quand le titre le donne (rangées de l'accueil) : **jamais de requête de fiche par
-  carte** (`titleProvider` dans `PosterCard` = une requête par titre affiché, au-delà de la limite
-  de l'API). « À voir » demande ses titres 20 à la fois, au fil du défilement (`titlesByIdProvider`,
-  API `/catalog/titles`). Sur une carte horizontale, le logo est demandé en w300 (`cardLogoUrl`) et
-  apparaît avec l'image (`ImagesTogether` : les deux une fois chargées), jamais après. Badge « Ma
-  liste » sur l'affiche, « vu » dans le libellé. Titre de rangée et lien « Voir tout » :
-  `SectionHeader(title, onSeeAll: …)`. Pages principales (Recherche, « À voir », Avis) : même en-tête
-  `VxPageHeader` (titre, recherche, `FilterBar`) et `pageContentPadding` (charte, § 6).
+- **Affiches : format vertical seulement** (demande du développeur, 25/11/2026 : plus de réglage
+  « Format des affiches », `PosterFormat` et `poster_format` supprimés, ni de carte horizontale ;
+  l'affiche porte déjà le titre, **aucun logo à charger pour une carte**, `cardLogoUrl` et
+  `ImagesTogether` supprimés). `PosterRow` / `PosterGrid`, `PosterCard` (2:3). **Sur téléphone**
+  (demande du développeur), sous chaque affiche : le titre sur une ligne, puis l'année à gauche et
+  la note (IMDb, sinon TMDb) avec le logo du site à droite (`CardRating` ; hauteur
+  `PosterCard.captionHeightOf(context)`, que les rangées et les grilles ajoutent à l'image ;
+  grilles : `posterGridDelegate(…, captionHeight:)`). **Tablette et TV : pas de nom sur les
+  affiches** (l'image suffit) ; le nom n'est écrit que pour un titre sans aucune image, et reste
+  dans le libellé pour les lecteurs d'écran. **Jamais de requête de fiche par carte**
+  (`titleProvider` dans `PosterCard` = une requête par titre affiché, au-delà de la limite de
+  l'API). « À voir » demande ses titres 20 à la fois, au fil du défilement (`titlesByIdProvider`,
+  API `/catalog/titles`). Badge « Ma liste » sur l'affiche, « vu » dans le libellé. Titre de rangée
+  et lien « Voir tout » : `SectionHeader(title, onSeeAll: …)`. Pages principales (Recherche,
+  « À voir », Avis) : même en-tête `VxPageHeader` (titre, recherche, `FilterBar`) et
+  `pageContentPadding` (charte, § 6).
 - **Avatars** : galerie `GET /avatars` regroupée par licence (`features/profiles/avatars.dart`,
   pixel art dessiné par `PixelAvatarPainter`, ou `image_url`) ; `ProfileAvatar` partout où le
   profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits. Chaque

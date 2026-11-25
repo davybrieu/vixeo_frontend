@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +12,6 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
-import '../auth/models.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
 import '../library/library.dart';
@@ -23,8 +21,8 @@ import 'person_screen.dart';
 
 String titlePath(MediaType type, int id) => '/titre/${type.name}/$id';
 
-/// Title card: vertical poster (2:3) or horizontal image (16:9), following the profile's poster
-/// format. On phones, under the image: the name on one line, then the year on the left and the
+/// Title card: the vertical poster (2:3; the only format since 25/11/2026, developer's request:
+/// the poster already shows the title, no logo to load). On phones, under the image: the name on one line, then the year on the left and the
 /// rating on the right (developer's choice): IMDb's when given with the title, else TMDb's
 /// ([CardRating]). Elsewhere (tablet, TV) the image alone; the name is then written only for a
 /// title without any image. Screen readers get the name from the label.
@@ -33,7 +31,6 @@ class PosterCard extends ConsumerWidget {
     super.key,
     required this.item,
     required this.width,
-    this.format = PosterFormat.portrait,
     this.onFocused,
     this.onHovered,
     this.autofocus = false,
@@ -41,14 +38,12 @@ class PosterCard extends ConsumerWidget {
 
   final MediaItem item;
   final double width;
-  final PosterFormat format;
   final VoidCallback? onFocused;
   final VoidCallback? onHovered;
   final bool autofocus;
 
   /// Height of the image.
-  static double heightFor(double width, PosterFormat format) =>
-      format == PosterFormat.portrait ? width * 1.5 : width * 9 / 16;
+  static double heightFor(double width) => width * 1.5;
 
   // The caption of a phone card. Its lines follow the text size of the system settings.
   static const _captionGap = 6.0;
@@ -66,24 +61,15 @@ class PosterCard extends ConsumerWidget {
     final itemState = guest ? null : ref.watch(libraryProvider.select((state) => state.value?.forItem(item)));
     final watched = itemState?.isWatched ?? false;
     final favorite = itemState?.isFavorite ?? false;
-    final landscape = format == PosterFormat.landscape;
-    // The logo comes with the title (home rows): never a title page request per card, which
-    // meant up to 150 requests at once on the home page (API limit: 240 a minute).
-    final logoUrl = item.cardLogoUrl;
-    final logoAspectRatio = item.logoAspectRatio;
-    final radius = landscape ? width * 0.05 : width * 0.086;
-    final image = landscape ? (item.backdrop('w780') ?? item.posterUrl) : item.posterUrl;
+    final radius = width * 0.086;
+    final image = item.posterUrl;
     final withCaption = Layout.of(context).isPhone;
+    // Only for a title without any image.
     final noImage = Align(
       alignment: Alignment.bottomLeft,
       child: Padding(
-        padding: EdgeInsets.all(landscape ? width * 0.045 : width * 0.08),
-        child: Text(
-          item.title,
-          maxLines: landscape ? 2 : 3,
-          overflow: TextOverflow.ellipsis,
-          style: VxText.title(landscape ? (width * 0.07).clamp(13, 30).toDouble() : width * 0.12),
-        ),
+        padding: EdgeInsets.all(width * 0.08),
+        child: Text(item.title, maxLines: 3, overflow: TextOverflow.ellipsis, style: VxText.title(width * 0.12)),
       ),
     );
 
@@ -91,50 +77,11 @@ class PosterCard extends ConsumerWidget {
       borderRadius: BorderRadius.circular(radius),
       child: SizedBox(
         width: width,
-        height: heightFor(width, format),
+        height: heightFor(width),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // A landscape card shows its image and the logo together, once both are loaded:
-            // the logo never pops in after the image.
-            ImagesTogether(
-              urls: [?image, if (landscape) ?logoUrl],
-              placeholder: ColoredBox(color: VxColors.tone(item.id)),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  NetImage(url: image, seed: item.id, fallback: noImage),
-                  if (landscape && logoUrl != null) ...[
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, Color(0xB8070A08)],
-                          stops: [0.48, 1],
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: width * 0.045,
-                      bottom: width * 0.045,
-                      child: TitleLogo(
-                        name: item.title,
-                        logoUrl: logoUrl,
-                        size: TitleLogo.sizeFor(
-                          logoUrl,
-                          logoAspectRatio,
-                          maxWidth: width * 0.48,
-                          maxHeight: width * 0.17,
-                        ),
-                        style: VxText.title((width * 0.07).clamp(13, 30).toDouble()),
-                        maxLines: 2,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            NetImage(url: image, seed: item.id, fallback: noImage),
             if (favorite)
               Positioned(
                 top: width * 0.06,
@@ -210,14 +157,8 @@ class PosterCard extends ConsumerWidget {
   }
 }
 
-/// Poster format of the active profile.
-PosterFormat posterFormatOf(WidgetRef ref) =>
-    ref.watch(sessionProvider.select((s) => s.profile?.posterFormat)) ?? PosterFormat.portrait;
-
-/// Card width in rows, by screen and format.
-double rowCardWidth(Layout layout, PosterFormat format) => format == PosterFormat.portrait
-    ? (layout.isLarge ? layout.tv(220) : (layout.isPhone ? 116.0 : 140.0))
-    : (layout.isLarge ? layout.tv(384) : (layout.isPhone ? 220.0 : 260.0));
+/// Card width in rows, by screen.
+double rowCardWidth(Layout layout) => layout.isLarge ? layout.tv(220) : (layout.isPhone ? 116.0 : 140.0);
 
 /// Horizontal row of title cards, with its title.
 class PosterRow extends ConsumerWidget {
@@ -245,8 +186,7 @@ class PosterRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final format = posterFormatOf(ref);
-    final width = rowCardWidth(layout, format);
+    final width = rowCardWidth(layout);
     final gap = layout.cardGap;
     // Room for the focus zoom on TV.
     final vPad = layout.isLarge ? layout.tv(16) : 0.0;
@@ -258,7 +198,7 @@ class PosterRow extends ConsumerWidget {
         FocusTraversalGroup(
           policy: vxTraversalPolicy,
           child: SizedBox(
-            height: PosterCard.heightFor(width, format) + PosterCard.captionHeightOf(context) + vPad * 2,
+            height: PosterCard.heightFor(width) + PosterCard.captionHeightOf(context) + vPad * 2,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               clipBehavior: Clip.none,
@@ -268,7 +208,6 @@ class PosterRow extends ConsumerWidget {
               itemBuilder: (context, i) => PosterCard(
                 item: items[i],
                 width: width,
-                format: format,
                 onFocused: onFocused == null ? null : () => onFocused!(items[i]),
                 onHovered: onHovered == null ? null : () => onHovered!(items[i]),
                 autofocus: autofocusFirst && i == 0,
@@ -516,12 +455,11 @@ class PersonCard extends StatelessWidget {
   }
 }
 
-/// Grid layout for title cards, by screen and format. [captionHeight] is the room under each
-/// image for the caption of a phone card ([PosterCard.captionHeightOf]).
-SliverGridDelegate posterGridDelegate(Layout layout, PosterFormat format, {double captionHeight = 0}) =>
-    _PosterGridDelegate(
-      maxCrossAxisExtent: rowCardWidth(layout, format) * 1.15,
-      imageAspectRatio: format == PosterFormat.portrait ? 2 / 3 : 16 / 9,
+/// Grid layout for title cards, by screen. [captionHeight] is the room under each image for the
+/// caption of a phone card ([PosterCard.captionHeightOf]).
+SliverGridDelegate posterGridDelegate(Layout layout, {double captionHeight = 0}) => _PosterGridDelegate(
+      maxCrossAxisExtent: rowCardWidth(layout) * 1.15,
+      imageAspectRatio: 2 / 3,
       spacing: layout.cardGap,
       captionHeight: captionHeight,
     );
@@ -566,7 +504,7 @@ class _PosterGridDelegate extends SliverGridDelegate {
       old.captionHeight != captionHeight;
 }
 
-/// Grid of title cards (À voir, genres), following the profile's poster format.
+/// Grid of title cards (À voir, genres).
 class PosterGrid extends ConsumerWidget {
   const PosterGrid({
     super.key,
@@ -590,7 +528,6 @@ class PosterGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final format = posterFormatOf(ref);
     final resolved = (padding ?? EdgeInsets.all(layout.gutter)).resolve(Directionality.of(context));
     return CustomScrollView(
       physics: alwaysScrollable ? const AlwaysScrollableScrollPhysics() : null,
@@ -598,13 +535,13 @@ class PosterGrid extends ConsumerWidget {
         SliverPadding(
           padding: resolved.copyWith(bottom: 0),
           sliver: SliverGrid.builder(
-            gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
+            gridDelegate: posterGridDelegate(layout, captionHeight: PosterCard.captionHeightOf(context)),
             itemCount: items.length,
             itemBuilder: (context, i) {
               onBuild?.call(i);
               return LayoutBuilder(
                 builder: (context, c) =>
-                    PosterCard(item: items[i], width: c.maxWidth, format: format, autofocus: i == 0 && layout.isLarge),
+                    PosterCard(item: items[i], width: c.maxWidth, autofocus: i == 0 && layout.isLarge),
               );
             },
           ),
@@ -771,67 +708,4 @@ class TmdbLogo extends StatelessWidget {
     filterQuality: FilterQuality.medium,
     excludeFromSemantics: true,
   );
-}
-
-/// Shows [child] once every image of [urls] is loaded (or failed), [placeholder] until then; images
-/// already loaded show at once. Used where two images make one picture (a card and its logo), so
-/// that one never appears after the other; with a single image, [child] shows as usual.
-class ImagesTogether extends StatefulWidget {
-  const ImagesTogether({super.key, required this.urls, required this.placeholder, required this.child});
-
-  final List<String> urls;
-  final Widget placeholder;
-  final Widget child;
-
-  @override
-  State<ImagesTogether> createState() => _ImagesTogetherState();
-}
-
-class _ImagesTogetherState extends State<ImagesTogether> {
-  bool _ready = false;
-  List<String>? _loading;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _load();
-  }
-
-  @override
-  void didUpdateWidget(ImagesTogether old) {
-    super.didUpdateWidget(old);
-    if (!listEquals(old.urls, widget.urls)) _load();
-  }
-
-  void _load() {
-    final urls = widget.urls;
-    if (listEquals(_loading, urls)) return;
-    _loading = urls;
-    final providers = [for (final url in urls) CachedNetworkImageProvider(url)];
-    final cache = PaintingBinding.instance.imageCache;
-    // Loaded already (not just asked for: a pending image is in the cache too).
-    bool loaded(ImageProvider p) {
-      final status = cache.statusForKey(p);
-      return status.keepAlive || (status.live && !status.pending);
-    }
-
-    if (urls.length < 2 || providers.every(loaded)) {
-      _ready = true;
-      return;
-    }
-    _ready = false;
-    Future.wait([for (final p in providers) precacheImage(p, context, onError: (_, _) {})]).then((_) {
-      if (mounted && listEquals(_loading, urls)) setState(() => _ready = true);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.urls.length < 2
-      ? widget.child
-      : AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: _ready
-              ? KeyedSubtree(key: const ValueKey(true), child: widget.child)
-              : KeyedSubtree(key: const ValueKey(false), child: widget.placeholder),
-        );
 }

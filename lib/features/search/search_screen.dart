@@ -314,18 +314,16 @@ class _Results extends ConsumerWidget {
       ];
     } else if (type != null) {
       final q = TitleQuery(type, filters, query: query);
-      final format = posterFormatOf(ref);
       content = [
         PagedGrid<MediaItem>(
           key: ValueKey(q),
           page: (page) => titlesProvider(q.atPage(page)),
           idOf: (item) => item.id,
-          gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
+          gridDelegate: posterGridDelegate(layout, captionHeight: PosterCard.captionHeightOf(context)),
           itemBuilder: (_, item) => LayoutBuilder(
             builder: (_, c) => PosterCard(
               item: item,
               width: c.maxWidth,
-              format: format,
               onFocused: onFocused == null ? null : () => onFocused!(item),
               onHovered: onHovered == null ? null : () => onHovered!(item),
             ),

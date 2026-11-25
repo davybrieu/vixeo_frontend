@@ -588,10 +588,9 @@ class ProfileTitlesSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final format = posterFormatOf(ref);
-    final width = rowCardWidth(layout, format);
+    final width = rowCardWidth(layout);
     final rowHeight =
-        PosterCard.heightFor(width, format) +
+        PosterCard.heightFor(width) +
         PosterCard.captionHeightOf(context) +
         (layout.isLarge ? layout.tv(16) * 2 : 0);
 
@@ -615,10 +614,10 @@ class ProfileTitlesSection extends ConsumerWidget {
             physics: const NeverScrollableScrollPhysics(),
             // Room for the focus zoom on TV.
             padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.isLarge ? layout.tv(16) : 0),
-            gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
+            gridDelegate: posterGridDelegate(layout, captionHeight: PosterCard.captionHeightOf(context)),
             itemCount: shown.length,
             itemBuilder: (context, i) => LayoutBuilder(
-              builder: (context, c) => PosterCard(item: shown[i], width: c.maxWidth, format: format),
+              builder: (context, c) => PosterCard(item: shown[i], width: c.maxWidth),
             ),
           ),
         ),

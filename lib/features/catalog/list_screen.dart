@@ -192,13 +192,12 @@ class _PagedTitles extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final format = posterFormatOf(ref);
     return PagedGrid<MediaItem>(
       page: page,
       idOf: (item) => (item.type, item.id),
-      gridDelegate: posterGridDelegate(layout, format, captionHeight: PosterCard.captionHeightOf(context)),
+      gridDelegate: posterGridDelegate(layout, captionHeight: PosterCard.captionHeightOf(context)),
       itemBuilder: (_, item) => LayoutBuilder(
-        builder: (_, c) => PosterCard(item: item, width: c.maxWidth, format: format),
+        builder: (_, c) => PosterCard(item: item, width: c.maxWidth),
       ),
       empty: empty ?? const EmptyState(icon: Icons.movie_filter_outlined, title: 'Rien à afficher pour l’instant'),
     );

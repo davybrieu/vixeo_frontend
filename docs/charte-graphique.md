@@ -206,28 +206,22 @@ parental, code PIN) utilisent `InfoPage`, ou `InfoBody` sous leur propre barre d
 
 ## 8. Cartes de titres, rangées et grilles
 
-- **Affiche** : 2:3, rayon 8,6 % de la largeur (10 px environ). **Image horizontale** : 16:9, rayon
-  5 %. Le format suit le réglage du profil (`poster_format`).
-- **Largeurs** des cartes dans une rangée (`rowCardWidth`) :
-  - affiche : 116 (tablette 140, TV 220) ;
-  - horizontale : 220 (tablette 260, TV 384).
+- **Affiche** : 2:3, rayon 8,6 % de la largeur (10 px environ). **Seul format des cartes**
+  (demande du développeur, 25/11/2026 : plus d'image horizontale ni de réglage « Format des
+  affiches » ; l'affiche porte déjà le titre, aucun logo à charger pour une carte).
+- **Largeur** d'une carte dans une rangée (`rowCardWidth`) : 116 (tablette 140, TV 220).
 - **Grilles** (`posterGridDelegate`) : 10 entre les cartes (TV 28).
 - **Pas de nom sur l'image des cartes** : l'image suffit. Le nom n'est écrit que pour un titre sans
   image ; il reste dans le libellé pour les lecteurs d'écran.
 - **Sur téléphone**, sous chaque affiche (rangées et grilles) : le titre sur une ligne (13,
   semi-gras), puis sur la ligne suivante l'année à gauche et la note de la source choisie par le
   profil avec son badge à droite (11, texte secondaire ; `CardRating`). Tablette et TV : l'image seule.
-- **Logo sur une image horizontale** :
-  - il est demandé à la taille d'une carte (`MediaItem.cardLogoUrl`, w300) ;
-  - l'image et le logo apparaissent ensemble, une fois les deux chargés (`ImagesTogether`) : le
-    logo n'arrive jamais après l'image ;
-  - les titres d'une page arrivent avec leur logo (accueil, recherche) ou en une seule requête
-    (`/catalog/titles` : Ma liste), jamais avec une requête de fiche par carte.
+- Les titres d'une page arrivent avec leurs informations (accueil, recherche) ou en une seule
+  requête (`/catalog/titles` : « À voir »), jamais avec une requête de fiche par carte.
 - **Tailles TMDb à demander** :
   - affiche : w342 ;
-  - fond d'une carte : w780 ;
   - grande image et fiche : w1280 ou `original` ;
-  - logo : w300 sur une carte, w500 dans la grande image ;
+  - logo : w500 dans la grande image (jamais sur une carte) ;
   - image d'épisode : w300.
 
 ## 9. Focus et télécommande (`VxFocusable`)

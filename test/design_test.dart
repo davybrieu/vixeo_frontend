@@ -149,50 +149,13 @@ void main() {
     expect(find.byType(PosterCard), findsNWidgets(2));
   });
 
-  testWidgets('a card and its logo show together, once both are loaded', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Column(
-          children: [
-            Expanded(
-              child: ImagesTogether(
-                urls: ['https://image.tmdb.org/t/p/w780/b.jpg', 'https://image.tmdb.org/t/p/w300/l.png'],
-                placeholder: Text('attente'),
-                child: Text('image et logo'),
-              ),
-            ),
-            Expanded(
-              child: ImagesTogether(
-                urls: ['https://image.tmdb.org/t/p/w342/p.jpg'],
-                placeholder: Text('attente seule'),
-                child: Text('affiche seule'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    // Two images: nothing until both are there. One image: shown as usual.
-    expect(find.text('attente'), findsOneWidget);
-    expect(find.text('image et logo'), findsNothing);
-    expect(find.text('affiche seule'), findsOneWidget);
-  });
-
-  test('card logos are asked at the size of a card', () {
+  test('TMDb images are asked at the size they are shown', () {
     expect(tmdbImageSize('https://image.tmdb.org/t/p/w500/abc.png', 'w300'), 'https://image.tmdb.org/t/p/w300/abc.png');
     expect(
       tmdbImageSize('https://image.tmdb.org/t/p/original/abc.png', 'w300'),
       'https://image.tmdb.org/t/p/w300/abc.png',
     );
     expect(tmdbImageSize(null, 'w300'), isNull);
-    const item = MediaItem(
-      id: 1,
-      type: MediaType.movie,
-      title: 'Dune',
-      logoUrl: 'https://image.tmdb.org/t/p/w500/l.png',
-    );
-    expect(item.cardLogoUrl, 'https://image.tmdb.org/t/p/w300/l.png');
   });
 
   testWidgets('the gaps of the charter, on a phone and on a TV', (tester) async {
