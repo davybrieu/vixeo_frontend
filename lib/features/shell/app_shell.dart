@@ -72,6 +72,7 @@ const _phoneNavClearance = 66.0;
 /// choose is on the title pages). « Notifications »: a button of the profile page.
 const _railItems = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
+  _releases,
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
   _feed,
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
