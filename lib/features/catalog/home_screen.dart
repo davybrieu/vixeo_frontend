@@ -39,27 +39,27 @@ class HomeScreen extends ConsumerWidget {
       children: [
         Positioned.fill(
           child: AsyncView(
-      value: home,
-      onRetry: () => ref.invalidate(homeProvider),
-      data: (data) {
-        if (data.sections.isEmpty && data.featured.isEmpty) {
-          return const EmptyState(
-            icon: Icons.movie_filter_outlined,
-            title: 'Rien à afficher pour l’instant',
-            message: 'Le catalogue est vide pour ce profil.',
-          );
-        }
-        final shown = Home(
-          featured: data.featured,
-          sections: rowPreferences.visible(data.sections, (section) => section.key),
-        );
-        return layout.isPhone
-            ? RefreshIndicator(
-                onRefresh: refresh,
-                child: _PhoneHome(home: shown, resume: resume),
-              )
-            : _LargeHome(home: shown, resume: resume);
-      },
+            value: home,
+            onRetry: () => ref.invalidate(homeProvider),
+            data: (data) {
+              if (data.sections.isEmpty && data.featured.isEmpty) {
+                return const EmptyState(
+                  icon: Icons.movie_filter_outlined,
+                  title: 'Rien à afficher pour l’instant',
+                  message: 'Le catalogue est vide pour ce profil.',
+                );
+              }
+              final shown = Home(
+                featured: data.featured,
+                sections: rowPreferences.visible(data.sections, (section) => section.key),
+              );
+              return layout.isPhone
+                  ? RefreshIndicator(
+                      onRefresh: refresh,
+                      child: _PhoneHome(home: shown, resume: resume),
+                    )
+                  : _LargeHome(home: shown, resume: resume);
+            },
           ),
         ),
         Positioned(
