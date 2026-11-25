@@ -35,6 +35,11 @@ class CatalogRepository {
       TitleDetails.fromJson((await _api.get('/catalog/tv/$id'))['data'] as Map<String, dynamic>);
 
   /// « Affiches, arrière-plans, logos »: TMDb's images of a title, its choice and the profile's.
+  /// Streaming, free, ad-supported, rental and purchase offers for a title and country.
+  Future<Map<String, dynamic>> watchProviders(MediaType type, int id, {String country = 'FR'}) async =>
+      (await _api.get('/catalog/${type.name}/$id/watch-providers', query: {'country': country}))['data']
+          as Map<String, dynamic>;
+
   Future<TitleImages> images(MediaType type, int id) async =>
       TitleImages.fromJson((await _api.get('/catalog/${type.name}/$id/images'))['data'] as Map<String, dynamic>);
 
