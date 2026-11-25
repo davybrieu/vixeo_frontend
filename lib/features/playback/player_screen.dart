@@ -12,7 +12,6 @@ import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../addons/scraper_models.dart';
 import '../addons/scrapers.dart';
-import '../auth/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focus_navigation.dart';
@@ -885,10 +884,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final playbackType = widget.type == MediaType.movie ? 'movie' : 'tv';
-    final playbackLocation = widget.live
-        ? (widget.returnLocation ?? '/accueil')
-        : '/lecture/$playbackType/${widget.id}'
-            '${_season != null && _episode != null ? '?saison=$_season&episode=$_episode' : ''}';
     final canLoadSources = !widget.live &&
         (widget.type == MediaType.movie || (_season != null && _episode != null));
     final providersAsync = !canLoadSources
