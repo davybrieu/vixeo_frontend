@@ -358,7 +358,6 @@ void main() {
     Rect heading(String title) => tester.getRect(find.text(title));
     // Each section: its title, its first row and its last row.
     final sections = [
-      (heading('Apparence'), row('Format des affiches'), row('Format des affiches')),
       (heading('No spoil'), row('Activer No spoil'), row('Activer No spoil')),
       (heading('Langues'), row('Langue audio préférée'), row('Sous-titres')),
       (heading('Après la lecture'), row('Proposer de noter à la fin'), row('Proposer de noter à la fin')),

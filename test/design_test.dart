@@ -229,10 +229,10 @@ void main() {
       size: phone,
     );
     final intro = tester.getTopLeft(find.textContaining('Personnalisez')).dx;
-    expect(tester.getTopLeft(find.text('Apparence')).dx, intro);
+    expect(tester.getTopLeft(find.text('No spoil')).dx, intro);
     expect(
       tester
-          .getTopLeft(find.ancestor(of: find.text('Format des affiches'), matching: find.byType(VxFocusable)).first)
+          .getTopLeft(find.ancestor(of: find.text('Activer No spoil'), matching: find.byType(VxFocusable)).first)
           .dx,
       intro,
     );

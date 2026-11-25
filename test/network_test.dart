@@ -588,7 +588,8 @@ void main() {
     final row = _pressable('Proposer de noter à la fin, activé');
     expect(row, findsOneWidget);
     expect(tester.widget<VxFocusable>(row).autofocus, isTrue);
-    expect(tester.widget<VxFocusable>(_pressable('Format des affiches : Vertical')).autofocus, isFalse);
+    final noSpoil = find.byWidgetPredicate((w) => w is VxFocusable && (w.semanticLabel ?? '').startsWith('Activer No spoil'));
+    expect(tester.widget<VxFocusable>(noSpoil).autofocus, isFalse);
 
     await tester.tap(row);
     await tester.pumpAndSettle();
