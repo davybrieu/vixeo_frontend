@@ -565,18 +565,3 @@ class _FieldLabel extends StatelessWidget {
     ),
   );
 }
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Text(
-      text,
-      style: VxText.body(14, weight: FontWeight.w500, color: VxColors.textSecondary),
-    ),
-  );
-}
