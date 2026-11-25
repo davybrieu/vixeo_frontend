@@ -481,10 +481,11 @@ lib/
   Test : `test/row_preferences_test.dart`.
 - **Page « Notifications »** (`/notifications`, `InboxScreen`, `features/notifications/inbox_screen.dart`
   et `inbox.dart` ; demande du développeur, 21/11/2026 ; API : `vixeo_backend/docs/social.md`) :
-  **dans la navigation**, entre « Recherche » et « Profil » (onglet du téléphone et rail ; pas pour
-  un invité ni un profil enfant : `socialAvailable`, la route mène alors à l'accueil), avec une
-  **pastille** du nombre de non lues (`NavigationBadge`, « 9+ » au-delà ; lue « Notifications,
-  3 notifications non lues »). Pastille : `unreadNotificationsProvider` (`GET /notifications/count`),
+  **plus dans la navigation** (demande du développeur, 25/11/2026 : ni onglet ni rail) : une
+  **cloche en haut à droite de la page « Profil », juste avant « Paramètres »** (`ProfileScreen`,
+  toutes les tailles d'écran ; pas pour un invité ni un profil enfant : `socialAvailable`, la route
+  mène alors à l'accueil), avec une **pastille** du nombre de non lues (`NavigationBadge`, « 9+ »
+  au-delà ; lue « Notifications, 3 notifications non lues ») ; la page a son bouton retour. Pastille : `unreadNotificationsProvider` (`GET /notifications/count`),
   relue à l'arrivée de la navigation, à chaque changement de page (30 s au plus entre deux,
   `_UnreadWatcher` d'`AppShell`), au retour au premier plan et à l'arrivée d'un push du canal
   `social` ; **pas de minuterie**. La page : **tout dans une seule liste, sans sections** (demande
@@ -626,7 +627,7 @@ lib/
 - **Messagerie** (`features/messages`, le développeur, 22/11/2026, comme Instagram ; API :
   `vixeo_backend/docs/messagerie.md`) : **une entrée à part de la navigation** (demande du
   développeur, 23/11/2026 : pas dans le « Fil d'actualité »), onglet du téléphone et entrée du rail
-  **« Messages »** après « Notifications » (`ConversationsScreen`, `/messages` ; pas pour un invité ni un profil enfant :
+  **« Messages »** après « Recherche » (`ConversationsScreen`, `/messages` ; pas pour un invité ni un profil enfant :
   `socialAvailable`, la route mène à l'accueil) : `VxPageHeader` avec « Écrire à un membre… »
   (recherche des comptes, `MemberSearchResults`) et « Créer un groupe » (`VxIconAction`), les
   **demandes reçues** (« Accepter » ✓ / « Refuser » ✕) puis les conversations (avatar ou icône du
@@ -665,9 +666,9 @@ lib/
   « comme Twitter mais sans tweet de texte » ; API : `vixeo_backend/docs/social.md`,
   `docs/moderation.md`) : **toute publication porte sur une œuvre** (avis, visionnage, J'aime,
   liste), la conversation est dans les commentaires.
-  - **Navigation du téléphone** : Accueil · Fil d'actualité · Recherche · Notifications · Messages ·
-    Profil (icônes seules ; « Paramètres » en haut de la page « Profil », bouton rond ; un profil
-    enfant garde l'onglet « Paramètres »). Tablette et ordinateur : « Fil d'actualité » dans le rail,
+  - **Navigation du téléphone** : Accueil · Fil d'actualité · Recherche · Messages · Profil (icônes
+    seules ; « Notifications » (cloche) et « Paramètres » en haut de la page « Profil », boutons
+    ronds ; un profil enfant garde l'onglet « Paramètres »). Tablette et ordinateur : « Fil d'actualité » dans le rail,
     après « Chaînes TV ». **Pas de « Fil d'actualité » ni de « Messages » sur TV** (la TV sert à
     regarder ; ce qui aide à choisir est sur la fiche).
   - **« Fil d'actualité »** (renommé de « Fil » le 23/11/2026, demande du développeur ;

@@ -223,11 +223,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
           ),
           // « Notifications »: follow requests, next episodes, what other members did (not for a
-          // child's profile).
+          // child's profile). Opened from the bell of the profile page (not in the navigation).
           GoRoute(
             path: InboxScreen.location,
             redirect: (_, _) => socialAvailable(ref.read(sessionProvider)) ? null : '/accueil',
-            pageBuilder: (_, state) => tab(state, const InboxScreen()),
+            builder: (_, _) => const InboxScreen(),
           ),
           // « Fil d'actualité »: what the members did (phones, tablets, computers).
           GoRoute(

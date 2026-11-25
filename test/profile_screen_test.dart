@@ -18,6 +18,7 @@ import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/library/my_list_screen.dart';
 import 'package:vixeo/features/network/network.dart';
+import 'package:vixeo/features/notifications/inbox.dart';
 import 'package:vixeo/features/profiles/profile_settings_screen.dart';
 import 'package:vixeo/features/social/profile_screen.dart';
 import 'package:vixeo/features/social/profile_view.dart';
@@ -165,6 +166,15 @@ class _FakeNetwork extends NetworkRepository {
   Future<Paged<SocialList>> memberLists(String username, {int page = 1}) async => Paged(items: _lists);
 }
 
+/// 3 unread notifications, nothing asked to the server.
+class _ThreeUnread extends UnreadNotifications {
+  @override
+  int build() => 3;
+
+  @override
+  Future<void> refresh({bool force = false}) async {}
+}
+
 /// Opens the tab [label] of a profile page (« Activité », « Listes », « Avis », « Aimés », « Vus »).
 Future<void> _tab(WidgetTester tester, String label) async {
   await tester.tap(
@@ -190,6 +200,7 @@ Future<void> _pump(WidgetTester tester) async {
       GoRoute(path: '/titre/:type/:id', builder: (_, state) => page('Fiche ${state.pathParameters['id']}')),
       GoRoute(path: '/avis', builder: (_, _) => page('Page Mes avis')),
       GoRoute(path: '/parametres', builder: (_, _) => page('Page Paramètres')),
+      GoRoute(path: '/notifications', builder: (_, _) => page('Page Notifications')),
       GoRoute(path: '/profil/social/:section', builder: (_, state) => page('Page ${state.pathParameters['section']}')),
     ],
   );
@@ -202,6 +213,7 @@ Future<void> _pump(WidgetTester tester) async {
         networkRepositoryProvider.overrideWithValue(_FakeNetwork()),
         socialProfileProvider.overrideWith((ref, username) async => _social),
         titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
+        unreadNotificationsProvider.overrideWith(_ThreeUnread.new),
       ],
       child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
     ),
@@ -210,6 +222,14 @@ Future<void> _pump(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('the bell of the profile page opens « Notifications »', (tester) async {
+    await _pump(tester);
+
+    await tester.tap(_pressable('Notifications, 3 notifications non lues'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page Notifications'), findsOneWidget);
+  });
+
   testWidgets('shows the profile, its counters and its five tabs', (tester) async {
     await _pump(tester);
 
@@ -228,6 +248,11 @@ void main() {
     // at the top right on a phone.
     expect(find.text('Modifier le profil'), findsNothing);
     expect(_pressable('Paramètres'), findsOneWidget);
+    // « Notifications » (not in the navigation any more): next to « Paramètres », with its number.
+    final bell = _pressable('Notifications, 3 notifications non lues');
+    expect(bell, findsOneWidget);
+    expect(tester.getCenter(bell).dx, lessThan(tester.getCenter(_pressable('Paramètres')).dx));
+    expect(find.text('3'), findsWidgets);
     // No invitation to choose « Mes 4 favoris ».
     expect(find.textContaining('Choisissez vos 4'), findsNothing);
 

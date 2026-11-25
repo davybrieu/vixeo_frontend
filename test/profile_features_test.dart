@@ -266,7 +266,7 @@ void main() {
   testWidgets('the side rail fits a low screen (smaller icons), then scrolls', (tester) async {
     addTearDown(tester.view.reset);
     tester.view.devicePixelRatio = 1;
-    const labels = ['Accueil', 'Chaînes TV', 'Fil d’actualité', 'Recherche', 'Notifications', 'Messages', 'Profil', 'Paramètres'];
+    const labels = ['Accueil', 'Chaînes TV', 'Fil d’actualité', 'Recherche', 'Messages', 'Profil', 'Paramètres'];
 
     // A phone held sideways: everything is visible, with smaller icons than the usual 52.
     tester.view.physicalSize = const Size(700, 440);
@@ -298,7 +298,8 @@ void main() {
     await tester.pump();
 
     expect(find.byTooltip('Chaînes TV'), findsNothing);
-    for (final label in ['Accueil', 'Recherche', 'Notifications', 'Profil', 'Paramètres']) {
+    expect(find.byTooltip('Notifications'), findsNothing);
+    for (final label in ['Accueil', 'Recherche', 'Profil', 'Paramètres']) {
       expect(find.byTooltip(label), findsOneWidget, reason: label);
     }
   });

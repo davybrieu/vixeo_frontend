@@ -195,7 +195,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const VxPageHeader(title: 'Notifications'),
+          const VxPageHeader(title: 'Notifications', back: true),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _refresh,

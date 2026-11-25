@@ -24,6 +24,8 @@ import '../notifications/inbox.dart';
 import '../profiles/covers.dart';
 import '../tmdb/reviews_screen.dart';
 import '../tmdb/tmdb.dart';
+import '../notifications/inbox_screen.dart';
+import '../shell/app_shell.dart' show NavigationBadge, unreadLabel;
 import 'profile_view.dart';
 import 'social_repository.dart';
 
@@ -77,6 +79,8 @@ class ProfileScreen extends ConsumerWidget {
     };
     // « Mes avis »: the first page (20; the tab shows the latest ones) and how many there are.
     final reviewsPage = ref.watch(myReviewsProvider((type: null, order: RatedOrder.recent, page: 1)));
+    // The number on « Notifications » (read again as the pages change: AppShell's _UnreadWatcher).
+    final unread = ref.watch(unreadNotificationsProvider);
     final reviews = reviewsPage.whenData((page) => page.items);
     final layout = Layout.of(context);
     final year = DateTime.now().year;
@@ -95,8 +99,9 @@ class ProfileScreen extends ConsumerWidget {
         ref.invalidate(myReviewsProvider);
         await ref.read(libraryProvider.notifier).refresh();
       },
-      // « Partager le profil » (not on TV), then « Paramètres » on a phone (the tab bar has 6 tabs at
-      // most). No button in the header: the shown tab takes the focus on arrival (TV).
+      // « Partager le profil » (not on TV), « Notifications » with the number of unread ones
+      // (developer's request, 25/11/2026: not in the navigation any more), then « Paramètres » on a
+      // phone. No button in the header: the shown tab takes the focus on arrival (TV).
       focusTabs: true,
       actions: [
         if (social?.shareUrl case final url? when canShareLinks)
@@ -112,6 +117,16 @@ class ProfileScreen extends ConsumerWidget {
               subject: 'Vixeo',
             ),
           ),
+        NavigationBadge(
+          count: unread,
+          size: layout.isLarge ? layout.tv(26) : 17,
+          child: VxIconAction(
+            icon: unread > 0 ? Icons.notifications_rounded : Icons.notifications_none_rounded,
+            label: unread > 0 ? 'Notifications, ${unreadLabel(unread)}' : 'Notifications',
+            dense: true,
+            onPressed: () => context.push(InboxScreen.location),
+          ),
+        ),
         if (layout.isPhone)
           VxIconAction(
             icon: Icons.settings_outlined,

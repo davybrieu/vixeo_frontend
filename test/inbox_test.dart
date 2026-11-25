@@ -261,46 +261,42 @@ void main() {
     expect(find.text('Demande de @nina refusée'), findsOneWidget);
   });
 
-  testWidgets('the navigation: « Notifications » and « Messages » with their unread numbers', (tester) async {
+  testWidgets('the navigation: « Messages » with its unread number, no « Notifications »', (tester) async {
     addTearDown(tester.view.reset);
     tester.view.devicePixelRatio = 1;
 
-    // Phone: Accueil · Fil · Recherche · Notifications · Messages · Profil (23/11/2026; « Messages »
-    // has its own tab, « Paramètres » is on the profile page).
+    // Phone: Accueil · Fil · Recherche · Messages · Profil (25/11/2026; « Notifications » and
+    // « Paramètres » are on the profile page).
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpWidget(_shell(const Profile(id: 2, name: 'Léa')));
     await tester.pump();
-    expect(find.text('3'), findsOneWidget);
+    // « Notifications » is not in the navigation any more: a bell of the profile page.
     Finder tab(String label) => find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label);
-    expect(tab('Notifications, 3 notifications non lues'), findsOneWidget);
+    expect(tab('Notifications, 3 notifications non lues'), findsNothing);
     final home = tester.getCenter(tab('Accueil'));
     final feed = tester.getCenter(tab('Fil d’actualité'));
     final search = tester.getCenter(tab('Recherche'));
-    final inbox = tester.getCenter(tab('Notifications, 3 notifications non lues'));
     final messages = tester.getCenter(tab('Messages, 12 messages non lus'));
     final profile = tester.getCenter(tab('Profil'));
     expect(home.dx, lessThan(feed.dx));
     expect(feed.dx, lessThan(search.dx));
-    expect(search.dx, lessThan(inbox.dx));
-    expect(inbox.dx, lessThan(messages.dx));
+    expect(search.dx, lessThan(messages.dx));
     expect(messages.dx, lessThan(profile.dx));
     // 12 unread messages, written « 9+ ».
     expect(find.text('9+'), findsOneWidget);
     expect(tab('Paramètres'), findsNothing);
 
-    // Large screen: in the rail, read with its number.
+    // Large screen: not in the rail either.
     tester.view.physicalSize = const Size(1280, 800);
     await tester.pumpWidget(_shell(const Profile(id: 2, name: 'Léa')));
     await tester.pump();
-    expect(find.byTooltip('Notifications'), findsOneWidget);
-    expect(_pressable('Notifications, 3 notifications non lues'), findsOneWidget);
+    expect(find.byTooltip('Notifications'), findsNothing);
     expect(_pressable('Messages, 12 messages non lus'), findsOneWidget);
     expect(find.text('9+'), findsOneWidget);
 
-    // A child's profile: no notifications.
+    // A child's profile: no messages.
     await tester.pumpWidget(_shell(const Profile(id: 3, name: 'Tom', isKid: true)));
     await tester.pump();
-    expect(find.byTooltip('Notifications'), findsNothing);
     expect(find.byTooltip('Messages'), findsNothing);
     expect(find.byTooltip('Recherche'), findsOneWidget);
   });

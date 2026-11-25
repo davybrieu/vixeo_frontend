@@ -18,7 +18,6 @@ import '../messages/conversations_screen.dart';
 import '../messages/messages.dart' show unreadMessagesProvider;
 import '../notifications/inbox.dart';
 import '../network/feed_screen.dart';
-import '../notifications/inbox_screen.dart';
 import '../profiles/avatars.dart';
 import 'back_navigation_guard.dart';
 
@@ -37,14 +36,6 @@ const _guestPhoneTabs = [
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
 ];
 
-/// « Notifications »: with the number of unread ones (not for a child's profile).
-const _notifications = _Destination(
-  InboxScreen.location,
-  'Notifications',
-  Icons.notifications_none_rounded,
-  Icons.notifications_rounded,
-);
-
 /// « Messages »: conversations between members, with the number of unread messages (not for a guest
 /// nor a child's profile).
 const _messages = _Destination(
@@ -62,15 +53,15 @@ const _feed = _Destination(
   Icons.dynamic_feed_rounded,
 );
 
-/// Phone (developer's requests, 23/11/2026): Accueil · Fil · Recherche · Notifications ·
-/// Messages · Profil. « Messages » has its own tab (not in the feed); « Paramètres » is a button at
-/// the top of the profile page; a child's profile, without them, keeps the « Paramètres » tab.
+/// Phone (developer's requests, 23/11/2026): Accueil · Fil · Recherche · Messages · Profil.
+/// « Messages » has its own tab (not in the feed); « Notifications » (developer's request,
+/// 25/11/2026) and « Paramètres » are buttons at the top of the profile page; a child's profile,
+/// without them, keeps the « Paramètres » tab.
 const _phoneTabs = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
   _feed,
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
-  _notifications,
   _messages,
   _Destination('/profil', 'Profil', Icons.person_outline_rounded, Icons.person_rounded),
   _settings,
@@ -88,13 +79,12 @@ const _guestRailItems = [
 ];
 
 /// Tablet, computer: everything. TV: no « Fil » nor « Messages » (the TV is for watching; what helps
-/// choose is on the title pages).
+/// choose is on the title pages). « Notifications »: a button of the profile page.
 const _railItems = [
   _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
   _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
   _feed,
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
-  _notifications,
   _messages,
   _Destination('/profil', 'Profil', Icons.person_outline_rounded, Icons.person_rounded),
   _Destination('/parametres', 'Paramètres', Icons.settings_outlined, Icons.settings_rounded),
@@ -119,17 +109,14 @@ class AppShell extends ConsumerWidget {
     // « Chaînes TV » only while live TV is shown (hidden for now: core/features.dart).
     final liveTv = ref.watch(liveTvProvider);
     final inbox = socialAvailable(session);
-    // The numbers on « Notifications » and « Messages » (not for a guest nor a child's profile).
+    // The number on « Messages » (not for a guest nor a child's profile); the one of
+    // « Notifications » is on its button of the profile page.
     final badges = inbox
-        ? {
-            InboxScreen.location: ref.watch(unreadNotificationsProvider),
-            ConversationsScreen.location: ref.watch(unreadMessagesProvider),
-          }
+        ? {ConversationsScreen.location: ref.watch(unreadMessagesProvider)}
         : const <String, int>{};
     final tv = DeviceInfo.isTv;
     bool shown(_Destination d) => switch (d.path) {
       '/chaines-tv' => liveTv,
-      InboxScreen.location => inbox,
       FeedScreen.location || ConversationsScreen.location => inbox && !tv,
       // A phone's « Paramètres » is on the profile page, except for a child's profile.
       '/parametres' when layout.isPhone => !inbox,
@@ -164,7 +151,6 @@ class AppShell extends ConsumerWidget {
               '/chaines-tv',
               FeedScreen.location,
               '/recherche',
-              InboxScreen.location,
               ConversationsScreen.location,
               '/profil',
               // A child's profile: « Paramètres » is a tab (no profile page to reach it from).
