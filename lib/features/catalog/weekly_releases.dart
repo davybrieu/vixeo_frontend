@@ -76,7 +76,7 @@ class WeeklyReleasesRepository {
     String date(DateTime value) =>
         '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
 
-    final response = await _api.get('/catalog/releases', query: {
+    final response = await _api.get('/catalog/releases', receiveTimeout: const Duration(seconds: 60), query: {
       'from': date(from),
       'to': date(to),
       'type': type,
