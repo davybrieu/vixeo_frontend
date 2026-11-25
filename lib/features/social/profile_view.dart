@@ -208,8 +208,8 @@ class ProfileColumn extends StatelessWidget {
 
 /// The top of a profile page, under its cover (like Bingers, developer's request, 25/11/2026): the
 /// avatar on the left, half over the cover, and on its right the page's buttons (a member's
-/// « Envoyer un message » ([onMessage]) and « Suivre » ([action], which takes the focus on arrival);
-/// none on my page); then, aligned on the left, the name, @username, tastes in common, following,
+/// « Suivre » ([action], which takes the focus on arrival); then, aligned on the left, the name,
+/// @username, tastes in common, following,
 /// followers and followed people (actors, directors…: a press opens each list), bio and networks.
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
@@ -224,7 +224,6 @@ class ProfileHeader extends StatelessWidget {
     this.onFollowers,
     this.onFollowing,
     this.action,
-    this.onMessage,
     this.isPrivate = false,
     this.links = const [],
     this.compatibility,
@@ -248,10 +247,6 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback? onFollowing;
   final Widget? action;
 
-  /// « Envoyer un message » (a round button before [action]); none when null (my profile,
-  /// a child's profile).
-  final VoidCallback? onMessage;
-
   /// A private account: a lock after the name.
   final bool isPrivate;
 
@@ -272,7 +267,7 @@ class ProfileHeader extends StatelessWidget {
     final ring = layout.size(4, tv: 6);
     final handle = username?.trim() ?? '';
     final text = bio?.trim() ?? '';
-    final buttons = action != null || onMessage != null;
+    final buttons = action != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,17 +302,7 @@ class ProfileHeader extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      if (onMessage != null)
-                        VxIconAction(
-                          icon: Icons.chat_bubble_outline_rounded,
-                          label: username == null ? 'Envoyer un message' : 'Envoyer un message à @$username',
-                          dense: true,
-                          onPressed: onMessage,
-                        ),
-                      if (action != null) ...[
-                        if (onMessage != null) SizedBox(width: layout.space(VxSpace.xs)),
-                        Flexible(child: action!),
-                      ],
+                      Flexible(child: action!),
                     ],
                   ),
                 ),
