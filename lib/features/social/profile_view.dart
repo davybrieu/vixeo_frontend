@@ -137,8 +137,8 @@ class _ProfileViewState extends State<ProfileView> {
   }
 }
 
-/// The cover at the top of a profile page, 3:1: across the whole screen on a phone, in the reading
-/// column with rounded corners elsewhere; [shaded]: a light shade at its top, under the page's
+/// The cover at the top of a profile page, twice the former 3:1 height: across the whole screen on
+/// a phone, in the reading column with rounded corners elsewhere; [shaded]: a light shade at its top, under the page's
 /// buttons (`VxFloatingBar`), that keeps them readable on a bright cover.
 class _ProfileBanner extends StatelessWidget {
   const _ProfileBanner({required this.cover, required this.shaded});
@@ -150,7 +150,7 @@ class _ProfileBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     Widget banner(double width, double radius) {
-      final height = math.min(width / coverAspectRatio, layout.size(200, tv: 340));
+      final height = math.min(width / coverAspectRatio * 2, layout.size(400, tv: 680));
       return SizedBox(
         height: height,
         child: Stack(
