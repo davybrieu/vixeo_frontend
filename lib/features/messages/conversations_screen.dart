@@ -17,7 +17,7 @@ import 'widgets.dart';
 /// « Messages » (`/messages`, in the navigation; vixeo_backend/docs/messagerie.md): a search to
 /// write to a member, « Créer un groupe », the requests received (accept or decline), then the
 /// conversations, the most recent first, with their last message and unread messages. Not for a
-/// guest nor a child's profile (the route leads home).
+/// child's profile (the route leads home).
 class ConversationsScreen extends ConsumerStatefulWidget {
   const ConversationsScreen({super.key});
 
