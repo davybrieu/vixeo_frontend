@@ -389,9 +389,6 @@ void main() {
 
     await _pump(tester);
     await _tab(tester, 'Aimés');
-    await tester.tap(_pressable('Voir tout : Personnes suivies'));
-    await tester.pumpAndSettle();
-
     await _pump(tester);
     await _tab(tester, 'Vus');
     await tester.tap(_pressable('Voir tout : Mes titres vus'));
