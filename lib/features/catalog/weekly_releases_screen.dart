@@ -200,7 +200,7 @@ class _WeeklyReleasesScreenState extends ConsumerState<WeeklyReleasesScreen> {
                   onRetry: () => ref.invalidate(weeklyReleasesProvider(range)),
                 ),
                 data: (items) => RefreshIndicator(
-                  onRefresh: () async { await ref.refresh(weeklyReleasesProvider(range).future); },
+                  onRefresh: () => ref.refresh(weeklyReleasesProvider(range).future),
                   child: _calendar(items),
                 ),
               ),
