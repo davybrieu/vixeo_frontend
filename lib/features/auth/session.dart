@@ -200,7 +200,7 @@ class SessionController extends Notifier<SessionState> {
       // Signing out locally is enough if the API cannot be reached.
     }
     await _clear();
-    state = const SessionState(status: SessionStatus.guest);
+    state = const SessionState(status: SessionStatus.signedOut);
   }
 
   /// The API answered 401: the token was revoked or expired.
