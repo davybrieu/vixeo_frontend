@@ -245,7 +245,6 @@ void main() {
     expect(find.text('Fan de science-fiction.'), findsOneWidget);
     expect(_pressable('12 abonnés'), findsOneWidget);
     expect(_pressable('1 abonnement'), findsOneWidget);
-    // The people followed (actors, directors…), from this device's library.
     expect(_pressable('1 personne suivie'), findsOneWidget);
     // The top of the page on the left (like Bingers): the avatar, then the name and @username
     // under it; following before followers.
