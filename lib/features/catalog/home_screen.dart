@@ -11,6 +11,7 @@ import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/page_header.dart';
 import '../library/library.dart';
 import '../profiles/row_preferences.dart';
+import '../profiles/rows_settings_screen.dart';
 import 'catalog_repository.dart';
 import 'hero.dart';
 import 'list_screen.dart';
@@ -34,7 +35,10 @@ class HomeScreen extends ConsumerWidget {
       await Future.wait([ref.read(homeProvider.future), ref.read(libraryProvider.notifier).refresh()]);
     }
 
-    return AsyncView(
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: AsyncView(
       value: home,
       onRetry: () => ref.invalidate(homeProvider),
       data: (data) {
@@ -56,6 +60,20 @@ class HomeScreen extends ConsumerWidget {
               )
             : _LargeHome(home: shown, resume: resume);
       },
+          ),
+        ),
+        Positioned(
+          top: 12,
+          right: 16,
+          child: SafeArea(
+            child: VxIconAction(
+              icon: Icons.tune_rounded,
+              label: 'Paramètres de l’accueil',
+              onPressed: () => context.push(RowsSettingsScreen.homeLocation),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
