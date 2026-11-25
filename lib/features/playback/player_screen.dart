@@ -883,7 +883,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final playbackType = widget.type == MediaType.movie ? 'movie' : 'tv';
     final canLoadSources = !widget.live &&
         (widget.type == MediaType.movie || (_season != null && _episode != null));
     final providersAsync = !canLoadSources
