@@ -32,6 +32,7 @@ import 'list_screen.dart';
 import 'description_screen.dart';
 import 'models.dart';
 import 'widgets.dart';
+import 'where_to_watch.dart';
 
 /// Movie or TV show page.
 class DetailsScreen extends ConsumerWidget {
@@ -806,6 +807,8 @@ List<Widget> _lowerSections(BuildContext context, Layout layout, TitleDetails t)
   return [
     if (t.type == MediaType.tv && t.seasons.isNotEmpty) ...[gap, _Episodes(title: t)],
     if (t.trailers.isNotEmpty) ...[gap, _TrailersRow(trailers: t.trailers)],
+    gap,
+    WhereToWatchSection(type: t.type, id: t.id),
     if (t.cast.isNotEmpty) ...[gap, _PeopleRow(title: t, crew: false)],
     if (t.crew.isNotEmpty) ...[gap, _PeopleRow(title: t, crew: true)],
     // What the members say about it: followed members, popular reviews, lists.
