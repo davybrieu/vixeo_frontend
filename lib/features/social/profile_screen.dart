@@ -607,7 +607,6 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
         ..invalidate(socialTitlesProvider)
         ..invalidate(socialLikedProvider)
         ..invalidate(socialWatchedProvider)
-        ..invalidate(socialPeopleProvider)
         ..invalidate(socialReviewsProvider);
       ref.invalidate(socialProfileProvider(profile.username));
       showVxSnackOn(messenger, message);
@@ -646,8 +645,8 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
 /// profiles of a member (`/membre/:username/a-voir`…) or of the active profile
 /// (`/profil/social/aimes`…; mine « À voir » is `/listes/a-voir`, my reviews `/avis`). The titles
 /// and the reviews are the pages of « À voir » and « Mes avis » (`MyListScreen`, `ReviewsScreen`:
-/// search, filters, order); followed people: their round photos in a grid; followers and followed
-/// profiles: back button, title and the members (`AccountTile`). Another section: « Page
+/// search, filters, order); followers and followed profiles: back button, title and the members
+/// (`AccountTile`). Another section: « Page
 /// introuvable » (no former address is kept).
 class SocialCollectionScreen extends ConsumerWidget {
   const SocialCollectionScreen({super.key, required this.section, this.username});
