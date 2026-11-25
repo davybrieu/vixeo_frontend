@@ -12,7 +12,6 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/menu.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
-import '../catalog/models.dart';
 import '../catalog/paging.dart';
 import '../catalog/widgets.dart';
 import '../library/library.dart';
@@ -37,10 +36,8 @@ import 'social_repository.dart';
 /// « Modifier mon profil », « Paramètres », « Changer de profil », « Comptes bloqués et masqués »,
 /// « Se déconnecter »); then its avatar, name, @username, following, followers, followed people, bio
 /// and networks (changed in « Modifier mon profil »); then its figures (time watched, titles and
-/// episodes watched, reviews, « À voir ») and five tabs:
-/// « Activité » (each action with its date), « Listes » (« À voir » first, then my lists),
-/// « Avis », « Aimés » (titles liked and followed people) and « Vus » (titles watched, « Mon
-/// année »). An empty tab shows the [EmptyState] of the « Fil d'actualité ». The round arrow of a
+/// episodes watched, reviews, « À voir ») and five tabs: « Activité », « Listes », « Avis »,
+/// « Aimés » (titles liked) and « Vus » (titles watched, « Mon année »). An empty tab shows the [EmptyState] of the « Fil d'actualité ». The round arrow of a
 /// section opens it whole.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -67,7 +64,7 @@ class ProfileScreen extends ConsumerWidget {
     final username = profile.username?.trim() ?? '';
     final social = username.isEmpty ? null : ref.watch(socialProfileProvider(username)).value;
 
-    // « À voir », « J'aime » ❤, « Vus » and « Personnes suivies » from what this device keeps up to
+    // « À voir », « J'aime » ❤ and « Vus » from what this device keeps up to
     // date (a change shows at once).
     final library = ref.watch(libraryProvider);
     AsyncValue<List<MediaItem>> titles(List<MediaItem> Function(LibraryState state) of) => switch (library) {
@@ -77,11 +74,6 @@ class ProfileScreen extends ConsumerWidget {
     };
     final liked = titles((state) => [for (final item in state.liked) ?item.asMediaItem]);
     final watched = titles((state) => state.watched);
-    final AsyncValue<List<Person>> people = switch (library) {
-      AsyncValue(:final value?) => AsyncData(value.followedPeople),
-      AsyncValue(:final error?) => AsyncError<List<Person>>(error, StackTrace.empty),
-      _ => const AsyncLoading<List<Person>>(),
-    };
     // « Mes avis »: the first page (20; the tab shows the latest ones) and how many there are.
     final reviewsPage = ref.watch(myReviewsProvider((type: null, order: RatedOrder.recent, page: 1)));
     // The number on « Notifications » (read again as the pages change: AppShell's _UnreadWatcher).
@@ -151,11 +143,8 @@ class ProfileScreen extends ConsumerWidget {
         bio: profile.bio ?? social?.bio,
         followers: social?.followersCount,
         following: social?.followingCount,
-        // Followed people: this device's library (a change shows at once).
-        people: library.value?.followedPeople.length ?? social?.peopleCount,
         onFollowers: () => context.push('/profil/social/abonnes'),
         onFollowing: () => context.push('/profil/social/abonnements'),
-        onPeople: () => context.push('/profil/social/personnes'),
       ),
       stats: ProfileStats(
         stats: _stats(
@@ -213,14 +202,8 @@ class ProfileScreen extends ConsumerWidget {
               emptyIcon: Icons.favorite_border_rounded,
               emptyTitle: 'Aucun J’aime',
               emptyMessage:
-                  'Aimez des films et des séries avec le cœur de leur fiche, suivez des acteurs et des réalisateurs '
-                  'depuis leur page : ils apparaîtront ici.',
+                  'Aimez des films et des séries avec le cœur de leur fiche : ils apparaîtront ici.',
               onSeeAll: () => context.push('/profil/social/aimes'),
-            ),
-            ProfilePeopleSection(
-              title: 'Personnes suivies',
-              people: people,
-              onSeeAll: () => context.push('/profil/social/personnes'),
             ),
           ],
         ),
@@ -368,7 +351,6 @@ class PublicProfileScreen extends ConsumerWidget {
           ref.invalidate(socialTitlesProvider);
           ref.invalidate(socialWatchedProvider);
           ref.invalidate(socialLikedProvider);
-          ref.invalidate(socialPeopleProvider);
           ref.invalidate(socialReviewsProvider);
           ref.invalidate(socialProfileProvider(username));
           await ref.read(socialProfileProvider(username).future);
@@ -410,10 +392,8 @@ class PublicProfileScreen extends ConsumerWidget {
           bio: social.bio,
           followers: social.followersCount,
           following: social.followingCount,
-          people: social.peopleCount,
           onFollowers: canView ? () => context.push(_section('abonnes')) : null,
           onFollowing: canView ? () => context.push(_section('abonnements')) : null,
-          onPeople: canView ? () => context.push(_section('personnes')) : null,
           action: social.isSelf ? null : _FollowButton(profile: social),
           // Write to the member (a request first, accepted or declined on its side).
           onMessage: !social.isSelf && socialAvailable(ref.watch(sessionProvider))
@@ -453,12 +433,11 @@ class PublicProfileScreen extends ConsumerWidget {
     );
   }
 
-  /// Their activity, lists, reviews, likes (and followed people) and titles watched.
+  /// Their activity, lists, reviews, likes and titles watched.
   List<ProfileTab> _tabs(BuildContext context, WidgetRef ref) {
     // The first page of each (20 items): the rest is behind « Voir tout ».
     final liked = ref.watch(socialLikedProvider((username, 1))).whenData((page) => page.items);
     final watched = ref.watch(socialWatchedProvider((username, 1))).whenData((page) => page.items);
-    final people = ref.watch(socialPeopleProvider((username, 1))).whenData((page) => page.items);
     final reviews = ref.watch(socialReviewsProvider((username, 1))).whenData((page) => page.items);
     AsyncValue<List<MediaItem>> titles(AsyncValue<List<MediaItem>> value) => switch (value.value) {
       final list? => withCatalogDetails(ref, list.take(profileGridShown).toList()),
@@ -491,11 +470,6 @@ class PublicProfileScreen extends ConsumerWidget {
             emptyTitle: 'Aucun J’aime',
             emptyMessage: 'Les films et les séries qu’il aime apparaîtront ici.',
             onSeeAll: () => context.push(_section('aimes')),
-          ),
-          ProfilePeopleSection(
-            title: 'Personnes suivies',
-            people: people,
-            onSeeAll: () => context.push(_section('personnes')),
           ),
         ],
       ),
@@ -668,7 +642,7 @@ class _FollowButtonState extends ConsumerState<_FollowButton> {
   }
 }
 
-/// The whole « À voir », J'aime, titles watched, followed people, reviews, followers or followed
+/// The whole « À voir », J'aime, titles watched, reviews, followers or followed
 /// profiles of a member (`/membre/:username/a-voir`…) or of the active profile
 /// (`/profil/social/aimes`…; mine « À voir » is `/listes/a-voir`, my reviews `/avis`). The titles
 /// and the reviews are the pages of « À voir » and « Mes avis » (`MyListScreen`, `ReviewsScreen`:
@@ -696,7 +670,6 @@ class SocialCollectionScreen extends ConsumerWidget {
       'a-voir' when !mine => _Kind.toWatch,
       'aimes' => _Kind.liked,
       'vus' => _Kind.watched,
-      'personnes' => _Kind.people,
       'abonnes' => _Kind.followers,
       'abonnements' => _Kind.following,
       _ => null,
@@ -714,8 +687,6 @@ class SocialCollectionScreen extends ConsumerWidget {
         return MyListScreen(username: mine ? null : handle, collection: TitleCollection.watched);
       case _Kind.reviews:
         return ReviewsScreen(username: handle);
-      case _Kind.people:
-        return _PeopleScreen(username: mine ? null : handle);
       case _Kind.followers || _Kind.following:
         break;
     }
@@ -772,7 +743,7 @@ class SocialCollectionScreen extends ConsumerWidget {
   }
 }
 
-enum _Kind { toWatch, liked, watched, people, reviews, followers, following }
+enum _Kind { toWatch, liked, watched, reviews, followers, following }
 
 /// « Personnes suivies » (mine: [username] null) or a member's: back button, title and their round
 /// photos in a grid; a photo opens the person's page.
