@@ -90,11 +90,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       final location = state.matchedLocation;
       const authPages = {'/connexion', EmailLoginScreen.location, '/inscription', '/mot-de-passe-oublie'};
-      const accountOnly = {
-        '/profils', '/avis', '/profil', '/parametres', '/profil/social/aimes', '/profil/social/vus', '/profil/social/personnes', '/profil/social/abonnements', '/profil/social/abonnes',
-        '/profil/parametres', '/profil/compte', '/profil/appareils', '/profil/notifications', '/profil/plugins', '/tv',
-        InboxScreen.location, ConversationsScreen.location, FeedScreen.location, '/listes', OnboardingScreen.location,
-      };
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
         if (location != '/demarrage') {
           if (!authPages.contains(location)) pending = state.uri.toString();
