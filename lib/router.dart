@@ -11,6 +11,7 @@ import 'features/account/devices_screen.dart';
 import 'features/addons/addons_screen.dart';
 import 'features/auth/device_login.dart';
 import 'features/auth/login_screen.dart';
+import 'features/catalog/artwork.dart';
 import 'features/catalog/artwork_screen.dart';
 import 'features/auth/password_reset_screen.dart';
 import 'features/auth/register_screen.dart' show RegisterScreen;
@@ -417,6 +418,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => ArtworkScreen(
               type: MediaType.parse(state.pathParameters['type']),
               id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+              initialKind: ArtworkKind.fromSlug(state.uri.queryParameters['sorte']),
             ),
           ),
           // « Voir tout » of « Distribution » and « Équipe technique ».

@@ -44,10 +44,10 @@ Future<bool> saveProfile(
 }
 
 /// Settings hub: grouped cards (account, general), using the app's own destinations. The profile
-/// is changed from the « ⋮ » of its page (« Modifier mon profil », « Changer de profil », « Comptes
-/// bloqués et masqués »: developer's request, 25/11/2026; no « Profil » nor « Avancé » here any
-/// more). A child's profile has no page: « Changer de profil » and « Modifier le profil » stay here
-/// for it.
+/// is changed, and the account left, from the « ⋮ » of its page (« Modifier mon profil »,
+/// « Changer de profil », « Comptes bloqués et masqués », « Se déconnecter »: developer's request,
+/// 25/11/2026; no « Profil », « Avancé » nor « Se déconnecter » here any more). A child's profile
+/// has no page: « Changer de profil » and « Modifier le profil » stay here for it.
 class ProfileSettingsScreen extends ConsumerWidget {
   const ProfileSettingsScreen({super.key});
 
@@ -120,14 +120,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
                         subtitle: 'Approuver le code affiché sur le téléviseur.',
                         onPressed: () => context.push('/tv'),
                       ),
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.logout_rounded,
-                      title: 'Se déconnecter',
-                      subtitle: 'Quitter ce compte sur cet appareil.',
-                      foreground: VxColors.dangerText,
-                      onPressed: () => ref.read(sessionProvider.notifier).logout(),
-                    ),
                   ],
                 ),
                 SizedBox(height: layout.sectionGap),
@@ -233,7 +225,6 @@ class _SettingsTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onPressed,
-    this.foreground,
   });
 
   final double scale;
@@ -241,7 +232,6 @@ class _SettingsTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onPressed;
-  final Color? foreground;
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +251,7 @@ class _SettingsTile extends StatelessWidget {
               width: iconBox,
               height: iconBox,
               decoration: BoxDecoration(color: const Color(0xFF2A2A2A), borderRadius: BorderRadius.circular(14 * s)),
-              child: Icon(icon, size: 22 * s, color: foreground ?? VxColors.text),
+              child: Icon(icon, size: 22 * s, color: VxColors.text),
             ),
             SizedBox(width: 14 * s),
             Expanded(
@@ -270,12 +260,12 @@ class _SettingsTile extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: VxText.body(16 * s, weight: FontWeight.w600, color: foreground ?? VxColors.text),
+                    style: VxText.body(16 * s, weight: FontWeight.w600, color: VxColors.text),
                   ),
                   SizedBox(height: 2 * s),
                   Text(
                     subtitle,
-                    style: VxText.body(13.5 * s, color: foreground ?? VxColors.textSecondary, height: 1.3),
+                    style: VxText.body(13.5 * s, color: VxColors.textSecondary, height: 1.3),
                   ),
                 ],
               ),

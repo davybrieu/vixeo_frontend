@@ -33,6 +33,11 @@ class WithProfile extends SessionController {
   );
 }
 
+class Guest extends SessionController {
+  @override
+  SessionState build() => const SessionState(status: SessionStatus.guest);
+}
+
 class EmptyLibrary extends LibraryController {
   @override
   Future<LibraryState> build() async => const LibraryState({});
@@ -127,6 +132,12 @@ Future<void> pumpPage(
       GoRoute(
         path: '/titre/:type/:id',
         builder: (_, state) => Scaffold(body: Text('Fiche ${state.pathParameters['id']}')),
+      ),
+      GoRoute(
+        path: '/titre/:type/:id/images',
+        builder: (_, state) => Scaffold(
+          body: Text('Images ${state.pathParameters['id']} ${state.uri.queryParameters['sorte'] ?? 'affiche'}'),
+        ),
       ),
     ],
   );
@@ -430,6 +441,90 @@ void main() {
 
       expect(tmdb.calls, ['rate tv/9/season/1/episode/1 6.0']);
       expect(find.text('Ma note : 6/10'), findsOneWidget);
+    });
+
+    const full = TitleDetails(
+      id: 3,
+      type: MediaType.movie,
+      title: 'Le Phare',
+      overview: 'Deux gardiens de phare sur une île de Nouvelle-Angleterre, dans les années 1890.',
+      cast: [
+        Person(id: 1, name: 'Robert Pattinson', role: 'Ephraim'),
+        Person(id: 2, name: 'Willem Dafoe', role: 'Thomas'),
+      ],
+      trailers: [
+        Trailer(
+          url: 'https://www.youtube.com/watch?v=a',
+          name: 'Bande-annonce VF',
+          language: 'fr',
+          thumbnailUrl: 'https://i.ytimg.com/vi/a/hqdefault.jpg',
+        ),
+        Trailer(url: 'https://www.youtube.com/watch?v=b', name: 'Teaser officiel', language: 'en', teaser: true),
+      ],
+      trailer: Trailer(url: 'https://www.youtube.com/watch?v=a', name: 'Bande-annonce VF'),
+    );
+
+    testWidgets('« Bandes-annonces »: a row of every trailer, no « Bande-annonce » button', (tester) async {
+      await pumpPage(tester, const DetailsScreen(type: MediaType.movie, id: 3), tmdb: FakeTmdb(), overrides: details(full));
+
+      expect(find.bySemanticsLabel('Voir la bande-annonce'), findsNothing);
+      final first = find.bySemanticsLabel('Bande-annonce : Bande-annonce VF');
+      await tester.scrollUntilVisible(first, 300, scrollable: find.byType(Scrollable).first);
+      expect(find.text('Bandes-annonces'), findsOneWidget);
+      expect(find.bySemanticsLabel('Teaser : Teaser officiel'), findsOneWidget);
+      // Side by side, the best first.
+      expect(
+        tester.getCenter(first).dx,
+        lessThan(tester.getCenter(find.bySemanticsLabel('Teaser : Teaser officiel')).dx),
+      );
+    });
+
+    testWidgets('« ⋮ » changes the poster, backdrop or logo; no images button any more', (tester) async {
+      await pumpPage(tester, const DetailsScreen(type: MediaType.movie, id: 3), tmdb: FakeTmdb(), overrides: details(full));
+
+      expect(find.bySemanticsLabel('Affiches, arrière-plans et logos'), findsNothing);
+      // At the top right, across from « Retour ».
+      final menu = find.bySemanticsLabel('Plus d’options');
+      expect(tester.getCenter(menu).dx, greaterThan(tester.getCenter(find.bySemanticsLabel('Retour')).dx));
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      double top(String text) => tester.getTopLeft(find.text(text)).dy;
+      expect(top('Changer l’affiche'), lessThan(top('Changer l’arrière-plan')));
+      expect(top('Changer l’arrière-plan'), lessThan(top('Changer le logo')));
+
+      // Each opens its tab.
+      await tester.tap(find.text('Changer l’arrière-plan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Images 3 arriere-plan'), findsOneWidget);
+    });
+
+    testWidgets('« Retour » and « ⋮ » stay at the top while the page scrolls', (tester) async {
+      await pumpPage(tester, const DetailsScreen(type: MediaType.movie, id: 3), tmdb: FakeTmdb(), overrides: details(full));
+
+      final back = find.bySemanticsLabel('Retour');
+      final menu = find.bySemanticsLabel('Plus d’options');
+      final backAt = tester.getTopLeft(back);
+      final menuAt = tester.getTopLeft(menu);
+      final playAt = tester.getTopLeft(find.text('Lecture'));
+
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -400));
+      await tester.pumpAndSettle();
+      // The page moved, not them.
+      expect(tester.getTopLeft(find.text('Lecture')).dy, lessThan(playAt.dy));
+      expect(tester.getTopLeft(back), backAt);
+      expect(tester.getTopLeft(menu), menuAt);
+      expect(back.hitTestable(), findsOneWidget);
+    });
+
+    testWidgets('a guest: no « ⋮ » (nothing to change)', (tester) async {
+      await pumpPage(
+        tester,
+        const DetailsScreen(type: MediaType.movie, id: 3),
+        tmdb: FakeTmdb(),
+        overrides: [...details(full), sessionProvider.overrideWith(Guest.new)],
+      );
+      expect(find.bySemanticsLabel('Plus d’options'), findsNothing);
+      expect(find.bySemanticsLabel('Retour'), findsOneWidget);
     });
   });
 

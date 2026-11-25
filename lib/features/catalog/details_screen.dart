@@ -11,6 +11,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
+import '../../core/widgets/menu.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../auth/session.dart';
@@ -24,6 +25,7 @@ import '../ratings/ratings_sheet.dart';
 import '../search/filter_bar.dart';
 import '../tmdb/rating_buttons.dart';
 import '../tmdb/tmdb.dart';
+import 'artwork.dart';
 import 'artwork_screen.dart';
 import 'catalog_repository.dart';
 import 'list_screen.dart';
@@ -98,9 +100,10 @@ class _BackButton extends StatelessWidget {
   );
 }
 
-/// « Ajouter à une liste » (« À voir » first) / J'aime ❤ / Vu / Noter / Images / Bande-annonce: the same round
-/// icon-only button for each action.
-/// Each click confirms with an alert (« Ajouté à « À voir » »…).
+/// « Ajouter à une liste » (« À voir » first) / J'aime ❤ / Vu / Noter / Envoyer à un ami: the same round
+/// icon-only button for each action. Each click confirms with an alert (« Ajouté à « À voir » »…).
+/// No « Bande-annonce » (the « Bandes-annonces » row, developer's request, 25/11/2026) nor images
+/// (the « ⋮ » at the top right).
 class _Actions extends ConsumerWidget {
   const _Actions({required this.title});
 
@@ -130,20 +133,146 @@ class _Actions extends ConsumerWidget {
               (type: 'title', id: '${title.type.name}:${title.id}', label: title.title),
             ),
           ),
-        // « Affiches, arrière-plans, logos »: the images this profile sees for the title.
-        if (!guest)
-          VxIconAction(
-            icon: Icons.photo_library_outlined,
-            label: 'Affiches, arrière-plans et logos',
-            onPressed: () => context.push(ArtworkScreen.location(title.type, title.id)),
-          ),
-        if (title.trailer != null)
-          VxIconAction(
-            icon: Icons.smart_display_outlined,
-            label: 'Voir la bande-annonce',
-            onPressed: () => _openTrailer(context, title.trailer!),
-          ),
       ],
+    );
+  }
+}
+
+/// « ⋮ » at the top right of a title page (developer's request, 25/11/2026, as on the profile
+/// page): a drop-down to change the images this profile sees for the title, each opening its tab
+/// of « Affiches, arrière-plans, logos ». Nothing for a guest.
+class _TitleMenuButton extends ConsumerWidget {
+  const _TitleMenuButton({required this.title});
+
+  final TitleDetails title;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(sessionProvider.select((s) => s.isGuest || s.profile == null))) return const SizedBox.shrink();
+    return Builder(
+      builder: (anchor) => VxIconAction(
+        icon: Icons.more_vert_rounded,
+        label: 'Plus d’options',
+        dense: true,
+        onPressed: () => showVxMenu(
+          anchor,
+          label: 'Personnaliser la fiche',
+          items: [
+            for (final (kind, icon, label) in [
+              (ArtworkKind.poster, Icons.image_outlined, 'Changer l’affiche'),
+              (ArtworkKind.backdrop, Icons.wallpaper_rounded, 'Changer l’arrière-plan'),
+              (ArtworkKind.logo, Icons.title_rounded, 'Changer le logo'),
+            ])
+              vxMenuItem(icon, label, () => anchor.push(ArtworkScreen.location(title.type, title.id, kind: kind))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// « Bandes-annonces » (developer's request, 25/11/2026: a row like the filmography, instead of a
+/// button): every trailer and teaser of the title, the best first; a card each, YouTube's still with
+/// a play mark, « Teaser » on a teaser, the name under it. A press opens it on YouTube.
+class _TrailersRow extends StatelessWidget {
+  const _TrailersRow({required this.trailers});
+
+  final List<Trailer> trailers;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final width = _TrailerCard.widthOf(layout);
+    // Room for the focus zoom on TV.
+    final vPad = layout.isLarge ? layout.tv(16) : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader('Bandes-annonces'),
+        FocusTraversalGroup(
+          policy: vxTraversalPolicy,
+          child: SizedBox(
+            height: _TrailerCard.heightOf(context) + vPad * 2,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: vPad),
+              itemCount: trailers.length,
+              separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
+              itemBuilder: (_, i) => SizedBox(width: width, child: _TrailerCard(trailer: trailers[i])),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrailerCard extends StatelessWidget {
+  const _TrailerCard({required this.trailer});
+
+  final Trailer trailer;
+
+  static double widthOf(Layout layout) => layout.isLarge ? layout.tv(440) : (layout.isPhone ? 240.0 : 280.0);
+
+  /// The 16:9 still and two lines of name.
+  static double heightOf(BuildContext context) {
+    final layout = Layout.of(context);
+    final size = layout.size(14, tv: 22);
+    final lines = MediaQuery.textScalerOf(context).scale(size) * 1.35 * 2;
+    return widthOf(layout) * 9 / 16 + layout.space(VxSpace.xs) + lines;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final radius = layout.size(12, tv: 18);
+    final name = trailer.name?.trim();
+    final play = layout.size(44, tv: 72);
+    return VxFocusable(
+      borderRadius: radius,
+      semanticLabel: [trailer.kind, if (name != null && name.isNotEmpty) name].join(' : '),
+      onPressed: () => _openTrailer(context, trailer),
+      child: ExcludeSemantics(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(radius),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    NetImage(url: trailer.thumbnailUrl, seed: trailer.url.hashCode),
+                    Center(
+                      child: Container(
+                        width: play,
+                        height: play,
+                        decoration: const BoxDecoration(color: Color(0xB3070A08), shape: BoxShape.circle),
+                        child: Icon(Icons.play_arrow_rounded, color: VxColors.text, size: play * 0.6),
+                      ),
+                    ),
+                    if (trailer.teaser)
+                      Positioned(
+                        left: layout.space(VxSpace.xs),
+                        top: layout.space(VxSpace.xs),
+                        child: VxBadge('Teaser', fontSize: layout.size(12, tv: 18)),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: layout.space(VxSpace.xs)),
+            Text(
+              name == null || name.isEmpty ? trailer.kind : name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: VxText.body(layout.size(14, tv: 22), weight: FontWeight.w600, height: 1.35),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -579,7 +708,7 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
       maxHeight: 96,
     );
     final layout = Layout.of(context);
-    return ListView(
+    final list = ListView(
       padding: EdgeInsets.only(bottom: pageBottomPadding(context)),
       children: [
         Stack(
@@ -651,10 +780,21 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                 ],
               ),
             ),
-            const Positioned(left: 0, top: 0, child: _BackButton()),
           ],
         ),
         ..._lowerSections(context, layout, t),
+      ],
+    );
+    // Back and « ⋮ » stay at the top while the page scrolls under them.
+    return Stack(
+      children: [
+        list,
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: VxFloatingBar(actions: [_TitleMenuButton(title: t)]),
+        ),
       ],
     );
   }
@@ -666,6 +806,7 @@ List<Widget> _lowerSections(BuildContext context, Layout layout, TitleDetails t)
   final gap = SizedBox(height: layout.sectionGap);
   return [
     if (t.type == MediaType.tv && t.seasons.isNotEmpty) ...[gap, _Episodes(title: t)],
+    if (t.trailers.isNotEmpty) ...[gap, _TrailersRow(trailers: t.trailers)],
     if (t.cast.isNotEmpty) ...[gap, _PeopleRow(title: t, crew: false)],
     if (t.crew.isNotEmpty) ...[gap, _PeopleRow(title: t, crew: true)],
     // What the members say about it: followed members, popular reviews, lists.
@@ -729,32 +870,8 @@ class _LargeDetails extends StatelessWidget {
         ListView(
           padding: EdgeInsets.only(bottom: pageBottomPadding(context)),
           children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(layout.gutter, layout.tv(64), layout.gutter, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: VxFocusable(
-                  borderRadius: layout.tv(24),
-                  semanticLabel: 'Retour',
-                  onPressed: () => context.canPop() ? context.pop() : context.go('/accueil'),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: layout.tv(18), vertical: layout.tv(10)),
-                    decoration: BoxDecoration(
-                      color: const Color(0x8C070A08),
-                      borderRadius: BorderRadius.circular(layout.tv(24)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.arrow_back_rounded, size: layout.tv(24), color: VxColors.textSoft),
-                        SizedBox(width: layout.tv(8)),
-                        Text('Retour', style: VxText.body(layout.tv(19), color: VxColors.textSoft)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            // Room for « Retour », which stays at the top (below).
+            SizedBox(height: layout.tv(64) + _LargeBack.heightOf(layout)),
             Padding(
               // Same left edge as the sections below (« Distribution », rows).
               padding: EdgeInsets.fromLTRB(layout.gutter, layout.tv(60), layout.gutter, 0),
@@ -825,7 +942,48 @@ class _LargeDetails extends StatelessWidget {
             ..._lowerSections(context, layout, t),
           ],
         ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: VxFloatingBar(
+            leading: const _LargeBack(),
+            actions: [_TitleMenuButton(title: t)],
+            safeArea: false,
+            padding: EdgeInsets.fromLTRB(layout.gutter, layout.tv(64), layout.gutter, 0),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+/// « Retour » with its word, at the top left of a large title page.
+class _LargeBack extends StatelessWidget {
+  const _LargeBack();
+
+  static double heightOf(Layout layout) => layout.tv(10) * 2 + layout.tv(19) * 1.4;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    return VxFocusable(
+      borderRadius: layout.tv(24),
+      semanticLabel: 'Retour',
+      onPressed: () => context.canPop() ? context.pop() : context.go('/accueil'),
+      child: Container(
+        height: heightOf(layout),
+        padding: EdgeInsets.symmetric(horizontal: layout.tv(18)),
+        decoration: BoxDecoration(color: const Color(0x8C070A08), borderRadius: BorderRadius.circular(layout.tv(24))),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.arrow_back_rounded, size: layout.tv(24), color: VxColors.textSoft),
+            SizedBox(width: layout.tv(8)),
+            Text('Retour', style: VxText.body(layout.tv(19), color: VxColors.textSoft)),
+          ],
+        ),
+      ),
     );
   }
 }

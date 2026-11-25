@@ -299,14 +299,32 @@ enum PersonCreditsSort {
   date,
 }
 
+/// A trailer or a teaser on YouTube (« Bandes-annonces » of the title page).
 class Trailer {
-  const Trailer({required this.url, this.name});
+  const Trailer({required this.url, this.name, this.language, this.teaser = false, this.thumbnailUrl});
 
-  factory Trailer.fromJson(Map<String, dynamic> json) =>
-      Trailer(url: json['url'] as String, name: json['name'] as String?);
+  factory Trailer.fromJson(Map<String, dynamic> json) => Trailer(
+    url: json['url'] as String,
+    name: json['name'] as String?,
+    language: json['language'] as String?,
+    teaser: json['type'] == 'Teaser',
+    thumbnailUrl: json['thumbnail_url'] as String?,
+  );
 
   final String url;
   final String? name;
+
+  /// "fr", "en"…
+  final String? language;
+
+  /// A teaser rather than a trailer.
+  final bool teaser;
+
+  /// YouTube's still (480 × 360: a 16:9 picture between black bands, cropped by the card).
+  final String? thumbnailUrl;
+
+  /// « Bande-annonce » or « Teaser ».
+  String get kind => teaser ? 'Teaser' : 'Bande-annonce';
 }
 
 class SeasonSummary {
@@ -462,6 +480,7 @@ class TitleDetails {
     this.textlessBackdropUrl,
     this.textlessBackdropPath,
     this.trailer,
+    this.trailers = const [],
     this.cast = const [],
     this.crew = const [],
     this.seasons = const [],
@@ -498,6 +517,10 @@ class TitleDetails {
       trailer: json['trailer'] is Map<String, dynamic>
           ? Trailer.fromJson(json['trailer'] as Map<String, dynamic>)
           : null,
+      // An API of before gave the best one only.
+      trailers: json['trailers'] is List
+          ? _list(json['trailers'], Trailer.fromJson)
+          : [if (json['trailer'] is Map<String, dynamic>) Trailer.fromJson(json['trailer'] as Map<String, dynamic>)],
       cast: _list(json['cast'], Person.fromJson),
       // « Équipe technique »: everyone but the actors, their jobs in French (role); an API of before
       // gave only the directors or creators.
@@ -552,6 +575,9 @@ class TitleDetails {
   final String? textlessBackdropUrl;
   final String? textlessBackdropPath;
   final Trailer? trailer;
+
+  /// « Bandes-annonces »: every trailer and teaser, the best first.
+  final List<Trailer> trailers;
   final List<Person> cast;
 
   /// « Équipe technique » (20 at most): everyone but the actors, [Person.role] their jobs.

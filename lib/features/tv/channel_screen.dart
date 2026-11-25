@@ -171,12 +171,10 @@ class _Page extends ConsumerWidget {
       ListView(
         padding: EdgeInsets.only(bottom: pageBottomPadding(context)),
         children: [
+          // Room for « Retour », which stays at the top (below).
           SafeArea(
             bottom: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(layout.gutter, large ? layout.tv(48) : 8, layout.gutter, 0),
-              child: const Align(alignment: Alignment.centerLeft, child: _BackButton(inline: true)),
-            ),
+            child: SizedBox(height: (large ? layout.tv(48) : 8) + VxBackButton.sizeOf(layout)),
           ),
           SizedBox(height: heroHeight - logoSize - (large ? layout.tv(220) : 150)),
           Padding(
@@ -221,6 +219,12 @@ class _Page extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+      Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        child: VxFloatingBar(padding: EdgeInsets.fromLTRB(layout.gutter, large ? layout.tv(48) : 8, layout.gutter, 0)),
       ),
     ],
     );
@@ -463,11 +467,9 @@ class _ProgrammeRow extends StatelessWidget {
   }
 }
 
+/// « Retour » over an error (the page has its own, `VxFloatingBar`).
 class _BackButton extends StatelessWidget {
-  const _BackButton({this.inline = false});
-
-  /// In the page (not floating over an error).
-  final bool inline;
+  const _BackButton();
 
   @override
   Widget build(BuildContext context) {
@@ -482,10 +484,8 @@ class _BackButton extends StatelessWidget {
         child: const Icon(Icons.arrow_back_rounded, color: VxColors.text),
       ),
     );
-    return inline
-        ? button
-        : SafeArea(
-            child: Padding(padding: const EdgeInsets.all(12), child: button),
-          );
+    return SafeArea(
+      child: Padding(padding: const EdgeInsets.all(12), child: button),
+    );
   }
 }

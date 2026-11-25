@@ -184,6 +184,17 @@ void main() {
         'url': 'https://www.youtube.com/watch?v=k',
         'language': 'fr',
       },
+      'trailers': [
+        {
+          'name': 'Bande-annonce',
+          'key': 'k',
+          'url': 'https://www.youtube.com/watch?v=k',
+          'language': 'fr',
+          'type': 'Trailer',
+          'thumbnail_url': 'https://i.ytimg.com/vi/k/hqdefault.jpg',
+        },
+        {'name': 'Teaser', 'key': 't', 'url': 'https://www.youtube.com/watch?v=t', 'language': 'en', 'type': 'Teaser'},
+      ],
       'directors': [
         {'id': 7467, 'name': 'David Fincher', 'profile_url': null},
       ],
@@ -199,6 +210,10 @@ void main() {
     expect(formatRuntime(movie.runtime), '2 h 19');
     expect(movie.ageRating, 16);
     expect(movie.trailer?.url, 'https://www.youtube.com/watch?v=k');
+    // « Bandes-annonces »: every one, the best first.
+    expect(movie.trailers.map((t) => t.kind), ['Bande-annonce', 'Teaser']);
+    expect(movie.trailers.first.thumbnailUrl, 'https://i.ytimg.com/vi/k/hqdefault.jpg');
+    expect(movie.trailers.last.language, 'en');
     expect(movie.crew.single.name, 'David Fincher');
     expect(movie.cast.single.role, 'Tyler Durden');
     expect(movie.cast.single.initials, 'BP');

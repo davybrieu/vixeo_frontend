@@ -662,7 +662,9 @@ void main() {
     expect(find.bySemanticsLabel('Avis : 5'), findsOneWidget);
   });
 
-  testWidgets('« Paramètres »: no « Profil », « Avancé » nor « Comptes bloqués et masqués »', (tester) async {
+  testWidgets('« Paramètres »: no « Profil », « Avancé », « Comptes bloqués et masqués » nor « Se déconnecter »', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(600, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -686,11 +688,11 @@ void main() {
       'Compte privé',
       'Comptes bloqués et masqués',
       'Avancé',
+      'Se déconnecter',
     ]) {
       expect(find.text(gone), findsNothing, reason: gone);
     }
     expect(top('COMPTE'), lessThan(top('GÉNÉRAL')));
-    expect(find.text('Se déconnecter'), findsOneWidget);
   });
 
   testWidgets('« Paramètres » of a child\'s profile (no page): « Changer de profil » first', (tester) async {

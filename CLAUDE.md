@@ -260,8 +260,8 @@ lib/
   de la taille d'un avatar, `_AddTile`, lu « Ajouter un profil » ; demande du développeur,
   25/11/2026) qui ouvre « Ajouter un profil » (`/profils/nouveau`, la seule page que le routeur
   ouvre aussi sans profil choisi) ; **rien d'autre** (ni « Gérer les profils », ni crayon, ni
-  « Terminé »). **Pas de « Se déconnecter »** sur cette page (il est dans « Paramètres » et le
-  « ⋮ » de la page « Profil »).
+  « Terminé »). **Pas de « Se déconnecter »** sur cette page (il n'est que dans le « ⋮ » de la
+  page « Profil » : plus dans « Paramètres », demande du développeur, 25/11/2026).
   Flèche retour en haut à gauche seulement après « Changer de profil » : elle revient au profil
   quitté (`SessionController.previousProfile` / `cancelSwitch`). Code d'un profil : le pavé
   numérique `showPinPad` (`pin_pad.dart` : 4 points, touches 0-9 focalisables, chiffres du
@@ -783,7 +783,7 @@ lib/
   (grille). Page d'un membre : « Ses J’aime » et « Personnes suivies » (`socialLikedProvider`,
   `socialPeopleProvider`, API `/social/profiles/{username}/liked` et `/people`). Tests : `test/profile_features_test.dart`,
   `test/profile_screen_test.dart`, `test/models_test.dart`.
-- **Actions sur un titre** (Ajouter à une liste, J'aime ❤, Vu / non vu, Noter, Bande-annonce) : toujours le même bouton
+- **Actions sur un titre** (Ajouter à une liste, J'aime ❤, Vu / non vu, Noter, Envoyer à un ami) : toujours le même bouton
   rond **icône seule** (`VxIconAction`, `FavoriteButton`, `LikedButton`, `WatchedButton`, `RateTitleButton`), sans
   texte visible (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire
   (« Ajouter à une liste » : il ouvre le choix des listes, voir « Listes »).
@@ -931,9 +931,12 @@ lib/
   `SkipSegments.at`, `SkipKind.autoFor`) prépare ce qu'il utilisera. Les applis ne parlent jamais
   à OpenSubtitles ni à TheIntroDB : tout passe par l'API (clé Vixeo commune).
 - **Affiches, arrière-plans et logos** (demande du développeur, 25/11/2026, d'après une autre appli
-  de films ; API : `vixeo_backend/docs/images-des-titres.md`) : bouton rond « Affiches,
-  arrière-plans et logos » de la fiche (connecté avec un profil) → `ArtworkScreen`
-  (`/titre/:type/:id/images`, `catalog/artwork_screen.dart`) : en-tête au nom de l'onglet, `VxTabs`
+  de films ; API : `vixeo_backend/docs/images-des-titres.md`) : le **« ⋮ » en haut à droite de la
+  fiche** (connecté avec un profil ; plus de bouton rond « Affiches, arrière-plans et logos »,
+  demande du développeur, 25/11/2026 : `_TitleMenuButton`, liste déroulante `showVxMenu`) propose
+  « Changer l’affiche », « Changer l’arrière-plan », « Changer le logo », qui ouvrent chacun leur
+  onglet de `ArtworkScreen` (`/titre/:type/:id/images?sorte=affiche|arriere-plan|logo`,
+  `ArtworkKind.slug`, `catalog/artwork_screen.dart`) : en-tête au nom de l'onglet, `VxTabs`
   Affiches / Arrière-plans / Logos, grille (`imageGridDelegate`) avec **« Par défaut »** (l'image de
   TMDb) en premier puis les images de TMDb (`titleImagesProvider`, `GET /catalog/{type}/{id}/images`) ;
   l'image choisie a un anneau vert ; **un appui choisit tout de suite** (`chooseTitleImage`,
@@ -942,6 +945,21 @@ lib/
   `catalogEpochProvider` monte et tous les providers du catalogue relisent (ils surveillent
   `_catalogKeyProvider` : profil actif + époque). Test : `test/artwork_test.dart`.
 - **Pas de section « Sources »** sur la fiche (demande du développeur).
+- **« Bandes-annonces »** (demande du développeur, 25/11/2026 : une rangée comme la filmographie,
+  **plus de bouton « Bande-annonce »**) : sur la fiche, après les épisodes, une rangée de toutes
+  les bandes-annonces et teasers (`TitleDetails.trailers`, `trailers` de l'API, le meilleur
+  d'abord ; une API d'avant ne donnait que `trailer`) : `_TrailersRow`, cartes `_TrailerCard`
+  (image 16:9 de YouTube recadrée, rond « lecture », badge « Teaser », nom sur deux lignes ; 240
+  téléphone, 280 tablette, 440 TV ; lues « Bande-annonce : … » / « Teaser : … ») ; un appui
+  l'ouvre sur YouTube (`launchUrl`, application externe).
+- **Bouton retour toujours visible** (demande du développeur, 25/11/2026) : sur une page dont le
+  contenu défile sous le haut de l'écran (fiche, page d'une personne, pages de profil, « Voir
+  tout » du catalogue, chaîne), le retour (et les boutons de droite : « ⋮ », partage…) reste en
+  haut quand on fait défiler : `VxFloatingBar` (`core/widgets/page_header.dart`), dernier enfant
+  d'un `Stack` au-dessus de la page (`Positioned(top: 0, left: 0, right: 0)`), place laissée en
+  haut de la page (`VxFloatingBar.heightOf`) ; chaque bouton de droite sur un rond sombre. Fiche
+  grand écran : « Retour » avec son mot (`_LargeBack`). Les pages à `VxPageHeader` ou `InfoPage`
+  gardent leur en-tête fixe. Test : `test/tmdb_test.dart`.
 - **Épisodes d'une série** (`_Episodes`, `_EpisodeCard`, `catalog/details_screen.dart` ; demande
   du développeur) : sous les puces des saisons, une **rangée horizontale** de grandes cartes
   (largeur 300 téléphone, 340 tablette, 520 TV) qui défile de gauche à droite. Carte : image 16:9
@@ -1014,10 +1032,11 @@ lib/
   (pas de copie dans les écrans) ; chaque écran ne donne que ses données et son bouton. **Mise en
   page d'après Bingers** (demande du développeur, 25/11/2026). En haut, **la couverture**
   (`ProfileView(cover: ProfileCover(…))`, 3:1, 200 de haut au plus (TV 340) : toute la largeur sur
-  téléphone, dans la colonne aux coins arrondis ailleurs ; voir « Avatars ») et dessus le retour
-  (un membre), **« Partager le profil »**, puis, pour le mien, la cloche « Notifications » et
-  **« ⋮ »** (« Plus d’options », toutes les tailles d'écran ; plus de bouton « Paramètres »), pour
-  un membre **« ⋮ »** (masquer, bloquer, signaler), sur une ombre légère. **« ⋮ » ouvre une liste
+  téléphone, dans la colonne aux coins arrondis ailleurs ; voir « Avatars ») et dessus, **fixes
+  quand la page défile** (`VxFloatingBar`), le retour (un membre), **« Partager le profil »**,
+  puis, pour le mien, la cloche « Notifications » et **« ⋮ »** (« Plus d’options », toutes les
+  tailles d'écran ; plus de bouton « Paramètres »), pour un membre **« ⋮ »** (masquer, bloquer,
+  signaler), sur une ombre légère. **« ⋮ » ouvre une liste
   déroulante** sous le bouton (`showVxMenu`, `core/widgets/menu.dart` : une route transparente
   placée à côté du bouton, alignée à droite, au-dessus faute de place ; lignes `VxFocusable`, la
   première a le focus ; Retour ou un appui à côté la ferme) : **« Modifier mon profil »**

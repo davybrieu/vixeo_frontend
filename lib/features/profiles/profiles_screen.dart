@@ -27,8 +27,8 @@ const maxProfiles = 5;
 /// « Qui regarde ? » (demande du développeur, like other media centers): the title, the round
 /// avatars and, while the account has fewer than [maxProfiles], « Ajouter » after them (developer's
 /// request, 25/11/2026: « Ajouter un profil »). A profile is changed from the « ⋮ » of its page
-/// (« Modifier mon profil »). No logo and no « Se déconnecter » here (it is in « Paramètres » and
-/// the « ⋮ »). The back button returns to the profile left with « Changer de profil ».
+/// (« Modifier mon profil »). No logo and no « Se déconnecter » here (it is in the « ⋮ » of the
+/// profile page). The back button returns to the profile left with « Changer de profil ».
 class ProfilesScreen extends ConsumerStatefulWidget {
   const ProfilesScreen({super.key});
 

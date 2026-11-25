@@ -14,24 +14,29 @@ import 'artwork.dart';
 import 'models.dart';
 import 'widgets.dart';
 
-/// « Affiches, arrière-plans, logos » of a title (`/titre/:type/:id/images`; developer's request,
-/// 25/11/2026, after another film app): three tabs, « Par défaut » (TMDb's) first, then TMDb's
-/// images; the chosen one has a green ring. A tap keeps it at once, and every list, search and
-/// title page then shows it for this profile.
+/// « Affiches, arrière-plans, logos » of a title (`/titre/:type/:id/images?sorte=…`; developer's
+/// request, 25/11/2026, after another film app; opened by the « ⋮ » of the title page: « Changer
+/// l’affiche », « … l’arrière-plan », « … le logo », each on its tab): three tabs, « Par défaut »
+/// (TMDb's) first, then TMDb's images; the chosen one has a green ring. A tap keeps it at once, and
+/// every list, search and title page then shows it for this profile.
 class ArtworkScreen extends ConsumerStatefulWidget {
-  const ArtworkScreen({super.key, required this.type, required this.id});
+  const ArtworkScreen({super.key, required this.type, required this.id, this.initialKind = ArtworkKind.poster});
 
   final MediaType type;
   final int id;
 
-  static String location(MediaType type, int id) => '/titre/${type.name}/$id/images';
+  /// The tab shown first.
+  final ArtworkKind initialKind;
+
+  static String location(MediaType type, int id, {ArtworkKind kind = ArtworkKind.poster}) =>
+      '/titre/${type.name}/$id/images${kind == ArtworkKind.poster ? '' : '?sorte=${kind.slug}'}';
 
   @override
   ConsumerState<ArtworkScreen> createState() => _ArtworkScreenState();
 }
 
 class _ArtworkScreenState extends ConsumerState<ArtworkScreen> {
-  var _kind = ArtworkKind.poster;
+  late var _kind = widget.initialKind;
 
   /// The choices made on this page (the server's until then): shown at once.
   final _chosen = <ArtworkKind, String?>{};

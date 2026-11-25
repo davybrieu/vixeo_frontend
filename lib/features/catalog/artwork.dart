@@ -8,11 +8,17 @@ import 'models.dart';
 /// vixeo_backend/docs/images-des-titres.md): a profile chooses the images of a title among
 /// TMDb's, and the API then gives them to this profile wherever the title appears.
 enum ArtworkKind {
-  poster('Affiches', 'poster', 'posters', 'Affiche'),
-  backdrop('Arrière-plans', 'backdrop', 'backdrops', 'Arrière-plan'),
-  logo('Logos', 'logo', 'logos', 'Logo');
+  poster('Affiches', 'poster', 'posters', 'Affiche', 'affiche'),
+  backdrop('Arrière-plans', 'backdrop', 'backdrops', 'Arrière-plan', 'arriere-plan'),
+  logo('Logos', 'logo', 'logos', 'Logo', 'logo');
 
-  const ArtworkKind(this.label, this.field, this.listKey, this.one);
+  const ArtworkKind(this.label, this.field, this.listKey, this.one, this.slug);
+
+  /// In the page's address: `/titre/movie/550/images?sorte=arriere-plan`.
+  final String slug;
+
+  static ArtworkKind fromSlug(String? slug) =>
+      ArtworkKind.values.firstWhere((kind) => kind.slug == slug, orElse: () => ArtworkKind.poster);
 
   /// The tab: « Affiches ».
   final String label;

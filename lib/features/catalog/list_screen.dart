@@ -1,12 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
-import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../search/search_screen.dart';
 import 'catalog_repository.dart';
@@ -127,33 +125,16 @@ class _SeeAllPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final s = layout.isLarge ? layout.scale * 2 : 1.0;
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: CustomScrollView(
+        child: Stack(
+          children: [
+            CustomScrollView(
           slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.xs), layout.gutter, 0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: VxFocusable(
-                    borderRadius: 22 * s,
-                    semanticLabel: 'Retour',
-                    autofocus: layout.isLarge,
-                    onPressed: () => context.canPop() ? context.pop() : context.go('/accueil'),
-                    child: Container(
-                      width: 44 * s,
-                      height: 44 * s,
-                      decoration: const BoxDecoration(color: VxColors.surfaceHigh, shape: BoxShape.circle),
-                      child: Icon(Icons.arrow_back_rounded, color: VxColors.text, size: 22 * s),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            // Room for « Retour », which stays at the top (below).
+            SliverToBoxAdapter(child: SizedBox(height: VxFloatingBar.heightOf(layout))),
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
@@ -167,6 +148,10 @@ class _SeeAllPage extends StatelessWidget {
             ),
             content,
             SliverToBoxAdapter(child: SizedBox(height: pageBottomPadding(context))),
+          ],
+            ),
+            // « Retour » stays at the top while the page scrolls under it (TV: the focus on arrival).
+            Positioned(top: 0, left: 0, right: 0, child: VxFloatingBar(backAutofocus: layout.isLarge)),
           ],
         ),
       ),

@@ -85,15 +85,14 @@ class _ProfileViewState extends State<ProfileView> {
     final layout = Layout.of(context);
     final tabs = widget.tabs;
     final tab = _tab < tabs.length ? _tab : 0;
-    return SafeArea(
-      bottom: false,
-      child: RefreshIndicator(
+    final buttons = widget.back || widget.actions.isNotEmpty;
+    final list = RefreshIndicator(
         onRefresh: widget.onRefresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.only(top: layout.isPhone ? 0 : layout.space(VxSpace.xs), bottom: pageBottomPadding(context)),
           children: [
-            _ProfileBanner(cover: widget.cover, back: widget.back, actions: widget.actions),
+            _ProfileBanner(cover: widget.cover, shaded: buttons),
             ProfileColumn(child: widget.header),
             SizedBox(height: layout.sectionGap),
             widget.stats,
@@ -114,25 +113,42 @@ class _ProfileViewState extends State<ProfileView> {
             ],
           ],
         ),
+      );
+    // The back button and the actions stay at the top while the page scrolls under them, at the
+    // corners of the cover (in the reading column on a large screen).
+    final bar = VxFloatingBar(
+      back: widget.back,
+      actions: widget.actions,
+      safeArea: false,
+      padding: layout.isPhone
+          ? EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.xs), layout.gutter, 0)
+          : EdgeInsets.fromLTRB(layout.space(VxSpace.s), layout.space(VxSpace.xs) * 2, layout.space(VxSpace.s), 0),
+    );
+    return SafeArea(
+      bottom: false,
+      child: Stack(
+        children: [
+          list,
+          if (buttons)
+            Positioned(top: 0, left: 0, right: 0, child: layout.isPhone ? bar : ProfileColumn(child: bar)),
+        ],
       ),
     );
   }
 }
 
 /// The cover at the top of a profile page, 3:1: across the whole screen on a phone, in the reading
-/// column with rounded corners elsewhere; the back button and the [actions] on it, over a light
-/// shade that keeps them readable on a bright cover.
+/// column with rounded corners elsewhere; [shaded]: a light shade at its top, under the page's
+/// buttons (`VxFloatingBar`), that keeps them readable on a bright cover.
 class _ProfileBanner extends StatelessWidget {
-  const _ProfileBanner({required this.cover, required this.back, required this.actions});
+  const _ProfileBanner({required this.cover, required this.shaded});
 
   final Widget cover;
-  final bool back;
-  final List<Widget> actions;
+  final bool shaded;
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final buttons = back || actions.isNotEmpty;
     Widget banner(double width, double radius) {
       final height = math.min(width / coverAspectRatio, layout.size(200, tv: 340));
       return SizedBox(
@@ -141,7 +157,7 @@ class _ProfileBanner extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             ClipRRect(borderRadius: BorderRadius.circular(radius), child: cover),
-            if (buttons) ...[
+            if (shaded)
               IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -154,22 +170,6 @@ class _ProfileBanner extends StatelessWidget {
                   ),
                 ),
               ),
-              Positioned(
-                top: layout.space(VxSpace.xs),
-                left: layout.isPhone ? layout.gutter : layout.space(VxSpace.s),
-                right: layout.isPhone ? layout.gutter : layout.space(VxSpace.s),
-                child: Row(
-                  children: [
-                    if (back) const VxBackButton(),
-                    const Spacer(),
-                    for (final (i, action) in actions.indexed) ...[
-                      if (i > 0) SizedBox(width: layout.space(VxSpace.xs)),
-                      action,
-                    ],
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       );
