@@ -180,9 +180,6 @@ class SocialRepository {
   /// A page of the movies and series a member watched (« Vus »), the most recently watched first.
   Future<Paged<MediaItem>> watched(String username, {int page = 1}) => _page(username, 'watched', page, titleOf);
 
-  /// A page of the people (actors, directors…) a member follows, the most recently followed first.
-  Future<Paged<Person>> people(String username, {int page = 1}) => _page(username, 'people', page, Person.fromJson);
-
   /// A page of a member's reviews, the most recently rated first (the fields of « Mes avis »).
   Future<Paged<RatedItem>> reviews(String username, {int page = 1}) =>
       _page(username, 'reviews', page, RatedItem.fromJson);
@@ -256,11 +253,6 @@ final socialLikedProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, 
 /// A page of the movies and series a member watched (« Vus »).
 final socialWatchedProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, MemberPage>(
   (ref, key) => ref.read(socialRepositoryProvider).watched(key.$1, page: key.$2),
-);
-
-/// A page of the people a member follows.
-final socialPeopleProvider = FutureProvider.autoDispose.family<Paged<Person>, MemberPage>(
-  (ref, key) => ref.read(socialRepositoryProvider).people(key.$1, page: key.$2),
 );
 
 /// A page of a member's reviews.
