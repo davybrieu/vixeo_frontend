@@ -6,10 +6,6 @@ abstract class SessionStorage {
   Future<void> writeToken(String? token);
   Future<int?> readProfileId();
   Future<void> writeProfileId(int? id);
-
-  /// « Mémoriser le dernier profil » (Paramètres → Avancé): open it at launch. True when never set.
-  Future<bool> readRememberProfile();
-  Future<void> writeRememberProfile(bool value);
 }
 
 /// Keychain (iOS) / Keystore (Android) / Credential Manager (Windows).
@@ -20,7 +16,6 @@ class SecureSessionStorage implements SessionStorage {
 
   static const _tokenKey = 'vixeo.token';
   static const _profileKey = 'vixeo.profile_id';
-  static const _rememberKey = 'vixeo.remember_profile';
 
   @override
   Future<String?> readToken() => _storage.read(key: _tokenKey);
@@ -35,20 +30,12 @@ class SecureSessionStorage implements SessionStorage {
   @override
   Future<void> writeProfileId(int? id) =>
       id == null ? _storage.delete(key: _profileKey) : _storage.write(key: _profileKey, value: '$id');
-
-  @override
-  Future<bool> readRememberProfile() async => await _storage.read(key: _rememberKey) != '0';
-
-  @override
-  Future<void> writeRememberProfile(bool value) =>
-      value ? _storage.delete(key: _rememberKey) : _storage.write(key: _rememberKey, value: '0');
 }
 
 /// For tests.
 class MemorySessionStorage implements SessionStorage {
   String? token;
   int? profileId;
-  bool rememberProfile = true;
 
   @override
   Future<String?> readToken() async => token;
@@ -61,10 +48,4 @@ class MemorySessionStorage implements SessionStorage {
 
   @override
   Future<void> writeProfileId(int? id) async => profileId = id;
-
-  @override
-  Future<bool> readRememberProfile() async => rememberProfile;
-
-  @override
-  Future<void> writeRememberProfile(bool value) async => rememberProfile = value;
 }

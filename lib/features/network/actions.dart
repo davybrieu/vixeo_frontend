@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/choice.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
+import '../../core/widgets/menu.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
 import '../catalog/paging.dart';
@@ -25,11 +26,11 @@ import 'share_image.dart';
 // What can be done with a publication or a member (vixeo_backend/docs/social.md,
 // docs/moderation.md): send it to a friend, add a title to a list, report, block, mute.
 
-/// One line of an action sheet.
-typedef SheetAction = ({IconData icon, String label, VoidCallback onTap, bool danger});
+/// One line of an action sheet (the same as a line of a drop-down menu, `showVxMenu`).
+typedef SheetAction = VxMenuItem;
 
 SheetAction sheetAction(IconData icon, String label, VoidCallback onTap, {bool danger = false}) =>
-    (icon: icon, label: label, onTap: onTap, danger: danger);
+    vxMenuItem(icon, label, onTap, danger: danger);
 
 /// A sheet of actions under [title] (the first one has the focus: remote).
 Future<void> showActionSheet(BuildContext context, {required String title, required List<SheetAction> actions}) =>
@@ -171,11 +172,12 @@ Future<void> deleteList(BuildContext context, WidgetRef ref, SocialList list) as
   }
 }
 
-/// « … » of a member's page: mute (feed only), block (everywhere), report.
-Future<void> showMemberMenu(BuildContext context, WidgetRef ref, SocialProfile member) => showActionSheet(
+/// « ⋮ » of a member's page, a drop-down under the button ([context]: the button's): mute (feed
+/// only), block (everywhere), report.
+Future<void> showMemberMenu(BuildContext context, WidgetRef ref, SocialProfile member) => showVxMenu(
   context,
-  title: '@${member.username}',
-  actions: [
+  label: 'Options du profil de @${member.username}',
+  items: [
     if (!member.isBlocked)
       sheetAction(
         member.isMuted ? Icons.visibility_outlined : Icons.visibility_off_outlined,

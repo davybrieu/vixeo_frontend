@@ -37,8 +37,6 @@ import 'features/network/profile_pages.dart';
 import 'features/network/profile_sections.dart' show WatchlistCard;
 import 'features/network/review_screen.dart';
 import 'features/playback/player_screen.dart';
-import 'features/profiles/advanced_settings_screen.dart';
-import 'features/profiles/manage_profiles_screen.dart';
 import 'features/profiles/profile_editor_screen.dart';
 import 'features/profiles/profile_preferences_screen.dart';
 import 'features/profiles/profile_settings_screen.dart';
@@ -47,7 +45,6 @@ import 'features/profiles/row_preferences.dart';
 import 'features/profiles/rows_settings_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/social/profile_screen.dart';
-import 'features/social/public_profile_settings.dart';
 import 'features/shell/app_shell.dart';
 import 'features/shell/back_navigation_guard.dart';
 import 'features/tv/channel_screen.dart';
@@ -97,7 +94,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       };
       const accountOnly = {
         '/profils', '/avis', '/profil', '/parametres', '/profil/social/aimes', '/profil/social/vus', '/profil/social/personnes', '/profil/social/abonnements', '/profil/social/abonnes',
-        '/profil/parametres', '/profil/compte', '/profil/appareils', '/profil/notifications', '/profil/avance', '/profil/plugins', '/tv',
+        '/profil/parametres', '/profil/compte', '/profil/appareils', '/profil/notifications', '/profil/plugins', '/tv',
         InboxScreen.location, ConversationsScreen.location, FeedScreen.location, '/listes', OnboardingScreen.location,
       };
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
@@ -150,8 +147,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         return target;
       }
       if (session.profile == null) {
-        // « Qui regarde ? » only: the profiles are managed from a profile's « Paramètres ».
-        return location == '/profils' ? null : '/profils';
+        // « Qui regarde ? » and its « Ajouter » only.
+        return location == '/profils' || location == ProfileEditorScreen.newLocation ? null : '/profils';
       }
       if (authPages.contains(location) || location == '/profils' || location == '/demarrage') {
         // A new profile: the first launch first (rate a few titles, accounts to follow).
@@ -175,7 +172,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => guarded(state.uri.path, PasswordResetScreen(initialEmail: state.extra as String?)),
       ),
       GoRoute(path: '/profils', builder: (_, state) => guarded(state.uri.path, const ProfilesScreen())),
-      // « Ajouter / Modifier le profil » (« Paramètres » → « Profil »), without the navigation.
+      // « Ajouter un profil » (« Qui regarde ? ») and « Modifier le profil » (« ⋮ » of the profile
+      // page), without the navigation.
       GoRoute(path: ProfileEditorScreen.newLocation, builder: (_, _) => const ProfileEditorScreen()),
       GoRoute(
         path: '/profils/modifier/:id',
@@ -296,20 +294,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => GroupSettingsScreen(id: int.parse(state.pathParameters['id']!)),
           ),
           GoRoute(path: '/parametres', pageBuilder: (_, state) => tab(state, const ProfileSettingsScreen())),
-          // « Paramètres » → « Profil » → « Gérer les profils » (no longer on « Qui regarde ? »).
-          GoRoute(path: ManageProfilesScreen.location, builder: (_, _) => const ManageProfilesScreen()),
-          // What members see on my page, changed from « Paramètres » (no « Modifier le profil » page).
-          GoRoute(path: BioSettingsScreen.location, redirect: socialOnly, builder: (_, _) => const BioSettingsScreen()),
-          GoRoute(
-            path: SocialLinksSettingsScreen.location,
-            redirect: socialOnly,
-            builder: (_, _) => const SocialLinksSettingsScreen(),
-          ),
-          GoRoute(
-            path: PrivateAccountSettingsScreen.location,
-            redirect: socialOnly,
-            builder: (_, _) => const PrivateAccountSettingsScreen(),
-          ),
           GoRoute(path: '/membre/:username', builder: (_, state) => PublicProfileScreen(username: state.pathParameters['username'] ?? '')),
           GoRoute(
             path: '/membre/:username/listes',
@@ -347,7 +331,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
           GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
           GoRoute(path: NotificationsScreen.location, builder: (_, _) => const NotificationsScreen()),
-          GoRoute(path: AdvancedSettingsScreen.location, builder: (_, _) => const AdvancedSettingsScreen()),
           // Plug-ins in the Stremio add-on format (vixeo_backend/docs/plugins.md).
           GoRoute(path: AddonsScreen.location, builder: (_, _) => const AddonsScreen()),
           GoRoute(

@@ -105,8 +105,8 @@ class SessionController extends Notifier<SessionState> {
     state = SessionState(status: SessionStatus.restoring, token: token);
     try {
       final user = await _auth.me();
-      // « Mémoriser le dernier profil » off: "Qui regarde ?" at each launch.
-      final profileId = await _rememberProfile() ? await _storage.readProfileId() : null;
+      // The last profile chosen opens at launch.
+      final profileId = await _storage.readProfileId();
       Profile? profile;
       if (profileId != null) {
         final profiles = await _auth.profiles();
@@ -127,15 +127,6 @@ class SessionController extends Notifier<SessionState> {
         status: SessionStatus.unreachable,
         message: 'Le serveur a envoyé une réponse inattendue. Réessayez dans un instant.',
       );
-    }
-  }
-
-  /// « Mémoriser le dernier profil » (true when the storage can't say).
-  Future<bool> _rememberProfile() async {
-    try {
-      return await _storage.readRememberProfile();
-    } catch (_) {
-      return true;
     }
   }
 
@@ -196,7 +187,7 @@ class SessionController extends Notifier<SessionState> {
     await selectProfile(previous);
   }
 
-  /// A profile deleted (« Paramètres » → « Gérer les profils »): never back to it. The profile in
+  /// A profile deleted (« Modifier mon profil »): never back to it. The profile in
   /// use deleted: back to « Qui regarde ? ».
   Future<void> forgetProfile(int profileId) async {
     if (_previous?.id == profileId) _previous = null;

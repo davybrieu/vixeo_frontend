@@ -256,29 +256,33 @@ lib/
 - **« Qui regarde ? »** (`profiles_screen.dart`, `/profils` ; demande du développeur, d'après
   une vidéo d'un autre media center) : fond sombre éclairé de vert en haut, « Qui regarde ? »
   (**sans logo**), avatars **ronds** avec le nom dessous (cadenas si le profil a un code ; plus
-  de badge « Enfant »), **rien d'autre** : **plus de gestion des profils sur cette page** (ni
-  « Gérer les profils », ni crayon, ni « Ajouter un profil », ni « Terminé » ; demande du
-  développeur, 24/11/2026 : elle est dans « Paramètres » → « Profil »). **Pas de « Se
-  déconnecter »** sur cette page (il est dans « Paramètres »). Sans profil choisi, le routeur
-  n'ouvre que `/profils`.
+  de badge « Enfant »), puis, tant que le compte a moins de 5 profils, **« Ajouter »** (rond « + »
+  de la taille d'un avatar, `_AddTile`, lu « Ajouter un profil » ; demande du développeur,
+  25/11/2026) qui ouvre « Ajouter un profil » (`/profils/nouveau`, la seule page que le routeur
+  ouvre aussi sans profil choisi) ; **rien d'autre** (ni « Gérer les profils », ni crayon, ni
+  « Terminé »). **Pas de « Se déconnecter »** sur cette page (il est dans « Paramètres » et le
+  « ⋮ » de la page « Profil »).
   Flèche retour en haut à gauche seulement après « Changer de profil » : elle revient au profil
   quitté (`SessionController.previousProfile` / `cancelSwitch`). Code d'un profil : le pavé
   numérique `showPinPad` (`pin_pad.dart` : 4 points, touches 0-9 focalisables, chiffres du
   clavier ou de la télécommande, `confirm` = saisi deux fois).
-  **« Paramètres » → « Profil »** (demande du développeur, 24/11/2026 : ancienne rubrique « Profil
-  public », renommée et **placée en premier**, `ProfileSettingsScreen`) : **« Changer de profil »
-  en premier**, puis « Modifier le profil » (le profil actuel), « Gérer les profils »
-  (`ManageProfilesScreen`, `/profil/profils`, `manage_profiles_screen.dart` : les profils du compte,
-  « Profil actuel » marqué, un appui ouvre « Modifier le profil » ; « Ajouter un profil » sous la
-  liste, moins de 5 profils), puis, avec une page publique, « Biographie », « Réseaux sociaux » et
-  « Compte privé » ; ensuite « Compte » et « Général ». **« Ajouter un profil »**
-  (`/profils/nouveau`) et **« Modifier le profil »** (`/profils/modifier/:id`) :
-  `ProfileEditorScreen` (`profile_editor_screen.dart`, hors de la navigation, ouvert depuis
-  « Paramètres ») ; supprimer le profil actuel ramène à « Qui regarde ? »
-  (`SessionController.forgetProfile`) : aperçu (avatar,
+  **Le profil se gère depuis le « ⋮ » de sa page** (demande du développeur, 25/11/2026 : voir
+  « Pages de profil ») : « Modifier mon profil », « Changer de profil » ; **plus de rubrique
+  « Profil » dans « Paramètres »** ni de « Gérer les profils » (`/profil/profils` supprimé) : un
+  autre profil se modifie ou se supprime après « Changer de profil ». Exception : un **profil
+  enfant** (pas de page de profil) garde dans « Paramètres » une rubrique « Profil » avec
+  « Changer de profil » et « Modifier le profil ». **« Ajouter un profil »** (`/profils/nouveau`)
+  et **« Modifier le profil »** (`/profils/modifier/:id`) : `ProfileEditorScreen`
+  (`profile_editor_screen.dart`, hors de la navigation) ; supprimer le profil actuel ramène à
+  « Qui regarde ? » (`SessionController.forgetProfile`) : aperçu (avatar,
   nom et @pseudo tapés ; **pas de ligne « Avatar : … »**), « Nom du profil », « Pseudo » (choisi à
-  l'ajout comme à la modification ; vide à l'ajout : l'API en fait un), « Choisir un avatar » (par
-  licence, ronds, avatar au hasard pour un nouveau profil), « Restrictions » (« Âge maximum »
+  l'ajout comme à la modification ; vide à l'ajout : l'API en fait un), pour un profil existant qui
+  a une page (pas un profil enfant) **« Biographie »** (160 caractères au plus, `bioMaxLength`),
+  **« Réseaux sociaux »** (un champ par réseau) et **« Compte privé »** (section
+  « Confidentialité »), enregistrés avec le reste (`PUT /profiles/{id}` : `bio`, `social_links`,
+  `is_private` ; plus de pages `/profil/biographie`, `/profil/reseaux-sociaux`,
+  `/profil/compte-prive`), « Photo de profil », « Choisir un avatar » (par
+  licence, ronds, avatar au hasard pour un nouveau profil), « Couverture », « Restrictions » (« Âge maximum »
   (`showVxChoice`) et « Titres sans classification » (seulement avec une limite d'âge) ; **pas de
   « Profil enfant »**, demande du développeur : un ancien profil enfant affiche sa limite de 10 ans
   (`effectiveMaxAge`) et devient, à la première modification de ses restrictions, un profil
@@ -482,7 +486,7 @@ lib/
 - **Page « Notifications »** (`/notifications`, `InboxScreen`, `features/notifications/inbox_screen.dart`
   et `inbox.dart` ; demande du développeur, 21/11/2026 ; API : `vixeo_backend/docs/social.md`) :
   **plus dans la navigation** (demande du développeur, 25/11/2026 : ni onglet ni rail) : une
-  **cloche en haut à droite de la page « Profil », juste avant « Paramètres »** (`ProfileScreen`,
+  **cloche en haut à droite de la page « Profil », juste avant « ⋮ »** (`ProfileScreen`,
   toutes les tailles d'écran ; pas pour un invité ni un profil enfant : `socialAvailable`, la route
   mène alors à l'accueil), avec une **pastille** du nombre de non lues (`NavigationBadge`, « 9+ »
   au-delà ; lue « Notifications, 3 notifications non lues ») ; la page a son bouton retour. Pastille : `unreadNotificationsProvider` (`GET /notifications/count`),
@@ -502,17 +506,13 @@ lib/
   premier chargement ; les points restent jusqu'à la visite suivante). Dates en français :
   `episodeWhen`, `timeAgo`, `dayLabel`. Test : `test/inbox_test.dart`.
 - **Compte privé, réseaux sociaux, J'aime** (`features/social`, demande du développeur,
-  21/11/2026, comme Twitter ; API : `vixeo_backend/docs/social.md`) : **« Paramètres » → « Profil »**
-  (ancienne rubrique « Profil public », renommée le 24/11/2026 ; demande du développeur, 23/11/2026 :
-  plus de page « Modifier mon profil » ni de bouton « Modifier le profil » sur la page du profil ;
-  `features/social/public_profile_settings.dart`) : **« Biographie »**
-  (`BioSettingsScreen`, `/profil/biographie`, 160 caractères au plus), **« Réseaux sociaux »**
-  (`SocialLinksSettingsScreen`, `/profil/reseaux-sociaux` : un champ par réseau, `SocialNetwork` :
-  Instagram, X, TikTok, YouTube, Letterboxd, Threads, Bluesky, site web ; le pseudo ou l'adresse,
-  l'API garde le pseudo ; champ vidé = retiré) et **« Compte privé »**
-  (`PrivateAccountSettingsScreen`, `/profil/compte-prive`, enregistré tout de suite), envoyés par
-  `PUT /profiles/{id}` (`bio`, `social_links`, `is_private`, `saveProfile`). Le nom et le pseudo se
-  changent dans « Paramètres » → « Modifier le profil ». En-tête du profil (`ProfileHeader`) : cadenas
+  21/11/2026, comme Twitter ; API : `vixeo_backend/docs/social.md`) : **« Biographie »** (160
+  caractères au plus), **« Réseaux sociaux »** (un champ par réseau, `SocialNetwork` : Instagram, X,
+  TikTok, YouTube, Letterboxd, Threads, Bluesky, site web ; le pseudo ou l'adresse, l'API garde le
+  pseudo ; champ vidé = retiré) et **« Compte privé »** sont dans **« Modifier le profil »**
+  (`ProfileEditorScreen`, « ⋮ » → « Modifier mon profil » de la page « Profil » ; demande du
+  développeur, 25/11/2026 : plus de pages à part dans « Paramètres »), envoyés avec le reste par
+  `PUT /profiles/{id}` (`bio`, `social_links`, `is_private`). En-tête du profil (`ProfileHeader`) : cadenas
   après le nom d'un compte privé, puis les réseaux sous la biographie (`SocialLinkChip` : icône et
   « @pseudo », ouvre la page dans le navigateur ; sur TV, affichés seulement). Page d'un membre
   privé qu'on ne suit pas (`can_view` faux) : en-tête et compteurs seulement, carte « Ce compte est
@@ -667,8 +667,8 @@ lib/
   `docs/moderation.md`) : **toute publication porte sur une œuvre** (avis, visionnage, J'aime,
   liste), la conversation est dans les commentaires.
   - **Navigation du téléphone** : Accueil · Fil d'actualité · Recherche · Messages · Profil (icônes
-    seules ; « Notifications » (cloche) et « Paramètres » en haut de la page « Profil », boutons
-    ronds ; un profil enfant garde l'onglet « Paramètres »). Tablette et ordinateur : « Fil d'actualité » dans le rail,
+    seules ; « Notifications » (cloche) et « ⋮ » (dont « Paramètres ») en haut de la page « Profil »,
+    boutons ronds ; un profil enfant garde l'onglet « Paramètres »). Tablette et ordinateur : « Fil d'actualité » dans le rail,
     après « Chaînes TV ». **Pas de « Fil d'actualité » ni de « Messages » sur TV** (la TV sert à
     regarder ; ce qui aide à choisir est sur la fiche).
   - **« Fil d'actualité »** (renommé de « Fil » le 23/11/2026, demande du développeur ;
@@ -719,8 +719,8 @@ lib/
     membre : `socialWatchedProvider`, `GET /social/profiles/{pseudo}/watched` ; le bouton de l'année
     seulement s'il y a des titres vus). **Un onglet vide** montre l'`EmptyState` du « Fil
     d'actualité » (icône, titre, phrase ; demande du développeur, 23/11/2026). **Plus de « Mes 4
-    favoris »** (supprimé le 23/11/2026, et `pinned_titles` côté API) ; un membre : « … » (masquer
-    du fil, bloquer, signaler : `showMemberMenu`) et « 82 % de goûts en commun »
+    favoris »** (supprimé le 23/11/2026, et `pinned_titles` côté API) ; un membre : « ⋮ » (liste
+    déroulante `showVxMenu` : masquer du fil, bloquer, signaler : `showMemberMenu`) et « 82 % de goûts en commun »
     (`ProfileHeader(compatibility:)`).
     **Bilan de l'année** (`YearStatsScreen`, `/profil/bilan?annee=2026` : chiffres, mois, genres,
     mieux notés, série de l'année) ; **« Partager en image »** d'un avis, d'une liste ou de l'année
@@ -741,8 +741,9 @@ lib/
     `onboarded` est faux ; pas sur TV) : noter des titres connus, puis des comptes à suivre ;
     « Passer » à tout moment (`PUT /profiles/{id}` `onboarded: true`).
   - **Signaler, bloquer, masquer** partout (profil, avis, liste, commentaire, message : `report`,
-    raisons de `GET /social/report-reasons`) ; « Paramètres » → **« Comptes bloqués et masqués »**
-    (`HiddenAccountsScreen`, `/profil/comptes-masques`). Notifications : `review_comment`,
+    raisons de `GET /social/report-reasons`) ; « ⋮ » de la page « Profil » → **« Comptes bloqués et
+    masqués »** (`HiddenAccountsScreen`, `/profil/comptes-masques` ; plus dans « Paramètres », demande
+    du développeur, 25/11/2026). Notifications : `review_comment`,
     `list_like`, `list_comment`, `moderation` (« Modération »).
   - Mots d'une page de l'appli réservés côté API (`Usernames::RESERVED`) : `fil`, `listes`,
     `bienvenue`, `messages`, `description`, `journal`, `bilan`. Tests : `test/network_test.dart`,
@@ -753,13 +754,11 @@ lib/
   `/description`, texte passé avec la route, jamais dans l'adresse ; `VxPageHeader(back:)` ; Haut /
   Bas de la télécommande font défiler le texte, Haut en haut revient à « Retour »). Test :
   `test/description_test.dart`.
-- **Avancé** (« Paramètres » → « Avancé », `/profil/avance`, `AdvancedSettingsScreen` ; demande du
-  développeur, sans rapports de plantage) : « Mémoriser le dernier profil » (sur l'appareil,
-  activé par défaut ; désactivé : « Qui regarde ? » à chaque lancement ; un profil à code demande
-  toujours son code) et « Vider le cache » (images sur le disque et en mémoire, titres, saisons,
-  accueil et « À voir » / « Continuer à regarder », rechargés à l'affichage). Lignes des
-  réglages communes : `profiles/settings_rows.dart` (`SettingsSection`, `SettingsChoiceRow`,
-  `SettingsSwitchRow`, `SettingsActionRow`). Test : `test/advanced_settings_test.dart`.
+- **Pas de page « Avancé »** (supprimée, demande du développeur, 25/11/2026 : ni `/profil/avance`,
+  ni « Mémoriser le dernier profil », ni « Vider le cache ») : le dernier profil choisi s'ouvre
+  toujours au lancement (un profil à code demande toujours son code). Lignes des réglages communes :
+  `profiles/settings_rows.dart` (`SettingsSection`, `SettingsChoiceRow`, `SettingsSwitchRow`,
+  `SettingsActionRow`).
 - **Rail de navigation sur un écran bas** : icônes et marges rétrécissent selon la hauteur
   (40 au minimum), puis le rail défile avec une barre (`_Rail`, `shell/app_shell.dart`). Test :
   `test/profile_features_test.dart`.
@@ -855,8 +854,7 @@ lib/
   (`formatVotes` : « 2 400 000 votants ») et note « 8,8 / 10 », ou « Pas de note ». **Épisode** :
   sa note **juste à droite de la durée**, avec le logo du site (demande du développeur,
   21/11/2026) ; un appui dessus (ou appui long / touche menu sur la carte, à la télécommande)
-  ouvre « Notes » ; rien en No spoil. « Vider le cache »
-  efface l'ancien cache des notes MDBList (`vixeo.ratings`). Logo TMDb :
+  ouvre « Notes » ; rien en No spoil. Logo TMDb :
   `assets/images/tmdb_short.png` (« Primary short » de themoviedb.org converti en PNG sans
   modification). Pas de page de confidentialité ni de mention TMDb dans l'appli (décision du
   développeur). Tests : `test/ratings_test.dart`, `test/details_people_test.dart`.
@@ -975,8 +973,8 @@ lib/
   pixel art dessiné par `PixelAvatarPainter`, ou `image_url`) ; `ProfileAvatar` partout où le
   profil apparaît. Uniquement des avatars originaux, ou de licences dont on a les droits. Chaque
   nouveau profil (y compris celui créé à l'inscription) reçoit un avatar du catalogue au hasard
-  (côté API) ; l'avatar se choisit dans « Ajouter / Modifier le profil » (« Paramètres » →
-  « Profil ») : **plus de page ni de tuile « Avatar » dans les paramètres** (demande
+  (côté API) ; l'avatar se choisit dans « Ajouter / Modifier le profil » (« Ajouter » de « Qui
+  regarde ? », « ⋮ » → « Modifier mon profil ») : **plus de page ni de tuile « Avatar » dans les paramètres** (demande
   du développeur). L'initiale reste affichée pour un
   ancien profil sans avatar.
   **Photo de profil** (demande du développeur, 23/11/2026 : « pour laisser le choix » ; API :
@@ -1011,23 +1009,36 @@ lib/
 - **Pages de profil** (demande du développeur) : « Profil » (onglet `/profil`, `ProfileScreen`)
   et la page d'un membre (`/membre/:username`, `PublicProfileScreen`) sont **la même page** :
   le composant `ProfileView` (`features/social/profile_view.dart`) et ses morceaux
-  `ProfileHeader`, `ProfileCounters`, `ProfileTitlesSection`, `ProfileReviewsSection`,
+  `ProfileHeader`, `ProfileStats`, `ProfileTitlesSection`, `ProfileReviewsSection`,
   `ProfileSectionMessage` / `ProfileSectionLoading`. **Modifier la page = modifier ce fichier**
-  (pas de copie dans les écrans) ; chaque écran ne donne que ses données et son bouton. En haut,
-  **la couverture** (`ProfileView(cover: ProfileCover(…))`, 3:1, 200 de haut au plus (TV 340) :
-  toute la largeur sur téléphone, dans la colonne aux coins arrondis ailleurs ; voir « Avatars ») et
-  dessus le retour, **« Partager le profil »** puis « Paramètres » (le mien, téléphone) ou « … » (un
-  membre), sur une ombre légère ; **en-tête centré** (demande du développeur, 24/11/2026) : avatar
-  (à moitié sur la couverture, dans un anneau de la couleur de la page), nom, @pseudo, « 12 abonnés »,
-  « 3 abonnements » et **« 8 personnes suivies »** (acteurs, réalisateurs… ; `people_count` de
-  l'API, le mien depuis la synchro ; chacun ouvre sa liste), biographie
-  (**160 caractères au plus**, demande du développeur, 21/11/2026 : `BioSettingsScreen.maxLength`,
-  même limite dans l'API ; rien quand il n'y en a pas) et réseaux, puis, pour un membre, le bouton
-  (focus à l'arrivée) « Suivre » / « Ne plus suivre » (invité : « Se connecter pour suivre ») ;
-  **pas de bouton sur ma page** (demande du développeur, 23/11/2026 : biographie, réseaux et compte
-  privé dans « Paramètres » → « Profil » ; l'onglet affiché prend le focus à l'arrivée,
-  `ProfileView(focusTabs:)`) ; puis une carte de compteurs
-  (Avis, Vus, À voir) ; puis les cinq onglets (voir « Page de profil » du réseau social :
+  (pas de copie dans les écrans) ; chaque écran ne donne que ses données et son bouton. **Mise en
+  page d'après Bingers** (demande du développeur, 25/11/2026). En haut, **la couverture**
+  (`ProfileView(cover: ProfileCover(…))`, 3:1, 200 de haut au plus (TV 340) : toute la largeur sur
+  téléphone, dans la colonne aux coins arrondis ailleurs ; voir « Avatars ») et dessus le retour
+  (un membre), **« Partager le profil »**, puis, pour le mien, la cloche « Notifications » et
+  **« ⋮ »** (« Plus d’options », toutes les tailles d'écran ; plus de bouton « Paramètres »), pour
+  un membre **« ⋮ »** (masquer, bloquer, signaler), sur une ombre légère. **« ⋮ » ouvre une liste
+  déroulante** sous le bouton (`showVxMenu`, `core/widgets/menu.dart` : une route transparente
+  placée à côté du bouton, alignée à droite, au-dessus faute de place ; lignes `VxFocusable`, la
+  première a le focus ; Retour ou un appui à côté la ferme) : **« Modifier mon profil »**
+  (`/profils/modifier/:id`), **« Paramètres »** (`/parametres`), **« Changer de profil »**,
+  **« Comptes bloqués et masqués »** (`/profil/comptes-masques`), **« Se déconnecter »** (rouge).
+  **En-tête aligné à gauche** : l'avatar à gauche, à moitié sur la couverture (anneau de la
+  couleur de la page) et, à sa droite sous la couverture, les boutons d'un membre (« Envoyer un
+  message » rond, puis « Suivre » / « Ne plus suivre », focus à l'arrivée ; invité : « Se connecter
+  pour suivre ») ; dessous le nom, @pseudo, « 82 % de goûts en commun », **« 3 Abonnements »,
+  « 12 Abonnés »** et **« 8 Personnes suivies »** (nombre en gras ; acteurs, réalisateurs… ;
+  `people_count` de l'API, le mien depuis la synchro ; chacun ouvre sa liste ; lus « 12 abonnés »),
+  biographie (**160 caractères au plus**, demande du développeur, 21/11/2026 : `bioMaxLength`, même
+  limite dans l'API ; rien quand il n'y en a pas) et réseaux. **Pas de bouton sur ma page**
+  (biographie, réseaux et compte privé dans « Modifier mon profil » ; l'onglet affiché prend le
+  focus à l'arrivée, `ProfileView(focusTabs:)`). Puis **les chiffres** (`ProfileStats`, une carte
+  chacun, libellé en capitales au-dessus de la valeur) : **« Temps de visionnage »**
+  (`watch_minutes` de l'API, `watchTimeLabel` : « 3 mois 21 j 9 h », « 5 h 12 min », un mois =
+  30 jours ; lu « 3 mois, 21 jours et 9 heures »), « Films et séries vus », « Épisodes vus »
+  (`episodes_count`), « Avis », « À voir » ; **téléphone : ils défilent de gauche à droite** (deux
+  cartes et le bord de la troisième) ; tablette et TV : ils se partagent la largeur de la colonne
+  (rien à faire défiler à la télécommande). Puis les cinq onglets (voir « Page de profil » du réseau social :
   Activité, Listes, Avis, Aimés, Vus ; grilles d'une seule requête `titlesByIdProvider` via
   `withCatalogDetails`) ; le bouton rond « Voir tout » ouvre `/listes/a-voir`, `/avis`,
   `/profil/social/aimes|vus|personnes` (le mien) ou `/membre/:username/a-voir|avis|aimes|vus|
@@ -1107,7 +1118,6 @@ lib/
   restrictions dans « Modifier le profil »,
   connecter une TV, changer de profil, Notifications (nouveaux épisodes, activité ; Windows par le
   canal temps réel, appli ouverte),
-  Avancé (dernier profil, cache),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
   mises à jour (Android / Windows, installées depuis l'appli), plug-ins de sources = dépôts de scrapers JavaScript façon Nuvio (page « Plug-ins », sources du

@@ -12,12 +12,8 @@ import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
 import '../addons/addons_screen.dart';
 import '../auth/session.dart';
-import '../network/hidden_accounts_screen.dart';
 import '../notifications/inbox.dart' show socialAvailable;
 import '../notifications/notifications_screen.dart';
-import '../social/public_profile_settings.dart';
-import 'advanced_settings_screen.dart';
-import 'manage_profiles_screen.dart';
 import 'profile_editor_screen.dart';
 import 'profiles_screen.dart';
 import 'rows_settings_screen.dart';
@@ -47,11 +43,11 @@ Future<bool> saveProfile(
   }
 }
 
-/// Settings hub: grouped cards (profile, account, general), using the app's own destinations.
-/// « Profil » first (demande du développeur, 24/11/2026; formerly « Profil public »): « Changer de
-/// profil » first, the profile in use (« Modifier le profil ») and all of them (« Gérer les
-/// profils », no longer on « Qui regarde ? »), then, with a public page, the biography, the social
-/// networks and « Compte privé » (no « Modifier le profil » button on the profile page).
+/// Settings hub: grouped cards (account, general), using the app's own destinations. The profile
+/// is changed from the « ⋮ » of its page (« Modifier mon profil », « Changer de profil », « Comptes
+/// bloqués et masqués »: developer's request, 25/11/2026; no « Profil » nor « Avancé » here any
+/// more). A child's profile has no page: « Changer de profil » and « Modifier le profil » stay here
+/// for it.
 class ProfileSettingsScreen extends ConsumerWidget {
   const ProfileSettingsScreen({super.key});
 
@@ -61,6 +57,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
     final profile = ref.watch(sessionProvider).profile;
     final s = layout.isLarge ? layout.scale * 2 : 1.0;
     if (profile == null) return const SizedBox();
+    final withPage = socialAvailable(ref.watch(sessionProvider));
 
     // A main page (phone tab): the same header and margins as Recherche, À voir and Avis.
     return SafeArea(
@@ -69,66 +66,34 @@ class ProfileSettingsScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // On a phone, a profile with a page opens « Paramètres » from it (not a tab): back button.
-          VxPageHeader(title: 'Paramètres', back: layout.isPhone && socialAvailable(ref.watch(sessionProvider))),
+          VxPageHeader(title: 'Paramètres', back: layout.isPhone && withPage),
           Expanded(
             child: ListView(
               padding: pageContentPadding(context),
               children: [
-                _SettingsSection(
-                  label: 'Profil',
-                  scale: s,
-                  children: [
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.switch_account_outlined,
-                      title: 'Changer de profil',
-                      subtitle: 'Basculer vers un autre profil.',
-                      onPressed: () => ref.read(sessionProvider.notifier).switchProfile(),
-                    ),
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.edit_outlined,
-                      title: 'Modifier le profil',
-                      subtitle: 'Nom, pseudo, avatar ou photo, restrictions, code PIN.',
-                      onPressed: () => context.push(ProfileEditorScreen.editLocation(profile.id)),
-                    ),
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.group_outlined,
-                      title: 'Gérer les profils',
-                      subtitle: 'Ajouter, modifier ou supprimer les profils du compte.',
-                      onPressed: () => context.push(ManageProfilesScreen.location),
-                    ),
-                    if (socialAvailable(ref.watch(sessionProvider))) ...[
+                if (!withPage) ...[
+                  _SettingsSection(
+                    label: 'Profil',
+                    scale: s,
+                    children: [
                       _SettingsTile(
                         scale: s,
-                        icon: Icons.notes_rounded,
-                        title: 'Biographie',
-                        subtitle: _bioSummary(profile.bio),
-                        onPressed: () => context.push(BioSettingsScreen.location),
+                        icon: Icons.switch_account_outlined,
+                        title: 'Changer de profil',
+                        subtitle: 'Basculer vers un autre profil.',
+                        onPressed: () => ref.read(sessionProvider.notifier).switchProfile(),
                       ),
                       _SettingsTile(
                         scale: s,
-                        icon: Icons.alternate_email_rounded,
-                        title: 'Réseaux sociaux',
-                        subtitle: profile.socialLinks.isEmpty
-                            ? 'Instagram, X, TikTok, YouTube, Letterboxd… sur votre profil.'
-                            : [for (final link in profile.socialLinks) link.network.label].join(', '),
-                        onPressed: () => context.push(SocialLinksSettingsScreen.location),
-                      ),
-                      _SettingsTile(
-                        scale: s,
-                        icon: profile.isPrivate ? Icons.lock_outline_rounded : Icons.public_rounded,
-                        title: 'Compte privé',
-                        subtitle: profile.isPrivate
-                            ? 'Activé : seuls vos abonnés acceptés voient votre profil.'
-                            : 'Désactivé : tout le monde voit votre profil.',
-                        onPressed: () => context.push(PrivateAccountSettingsScreen.location),
+                        icon: Icons.edit_outlined,
+                        title: 'Modifier le profil',
+                        subtitle: 'Nom, avatar ou photo, restrictions, code PIN.',
+                        onPressed: () => context.push(ProfileEditorScreen.editLocation(profile.id)),
                       ),
                     ],
-                  ],
-                ),
-                SizedBox(height: layout.sectionGap),
+                  ),
+                  SizedBox(height: layout.sectionGap),
+                ],
                 _SettingsSection(
                   label: 'Compte',
                   scale: s,
@@ -174,17 +139,9 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       scale: s,
                       icon: Icons.tune_rounded,
                       title: 'Paramètres',
-                      subtitle: 'Apparence, No spoil, langues, lecture automatique, note à la fin.',
+                      subtitle: 'No spoil, langues, lecture automatique, note à la fin.',
                       onPressed: () => context.push('/profil/parametres'),
                     ),
-                    if (socialAvailable(ref.watch(sessionProvider)))
-                      _SettingsTile(
-                        scale: s,
-                        icon: Icons.block_rounded,
-                        title: 'Comptes bloqués et masqués',
-                        subtitle: 'Débloquer un compte, réafficher un compte masqué dans le fil.',
-                        onPressed: () => context.push(HiddenAccountsScreen.location),
-                      ),
                     _SettingsTile(
                       scale: s,
                       icon: Icons.notifications_outlined,
@@ -215,13 +172,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       subtitle: 'Activer, désactiver et trier les dépôts de sources.',
                       onPressed: () => context.push(AddonsScreen.location),
                     ),
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.settings_suggest_outlined,
-                      title: 'Avancé',
-                      subtitle: 'Démarrage et cache de cet appareil.',
-                      onPressed: () => context.push(AdvancedSettingsScreen.location),
-                    ),
                   ],
                 ),
               ],
@@ -231,13 +181,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-/// What « Biographie » says under its title: the start of the biography, or what it is for.
-String _bioSummary(String? bio) {
-  final text = bio?.trim().replaceAll(RegExp(r'\s+'), ' ') ?? '';
-  if (text.isEmpty) return 'Quelques mots sous votre nom, sur votre profil.';
-  return text.length > 60 ? '${text.substring(0, 59)}…' : text;
 }
 
 class _SettingsSection extends StatelessWidget {

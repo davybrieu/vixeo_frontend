@@ -31,6 +31,7 @@ class SocialProfile {
     this.isPrivate = false, FollowStatus? followStatus, this.canView = true, this.socialLinks = const [],
     this.requestedAt, this.compatibility, this.commonRatings = 0, this.isBlocked = false,
     this.isMuted = false, this.listsCount = 0, this.peopleCount = 0, this.cover, this.coverUrl,
+    this.episodesCount = 0, this.watchMinutes = 0,
   }) : _followStatus = followStatus; // ignore: prefer_initializing_formals (a named parameter can't be private)
 
   factory SocialProfile.fromJson(Map<String, dynamic> json) => SocialProfile(
@@ -61,6 +62,8 @@ class SocialProfile {
     peopleCount: json['people_count'] as int? ?? 0,
     cover: json['cover'] as String?,
     coverUrl: json['cover_url'] as String?,
+    episodesCount: json['episodes_count'] as int? ?? 0,
+    watchMinutes: json['watch_minutes'] as int? ?? 0,
   );
 
   final int id;
@@ -120,6 +123,12 @@ class SocialProfile {
   /// Cover id from `GET /covers` (the banner of its page), and its own image shown instead.
   final String? cover;
   final String? coverUrl;
+
+  /// Episodes watched.
+  final int episodesCount;
+
+  /// Time watched, in minutes: the movies and episodes of its viewings whose length is known.
+  final int watchMinutes;
 }
 
 /// What a like of a review leaves: liked or not, and its number of likes.

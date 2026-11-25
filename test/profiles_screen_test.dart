@@ -14,11 +14,11 @@ import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/covers.dart';
-import 'package:vixeo/features/profiles/manage_profiles_screen.dart';
 import 'package:vixeo/features/profiles/profile_editor_screen.dart';
 import 'package:vixeo/features/profiles/profile_photo.dart';
 import 'package:vixeo/features/profiles/profiles_screen.dart';
 import 'package:vixeo/features/profiles/settings_rows.dart';
+import 'package:vixeo/features/social/social_links.dart';
 
 /// The profiles of an account, in memory; records what the pages ask.
 class ProfilesAuth extends AuthRepository {
@@ -195,13 +195,13 @@ const _covers = [
 void main() {
   late ProfilesAuth auth;
   late Choosing session;
+  late GoRouter router;
 
-  /// [start]: « Qui regarde ? », or « Gérer les profils » (« Paramètres » → « Profil »).
+  /// On « Qui regarde ? ».
   Future<void> pump(
     WidgetTester tester, {
     bool parental = false,
     List<Profile>? profiles,
-    String start = '/profils',
   }) async {
     // Tall: the whole editor fits (the scrolled positions are laid out at the next frame).
     tester.view.physicalSize = const Size(430, 2200);
@@ -209,11 +209,10 @@ void main() {
     addTearDown(tester.view.reset);
     auth = ProfilesAuth(parental: parental, profiles: profiles);
     session = Choosing(parental);
-    final router = GoRouter(
-      initialLocation: start,
+    router = GoRouter(
+      initialLocation: '/profils',
       routes: [
         GoRoute(path: '/profils', builder: (_, _) => const ProfilesScreen()),
-        GoRoute(path: ManageProfilesScreen.location, builder: (_, _) => const ManageProfilesScreen()),
         GoRoute(path: ProfileEditorScreen.newLocation, builder: (_, _) => const ProfileEditorScreen()),
         GoRoute(
           path: '/profils/modifier/:id',
@@ -236,6 +235,18 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// « Modifier mon profil » (« ⋮ » of the profile page): the editor, over « Qui regarde ? ».
+  Future<void> edit(WidgetTester tester, int id) async {
+    router.push(ProfileEditorScreen.editLocation(id));
+    await tester.pumpAndSettle();
+  }
+
+  /// « Ajouter » of « Qui regarde ? ».
+  Future<void> add(WidgetTester tester) async {
+    await tester.tap(find.bySemanticsLabel('Ajouter un profil'));
+    await tester.pumpAndSettle();
+  }
+
   Future<void> typePin(WidgetTester tester, String pin) async {
     for (final digit in pin.split('')) {
       await tester.tap(find.bySemanticsLabel(digit).last);
@@ -244,49 +255,45 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('« Qui regarde ? »: the profiles only, no management, no sign-out', (tester) async {
+  testWidgets('« Qui regarde ? »: the profiles and « Ajouter », no management, no sign-out', (tester) async {
     await pump(tester);
 
     expect(find.text('Qui regarde ?'), findsOneWidget);
     expect(find.text('Davy'), findsOneWidget);
     expect(find.text('Léa'), findsOneWidget);
-    // Managed in « Paramètres » → « Profil » now.
+    // A profile is changed from the « ⋮ » of its page.
     expect(find.text('Gérer les profils'), findsNothing);
-    expect(find.text('Ajouter un profil'), findsNothing);
     expect(find.bySemanticsLabel(RegExp('^Modifier le profil')), findsNothing);
     expect(find.text('Se déconnecter'), findsNothing);
+    // « Ajouter » after the profiles.
+    expect(find.text('Ajouter'), findsOneWidget);
+    expect(find.bySemanticsLabel('Ajouter un profil'), findsOneWidget);
 
     await tester.tap(find.text('Léa'));
     await tester.pumpAndSettle();
     expect(session.chosen?.name, 'Léa');
   });
 
-  testWidgets('« Gérer les profils »: each profile opens « Modifier le profil », « Ajouter un profil »', (tester) async {
-    await pump(tester, start: ManageProfilesScreen.location);
+  testWidgets('« Ajouter » opens « Ajouter un profil », back to « Qui regarde ? »', (tester) async {
+    await pump(tester);
+    await add(tester);
 
-    expect(find.text('Gérer les profils'), findsOneWidget);
-    expect(find.bySemanticsLabel('Modifier le profil de Davy'), findsOneWidget);
-    expect(find.bySemanticsLabel('Modifier le profil de Léa'), findsOneWidget);
-    expect(find.text('Ajouter un profil'), findsOneWidget);
-
-    await tester.tap(find.text('Davy'));
-    await tester.pumpAndSettle();
-    expect(find.text('Modifier le profil'), findsOneWidget);
+    expect(find.text('Ajouter un profil'), findsWidgets);
+    expect(find.text('Nouveau profil'), findsOneWidget);
+    // No page of its own yet: no biography nor networks.
+    expect(find.widgetWithText(TextField, 'Biographie'), findsNothing);
     expect(session.chosen, isNull);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.text('Gérer les profils'), findsOneWidget);
+    expect(find.text('Qui regarde ?'), findsOneWidget);
   });
 
-  testWidgets('no « Ajouter un profil » with 5 profiles', (tester) async {
-    await pump(
-      tester,
-      profiles: [for (var i = 1; i <= 5; i++) Profile(id: i, name: 'P$i')],
-      start: ManageProfilesScreen.location,
-    );
-    expect(find.text('Ajouter un profil'), findsNothing);
-    expect(find.text('5 profils au plus par compte.'), findsOneWidget);
+  testWidgets('no « Ajouter » with 5 profiles', (tester) async {
+    await pump(tester, profiles: [for (var i = 1; i <= 5; i++) Profile(id: i, name: 'P$i')]);
+    expect(find.text('P5'), findsOneWidget);
+    expect(find.text('Ajouter'), findsNothing);
+    expect(find.bySemanticsLabel('Ajouter un profil'), findsNothing);
   });
 
   testWidgets('a protected profile asks its PIN on the keypad', (tester) async {
@@ -304,9 +311,8 @@ void main() {
   });
 
   testWidgets('adds a profile: the name, an avatar, then « Créer un profil »', (tester) async {
-    await pump(tester, start: ManageProfilesScreen.location);
-    await tester.tap(find.text('Ajouter un profil'));
-    await tester.pumpAndSettle();
+    await pump(tester);
+    await add(tester);
 
     expect(find.text('Ajouter un profil'), findsWidgets);
     expect(find.text('Nouveau profil'), findsOneWidget);
@@ -333,14 +339,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(auth.created.single, {'name': 'Tom', 'username': 'tom_42', 'avatar': 'bear', 'parental_pin': null});
-    expect(find.text('Gérer les profils'), findsOneWidget);
+    expect(find.text('Qui regarde ?'), findsOneWidget);
     expect(find.text('Tom'), findsOneWidget);
   });
 
   testWidgets('parental control on: creating asks the parental PIN', (tester) async {
-    await pump(tester, start: ManageProfilesScreen.location, parental: true);
-    await tester.tap(find.text('Ajouter un profil'));
-    await tester.pumpAndSettle();
+    await pump(tester, parental: true);
+    await add(tester);
     await tester.enterText(find.widgetWithText(TextField, 'Nom du profil'), 'Tom');
     await tester.pump();
     await tester.ensureVisible(find.text('Créer un profil'));
@@ -354,9 +359,8 @@ void main() {
   });
 
   testWidgets('changes a profile: name and avatar, then a PIN', (tester) async {
-    await pump(tester, start: ManageProfilesScreen.location);
-    await tester.tap(find.text('Davy'));
-    await tester.pumpAndSettle();
+    await pump(tester);
+    await edit(tester, 1);
 
     // No « Avatar : … » line (developer's request).
     expect(find.textContaining('Avatar :'), findsNothing);
@@ -385,18 +389,16 @@ void main() {
     await tester.tap(find.text('Enregistrer les modifications'));
     await tester.pumpAndSettle();
     expect(auth.updates.last, {'id': 1, 'name': 'David', 'username': 'david_b', 'avatar': 'bear'});
-    expect(find.text('Gérer les profils'), findsOneWidget);
+    expect(find.text('Qui regarde ?'), findsOneWidget);
     expect(find.text('David'), findsOneWidget);
   });
 
   testWidgets('removes a PIN with the current one', (tester) async {
     await pump(
       tester,
-      start: ManageProfilesScreen.location,
       profiles: [const Profile(id: 1, name: 'Davy', hasPin: true), const Profile(id: 2, name: 'Léa')],
     );
-    await tester.tap(find.text('Davy'));
-    await tester.pumpAndSettle();
+    await edit(tester, 1);
 
     await tester.ensureVisible(find.text('Retirer le code PIN'));
     await tester.pump();
@@ -410,9 +412,8 @@ void main() {
   });
 
   testWidgets('deletes a profile after a confirmation (parental PIN when on)', (tester) async {
-    await pump(tester, start: ManageProfilesScreen.location, parental: true);
-    await tester.tap(find.text('Léa'));
-    await tester.pumpAndSettle();
+    await pump(tester, parental: true);
+    await edit(tester, 2);
 
     await tester.ensureVisible(find.text('Supprimer le profil'));
     await tester.pump();
@@ -424,14 +425,13 @@ void main() {
     await typePin(tester, '4321');
 
     expect(auth.deleted.single, (2, '4321'));
-    expect(find.text('Gérer les profils'), findsOneWidget);
+    expect(find.text('Qui regarde ?'), findsOneWidget);
     expect(find.text('Léa'), findsNothing);
   });
 
   testWidgets('adds a profile with an age limit: no « Profil enfant »', (tester) async {
-    await pump(tester, start: ManageProfilesScreen.location);
-    await tester.tap(find.text('Ajouter un profil'));
-    await tester.pumpAndSettle();
+    await pump(tester);
+    await add(tester);
     await tester.enterText(find.widgetWithText(TextField, 'Nom du profil'), 'Tom');
     await tester.pump();
 
@@ -467,13 +467,14 @@ void main() {
   testWidgets('a former kid profile shows its 10-year limit, kept explicit when changed', (tester) async {
     await pump(
       tester,
-      start: ManageProfilesScreen.location,
       profiles: [const Profile(id: 1, name: 'Davy'), const Profile(id: 2, name: 'Léa', isKid: true)],
     );
     // No « Enfant » badge either.
     expect(find.text('Enfant'), findsNothing);
-    await tester.tap(find.text('Léa'));
-    await tester.pumpAndSettle();
+    await edit(tester, 2);
+    // A child's profile has no page: no biography nor networks.
+    expect(find.widgetWithText(TextField, 'Biographie'), findsNothing);
+    expect(find.text('Réseaux sociaux'), findsNothing);
 
     expect(find.bySemanticsLabel('Âge maximum : 10 ans'), findsOneWidget);
     await tester.ensureVisible(find.text('Titres sans classification'));
@@ -489,9 +490,8 @@ void main() {
   });
 
   testWidgets('changing restrictions asks the parental PIN and sends it', (tester) async {
-    await pump(tester, start: ManageProfilesScreen.location, parental: true);
-    await tester.tap(find.text('Léa'));
-    await tester.pumpAndSettle();
+    await pump(tester, parental: true);
+    await edit(tester, 2);
 
     await tester.ensureVisible(find.text('Âge maximum'));
     await tester.pump();
@@ -509,13 +509,59 @@ void main() {
     await typePin(tester, '4321');
 
     expect(auth.updates.last, {'id': 2, 'max_age_rating': 12, 'parental_pin': '4321'});
-    expect(find.text('Gérer les profils'), findsOneWidget);
+    expect(find.text('Qui regarde ?'), findsOneWidget);
+  });
+
+  testWidgets('« Modifier le profil »: biography, networks and « Compte privé » of its page', (tester) async {
+    await pump(
+      tester,
+      profiles: [
+        const Profile(
+          id: 1,
+          name: 'Davy',
+          username: 'davy',
+          bio: 'Fan de SF.',
+          socialLinks: [
+            SocialLink(network: SocialNetwork.instagram, handle: 'davy', url: 'https://instagram.com/davy'),
+          ],
+        ),
+        const Profile(id: 2, name: 'Léa'),
+      ],
+    );
+    await edit(tester, 1);
+
+    expect(find.widgetWithText(TextField, 'Fan de SF.'), findsOneWidget);
+    expect(find.text('Réseaux sociaux'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'davy'), findsWidgets);
+    await tester.enterText(find.widgetWithText(TextField, 'Fan de SF.'), 'Fan de science-fiction.');
+    await tester.ensureVisible(find.widgetWithText(TextField, 'Letterboxd'));
+    await tester.pump();
+    await tester.enterText(find.widgetWithText(TextField, 'Letterboxd'), 'davyb');
+    // Instagram emptied: removed.
+    await tester.enterText(find.widgetWithText(TextField, 'Instagram'), '');
+    await tester.ensureVisible(find.text('Compte privé'));
+    await tester.pump();
+    await tester.tap(find.text('Compte privé'));
+    await tester.pump();
+
+    await tester.ensureVisible(find.text('Enregistrer les modifications'));
+    await tester.pump();
+    await tester.tap(find.text('Enregistrer les modifications'));
+    await tester.pumpAndSettle();
+    final sent = auth.updates.last;
+    expect(sent['id'], 1);
+    expect(sent['bio'], 'Fan de science-fiction.');
+    expect(sent['is_private'], isTrue);
+    final links = sent['social_links']! as Map<String, Object?>;
+    expect(links['instagram'], isNull);
+    expect(links['letterboxd'], 'davyb');
+    expect(links.length, SocialNetwork.values.length);
+    expect(find.text('Qui regarde ?'), findsOneWidget);
   });
 
   testWidgets('the last profile can’t be deleted', (tester) async {
-    await pump(tester, start: ManageProfilesScreen.location, profiles: [const Profile(id: 1, name: 'Davy')]);
-    await tester.tap(find.text('Davy'));
-    await tester.pumpAndSettle();
+    await pump(tester, profiles: [const Profile(id: 1, name: 'Davy')]);
+    await edit(tester, 1);
     expect(find.text('Supprimer le profil'), findsNothing);
   });
 
@@ -526,11 +572,10 @@ void main() {
       const Profile(id: 1, name: 'Davy', avatar: 'lion', photoUrl: photo),
       const Profile(id: 2, name: 'Léa'),
     ];
-    await pump(tester, start: ManageProfilesScreen.location, profiles: profiles);
-    // The list shows the photo.
+    await pump(tester, profiles: profiles);
+    // « Qui regarde ? » shows the photo.
     expect(showsPhoto(), isTrue);
-    await tester.tap(find.text('Davy'));
-    await tester.pumpAndSettle();
+    await edit(tester, 1);
 
     expect(find.text('Photo de profil'), findsOneWidget);
     expect(find.text('Votre photo est affichée à la place de l’avatar. Choisir un avatar la retire.'), findsOneWidget);
@@ -557,14 +602,12 @@ void main() {
   testWidgets('an avatar chosen replaces the photo', (tester) async {
     await pump(
       tester,
-      start: ManageProfilesScreen.location,
       profiles: [
         const Profile(id: 1, name: 'Davy', avatar: 'lion', photoUrl: 'https://api.vixeo.test/api/v1/profile-photos/d.webp'),
         const Profile(id: 2, name: 'Léa'),
       ],
     );
-    await tester.tap(find.text('Davy'));
-    await tester.pumpAndSettle();
+    await edit(tester, 1);
     await tester.ensureVisible(find.text('Retirer la photo'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.bySemanticsLabel(RegExp(r'^Bram')));
@@ -585,7 +628,6 @@ void main() {
   ) async {
     await pump(
       tester,
-      start: ManageProfilesScreen.location,
       profiles: [
         const Profile(
           id: 1,
@@ -597,8 +639,7 @@ void main() {
         const Profile(id: 2, name: 'Léa', cover: 'aurore'),
       ],
     );
-    await tester.tap(find.text('Davy'));
-    await tester.pumpAndSettle();
+    await edit(tester, 1);
 
     expect(find.text('Couverture'), findsOneWidget);
     expect(find.text('Dégradés'), findsOneWidget);
@@ -622,9 +663,8 @@ void main() {
     expect(auth.coverRemovals, [1]);
     expect(auth.covers, isEmpty);
 
-    // A new profile: a cover of the catalog, at random.
-    await tester.tap(find.text('Ajouter un profil'));
-    await tester.pumpAndSettle();
+    // A new profile (« Ajouter », back on « Qui regarde ? »): a cover of the catalog, at random.
+    await add(tester);
     await tester.enterText(find.widgetWithText(TextField, 'Nom du profil'), 'Tom');
     await tester.pump();
     await tester.ensureVisible(find.text('Créer un profil'));

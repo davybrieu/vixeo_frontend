@@ -9,6 +9,7 @@ import '../../core/share.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/menu.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
@@ -18,10 +19,12 @@ import '../library/library.dart';
 import '../library/my_list_screen.dart';
 import '../messages/messages.dart' show conversationLocation, startConversation;
 import '../network/actions.dart' show showMemberMenu;
+import '../network/hidden_accounts_screen.dart';
 import '../network/network.dart' show activityProvider, memberListsProvider, myListsProvider;
 import '../network/profile_sections.dart';
 import '../notifications/inbox.dart';
 import '../profiles/covers.dart';
+import '../profiles/profile_editor_screen.dart';
 import '../tmdb/reviews_screen.dart';
 import '../tmdb/tmdb.dart';
 import '../notifications/inbox_screen.dart';
@@ -29,10 +32,12 @@ import '../shell/app_shell.dart' show NavigationBadge, unreadLabel;
 import 'profile_view.dart';
 import 'social_repository.dart';
 
-/// « Profil » (tab): the active profile's page (`ProfileView`). At the top right « Partager le
-/// profil » and, on a phone, « Paramètres »; then its avatar, name, @username, followers and
-/// following, bio and networks (changed in « Paramètres » : no « Modifier le profil » button, nor
-/// « Mes 4 favoris »: developer's request, 23/11/2026); then its counters and five tabs:
+/// « Profil » (tab): the active profile's page (`ProfileView`, like Bingers: developer's request,
+/// 25/11/2026). At the top right « Partager le profil », « Notifications » and « ⋮ » (a drop-down:
+/// « Modifier mon profil », « Paramètres », « Changer de profil », « Comptes bloqués et masqués »,
+/// « Se déconnecter »); then its avatar, name, @username, following, followers, followed people, bio
+/// and networks (changed in « Modifier mon profil »); then its figures (time watched, titles and
+/// episodes watched, reviews, « À voir ») and five tabs:
 /// « Activité » (each action with its date), « Listes » (« À voir » first, then my lists),
 /// « Avis », « Aimés » (titles liked and followed people) and « Vus » (titles watched, « Mon
 /// année »). An empty tab shows the [EmptyState] of the « Fil d'actualité ». The round arrow of a
@@ -100,8 +105,8 @@ class ProfileScreen extends ConsumerWidget {
         await ref.read(libraryProvider.notifier).refresh();
       },
       // « Partager le profil » (not on TV), « Notifications » with the number of unread ones
-      // (developer's request, 25/11/2026: not in the navigation any more), then « Paramètres » on a
-      // phone. No button in the header: the shown tab takes the focus on arrival (TV).
+      // (developer's request, 25/11/2026: not in the navigation any more), then « ⋮ ». No button in
+      // the header: the shown tab takes the focus on arrival (TV).
       focusTabs: true,
       actions: [
         if (social?.shareUrl case final url? when canShareLinks)
@@ -127,13 +132,14 @@ class ProfileScreen extends ConsumerWidget {
             onPressed: () => context.push(InboxScreen.location),
           ),
         ),
-        if (layout.isPhone)
-          VxIconAction(
-            icon: Icons.settings_outlined,
-            label: 'Paramètres',
+        Builder(
+          builder: (anchor) => VxIconAction(
+            icon: Icons.more_vert_rounded,
+            label: 'Plus d’options',
             dense: true,
-            onPressed: () => context.push('/parametres'),
+            onPressed: () => _showMyMenu(anchor, ref, profile.id),
           ),
+        ),
       ],
       header: ProfileHeader(
         name: profile.name,
@@ -151,10 +157,14 @@ class ProfileScreen extends ConsumerWidget {
         onFollowing: () => context.push('/profil/social/abonnements'),
         onPeople: () => context.push('/profil/social/personnes'),
       ),
-      counters: ProfileCounters(
-        reviews: reviewsPage.value?.totalResults ?? social?.reviewsCount,
-        watched: library.value?.watched.length ?? social?.watchedCount,
-        titles: library.value?.toWatch.length ?? social?.listCount,
+      stats: ProfileStats(
+        stats: _stats(
+          watchMinutes: social?.watchMinutes,
+          watched: library.value?.watched.length ?? social?.watchedCount,
+          episodes: social?.episodesCount,
+          reviews: reviewsPage.value?.totalResults ?? social?.reviewsCount,
+          toWatch: library.value?.toWatch.length ?? social?.listCount,
+        ),
       ),
       tabs: [
         (
@@ -165,7 +175,7 @@ class ProfileScreen extends ConsumerWidget {
                 icon: Icons.alternate_email_rounded,
                 title: 'Choisissez un pseudo',
                 message:
-                    'Dans « Paramètres » → « Modifier le profil » : votre activité, vos listes et votre page '
+                    'Dans « ⋮ » → « Modifier mon profil » : votre activité, vos listes et votre page '
                     'apparaîtront ici.',
               )
             else
@@ -246,9 +256,59 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
+/// The figures of a profile page (null: still loading).
+List<ProfileStat> _stats({int? watchMinutes, int? watched, int? episodes, int? reviews, int? toWatch}) {
+  final time = watchMinutes == null ? null : watchTimeLabel(watchMinutes);
+  return [
+    (label: 'Temps de visionnage', value: time?.shown, spoken: time?.spoken),
+    profileStat('Films et séries vus', watched),
+    profileStat('Épisodes vus', episodes),
+    profileStat('Avis', reviews),
+    profileStat('À voir', toWatch),
+  ];
+}
+
+/// « ⋮ » of my page: a drop-down under the button ([anchor]: the button's context).
+Future<void> _showMyMenu(BuildContext anchor, WidgetRef ref, int profileId) {
+  final phone = Layout.of(anchor).isPhone;
+  return showVxMenu(
+    anchor,
+    label: 'Plus d’options',
+    items: [
+      vxMenuItem(
+        Icons.edit_outlined,
+        'Modifier mon profil',
+        () => anchor.push(ProfileEditorScreen.editLocation(profileId)),
+      ),
+      // A phone opens « Paramètres » over the page; elsewhere it is a destination of the rail.
+      vxMenuItem(
+        Icons.settings_outlined,
+        'Paramètres',
+        () => phone ? anchor.push('/parametres') : anchor.go('/parametres'),
+      ),
+      vxMenuItem(
+        Icons.switch_account_outlined,
+        'Changer de profil',
+        () => ref.read(sessionProvider.notifier).switchProfile(),
+      ),
+      vxMenuItem(
+        Icons.block_rounded,
+        'Comptes bloqués et masqués',
+        () => anchor.push(HiddenAccountsScreen.location),
+      ),
+      vxMenuItem(
+        Icons.logout_rounded,
+        'Se déconnecter',
+        () => ref.read(sessionProvider.notifier).logout(),
+        danger: true,
+      ),
+    ],
+  );
+}
+
 /// A member's page (`/membre/:username`): the same page as mine (`ProfileView`), with the same
 /// tabs (« Activité », « Listes », « Avis », « Aimés », « Vus »), « Suivre » and, at the top right,
-/// « Partager le profil » and « … ». My own page opened from a list has no button in its header.
+/// « Partager le profil » and « ⋮ ». My own page opened from a list has no button in its header.
 class PublicProfileScreen extends ConsumerWidget {
   const PublicProfileScreen({super.key, required this.username});
 
@@ -313,7 +373,7 @@ class PublicProfileScreen extends ConsumerWidget {
           ref.invalidate(socialProfileProvider(username));
           await ref.read(socialProfileProvider(username).future);
         },
-        // « Partager le profil » (not on TV), then « … »: mute, block, report.
+        // « Partager le profil » (not on TV), then « ⋮ »: mute, block, report.
         focusTabs: social.isSelf,
         actions: [
           if (social.shareUrl case final url? when canShareLinks)
@@ -330,11 +390,13 @@ class PublicProfileScreen extends ConsumerWidget {
               ),
             ),
           if (!social.isSelf && socialAvailable(ref.watch(sessionProvider)))
-            VxIconAction(
-              icon: Icons.more_horiz_rounded,
-              label: 'Options du profil de @${social.username}',
-              dense: true,
-              onPressed: () => showMemberMenu(context, ref, social),
+            Builder(
+              builder: (anchor) => VxIconAction(
+                icon: Icons.more_vert_rounded,
+                label: 'Options du profil de @${social.username}',
+                dense: true,
+                onPressed: () => showMemberMenu(anchor, ref, social),
+              ),
             ),
         ],
         header: ProfileHeader(
@@ -358,10 +420,14 @@ class PublicProfileScreen extends ConsumerWidget {
               ? () => _write(context, ref, social.username)
               : null,
         ),
-        counters: ProfileCounters(
-          reviews: social.reviewsCount,
-          watched: social.watchedCount,
-          titles: social.listCount,
+        stats: ProfileStats(
+          stats: _stats(
+            watchMinutes: social.watchMinutes,
+            watched: social.watchedCount,
+            episodes: social.episodesCount,
+            reviews: social.reviewsCount,
+            toWatch: social.listCount,
+          ),
         ),
         tabs: social.isBlocked
             ? [

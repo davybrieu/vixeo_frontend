@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:vixeo/core/share.dart';
-import 'package:vixeo/features/auth/auth_repository.dart';
 import 'package:vixeo/router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
@@ -19,10 +18,10 @@ import 'package:vixeo/features/library/library.dart';
 import 'package:vixeo/features/library/my_list_screen.dart';
 import 'package:vixeo/features/network/network.dart';
 import 'package:vixeo/features/notifications/inbox.dart';
+import 'package:vixeo/features/profiles/avatars.dart';
 import 'package:vixeo/features/profiles/profile_settings_screen.dart';
 import 'package:vixeo/features/social/profile_screen.dart';
 import 'package:vixeo/features/social/profile_view.dart';
-import 'package:vixeo/features/social/public_profile_settings.dart';
 import 'package:vixeo/features/social/review_likes.dart';
 import 'package:vixeo/features/social/social_links.dart';
 import 'package:vixeo/features/social/social_search.dart';
@@ -39,6 +38,17 @@ class _Signed extends SessionController {
     token: 't',
     user: _user,
     profile: Profile.fromJson({'id': 2, 'name': 'Léa', 'username': 'lea', 'bio': 'Fan de science-fiction.'}),
+  );
+}
+
+/// A child's profile: no page of its own.
+class _Kid extends SessionController {
+  @override
+  SessionState build() => SessionState(
+    status: SessionStatus.signedIn,
+    token: 't',
+    user: _user,
+    profile: Profile.fromJson({'id': 3, 'name': 'Tom', 'is_kid': true}),
   );
 }
 
@@ -127,6 +137,9 @@ const _social = SocialProfile(
   reviewsCount: 5,
   watchedCount: 34,
   listCount: 2,
+  episodesCount: 42,
+  // 5 days and 9 hours.
+  watchMinutes: (5 * 24 + 9) * 60 + 12,
 );
 
 /// The « Activité » and the lists of a profile, without the network.
@@ -201,6 +214,8 @@ Future<void> _pump(WidgetTester tester) async {
       GoRoute(path: '/avis', builder: (_, _) => page('Page Mes avis')),
       GoRoute(path: '/parametres', builder: (_, _) => page('Page Paramètres')),
       GoRoute(path: '/notifications', builder: (_, _) => page('Page Notifications')),
+      GoRoute(path: '/profils/modifier/:id', builder: (_, state) => page('Modifier ${state.pathParameters['id']}')),
+      GoRoute(path: '/profil/comptes-masques', builder: (_, _) => page('Page Comptes masqués')),
       GoRoute(path: '/profil/social/:section', builder: (_, state) => page('Page ${state.pathParameters['section']}')),
     ],
   );
@@ -240,25 +255,37 @@ void main() {
     expect(_pressable('1 abonnement'), findsOneWidget);
     // The people followed (actors, directors…), from this device's library.
     expect(_pressable('1 personne suivie'), findsOneWidget);
-    // The top of the page is centered.
+    // The top of the page on the left (like Bingers): the avatar, then the name and @username
+    // under it; following before followers.
     final page = tester.getRect(find.byType(ProfileView));
-    expect(tester.getCenter(find.text('Léa')).dx, moreOrLessEquals(page.center.dx, epsilon: 1));
-    expect(tester.getCenter(find.text('@lea')).dx, moreOrLessEquals(page.center.dx, epsilon: 1));
-    // No « Modifier le profil » (the biography and networks are in « Paramètres »), « Paramètres »
-    // at the top right on a phone.
+    final name = tester.getTopLeft(find.text('Léa')).dx;
+    expect(name, lessThan(page.center.dx));
+    expect(tester.getTopLeft(find.text('@lea')).dx, moreOrLessEquals(name, epsilon: 1));
+    expect(tester.getCenter(find.byType(AvatarTile).first).dx, lessThan(page.center.dx));
+    expect(
+      tester.getCenter(_pressable('1 abonnement')).dx,
+      lessThan(tester.getCenter(_pressable('12 abonnés')).dx),
+    );
+    // No « Modifier le profil » button nor « Paramètres »: « ⋮ » at the top right.
     expect(find.text('Modifier le profil'), findsNothing);
-    expect(_pressable('Paramètres'), findsOneWidget);
-    // « Notifications » (not in the navigation any more): next to « Paramètres », with its number.
+    expect(_pressable('Paramètres'), findsNothing);
+    expect(_pressable('Plus d’options'), findsOneWidget);
+    // « Notifications » (not in the navigation any more): next to « ⋮ », with its number.
     final bell = _pressable('Notifications, 3 notifications non lues');
     expect(bell, findsOneWidget);
-    expect(tester.getCenter(bell).dx, lessThan(tester.getCenter(_pressable('Paramètres')).dx));
+    expect(tester.getCenter(bell).dx, lessThan(tester.getCenter(_pressable('Plus d’options')).dx));
     expect(find.text('3'), findsWidgets);
     // No invitation to choose « Mes 4 favoris ».
     expect(find.textContaining('Choisissez vos 4'), findsNothing);
 
-    // Counters: the reviews, the titles watched and « À voir » as shown on the page.
+    // The figures: time watched (from the API), the titles watched and « À voir » as shown on the
+    // page, the episodes watched and the reviews.
+    expect(find.text('TEMPS DE VISIONNAGE'), findsOneWidget);
+    expect(find.text('5 j 9 h'), findsOneWidget);
+    expect(find.bySemanticsLabel('Temps de visionnage : 5 jours et 9 heures'), findsOneWidget);
+    expect(find.bySemanticsLabel('Films et séries vus : 1'), findsOneWidget);
+    expect(find.bySemanticsLabel('Épisodes vus : 42'), findsOneWidget);
     expect(find.bySemanticsLabel('Avis : 5'), findsOneWidget);
-    expect(find.bySemanticsLabel('Vus : 1'), findsOneWidget);
     expect(find.bySemanticsLabel('À voir : 2'), findsOneWidget);
 
     // « Activité » first: each action with its date; no « Journal ».
@@ -296,6 +323,60 @@ void main() {
     expect(find.text('Mes titres vus'), findsOneWidget);
     expect(find.text('Fight Club'), findsWidgets);
     expect(find.textContaining('Mon année'), findsOneWidget);
+  });
+
+  testWidgets('« ⋮ » of my page: a drop-down with the profile\'s actions', (tester) async {
+    await _pump(tester);
+
+    await tester.tap(_pressable('Plus d’options'));
+    await tester.pumpAndSettle();
+    double top(String text) => tester.getTopLeft(find.text(text)).dy;
+    const items = [
+      'Modifier mon profil',
+      'Paramètres',
+      'Changer de profil',
+      'Comptes bloqués et masqués',
+      'Se déconnecter',
+    ];
+    for (var i = 1; i < items.length; i++) {
+      expect(top(items[i - 1]), lessThan(top(items[i])), reason: items[i]);
+    }
+    // Under its button, on the right.
+    final button = tester.getRect(_pressable('Plus d’options'));
+    expect(top('Modifier mon profil'), greaterThan(button.bottom));
+    expect(tester.getTopRight(find.text('Modifier mon profil')).dx, lessThan(button.right));
+
+    await tester.tap(find.text('Modifier mon profil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Modifier 2'), findsOneWidget);
+
+    await _pump(tester);
+    await tester.tap(_pressable('Plus d’options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Comptes bloqués et masqués'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page Comptes masqués'), findsOneWidget);
+
+    await _pump(tester);
+    await tester.tap(_pressable('Plus d’options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Paramètres'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page Paramètres'), findsOneWidget);
+  });
+
+  testWidgets('the time watched as the profile page writes it', (tester) async {
+    expect(watchTimeLabel(0), (shown: '0 h', spoken: 'aucun'));
+    expect(watchTimeLabel(40), (shown: '40 min', spoken: '40 minutes'));
+    expect(watchTimeLabel(5 * 60 + 12), (shown: '5 h 12 min', spoken: '5 heures et 12 minutes'));
+    expect(watchTimeLabel(60), (shown: '1 h', spoken: '1 heure'));
+    expect(watchTimeLabel((2 * 24 + 4) * 60), (shown: '2 j 4 h', spoken: '2 jours et 4 heures'));
+    // A month is 30 days.
+    expect(
+      watchTimeLabel(((3 * 30 + 21) * 24 + 9) * 60),
+      (shown: '3 mois 21 j 9 h', spoken: '3 mois, 21 jours et 9 heures'),
+    );
+    expect(watchTimeLabel(30 * 24 * 60), (shown: '1 mois', spoken: '1 mois'));
   });
 
   testWidgets('the arrows open « À voir », every review, like and title watched', (tester) async {
@@ -581,53 +662,7 @@ void main() {
     expect(find.bySemanticsLabel('Avis : 5'), findsOneWidget);
   });
 
-  testWidgets('« Biographie » (Paramètres): 160 characters at most, saved', (tester) async {
-    final auth = _FakeAuth();
-    await _pumpSettings(tester, auth, BioSettingsScreen.location);
-
-    final bio = find.widgetWithText(TextField, 'Biographie');
-    expect(tester.widget<TextField>(bio).controller!.text, 'Fan de science-fiction.');
-    expect(tester.widget<TextField>(bio).maxLength, 160);
-    await tester.enterText(bio, 'a' * 200);
-    await tester.pump();
-    expect(tester.widget<TextField>(bio).controller!.text.length, 160);
-    expect(find.text('160/160'), findsOneWidget);
-
-    await tester.enterText(bio, ' Cinéphile. ');
-    await tester.tap(find.text('Enregistrer'));
-    await tester.pumpAndSettle();
-    expect(auth.saved.single, {'bio': 'Cinéphile.'});
-    expect(find.text('Page Profil'), findsOneWidget);
-  });
-
-  testWidgets('« Réseaux sociaux » (Paramètres): one field per network, an emptied one removed', (tester) async {
-    final auth = _FakeAuth();
-    await _pumpSettings(tester, auth, SocialLinksSettingsScreen.location);
-
-    await tester.enterText(find.widgetWithText(TextField, 'Instagram'), ' @lea.cine ');
-    await tester.enterText(find.widgetWithText(TextField, 'Site web'), 'lea.fr');
-    await tester.tap(find.text('Enregistrer'));
-    await tester.pumpAndSettle();
-
-    final links = auth.saved.single['social_links']! as Map<String, String?>;
-    expect(links['instagram'], '@lea.cine');
-    expect(links['website'], 'lea.fr');
-    expect(links['x'], isNull);
-    expect(links.keys, [for (final network in SocialNetwork.values) network.key]);
-  });
-
-  testWidgets('« Compte privé » (Paramètres): saved at once', (tester) async {
-    final auth = _FakeAuth();
-    await _pumpSettings(tester, auth, PrivateAccountSettingsScreen.location);
-
-    await tester.tap(_pressable('Compte privé, désactivé'));
-    await tester.pumpAndSettle();
-    expect(auth.saved.single, {'is_private': true});
-    expect(_pressable('Compte privé, activé'), findsOneWidget);
-    expect(find.text('Compte privé activé'), findsOneWidget);
-  });
-
-  testWidgets('« Paramètres »: « Profil » first, « Changer de profil » first in it', (tester) async {
+  testWidgets('« Paramètres »: no « Profil », « Avancé » nor « Comptes bloqués et masqués »', (tester) async {
     tester.view.physicalSize = const Size(600, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -640,17 +675,40 @@ void main() {
     await tester.pumpAndSettle();
 
     double top(String text) => tester.getTopLeft(find.text(text)).dy;
-    // The sections, « Profil » (formerly « Profil public ») first.
-    expect(find.text('PROFIL PUBLIC'), findsNothing);
-    expect(top('PROFIL'), lessThan(top('COMPTE')));
-    expect(top('COMPTE'), lessThan(top('GÉNÉRAL')));
-    // « Profil »: changing profile first, then the profiles, then the public page.
-    const profile = ['Changer de profil', 'Modifier le profil', 'Gérer les profils', 'Biographie', 'Réseaux sociaux'];
-    for (var i = 1; i < profile.length; i++) {
-      expect(top(profile[i - 1]), lessThan(top(profile[i])), reason: profile[i]);
+    // In the « ⋮ » of the profile page now.
+    for (final gone in [
+      'PROFIL',
+      'Changer de profil',
+      'Modifier le profil',
+      'Gérer les profils',
+      'Biographie',
+      'Réseaux sociaux',
+      'Compte privé',
+      'Comptes bloqués et masqués',
+      'Avancé',
+    ]) {
+      expect(find.text(gone), findsNothing, reason: gone);
     }
-    expect(top('Compte privé'), lessThan(top('COMPTE')));
+    expect(top('COMPTE'), lessThan(top('GÉNÉRAL')));
+    expect(find.text('Se déconnecter'), findsOneWidget);
+  });
+
+  testWidgets('« Paramètres » of a child\'s profile (no page): « Changer de profil » first', (tester) async {
+    tester.view.physicalSize = const Size(600, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith(_Kid.new)],
+        child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: ProfileSettingsScreen())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    double top(String text) => tester.getTopLeft(find.text(text)).dy;
     expect(top('PROFIL'), lessThan(top('Changer de profil')));
+    expect(top('Changer de profil'), lessThan(top('Modifier le profil')));
+    expect(top('Modifier le profil'), lessThan(top('COMPTE')));
   });
 
   testWidgets('« Partager » sends the profile\'s page, or copies it', (tester) async {
@@ -879,34 +937,6 @@ void main() {
   });
 }
 
-/// A page of « Paramètres » ([location]) over a « Profil » page, saving with [auth].
-Future<void> _pumpSettings(WidgetTester tester, _FakeAuth auth, String location) async {
-  tester.view.physicalSize = const Size(600, 2400);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  final router = GoRouter(
-    routes: [
-      GoRoute(path: '/', builder: (_, _) => const Scaffold(body: Text('Page Profil'))),
-      GoRoute(path: BioSettingsScreen.location, builder: (_, _) => const BioSettingsScreen()),
-      GoRoute(path: SocialLinksSettingsScreen.location, builder: (_, _) => const SocialLinksSettingsScreen()),
-      GoRoute(path: PrivateAccountSettingsScreen.location, builder: (_, _) => const PrivateAccountSettingsScreen()),
-    ],
-  );
-  addTearDown(router.dispose);
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: <Override>[
-        sessionProvider.overrideWith(_Signed.new),
-        socialProfileProvider.overrideWith((ref, username) async => _social),
-        authRepositoryProvider.overrideWithValue(auth),
-      ],
-      child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
-    ),
-  );
-  router.push(location);
-  await tester.pumpAndSettle();
-}
-
 class _FakeSocial extends SocialRepository {
   _FakeSocial({this.followAnswer = FollowStatus.following})
     : super(ApiClient(token: () => null, profileId: () => null));
@@ -992,26 +1022,6 @@ Future<_FakeSocial> _pumpMember(
   );
   await tester.pumpAndSettle();
   return social;
-}
-
-/// Answers every search with [found].
-class _FakeAuth extends AuthRepository {
-  _FakeAuth() : super(ApiClient(token: () => null, profileId: () => null));
-
-  final saved = <Map<String, Object?>>[];
-
-  @override
-  Future<Profile> updateProfile(int profileId, Map<String, Object?> fields) async {
-    saved.add(fields);
-    return Profile.fromJson({
-      'id': profileId,
-      'name': 'Léa',
-      'username': 'lea',
-      'bio': 'Fan de science-fiction.',
-      ...fields,
-      'social_links': null,
-    });
-  }
 }
 
 class _FakeSharer extends LinkSharer {

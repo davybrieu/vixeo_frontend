@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
@@ -13,6 +14,7 @@ import '../auth/models.dart';
 import '../auth/session.dart';
 import 'avatars.dart';
 import 'pin_pad.dart';
+import 'profile_editor_screen.dart';
 
 final profilesProvider = FutureProvider.autoDispose<List<Profile>>((ref) {
   ref.watch(sessionProvider.select((s) => s.token));
@@ -22,10 +24,11 @@ final profilesProvider = FutureProvider.autoDispose<List<Profile>>((ref) {
 /// Profiles per account, at most (the API refuses a sixth).
 const maxProfiles = 5;
 
-/// « Qui regarde ? » (demande du développeur, like other media centers): the title and the round
-/// avatars, nothing else. The profiles are managed in « Paramètres » → « Profil » → « Gérer les
-/// profils » (demande du développeur, 24/11/2026). No logo and no « Se déconnecter » here (it is
-/// in « Paramètres »). The back button returns to the profile left with « Changer de profil ».
+/// « Qui regarde ? » (demande du développeur, like other media centers): the title, the round
+/// avatars and, while the account has fewer than [maxProfiles], « Ajouter » after them (developer's
+/// request, 25/11/2026: « Ajouter un profil »). A profile is changed from the « ⋮ » of its page
+/// (« Modifier mon profil »). No logo and no « Se déconnecter » here (it is in « Paramètres » and
+/// the « ⋮ »). The back button returns to the profile left with « Changer de profil ».
 class ProfilesScreen extends ConsumerStatefulWidget {
   const ProfilesScreen({super.key});
 
@@ -106,6 +109,12 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                                           autofocus: i == 0,
                                           onPressed: () => _open(profile),
                                         ),
+                                      if (list.length < maxProfiles)
+                                        _AddTile(
+                                          size: tile,
+                                          autofocus: list.isEmpty,
+                                          onPressed: () => context.push(ProfileEditorScreen.newLocation),
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -132,6 +141,56 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// « Ajouter »: a round « + » the size of an avatar, its label under it; opens « Ajouter un profil ».
+class _AddTile extends StatelessWidget {
+  const _AddTile({required this.size, required this.onPressed, this.autofocus = false});
+
+  final double size;
+  final VoidCallback onPressed;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size + 24,
+      child: Column(
+        children: [
+          VxFocusable(
+            autofocus: autofocus,
+            onPressed: onPressed,
+            borderRadius: size,
+            focusScale: 1.08,
+            semanticLabel: 'Ajouter un profil',
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: VxColors.text.withValues(alpha: 0.06),
+                border: Border.all(color: VxColors.text.withValues(alpha: 0.24), width: size * 0.02),
+              ),
+              child: Icon(Icons.add_rounded, size: size * 0.42, color: VxColors.textSoft),
+            ),
+          ),
+          SizedBox(height: size * 0.1),
+          GestureDetector(
+            onTap: onPressed,
+            child: ExcludeSemantics(
+              child: Text(
+                'Ajouter',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: VxText.body(size * 0.14, weight: FontWeight.w600, color: VxColors.textSecondary),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

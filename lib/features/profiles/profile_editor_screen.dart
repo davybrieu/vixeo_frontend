@@ -18,6 +18,9 @@ import '../account/info_page.dart';
 import '../auth/models.dart';
 import '../auth/session.dart';
 import '../catalog/catalog_repository.dart';
+import '../notifications/inbox.dart' show followRequestsProvider;
+import '../social/social_links.dart';
+import '../social/social_repository.dart' show socialProfileProvider;
 import 'avatars.dart';
 import 'covers.dart';
 import 'parental_pin.dart';
@@ -25,6 +28,9 @@ import 'profile_photo.dart';
 import 'pin_pad.dart';
 import 'profiles_screen.dart';
 import 'settings_rows.dart';
+
+/// Longest biography, in characters (developer's request, 21/11/2026; the API's limit too).
+const bioMaxLength = 160;
 
 /// Age limits offered for a profile (null = none).
 const ageOptions = <int?>[null, 0, 7, 10, 12, 16, 18];
@@ -38,10 +44,10 @@ String ageLabel(int? age) => switch (age) {
 /// The age limit that applies: a former « profil enfant » without an age is limited to 10 (API).
 int? effectiveMaxAge(Profile profile) => profile.maxAgeRating ?? (profile.isKid ? 10 : null);
 
-/// « Ajouter un profil » and « Modifier le profil », opened from « Paramètres » → « Profil »
-/// (« Modifier le profil », « Gérer les profils »; demande du développeur, 24/11/2026: no longer
-/// on « Qui regarde ? »): the avatar, name and
-/// pseudo as they will look (under the cover), the name, the pseudo, « Photo de profil » (its own
+/// « Ajouter un profil » (« Ajouter » of « Qui regarde ? ») and « Modifier le profil » (« ⋮ » →
+/// « Modifier mon profil » of the profile page; developer's request, 25/11/2026): the avatar, name
+/// and pseudo as they will look (under the cover), the name, the pseudo, then for a profile with a
+/// page its « Biographie », « Réseaux sociaux » and « Compte privé », « Photo de profil » (its own
 /// photo instead of the avatar, demande du développeur, 23/11/2026), the avatars by license,
 /// « Couverture » (a cover of the catalog by style, or its own image, 24/11/2026), the restrictions
 /// (maximum age, unrated titles; no « profil enfant », demande du développeur), then (to change
@@ -65,6 +71,15 @@ class ProfileEditorScreen extends ConsumerStatefulWidget {
 class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   final _name = TextEditingController();
   final _username = TextEditingController();
+
+  /// A few words under the name on the profile's page.
+  final _bio = TextEditingController();
+
+  /// Its accounts on social networks: a username or an address each; emptied = removed.
+  final _links = {for (final network in SocialNetwork.values) network: TextEditingController()};
+
+  /// « Compte privé »: only the followers it accepts see its page.
+  bool _private = false;
   String? _avatar;
 
   /// A photo framed here, sent with « Enregistrer » / « Créer un profil ».
@@ -94,7 +109,32 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   void dispose() {
     _name.dispose();
     _username.dispose();
+    _bio.dispose();
+    for (final field in _links.values) {
+      field.dispose();
+    }
     super.dispose();
+  }
+
+  /// A profile with a page on Vixeo (not a child's): its biography, networks and « Compte privé ».
+  bool _hasPage(Profile? profile) => profile != null && !profile.isKid;
+
+  /// What changed of its page: `bio`, `social_links` (every network: an emptied field removes its
+  /// account) and `is_private`.
+  Map<String, Object?> _pageFields(Profile profile) {
+    if (!_hasPage(profile)) return const {};
+    final bio = _bio.text.trim();
+    final links = {
+      for (final MapEntry(key: network, value: field) in _links.entries)
+        network: field.text.trim().isEmpty ? null : field.text.trim(),
+    };
+    final before = {for (final link in profile.socialLinks) link.network: link.handle};
+    final linksChanged = links.entries.any((e) => e.value != before[e.key]);
+    return {
+      if (bio != (profile.bio ?? '').trim()) 'bio': bio,
+      if (linksChanged) 'social_links': {for (final MapEntry(:key, :value) in links.entries) key.key: value},
+      if (_private != profile.isPrivate) 'is_private': _private,
+    };
   }
 
   Profile? _profile(List<Profile>? profiles) {
@@ -219,7 +259,9 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
         context.pop(true);
         return;
       } else if (profile != null) {
+        final page = _pageFields(profile);
         final fields = <String, Object?>{
+          ...page,
           if (name != profile.name) 'name': name,
           if (username.isNotEmpty && username != profile.username) 'username': username,
           if (_avatar != null && _avatar != profile.avatar) 'avatar': _avatar,
@@ -232,6 +274,9 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
         };
         if (fields.isNotEmpty) {
           ref.read(sessionProvider.notifier).updateProfile(await repository.updateProfile(profile.id, fields));
+          // Its page shows the change; made public, its waiting requests are accepted (the API).
+          if (page.isNotEmpty) ref.invalidate(socialProfileProvider);
+          if (page['is_private'] == false) ref.invalidate(followRequestsProvider);
         }
         try {
           final withPhoto = await _savePhoto(profile.id, profile);
@@ -367,6 +412,11 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
         _allowUnrated = profile.allowUnrated;
         _avatar = profile.avatar;
         _cover = profile.cover;
+        _bio.text = profile.bio ?? '';
+        for (final link in profile.socialLinks) {
+          _links[link.network]!.text = link.handle;
+        }
+        _private = profile.isPrivate;
         _ready = true;
       } else if (_creating && catalog.hasValue) {
         final avatars = [for (final license in catalog.value!) ...license.avatars];
@@ -384,7 +434,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
     if (!_creating && profile == null) {
       return InfoPage(
         title: title,
-        fallback: '/profils',
+        fallback: _creating ? '/profils' : '/profil',
         children: [
           if (profiles.isLoading)
             const Center(child: CircularProgressIndicator())
@@ -401,7 +451,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
 
     return InfoPage(
       title: title,
-      fallback: '/profils',
+      fallback: _creating ? '/profils' : '/profil',
       children: [
         VxCard(
           child: Column(
@@ -488,9 +538,72 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
                   errorText: error?.field('username'),
                 ),
               ),
+              if (_hasPage(profile)) ...[
+                SizedBox(height: 12 * s),
+                TextField(
+                  controller: _bio,
+                  maxLength: bioMaxLength,
+                  minLines: 2,
+                  maxLines: 5,
+                  style: VxText.body(16 * s),
+                  decoration: InputDecoration(
+                    labelText: 'Biographie',
+                    hintText: 'Fan de science-fiction…',
+                    errorText: error?.field('bio'),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
+        if (_hasPage(profile)) ...[
+          SizedBox(height: gap),
+          VxCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Réseaux sociaux', style: VxText.title(17 * s)),
+                SizedBox(height: 6 * s),
+                Text(
+                  'Le pseudo ou l’adresse de votre page : ils s’affichent sur votre profil, sous la biographie.',
+                  style: VxText.body(14 * s, color: VxColors.textSecondary),
+                ),
+                for (final MapEntry(key: network, value: field) in _links.entries) ...[
+                  SizedBox(height: 12 * s),
+                  TextField(
+                    controller: field,
+                    keyboardType: TextInputType.url,
+                    autocorrect: false,
+                    textInputAction: TextInputAction.next,
+                    style: VxText.body(16 * s),
+                    decoration: InputDecoration(
+                      labelText: network.label,
+                      hintText: network.isWebsite ? 'https://…' : 'pseudo',
+                      prefixIcon: Icon(network.icon),
+                      errorText: error?.field('social_links.${network.key}'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(height: gap),
+          SettingsSection(
+            'Confidentialité',
+            scale: s,
+            last: true,
+            children: [
+              SettingsSwitchRow(
+                label: 'Compte privé',
+                detail:
+                    'Seuls les abonnés que vous acceptez voient votre activité, vos listes, vos avis, vos J’aime, '
+                    'vos titres vus, les personnes suivies, vos abonnés et vos abonnements.',
+                value: _private,
+                onChanged: (value) => setState(() => _private = value),
+              ),
+            ],
+          ),
+        ],
         if (canChooseProfilePhoto || _hasPhoto(profile)) ...[
           SizedBox(height: gap),
           _PhotoCard(

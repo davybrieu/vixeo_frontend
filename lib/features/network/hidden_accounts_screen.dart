@@ -11,8 +11,8 @@ import '../social/social_repository.dart';
 import 'network.dart';
 import 'widgets.dart';
 
-/// « Comptes bloqués et masqués » (« Paramètres », vixeo_backend/docs/moderation.md): the blocked
-/// accounts (« Débloquer ») and the accounts hidden from the feed (« Réafficher »).
+/// « Comptes bloqués et masqués » (« ⋮ » of the « Profil » page, vixeo_backend/docs/moderation.md):
+/// the blocked accounts (« Débloquer ») and the accounts hidden from the feed (« Réafficher »).
 class HiddenAccountsScreen extends ConsumerStatefulWidget {
   const HiddenAccountsScreen({super.key});
 
