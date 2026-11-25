@@ -95,7 +95,7 @@ class AppShell extends ConsumerWidget {
     // « Chaînes TV » only while live TV is shown (hidden for now: core/features.dart).
     final liveTv = ref.watch(liveTvProvider);
     final inbox = socialAvailable(session);
-    // The number on « Messages » (not for a guest nor a child's profile); the one of
+    // The number on « Messages » (adult profiles only); the one of
     // « Notifications » is on its button of the profile page.
     final badges = inbox
         ? {ConversationsScreen.location: ref.watch(unreadMessagesProvider)}
@@ -481,7 +481,6 @@ class _PhoneNavigationBar extends StatelessWidget {
   final int selectedIndex;
   final Profile? profile;
   final List<_Destination> tabs;
-  final bool guest;
   final ValueChanged<int> onDestinationSelected;
 
   /// The number on a tab, by path (unread notifications, unread messages).
