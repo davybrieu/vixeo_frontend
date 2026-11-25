@@ -32,6 +32,33 @@ class AuthRepository {
     return (token: json['token'] as String, user: User.fromJson(json['user'] as Map<String, dynamic>));
   }
 
+  /// « Continuer avec Google / Apple »: whether the server has the settings of each provider.
+  Future<Map<String, bool>> socialProviders() async {
+    final json = await _api.get('/auth/social');
+    return {
+      for (final entry in (json['data'] as List? ?? const []).cast<Map<String, dynamic>>())
+        entry['provider'] as String: entry['available'] as bool? ?? false,
+    };
+  }
+
+  /// The token of a sign-in with Google or Apple: the code the browser brought back and the
+  /// secret of its challenge (vixeo_backend/docs/connexion-sociale.md).
+  Future<({String token, User user, bool created, bool passwordRemoved})> socialToken({
+    required String code,
+    required String verifier,
+  }) async {
+    final json = await _api.post(
+      '/auth/social/token',
+      body: {'code': code, 'code_verifier': verifier, 'device_name': DeviceInfo.deviceName},
+    );
+    return (
+      token: json['token'] as String,
+      user: User.fromJson(json['user'] as Map<String, dynamic>),
+      created: json['created'] as bool? ?? false,
+      passwordRemoved: json['password_removed'] as bool? ?? false,
+    );
+  }
+
   Future<User> me() async => User.fromJson((await _api.get('/me'))['data'] as Map<String, dynamic>);
 
   // ── Forgotten password (vixeo_backend/docs/compte.md) ──
@@ -74,11 +101,13 @@ class AuthRepository {
 
   /// New password, confirmed with the current one: the other devices are signed out, this one
   /// stays. Throws an [ApiException] (`current_password`, `password`) when refused.
-  Future<void> updatePassword({required String current, required String password}) =>
-      _api.post('/me/password', body: {'current_password': current, 'password': password});
+  /// [current] null: an account without a password (Google, Apple) creates its first one.
+  Future<void> updatePassword({required String? current, required String password}) =>
+      _api.post('/me/password', body: {'current_password': ?current, 'password': password});
 
   /// Deletes the account and all its data. Throws an [ApiException] (`password`) when wrong.
-  Future<void> deleteAccount(String password) => _api.post('/me/delete', body: {'password': password});
+  /// [password] null: an account without one (Google, Apple).
+  Future<void> deleteAccount(String? password) => _api.post('/me/delete', body: {'password': ?password});
 
   Future<void> logout() => _api.post('/auth/logout');
 

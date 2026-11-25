@@ -90,7 +90,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return mine ? '/profil' : '/membre/${Uri.encodeComponent(member)}';
       }
       final location = state.matchedLocation;
-      const authPages = {'/connexion', '/inscription', '/mot-de-passe-oublie'};
+      const authPages = {'/connexion', EmailLoginScreen.location, '/inscription', '/mot-de-passe-oublie'};
       const guestAllowed = {
         '/accueil', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/membre',
       };
@@ -162,7 +162,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/demarrage', builder: (_, state) => guarded(state.uri.path, const SplashScreen())),
+      // The welcome page (« Continuer avec Google / Apple / l’e-mail »), then the e-mail form.
       GoRoute(path: '/connexion', builder: (_, state) => guarded(state.uri.path, const LoginScreen())),
+      GoRoute(
+        path: EmailLoginScreen.location,
+        builder: (_, state) => guarded(state.uri.path, const EmailLoginScreen()),
+      ),
       GoRoute(path: '/inscription', builder: (_, state) => guarded(state.uri.path, const RegisterScreen())),
       GoRoute(
         path: '/mot-de-passe-oublie',

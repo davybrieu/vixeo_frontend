@@ -93,7 +93,7 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
         leading: IconButton(
           tooltip: 'Retour à la connexion',
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.go('/connexion'),
+          onPressed: () => context.go('/connexion/email'),
         ),
         title: const VxLogo(size: 20),
         centerTitle: true,

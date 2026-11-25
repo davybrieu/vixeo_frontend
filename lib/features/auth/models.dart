@@ -2,13 +2,22 @@ import '../social/social_links.dart';
 
 /// Account returned by `GET /me` (UserResource).
 class User {
-  const User({required this.id, required this.name, required this.email, required this.parentalControl});
+  const User({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.parentalControl,
+    this.hasPassword = true,
+    this.providers = const [],
+  });
 
   factory User.fromJson(Map<String, dynamic> json) => User(
     id: json['id'] as int,
     name: json['name'] as String,
     email: json['email'] as String,
     parentalControl: json['parental_control'] as bool? ?? false,
+    hasPassword: json['has_password'] as bool? ?? true,
+    providers: [for (final p in json['providers'] as List? ?? const []) p as String],
   );
 
   final int id;
@@ -17,6 +26,13 @@ class User {
 
   /// A parental PIN is set on the account.
   final bool parentalControl;
+
+  /// False for an account created with Google or Apple that never chose a password: « Mon compte »
+  /// offers to create one.
+  final bool hasPassword;
+
+  /// Google and Apple accounts linked to this one (`google`, `apple`).
+  final List<String> providers;
 }
 
 /// A signed-in device of the account (one API token): `GET /me/devices`.

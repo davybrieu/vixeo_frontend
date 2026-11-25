@@ -82,7 +82,8 @@ lib/
                                      temps réel Reverb (realtime.dart : une WebSocket, un canal par sujet)
     widgets/                         VxFocusable (focus TV), boutons, images, états vides / erreur
   features/
-    auth/        connexion (page d'accueil de l'appli), inscription, mot de passe oublié, session,
+    auth/        page d'accueil de l'appli (« Continuer avec Google / Apple / l'e-mail »), connexion par
+                 e-mail, Google et Apple (social_sign_in.dart), inscription, mot de passe oublié, session,
                  connexion TV par code (device_login.dart : carte TV + page /tv)
     account/     Mon compte (export, suppression), appareils connectés
     updates/     vérification et installation des mises à jour Android / Windows (UpdateGate,
@@ -145,7 +146,33 @@ lib/
   (avatar…) ne doit pas reconstruire les pages. Exception : `/tv` (« Connecter une TV ») ne
   demande pas de profil ; ouvert sans être connecté, il est mémorisé et rouvert juste après la
   connexion.
-  `/mot-de-passe-oublie` est une page de connexion.
+  `/connexion/email` et `/mot-de-passe-oublie` sont des pages de connexion.
+- **Page d'accueil (connexion)** (`/connexion`, `LoginScreen`, demande du développeur, 25/11/2026,
+  d'après une autre appli de films) : fond sombre éclairé de vert, logo en haut, accroche au
+  milieu (« Regardez vos films et vos séries / Partagez vos avis avec la communauté »), en bas
+  trois grands boutons arrondis : **« Continuer avec Google »** (blanc, « G » officiel),
+  **« Continuer avec Apple »** et **« Continuer avec l’e-mail »** (`EmailLoginScreen`,
+  `/connexion/email` : adresse, mot de passe, « Mot de passe oublié ? », « Créer un compte » ;
+  Retour : l'accueil ; l'inscription et le mot de passe oublié reviennent à `/connexion/email`),
+  puis « Vixeo ne reçoit de Google ou d’Apple que votre nom et votre adresse e-mail. » ;
+  « Continuer en invité » en haut à droite. **Pas de ligne « vous acceptez nos Conditions… »** :
+  ni conditions d'utilisation ni politique de confidentialité de l'appli pour l'instant. Grand
+  écran : boutons à côté de `TvCodeCard` ; **TV : pas de Google ni d'Apple** (pas de navigateur),
+  l'e-mail et le code. Logos : `brand/sign-in` → `assets/images/sign_in/` (`brand/tools/sign_in_logos.py`).
+  **Connexion Google / Apple** (`social_sign_in.dart` ; API : `vixeo_backend/docs/connexion-sociale.md`) :
+  **dans un navigateur**, l'API est le client OAuth (aucun identifiant Google ou Apple dans
+  l'appli) ; secret PKCE gardé en mémoire (`pkceVerifier`, `pkceChallenge`), navigateur ouvert
+  sur `/auth/social/{google|apple}`, retour avec `?code=` puis `POST /auth/social/token`.
+  `BrowserAuthorizer` (`browserAuthorizerProvider`, null sur TV et dans les tests) : Android / iOS
+  `CustomTabAuthorizer` (`flutter_web_auth_2`, onglet Chrome, retour par `app.vixeo://auth` :
+  `CallbackActivity` du manifeste) ; Windows `LoopbackAuthorizer` (navigateur par défaut, petit
+  serveur de l'appli sur `http://127.0.0.1:{port}/auth`, puis Vixeo revient devant ; la webview du
+  paquet est remplacée par son stub, `third_party/`, `dependency_overrides`). `GET /auth/social`
+  (`socialProvidersProvider`) : un fournisseur sans réglages sur le serveur le dit tout de suite
+  (« La connexion avec Apple n’est pas encore disponible. »). Compte sans mot de passe
+  (`User.hasPassword`, `providers`) : « Mon compte » propose « Créer un mot de passe », supprime
+  le compte sans mot de passe et demande d'en créer un pour changer d'adresse. Tests :
+  `test/login_screen_test.dart`, `test/account_test.dart`. **Pas encore essayé sur un appareil.**
 - **Connexion TV par code** (`features/auth/device_login.dart`, API : `vixeo_backend/docs/connexion-tv.md`) :
   sur grand écran, la page de connexion affiche `TvCodeCard` : **le code court seulement, aucun
   QR code nulle part** (demande du développeur, 20/11/2026 ; ne pas en réintroduire ; l'API ne
@@ -344,8 +371,9 @@ lib/
     flèche Bas → retour à l'élément de la page ; jamais depuis une fenêtre ou un menu ;
   - seul ce qui se presse prend le focus (`VxFocusable` sans `onPressed` ni `onLongPress` : non
     focalisable ; `InfoSection` est du texte simple) ;
-  - touche Retour (`BackNavigationGuard`) : d'une sous-page vers l'accueil (ou vers la connexion
-    depuis l'inscription et le mot de passe oublié) ; depuis l'accueil, la connexion ou
+  - touche Retour (`BackNavigationGuard`) : d'une sous-page vers l'accueil (ou vers la page
+    d'accueil de la connexion depuis `/connexion/email`, et vers `/connexion/email` depuis
+    l'inscription et le mot de passe oublié) ; depuis l'accueil, la connexion ou
     « Qui regarde ? », confirmation avant de quitter l'appli ; sur TV, Retour pendant la saisie
     d'un champ de texte ne fait que quitter le champ (ce qui ferme le clavier), sans changer de
     page (`BackNavigationGuard.leaveTextField`) ;
@@ -1051,7 +1079,7 @@ lib/
 
 ## État actuel
 
-- Fait : connexion, inscription, session persistante (jeton chiffré), connexion TV par code
+- Fait : connexion (e-mail, Google et Apple dans un navigateur), inscription, session persistante (jeton chiffré), connexion TV par code
   (tapé dans l'appli du téléphone), « Qui regarde ? » (PIN de profil, ajout avec PIN parental si
   activé), accueil (carrousel / grande image, « Continuer à regarder », rangées),
   fiche film et série (saisons, épisodes avec date de diffusion, distribution, recommandations,

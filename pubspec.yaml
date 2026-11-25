@@ -66,6 +66,17 @@ dependencies:
   flutter_local_notifications: ^22.3.3
   # Native photo/video selection on Android, iOS and Windows.
   file_picker: ^13.4.1
+  # « Continuer avec Google / Apple » (features/auth/social_sign_in.dart): the sign-in page in a
+  # Chrome tab on Android (ASWebAuthenticationSession on iOS), back to the app by app.vixeo://auth.
+  # Windows uses its own little server (LoopbackAuthorizer), not this package's webview.
+  flutter_web_auth_2: ^6.1.0
+
+# flutter_web_auth_2's webview for Windows and Linux (WebView2) is never used (useWebview: false
+# would be needed, and Windows has its own server): its stub, from the package's repository (MIT,
+# third_party/), keeps WebView2 out of the Windows build.
+dependency_overrides:
+  flutter_web_auth_2_desktop_webview:
+    path: third_party/flutter_web_auth_2_desktop_webview_stub
 
 dev_dependencies:
   flutter_test:
@@ -102,6 +113,8 @@ flutter:
     # Logos of the rating sites (brand/ratings, brand/tools/rating_logos.py) and the licence of
     # the Lucide icon used for Rotten Tomatoes' audience score.
     - assets/images/ratings/
+    # Logos of « Continuer avec Google / Apple » (brand/sign-in, brand/tools/sign_in_logos.py).
+    - assets/images/sign_in/
     - assets/licenses/lucide-ISC.txt
     # The sandbox every plug-in scraper runs on top of (same file on every platform).
     - assets/scrapers/sandbox.js

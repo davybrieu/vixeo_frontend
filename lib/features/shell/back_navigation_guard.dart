@@ -17,8 +17,12 @@ class BackNavigationGuard extends StatelessWidget {
   /// Pages Back leaves the app from (after confirmation).
   static const _entryPages = {'/accueil', '/connexion', '/profils', '/demarrage'};
 
-  /// Sign-in pages Back returns to the sign-in form from.
-  static const _signInPages = {'/inscription', '/mot-de-passe-oublie'};
+  /// Sign-in pages, and where Back goes from them: the e-mail form, then the welcome page.
+  static const _signInPages = {
+    '/connexion/email': '/connexion',
+    '/inscription': '/connexion/email',
+    '/mot-de-passe-oublie': '/connexion/email',
+  };
 
   /// Moves the focus off the text field being edited, if any: to the element under it, or to
   /// nothing. True when a field had the focus.
@@ -48,7 +52,7 @@ class BackNavigationGuard extends StatelessWidget {
         if (DeviceInfo.isTv && leaveTextField()) return;
 
         if (!isEntry) {
-          context.go(_signInPages.contains(path) ? '/connexion' : '/accueil');
+          context.go(_signInPages[path] ?? '/accueil');
           return;
         }
 

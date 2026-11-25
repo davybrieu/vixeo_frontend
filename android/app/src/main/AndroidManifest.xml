@@ -69,6 +69,19 @@
             </intent-filter>
             <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
         </activity-alias>
+        <!-- « Continuer avec Google / Apple »: the browser comes back to app.vixeo://auth?code=…,
+             and flutter_web_auth_2 hands the address to the app (features/auth/social_sign_in.dart). -->
+        <activity
+            android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
+            android:exported="true"
+            android:taskAffinity="">
+            <intent-filter android:label="flutter_web_auth_2">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="app.vixeo" android:host="auth"/>
+            </intent-filter>
+        </activity>
         <!-- Shares the downloaded update (cache/updates) with Android's package installer. -->
         <provider
             android:name="androidx.core.content.FileProvider"

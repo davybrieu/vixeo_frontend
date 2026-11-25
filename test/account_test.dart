@@ -57,6 +57,15 @@ class FakeAccountAuth extends AuthRepository {
   Future<void> revokeDevice(int id) async => calls.add('revoke $id');
 
   @override
+  Future<User> me() async => const User(
+    id: 1,
+    name: 'Léa',
+    email: 'lea@gmail.com',
+    parentalControl: false,
+    providers: ['google'],
+  );
+
+  @override
   Future<String> exportData() async {
     calls.add('export');
     return 'Vos données ont été envoyées à davy@exemple.fr.';
@@ -78,9 +87,9 @@ class FakeAccountAuth extends AuthRepository {
   }
 
   @override
-  Future<void> updatePassword({required String current, required String password}) async {
-    calls.add('password $current → $password');
-    if (current != 'secret-password') {
+  Future<void> updatePassword({required String? current, required String password}) async {
+    calls.add(current == null ? 'create password $password' : 'password $current → $password');
+    if (current != null && current != 'secret-password') {
       throw const ApiException(
         'Mot de passe incorrect.',
         status: 422,
@@ -92,9 +101,9 @@ class FakeAccountAuth extends AuthRepository {
   }
 
   @override
-  Future<void> deleteAccount(String password) async {
-    calls.add('delete $password');
-    if (password != 'secret-password') {
+  Future<void> deleteAccount(String? password) async {
+    calls.add(password == null ? 'delete without password' : 'delete $password');
+    if (password != null && password != 'secret-password') {
       throw const ApiException(
         'Mot de passe incorrect.',
         status: 422,
@@ -109,6 +118,16 @@ class FakeAccountAuth extends AuthRepository {
 class SignedIn extends SessionController {
   @override
   SessionState build() => const SessionState(status: SessionStatus.signedIn, token: 't', user: davy);
+}
+
+/// An account created with Google: no password yet.
+class SignedInWithGoogle extends SessionController {
+  @override
+  SessionState build() => const SessionState(
+    status: SessionStatus.signedIn,
+    token: 't',
+    user: User(id: 1, name: 'Léa', email: 'lea@gmail.com', parentalControl: false, hasPassword: false, providers: ['google']),
+  );
 }
 
 class SignedOut extends SessionController {
@@ -286,6 +305,44 @@ void main() {
     expect(container.read(sessionProvider).isSignedIn, isTrue);
   });
 
+  testWidgets('an account of Google creates its first password, and is deleted without one', (tester) async {
+    final (container, auth, _) = setUpContainer(session: SignedInWithGoogle.new);
+    await tester.pumpWidget(app(container, const AccountScreen()));
+
+    expect(find.textContaining('Vous vous connectez avec Google'), findsOneWidget);
+    // The address changes once there is a password.
+    expect(find.textContaining('créez d’abord un mot de passe'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Créer un mot de passe'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Créer un mot de passe'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'Mot de passe actuel'), findsNothing);
+    await tester.enterText(find.widgetWithText(TextField, 'Mot de passe'), 'un-mot-de-passe');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(auth.calls.last, 'create password un-mot-de-passe');
+    expect(find.text('Mot de passe créé'), findsOneWidget);
+    // The account now has one (read again from /me).
+    expect(container.read(sessionProvider).user?.hasPassword, isTrue);
+    expect(find.text('Changer le mot de passe'), findsOneWidget);
+  });
+
+  testWidgets('an account without a password is deleted after a confirmation only', (tester) async {
+    final (container, auth, _) = setUpContainer(session: SignedInWithGoogle.new);
+    await tester.pumpWidget(app(container, const AccountScreen()));
+
+    await tester.ensureVisible(find.text('Supprimer mon compte'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Supprimer mon compte'));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)), findsNothing);
+    await tester.tap(find.text('Supprimer définitivement'));
+    await tester.pumpAndSettle();
+    expect(auth.calls.last, 'delete without password');
+    expect(container.read(sessionProvider).status, SessionStatus.signedOut);
+  });
+
   testWidgets('lists the devices and signs another one out', (tester) async {
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;
@@ -317,6 +374,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byType(LoginScreen), findsOneWidget);
+
+    router.go('/connexion/email');
+    await tester.pumpAndSettle();
+    expect(find.byType(EmailLoginScreen), findsOneWidget);
 
     router.go('/mot-de-passe-oublie');
     await tester.pumpAndSettle();

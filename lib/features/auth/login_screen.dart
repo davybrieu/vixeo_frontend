@@ -6,10 +6,16 @@ import '../../core/api/api_exception.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
+import '../../core/widgets/focus_navigation.dart';
+import '../../core/widgets/focusable.dart';
 import 'device_login.dart';
 import 'session.dart';
+import 'social_sign_in.dart';
 
-/// Main page of the app: sign in.
+/// Entry page of the app (`/connexion`), like the other film apps' (developer's request,
+/// 25/11/2026): the logo, a tagline, then « Continuer avec Google », « Continuer avec Apple » and
+/// « Continuer avec l’e-mail ». Google and Apple sign in in a browser (social_sign_in.dart); not on
+/// a TV, which signs in with a code ([TvCodeCard], also on a large screen).
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -18,12 +24,8 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  bool _showPassword = false;
-  bool _loading = false;
-  ApiException? _error;
+  /// The provider whose sign-in is under way.
+  SocialProvider? _pending;
 
   @override
   void initState() {
@@ -36,6 +38,350 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       });
     }
   }
+
+  Future<void> _signIn(SocialProvider provider) async {
+    if (_pending != null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    // The server has no settings for it: said at once, without opening the browser.
+    if (ref.read(socialProvidersProvider).value?[provider] == false) {
+      showVxSnackOn(messenger, socialSignInError(provider, 'unavailable')!);
+      return;
+    }
+    setState(() => _pending = provider);
+    try {
+      final result = await signInWith(ref, provider);
+      // Signed in: the router moves on, the message (if any) stays on the next page.
+      if (result.message != null) showVxSnackOn(messenger, result.message!);
+    } on ApiException catch (e) {
+      showVxSnackOn(messenger, e.message);
+    } finally {
+      if (mounted) setState(() => _pending = null);
+    }
+  }
+
+  void _cancel() {
+    ref.read(browserAuthorizerProvider)?.cancel();
+    setState(() => _pending = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final social = ref.watch(browserAuthorizerProvider) != null;
+    // Known before a tap: a provider the server isn't set up for says so without the browser.
+    if (social) ref.watch(socialProvidersProvider);
+
+    final buttons = _WelcomeButtons(
+      social: social,
+      pending: _pending,
+      onSocial: _signIn,
+      onEmail: () => context.go(EmailLoginScreen.location),
+      onCancel: _cancel,
+    );
+    final guest = Align(
+      alignment: Alignment.centerRight,
+      child: _TextLink(
+        label: 'Continuer en invité',
+        onPressed: () {
+          ref.read(sessionProvider.notifier).continueAsGuest();
+          context.go('/accueil');
+        },
+      ),
+    );
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _WelcomeBackground()),
+          SafeArea(
+            child: layout.isPhone
+                ? LayoutBuilder(
+                    builder: (context, constraints) => SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(horizontal: layout.gutter),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                        // The logo at the top, the tagline in the middle, the buttons at the bottom.
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Column(
+                              children: [
+                                Padding(padding: const EdgeInsets.only(top: 4), child: guest),
+                                const SizedBox(height: 20),
+                                const VxLogo(size: 40),
+                              ],
+                            ),
+                            const Padding(padding: EdgeInsets.symmetric(vertical: 48), child: _Tagline()),
+                            Padding(padding: const EdgeInsets.only(bottom: 24), child: buttons),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                : Stack(
+                    children: [
+                      Center(
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: 40),
+                          child: Column(
+                            children: [
+                              VxLogo(size: layout.isLarge ? layout.tv(60).clamp(34, 64).toDouble() : 44),
+                              SizedBox(height: layout.isLarge ? layout.tv(56) : 40),
+                              const _Tagline(),
+                              SizedBox(height: layout.isLarge ? layout.tv(64) : 48),
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 48,
+                                runSpacing: 40,
+                                children: [
+                                  // TV / large screen: sign in from a phone by typing the code.
+                                  if (layout.isLarge)
+                                    SizedBox(width: layout.tv(620).clamp(400, 640).toDouble(), child: const TvCodeCard()),
+                                  SizedBox(
+                                    width: layout.isLarge ? layout.tv(560).clamp(360, 560).toDouble() : 420,
+                                    child: buttons,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(top: 12, right: layout.gutter, child: guest),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Two lines in the middle of the page.
+class _Tagline extends StatelessWidget {
+  const _Tagline();
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    return Text(
+      'Regardez vos films et vos séries\nPartagez vos avis avec la communauté',
+      textAlign: TextAlign.center,
+      style: VxText.title(layout.isLarge ? layout.tv(54) : 30).copyWith(height: 1.25),
+    );
+  }
+}
+
+/// « Continuer avec Google », « … Apple » (where a browser can sign in), « … l’e-mail ».
+class _WelcomeButtons extends StatelessWidget {
+  const _WelcomeButtons({
+    required this.social,
+    required this.pending,
+    required this.onSocial,
+    required this.onEmail,
+    required this.onCancel,
+  });
+
+  final bool social;
+  final SocialProvider? pending;
+  final void Function(SocialProvider provider) onSocial;
+  final VoidCallback onEmail;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final gap = layout.isLarge ? layout.tv(20) : 14.0;
+    final busy = pending != null;
+    return FocusTraversalGroup(
+      policy: vxTraversalPolicy,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (social) ...[
+            _WelcomeButton(
+              label: 'Continuer avec Google',
+              logo: 'assets/images/sign_in/google.png',
+              light: true,
+              autofocus: true,
+              loading: pending == SocialProvider.google,
+              onPressed: busy ? null : () => onSocial(SocialProvider.google),
+            ),
+            SizedBox(height: gap),
+            _WelcomeButton(
+              label: 'Continuer avec Apple',
+              logo: 'assets/images/sign_in/apple.png',
+              loading: pending == SocialProvider.apple,
+              onPressed: busy ? null : () => onSocial(SocialProvider.apple),
+            ),
+            SizedBox(height: gap),
+          ],
+          _WelcomeButton(
+            label: 'Continuer avec l’e-mail',
+            autofocus: !social,
+            onPressed: busy ? null : onEmail,
+          ),
+          if (busy) ...[
+            SizedBox(height: gap),
+            Center(child: _TextLink(label: 'Annuler', onPressed: onCancel)),
+          ] else if (social) ...[
+            SizedBox(height: layout.isLarge ? layout.tv(28) : 20),
+            Text(
+              'Vixeo ne reçoit de Google ou d’Apple que votre nom et votre adresse e-mail.',
+              textAlign: TextAlign.center,
+              style: VxText.body(layout.isLarge ? layout.tv(20) : 13, color: VxColors.textMuted, height: 1.4),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A big round-ended button of the welcome page: white (Google) or dark, with a logo.
+class _WelcomeButton extends StatelessWidget {
+  const _WelcomeButton({
+    required this.label,
+    required this.onPressed,
+    this.logo,
+    this.light = false,
+    this.loading = false,
+    this.autofocus = false,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final String? logo;
+  final bool light;
+  final bool loading;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    final height = layout.isLarge ? layout.tv(84) : 56.0;
+    final fontSize = layout.isLarge ? layout.tv(26) : 17.0;
+    final foreground = light ? const Color(0xFF1F1F1F) : VxColors.text;
+    return VxFocusable(
+      onPressed: onPressed,
+      autofocus: autofocus,
+      borderRadius: height / 2,
+      focusScale: 1.03,
+      semanticLabel: label,
+      child: Opacity(
+        opacity: onPressed == null && !loading ? 0.5 : 1,
+        child: Container(
+          height: height,
+          padding: EdgeInsets.symmetric(horizontal: height * 0.4),
+          decoration: BoxDecoration(
+            color: light ? Colors.white : VxColors.text.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(height / 2),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (loading)
+                SizedBox.square(
+                  dimension: fontSize * 1.2,
+                  child: CircularProgressIndicator(strokeWidth: 2.4, color: foreground),
+                )
+              else if (logo != null)
+                Image.asset(logo!, width: fontSize * 1.3, height: fontSize * 1.3, excludeFromSemantics: true),
+              if (loading || logo != null) SizedBox(width: fontSize * 0.75),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: VxText.body(fontSize, weight: FontWeight.w600, color: foreground, height: 1.2),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small text that can be pressed (« Continuer en invité », « Annuler »), focusable on TV.
+class _TextLink extends StatelessWidget {
+  const _TextLink({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = Layout.of(context);
+    return VxFocusable(
+      onPressed: onPressed,
+      borderRadius: 10,
+      semanticLabel: label,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Text(
+          label,
+          style: VxText.body(layout.isLarge ? layout.tv(22) : 14, weight: FontWeight.w600, color: VxColors.textSecondary),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dark, lit with green from the top, like « Qui regarde ? ».
+class _WelcomeBackground extends StatelessWidget {
+  const _WelcomeBackground();
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: VxColors.background),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(0.7, -1.2),
+              radius: 1.3,
+              colors: [VxColors.accent.withValues(alpha: 0.2), VxColors.accent.withValues(alpha: 0)],
+            ),
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(-1.1, 0.2),
+              radius: 1.1,
+              colors: [VxColors.accent.withValues(alpha: 0.06), VxColors.accent.withValues(alpha: 0)],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// « Continuer avec l’e-mail » (`/connexion/email`): the address and the password, « Mot de passe
+/// oublié ? » and « Créer un compte ». Back: the welcome page.
+class EmailLoginScreen extends ConsumerStatefulWidget {
+  const EmailLoginScreen({super.key});
+
+  static const location = '/connexion/email';
+
+  @override
+  ConsumerState<EmailLoginScreen> createState() => _EmailLoginScreenState();
+}
+
+class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _showPassword = false;
+  bool _loading = false;
+  ApiException? _error;
 
   @override
   void dispose() {
@@ -63,95 +409,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    // Large screens: TV code card and form side by side when they fit (a 1080p TV is ~960 dp wide).
-    final available = layout.width - 2 * layout.gutter - 64;
-    final formWidth = (available * 0.45).clamp(360.0, 480.0);
-    final codeCardWidth = (available - formWidth - 40).clamp(400.0, 640.0);
-    final form = _LoginForm(
-      formKey: _formKey,
-      email: _email,
-      password: _password,
-      showPassword: _showPassword,
-      onTogglePassword: () => setState(() => _showPassword = !_showPassword),
-      loading: _loading,
-      error: _error,
-      onSubmit: _submit,
-      large: !layout.isPhone,
-      onContinueGuest: () {
-        ref.read(sessionProvider.notifier).continueAsGuest();
-        context.go('/accueil');
-      },
-    );
-
     return Scaffold(
-      body: Stack(
-        children: [
-          const Positioned.fill(child: PosterWall()),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: layout.isPhone
-                    ? const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0x4D070A08), Color(0xCC070A08), VxColors.background],
-                        stops: [0, 0.35, 0.6],
-                      )
-                    : null,
-                color: layout.isPhone ? null : const Color(0xD6070A08),
-              ),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        leading: IconButton(
+          tooltip: 'Retour',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => context.go('/connexion'),
+        ),
+        title: const VxLogo(size: 20),
+        centerTitle: true,
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(layout.gutter, 8, layout.gutter, 32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: layout.isLarge ? layout.tv(640).clamp(440, 640).toDouble() : 440),
+            child: _LoginForm(
+              formKey: _formKey,
+              email: _email,
+              password: _password,
+              showPassword: _showPassword,
+              onTogglePassword: () => setState(() => _showPassword = !_showPassword),
+              loading: _loading,
+              error: _error,
+              onSubmit: _submit,
+              large: !layout.isPhone,
             ),
           ),
-          SafeArea(
-            child: layout.isPhone
-                ? LayoutBuilder(
-                    builder: (context, c) => SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(layout.gutter, 12, layout.gutter, 32),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: c.maxHeight - 40),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Padding(padding: EdgeInsets.only(top: 12), child: VxLogo(size: 34)),
-                            const SizedBox(height: 120),
-                            form,
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                : Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        children: [
-                          VxLogo(size: layout.isLarge ? layout.tv(52).clamp(30, 60).toDouble() : 40),
-                          const SizedBox(height: 32),
-                          Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 40,
-                            runSpacing: 32,
-                            children: [
-                              // TV / large screen: sign in from a phone by typing the code.
-                              if (layout.isLarge) SizedBox(width: codeCardWidth, child: const TvCodeCard()),
-                              Container(
-                                width: formWidth,
-                                padding: const EdgeInsets.all(36),
-                                decoration: BoxDecoration(
-                                  color: VxColors.surface.withValues(alpha: 0.94),
-                                  borderRadius: BorderRadius.circular(28),
-                                  border: Border.all(color: VxColors.line),
-                                ),
-                                child: form,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -168,7 +454,6 @@ class _LoginForm extends StatelessWidget {
     required this.error,
     required this.onSubmit,
     required this.large,
-    required this.onContinueGuest,
   });
 
   final GlobalKey<FormState> formKey;
@@ -180,7 +465,6 @@ class _LoginForm extends StatelessWidget {
   final ApiException? error;
   final VoidCallback onSubmit;
   final bool large;
-  final VoidCallback onContinueGuest;
 
   @override
   Widget build(BuildContext context) {
@@ -195,7 +479,7 @@ class _LoginForm extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(large ? 'Connectez-vous' : 'Vos films et séries, sur tous vos écrans.', style: VxText.title(28)),
+            Text('Se connecter avec l’e-mail', style: VxText.title(large ? 32 : 28)),
             const SizedBox(height: 8),
             Text(
               'Connectez-vous pour retrouver vos profils, vos listes et votre progression.',
@@ -260,11 +544,6 @@ class _LoginForm extends StatelessWidget {
                 TextButton(onPressed: () => context.go('/inscription'), child: const Text('Créer un compte')),
               ],
             ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: onContinueGuest,
-              child: const Text('Continuer en invité'),
-            ),
           ],
         ),
       ),
@@ -287,40 +566,17 @@ class _FieldLabel extends StatelessWidget {
   );
 }
 
-/// Decorative wall of tilted poster tiles behind the sign-in form.
-class PosterWall extends StatelessWidget {
-  const PosterWall({super.key});
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+
+  final String text;
 
   @override
-  Widget build(BuildContext context) => ExcludeSemantics(
-    child: ClipRect(
-      child: OverflowBox(
-        maxWidth: double.infinity,
-        maxHeight: double.infinity,
-        alignment: Alignment.topCenter,
-        child: Transform.rotate(
-          angle: -0.15,
-          child: SizedBox(
-            width: 2400,
-            height: 1600,
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                for (var i = 0; i < 160; i++)
-                  Container(
-                    width: 108,
-                    height: 162,
-                    decoration: BoxDecoration(
-                      color: VxColors.tone(i * 3 + i ~/ 20),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      text,
+      style: VxText.body(14, weight: FontWeight.w500, color: VxColors.textSecondary),
     ),
   );
 }

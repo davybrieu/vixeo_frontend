@@ -39,15 +39,27 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     if (changed == true && mounted) showVxSnack(context, 'Adresse e-mail modifiée', icon: Icons.check_circle_rounded);
   }
 
-  Future<void> _changePassword() async {
-    final changed = await showDialog<bool>(context: context, builder: (_) => const _PasswordDialog());
-    if (changed == true && mounted) {
+  Future<void> _changePassword({required bool create}) async {
+    final changed = await showDialog<bool>(context: context, builder: (_) => _PasswordDialog(create: create));
+    if (changed != true || !mounted) return;
+    if (create) {
+      showVxSnack(context, 'Mot de passe créé', icon: Icons.lock_rounded);
+      // « has_password » changes: the page shows « Changer le mot de passe ».
+      try {
+        await ref.read(sessionProvider.notifier).refreshUser();
+      } on ApiException catch (_) {
+        // Shown at the next visit of the page.
+      }
+    } else {
       showVxSnack(context, 'Mot de passe modifié. Vos autres appareils ont été déconnectés.', icon: Icons.lock_rounded);
     }
   }
 
-  Future<void> _delete() async {
-    final deleted = await showDialog<bool>(context: context, builder: (_) => const _DeleteAccountDialog());
+  Future<void> _delete({required bool withPassword}) async {
+    final deleted = await showDialog<bool>(
+      context: context,
+      builder: (_) => _DeleteAccountDialog(withPassword: withPassword),
+    );
     if (deleted != true) return;
     // The router goes back to the sign-in page, which shows this message.
     await ref.read(sessionProvider.notifier).forget(message: 'Votre compte et toutes ses données ont été supprimés.');
@@ -56,6 +68,17 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
+    final user = ref.watch(sessionProvider.select((s) => s.user));
+    // An account created with Google or Apple has no password until it creates one.
+    final hasPassword = user?.hasPassword ?? true;
+    final linked = [
+      for (final provider in user?.providers ?? const <String>[])
+        switch (provider) {
+          'google' => 'Google',
+          'apple' => 'Apple',
+          _ => provider,
+        },
+    ].join(' et ');
     return InfoPage(
       title: 'Mon compte',
       fallback: '/profil',
@@ -63,27 +86,38 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         InfoSection(
           title: 'Adresse e-mail',
           children: [
-            const InfoText('Changez l’adresse e-mail de votre compte, celle qui sert à vous connecter.'),
+            InfoText(
+              hasPassword
+                  ? 'Changez l’adresse e-mail de votre compte, celle qui sert à vous connecter.'
+                  : 'Pour changer l’adresse e-mail de votre compte, créez d’abord un mot de passe.',
+            ),
             SizedBox(height: layout.space(VxSpace.xs)),
             VxButton(
               label: 'Modifier l’adresse e-mail',
               icon: Icons.alternate_email_rounded,
               kind: VxButtonKind.secondary,
-              autofocus: true,
-              onPressed: _changeEmail,
+              autofocus: hasPassword,
+              onPressed: hasPassword ? _changeEmail : null,
             ),
           ],
         ),
         InfoSection(
           title: 'Mot de passe',
           children: [
-            const InfoText('Changer le mot de passe déconnecte vos autres appareils ; celui-ci reste connecté.'),
+            InfoText(
+              hasPassword
+                  ? 'Changer le mot de passe déconnecte vos autres appareils ; celui-ci reste connecté.'
+                        '${linked.isEmpty ? '' : ' Vous pouvez aussi vous connecter avec $linked.'}'
+                  : 'Vous vous connectez avec ${linked.isEmpty ? 'Google ou Apple' : linked}. Créez un mot de passe '
+                        'pour vous connecter aussi avec votre adresse e-mail.',
+            ),
             SizedBox(height: layout.space(VxSpace.xs)),
             VxButton(
-              label: 'Changer le mot de passe',
+              label: hasPassword ? 'Changer le mot de passe' : 'Créer un mot de passe',
               icon: Icons.lock_reset_rounded,
               kind: VxButtonKind.secondary,
-              onPressed: _changePassword,
+              autofocus: !hasPassword,
+              onPressed: () => _changePassword(create: !hasPassword),
             ),
           ],
         ),
@@ -119,7 +153,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               label: 'Supprimer mon compte',
               icon: Icons.delete_forever_outlined,
               kind: VxButtonKind.danger,
-              onPressed: _delete,
+              onPressed: () => _delete(withPassword: hasPassword),
             ),
           ],
         ),
@@ -128,9 +162,12 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   }
 }
 
-/// Asks the account password, then deletes the account. Pops true once deleted.
+/// Asks the account password (none for an account of Google or Apple without one), then deletes
+/// the account. Pops true once deleted.
 class _DeleteAccountDialog extends ConsumerStatefulWidget {
-  const _DeleteAccountDialog();
+  const _DeleteAccountDialog({required this.withPassword});
+
+  final bool withPassword;
 
   @override
   ConsumerState<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
@@ -148,7 +185,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
   }
 
   Future<void> _confirm() async {
-    if (_password.text.isEmpty) {
+    if (widget.withPassword && _password.text.isEmpty) {
       setState(() => _error = 'Saisissez le mot de passe du compte.');
       return;
     }
@@ -157,7 +194,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
       _error = null;
     });
     try {
-      await ref.read(authRepositoryProvider).deleteAccount(_password.text);
+      await ref.read(authRepositoryProvider).deleteAccount(widget.withPassword ? _password.text : null);
       if (mounted) Navigator.pop(context, true);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.field('password') ?? e.message);
@@ -176,18 +213,23 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Tous les profils, leur liste et leur progression seront effacés définitivement. '
-            'Saisissez le mot de passe du compte pour confirmer.',
+            'Tous les profils, leur liste et leur progression seront effacés définitivement.'
+            '${widget.withPassword ? ' Saisissez le mot de passe du compte pour confirmer.' : ''}',
             style: VxText.body(14, color: VxColors.textSecondary),
           ),
-          const SizedBox(height: 16),
-          PasswordField(
-            controller: _password,
-            label: 'Mot de passe',
-            error: _error,
-            autofocus: true,
-            onSubmitted: _confirm,
-          ),
+          if (widget.withPassword) ...[
+            const SizedBox(height: 16),
+            PasswordField(
+              controller: _password,
+              label: 'Mot de passe',
+              error: _error,
+              autofocus: true,
+              onSubmitted: _confirm,
+            ),
+          ] else if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: VxText.body(14, color: VxColors.error)),
+          ],
         ],
       ),
     ),
@@ -340,9 +382,12 @@ class _EmailDialogState extends ConsumerState<_EmailDialog> {
   );
 }
 
-/// The current password and the new one. Pops true once changed.
+/// The current password and the new one ([create]: the first one, no current). Pops true once
+/// changed.
 class _PasswordDialog extends ConsumerStatefulWidget {
-  const _PasswordDialog();
+  const _PasswordDialog({this.create = false});
+
+  final bool create;
 
   @override
   ConsumerState<_PasswordDialog> createState() => _PasswordDialogState();
@@ -364,13 +409,15 @@ class _PasswordDialogState extends ConsumerState<_PasswordDialog> {
 
   Future<void> _confirm() async {
     setState(() {
-      _currentError = _current.text.isEmpty ? 'Saisissez votre mot de passe actuel.' : null;
+      _currentError = !widget.create && _current.text.isEmpty ? 'Saisissez votre mot de passe actuel.' : null;
       _passwordError = _password.text.isEmpty ? 'Saisissez le nouveau mot de passe.' : null;
     });
     if (_currentError != null || _passwordError != null) return;
     setState(() => _loading = true);
     try {
-      await ref.read(authRepositoryProvider).updatePassword(current: _current.text, password: _password.text);
+      await ref
+          .read(authRepositoryProvider)
+          .updatePassword(current: widget.create ? null : _current.text, password: _password.text);
       if (mounted) Navigator.pop(context, true);
     } on ApiException catch (e) {
       if (mounted) {
@@ -386,20 +433,23 @@ class _PasswordDialogState extends ConsumerState<_PasswordDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Changer le mot de passe'),
+    title: Text(widget.create ? 'Créer un mot de passe' : 'Changer le mot de passe'),
     content: SizedBox(
       width: 380,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PasswordField(controller: _current, label: 'Mot de passe actuel', error: _currentError, autofocus: true),
-          const SizedBox(height: 16),
+          if (!widget.create) ...[
+            PasswordField(controller: _current, label: 'Mot de passe actuel', error: _currentError, autofocus: true),
+            const SizedBox(height: 16),
+          ],
           PasswordField(
             controller: _password,
-            label: 'Nouveau mot de passe',
+            label: widget.create ? 'Mot de passe' : 'Nouveau mot de passe',
             error: _passwordError,
             newPassword: true,
+            autofocus: widget.create,
             onSubmitted: _confirm,
           ),
         ],
