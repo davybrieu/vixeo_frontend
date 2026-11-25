@@ -9,7 +9,6 @@ import '../../core/device/layout.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/page_header.dart';
-import '../auth/session.dart';
 import '../library/library.dart';
 import '../profiles/row_preferences.dart';
 import 'catalog_repository.dart';
@@ -25,8 +24,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(homeProvider);
-    final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
-    final resume = guest ? const <ProfileItem>[] : (ref.watch(libraryProvider).value?.continueWatching ?? const <ProfileItem>[]);
+    final resume = ref.watch(libraryProvider).value?.continueWatching ?? const <ProfileItem>[];
     final layout = Layout.of(context);
     // The rows the profile chose to show, in its order (« Paramètres » → « Rangées de l’accueil »).
     final rowPreferences = ref.watch(homeRowPreferencesProvider).value ?? RowPreferences.none;
