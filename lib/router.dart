@@ -54,14 +54,14 @@ import 'features/tv/models.dart';
 import 'features/tmdb/review_screen.dart';
 import 'features/tmdb/reviews_screen.dart';
 
-/// Public catalog and playback routes are available to guests. Personal features require an account and profile.
+/// Every in-app route requires an authenticated account; profile-specific routes also require an active profile.
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
   // Only what the redirects depend on: editing the profile (avatar…) must not rebuild the pages.
   ref.listen(sessionProvider.select((s) => (s.status, s.profile == null)), (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
-  // Deep link opened before session restoration, or a protected page requested by a guest.
+  // Deep link opened before session restoration, or a protected page requested before sign-in.
   String? pending;
 
   // A main page (tab of the navigation) is a MaterialPage, like every other page: it changes with
@@ -90,9 +90,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       final location = state.matchedLocation;
       const authPages = {'/connexion', EmailLoginScreen.location, '/inscription', '/mot-de-passe-oublie'};
-      const guestAllowed = {
-        '/accueil', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/membre',
-      };
       const accountOnly = {
         '/profils', '/avis', '/profil', '/parametres', '/profil/social/aimes', '/profil/social/vus', '/profil/social/personnes', '/profil/social/abonnements', '/profil/social/abonnes',
         '/profil/parametres', '/profil/compte', '/profil/appareils', '/profil/notifications', '/profil/plugins', '/tv',
@@ -109,36 +106,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (authPages.contains(location)) return null;
         return '/connexion';
       }
-      if (session.isGuest) {
-        if (location == '/accueil' && state.uri.queryParameters['mode'] == 'invite') {
-          pending = null;
-          return '/accueil';
-        }
-        if (location == '/demarrage') {
-          final target = pending;
-          pending = null;
-          if (target != null) {
-            final targetPath = Uri.parse(target).path;
-            if (guestAllowed.any((path) => targetPath == path || targetPath.startsWith('$path/'))) {
-              return target;
-            }
-            if (accountOnly.any((path) => targetPath == path || targetPath.startsWith('$path/'))) {
-              pending = target;
-              return '/connexion?redirect=${Uri.encodeComponent(target)}';
-            }
-          }
-          return '/accueil';
-        }
-        if (authPages.contains(location)) {
-          pending = state.uri.queryParameters['redirect'] ?? pending;
-          return null;
-        }
-        final isPublic = guestAllowed.any((path) => location == path || location.startsWith('$path/'));
-        if (isPublic) return null;
-        if (accountOnly.any((path) => location == path || location.startsWith('$path/'))) {
-          pending = state.uri.toString();
-        }
-        return '/connexion';
+      if (session.status == SessionStatus.signedOut) {
+        if (authPages.contains(location)) return null;
+        pending = state.uri.toString();
+        return '/connexion?redirect=${Uri.encodeComponent(pending!)}';
       }
       // Approving a TV code needs an account, not a profile.
       if (location == '/tv') return null;
