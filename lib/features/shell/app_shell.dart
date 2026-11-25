@@ -105,7 +105,7 @@ class AppShell extends ConsumerWidget {
     final layout = Layout.of(context);
     final session = ref.watch(sessionProvider);
     final profile = session.profile;
-    final guest = session.isGuest;
+    final guest = false;
     // « Chaînes TV » only while live TV is shown (hidden for now: core/features.dart).
     final liveTv = ref.watch(liveTvProvider);
     final inbox = socialAvailable(session);
