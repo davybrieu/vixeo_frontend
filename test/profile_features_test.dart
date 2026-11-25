@@ -43,21 +43,6 @@ class FakeLibrary extends LibraryController {
   Future<void> setLiked(MediaItem item, bool value) async => _put(item, liked: value);
 
   @override
-  Future<void> setFollowed(Person person, bool value) async {
-    final items = Map.of(state.value!.items);
-    final id = LibraryController.personSyncId(person.id);
-    items['tmdb|$id'] = ProfileItem(
-      source: 'tmdb',
-      itemId: id,
-      type: 'person',
-      title: person.name,
-      isFollowed: value,
-      followedAt: DateTime(2026, 11, 20),
-    );
-    state = AsyncData(LibraryState(items));
-  }
-
-  @override
   Future<void> setFavorite(MediaItem item, bool value) async => _put(item, favorite: value);
 
   @override
