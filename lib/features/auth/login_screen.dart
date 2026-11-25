@@ -292,7 +292,7 @@ class _WelcomeButton extends StatelessWidget {
   }
 }
 
-/// A small text that can be pressed (« Continuer en invité », « Annuler »), focusable on TV.
+/// A small text link (« Annuler »), focusable on TV.
 class _TextLink extends StatelessWidget {
   const _TextLink({required this.label, required this.onPressed});
 
