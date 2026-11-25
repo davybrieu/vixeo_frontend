@@ -14,7 +14,6 @@ import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
 import '../catalog/models.dart';
 import '../catalog/paging.dart';
-import '../catalog/widgets.dart';
 import '../library/library.dart';
 import '../library/my_list_screen.dart';
 import '../messages/messages.dart' show conversationLocation, startConversation;
@@ -744,27 +743,6 @@ class SocialCollectionScreen extends ConsumerWidget {
 }
 
 enum _Kind { toWatch, liked, watched, reviews, followers, following }
-
-/// [value] loading, failed, empty, or its content.
-class _Async<T> extends StatelessWidget {
-  const _Async({required this.value, required this.empty, required this.builder});
-
-  final AsyncValue<List<T>> value;
-  final String empty;
-  final Widget Function(List<T> items) builder;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = value.value;
-    if (items == null) {
-      return value.hasError
-          ? const EmptyState(icon: Icons.error_outline_rounded, title: 'Impossible de charger cette page')
-          : const Center(child: CircularProgressIndicator());
-    }
-    if (items.isEmpty) return EmptyState(icon: Icons.inbox_outlined, title: empty);
-    return builder(items);
-  }
-}
 
 /// The pages read of a list ([pages]): loading, failed, empty, or [builder] with the items and the
 /// footer to put under them (next page coming, « Réessayer »).
