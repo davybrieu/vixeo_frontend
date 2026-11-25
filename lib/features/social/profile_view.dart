@@ -450,7 +450,7 @@ class SocialLinkChip extends StatelessWidget {
   }
 }
 
-/// "12 Abonnés": opens the list of followers (or of followed profiles, or of followed people).
+/// "12 Abonnés": opens the list of followers or followed profiles.
 class _FollowLink extends StatelessWidget {
   const _FollowLink({required this.count, required this.one, required this.many, this.onPressed});
 
@@ -463,7 +463,7 @@ class _FollowLink extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final size = layout.bodySize;
-    // French: "0 Abonné", "1 Abonné", "2 Abonnés"; "1 Personne suivie", "2 Personnes suivies".
+    // French: "0 Abonné", "1 Abonné", "2 Abonnés".
     final word = count > 1 ? many : one;
     return VxFocusable(
       borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
@@ -687,53 +687,6 @@ class ProfileTitlesSection extends ConsumerWidget {
             itemCount: shown.length,
             itemBuilder: (context, i) => LayoutBuilder(
               builder: (context, c) => PosterCard(item: shown[i], width: c.maxWidth),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// The people a profile follows (« Personnes suivies »): a row of round photos, as the cast of a
-/// title page; the round arrow ([onSeeAll]) opens them all. None: nothing (the tab's other section
-/// says how to follow people).
-class ProfilePeopleSection extends StatelessWidget {
-  const ProfilePeopleSection({super.key, required this.title, required this.people, this.onSeeAll});
-
-  final String title;
-  final AsyncValue<List<Person>> people;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final height = PersonCard.heightOf(layout, withRole: false) + (layout.isLarge ? layout.tv(32) : 0);
-    final all = people.value;
-    if (all == null) {
-      return people.hasError
-          ? ProfileSectionMessage(title: title, message: 'Impossible de charger cette liste.')
-          : ProfileSectionLoading(title: title, height: height);
-    }
-    if (all.isEmpty) return const SizedBox.shrink();
-
-    final shown = all.take(profileTitlesShown).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(title, onSeeAll: onSeeAll),
-        FocusTraversalGroup(
-          policy: vxTraversalPolicy,
-          child: SizedBox(
-            height: height,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              // Room for the focus zoom on TV.
-              padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.isLarge ? layout.tv(16) : 0),
-              itemCount: shown.length,
-              separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
-              itemBuilder: (_, i) => PersonCard(person: shown[i]),
             ),
           ),
         ),
