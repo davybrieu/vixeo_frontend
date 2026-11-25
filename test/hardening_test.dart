@@ -67,7 +67,7 @@ void main() {
     test('a device without a saved token requires sign-in', () async {
       final state = await restoredWith(MemorySessionStorage(), OddAuth());
 
-      expect(state.status, SessionStatus.guest);
+      expect(state.status, SessionStatus.signedOut);
       expect(state.isSignedIn, isFalse);
     });
 
