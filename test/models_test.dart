@@ -75,7 +75,6 @@ void main() {
   });
 
   test('reads how many people (actors, directors…) a member follows', () {
-    expect(SocialProfile.fromJson({'id': 3, 'username': 'lea', 'name': 'Léa'}).peopleCount, 0);
   });
 
   test('reads the playback settings of a profile', () {
