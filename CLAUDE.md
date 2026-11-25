@@ -91,7 +91,7 @@ lib/
     profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, photo et couverture de profil
                  (profile_photo.dart : cadrage, covers.dart : couvertures dessinées), contrôle parental
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
-    library/     synchro par profil (« À voir », J’aime ❤, personnes suivies, vus, « Continuer à
+    library/     synchro par profil (« À voir », J’aime ❤, vus, « Continuer à
                  regarder »), page « À voir » (aussi « Mes J’aime » et « Mes titres vus »),
                  bouton « Ajouter à une liste »
     search/      recherche (par texte, ou par filtres seuls), filtres (type, genre, années, note) et tri,
@@ -714,8 +714,7 @@ lib/
     la date » : avis, listes, titres vus et aimés sous leur jour (« Aujourd’hui », « Mercredi
     12 mars 2025 »), chacun avec son heure (`ActivityRow`), 20 par page en défilant. **Listes** :
     « À voir » puis les listes (`ProfileListsSection`, « Nouvelle liste »). **Avis** : les 10
-    derniers. **Aimés** : grille des J'aime (`ProfileTitlesSection(grid: true)`) et personnes
-    suivies. **Vus** : « Mon année 2026 » et grille des titres vus (`LibraryState.watched`, un
+    derniers. **Aimés** : grille des J'aime (`ProfileTitlesSection(grid: true)`); **Vus** : « Mon année 2026 » et grille des titres vus (`LibraryState.watched`, un
     membre : `socialWatchedProvider`, `GET /social/profiles/{pseudo}/watched` ; le bouton de l'année
     seulement s'il y a des titres vus). **Un onglet vide** montre l'`EmptyState` du « Fil
     d'actualité » (icône, titre, phrase ; demande du développeur, 23/11/2026). **Plus de « Mes 4
@@ -766,23 +765,6 @@ lib/
   onglet, ni entrée du rail. `HomeScreen` et
   `homeProvider` n'ont plus de paramètre `type`. Pour ne voir que les films ou les séries : le
   filtre de type de la recherche. Ne pas les réintroduire.
-- **« J'aime » ❤ et personnes suivies** (demande du développeur, 20/11/2026 ; **le cœur est un
-  J'aime, pas des favoris**, précisé le 23/11/2026 : « J’aime » / « Je n’aime plus », « Ajouté à vos
-  J’aime », « Mes J’aime », « Ses J’aime ») : groupes `liked` et `followed` de la synchro
-  (`LibraryController.setLiked` / `setFollowed`, API : `vixeo_backend/docs/synchronisation.md`),
-  indépendants de « À voir ». Cœur `LikedButton` sur la fiche (films, séries ; pas sur les
-  épisodes ni les chaînes), après « Ajouter à une liste » ; un J'aime va au fil d'actualité des
-  abonnés ; « Suivre » / « Ne plus suivre »
-  (`FollowPersonButton`) sur la page d'une personne, sous son métier et ses dates (connecté avec
-  un profil) ; une personne suivie = item `person:<id>` (`ProfileItem.person`,
-  `LibraryState.followedPeople`). Alertes : « Ajouté à vos J’aime », « Retiré de vos J’aime »,
-  « Vous suivez … », « Vous ne suivez plus … ». Page « Profil », onglet « Aimés » : « Mes J’aime »
-  (grille d'affiches) et « Personnes suivies » (`ProfilePeopleSection`, photos rondes
-  `PersonCard`) ; « Voir tout » : `/profil/social/aimes` (`MyListScreen(collection:
-  TitleCollection.liked)`, recherche et filtres de « À voir ») et `/profil/social/personnes`
-  (grille). Page d'un membre : « Ses J’aime » et « Personnes suivies » (`socialLikedProvider`,
-  `socialPeopleProvider`, API `/social/profiles/{username}/liked` et `/people`). Tests : `test/profile_features_test.dart`,
-  `test/profile_screen_test.dart`, `test/models_test.dart`.
 - **Actions sur un titre** (Ajouter à une liste, J'aime ❤, Vu / non vu, Noter, Envoyer à un ami) : toujours le même bouton
   rond **icône seule** (`VxIconAction`, `FavoriteButton`, `LikedButton`, `WatchedButton`, `RateTitleButton`), sans
   texte visible (libellé pour les lecteurs d'écran uniquement). Le même bouton ajoute et retire
@@ -1046,8 +1028,7 @@ lib/
   couleur de la page) et, à sa droite sous la couverture, les boutons d'un membre (« Envoyer un
   message » rond, puis « Suivre » / « Ne plus suivre », focus à l'arrivée ; invité : « Se connecter
   pour suivre ») ; dessous le nom, @pseudo, « 82 % de goûts en commun », **« 3 Abonnements »,
-  « 12 Abonnés »** et **« 8 Personnes suivies »** (nombre en gras ; acteurs, réalisateurs… ;
-  `people_count` de l'API, le mien depuis la synchro ; chacun ouvre sa liste ; lus « 12 abonnés »),
+  « 12 Abonnés »** et 
   biographie (**160 caractères au plus**, demande du développeur, 21/11/2026 : `bioMaxLength`, même
   limite dans l'API ; rien quand il n'y en a pas) et réseaux. **Pas de bouton sur ma page**
   (biographie, réseaux et compte privé dans « Modifier mon profil » ; l'onglet affiché prend le
@@ -1060,12 +1041,12 @@ lib/
   (rien à faire défiler à la télécommande). Puis les cinq onglets (voir « Page de profil » du réseau social :
   Activité, Listes, Avis, Aimés, Vus ; grilles d'une seule requête `titlesByIdProvider` via
   `withCatalogDetails`) ; le bouton rond « Voir tout » ouvre `/listes/a-voir`, `/avis`,
-  `/profil/social/aimes|vus|personnes` (le mien) ou `/membre/:username/a-voir|avis|aimes|vus|
+  `/profil/social/aimes|vus` (le mien) ou `/membre/:username/a-voir|avis|aimes|vus|
   personnes|abonnes|abonnements` (**adresses en français seulement**, plus de `list`, `liked`,
   `reviews`… : une autre section affiche « Page introuvable ») : **les mêmes pages** « À voir »,
   J'aime, titres vus (`MyListScreen(username:, collection:)`, sans les chaînes) et « Ses avis »
   (`ReviewsScreen(username:)`), avec recherche, filtres et tri (demande du développeur) ;
-  `SocialCollectionScreen` n'affiche lui-même que les abonnés / abonnements et les personnes. Ouvertes par-dessus une autre page, elles ont le bouton retour de
+  `SocialCollectionScreen` n'affiche lui-même que les abonnés / abonnements uniquement les abonnés / abonnements. Ouvertes par-dessus une autre page, elles ont le bouton retour de
   `VxPageHeader(back:)` (`VxBackButton`) ; pas les onglets. Un avis d'un membre (`ReviewRow(mine: false)`) ouvre la fiche du
   titre, pas « Mon avis ». Le mien : liste de la synchro (`libraryProvider`) et première page de
   mes avis (`myReviewsProvider`). Un membre (première page de chacun) :
