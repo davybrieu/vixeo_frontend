@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/choice.dart';
 import '../account/info_page.dart';
+import '../auth/models.dart';
 import '../auth/session.dart';
 import 'languages.dart';
 import 'no_spoiler.dart';
