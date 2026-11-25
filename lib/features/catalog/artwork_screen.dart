@@ -225,17 +225,20 @@ class _ArtworkTile extends StatelessWidget {
             height: captionHeight,
             child: label == null
                 ? null
-                : Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      label!,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: VxText.body(
-                        layout.isLarge ? layout.tv(22) : 13,
-                        weight: FontWeight.w600,
-                        color: VxColors.textSecondary,
+                // Read with the tile's label already.
+                : ExcludeSemantics(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        label!,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: VxText.body(
+                          layout.isLarge ? layout.tv(22) : 13,
+                          weight: FontWeight.w600,
+                          color: VxColors.textSecondary,
+                        ),
                       ),
                     ),
                   ),
