@@ -229,7 +229,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => YearStatsScreen(year: int.tryParse(state.uri.queryParameters['annee'] ?? '')),
           ),
           GoRoute(path: '/profil', pageBuilder: (_, state) => tab(state, const ProfileScreen())),
-          // « Messages » (vixeo_backend/docs/messagerie.md): not for a guest nor a child's profile.
+          // « Messages » (vixeo_backend/docs/messagerie.md): not for a child's profile.
           GoRoute(
             path: ConversationsScreen.location,
             redirect: (_, _) => socialAvailable(ref.read(sessionProvider)) ? null : '/accueil',
