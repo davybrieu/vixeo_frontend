@@ -61,8 +61,16 @@ class _WeeklyReleasesScreenState extends ConsumerState<WeeklyReleasesScreen> {
   static String _dateLabel(DateTime date) =>
       '${_weekday(date)[0].toUpperCase()}${_weekday(date).substring(1)} ${date.day} ${_month(date)}';
 
-  String get _period =>
-      '${_weekStart.day} ${_month(_weekStart)} – ${(_weekStart.add(const Duration(days: 6))).day} ${_month(_weekStart.add(const Duration(days: 6)))} ${_weekStart.year}';
+  String get _period {
+    final end = _weekStart.add(const Duration(days: 6));
+    if (_weekStart.year != end.year) {
+      return '${_weekStart.day} ${_month(_weekStart)} ${_weekStart.year} – ${end.day} ${_month(end)} ${end.year}';
+    }
+    if (_weekStart.month != end.month) {
+      return '${_weekStart.day} ${_month(_weekStart)} – ${end.day} ${_month(end)} ${end.year}';
+    }
+    return '${_weekStart.day} – ${end.day} ${_month(end)} ${end.year}';
+  }
 
   void _changeWeek(int amount) {
     setState(() {
@@ -205,7 +213,7 @@ class _WeeklyReleasesScreenState extends ConsumerState<WeeklyReleasesScreen> {
                   ),
                 ),
                 data: (items) => RefreshIndicator(
-                  onRefresh: () => ref.refresh(weeklyReleasesProvider(range).future),
+                  onRefresh: () async { await ref.refresh(weeklyReleasesProvider(range).future); },
                   child: _calendar(items),
                 ),
               ),
