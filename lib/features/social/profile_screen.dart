@@ -572,7 +572,7 @@ class _PrivateAccount extends StatelessWidget {
 }
 
 /// « Suivre », « Demande envoyée » (a private account hasn't accepted yet: a press withdraws the
-/// request) or « Ne plus suivre » (signed in); « Se connecter pour suivre » (guest).
+/// request) or « Ne plus suivre » (signed in); the sign-in prompt is only a fallback for a missing session.
 class _FollowButton extends ConsumerStatefulWidget {
   const _FollowButton({required this.profile});
 
