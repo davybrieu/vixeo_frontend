@@ -210,7 +210,7 @@ class ProfileColumn extends StatelessWidget {
 /// avatar on the left, half over the cover, and on its right the page's buttons (a member's
 /// « Envoyer un message » ([onMessage]) and « Suivre » ([action], which takes the focus on arrival);
 /// none on my page); then, aligned on the left, the name, @username, tastes in common, following,
-/// followers and followed people (actors, directors…: a press opens each list), bio and networks.
+/// followers, bio and networks.
 class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
@@ -450,7 +450,7 @@ class SocialLinkChip extends StatelessWidget {
   }
 }
 
-/// "12 Abonnés": opens the list of followers (or of followed profiles, or of followed people).
+/// "12 Abonnés": opens the list of followers (or of followed profiles).
 class _FollowLink extends StatelessWidget {
   const _FollowLink({required this.count, required this.one, required this.many, this.onPressed});
 
@@ -463,7 +463,7 @@ class _FollowLink extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final size = layout.bodySize;
-    // French: "0 Abonné", "1 Abonné", "2 Abonnés"; "1 Personne suivie", "2 Personnes suivies".
+    // French: "0 Abonné", "1 Abonné", "2 Abonnés".
     final word = count > 1 ? many : one;
     return VxFocusable(
       borderRadius: layout.size(VxRadius.button, tv: VxRadius.buttonTv),
