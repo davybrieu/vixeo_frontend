@@ -22,9 +22,9 @@ class _EmptyLibrary extends LibraryController {
   Future<LibraryState> build() async => const LibraryState({});
 }
 
-class _Guest extends SessionController {
+class _SignedOut extends SessionController {
   @override
-  SessionState build() => const SessionState(status: SessionStatus.guest);
+  SessionState build() => const SessionState(status: SessionStatus.signedOut);
 }
 
 /// The button read [label] by screen readers.
@@ -104,7 +104,7 @@ Future<void> _pump(WidgetTester tester, String start, {List<Override> overrides 
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        sessionProvider.overrideWith(_Guest.new),
+        sessionProvider.overrideWith(_SignedOut.new),
         libraryProvider.overrideWith(_EmptyLibrary.new),
         titleProvider.overrideWith((ref, key) async => _title),
         personProvider.overrideWith((ref, id) async => _person),
