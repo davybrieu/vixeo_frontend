@@ -33,11 +33,6 @@ class WithProfile extends SessionController {
   );
 }
 
-class SignedOut extends SessionController {
-  @override
-  SessionState build() => const SessionState(status: SessionStatus.signedOut);
-}
-
 class EmptyLibrary extends LibraryController {
   @override
   Future<LibraryState> build() async => const LibraryState({});
