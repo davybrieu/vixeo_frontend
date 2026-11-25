@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/common.dart';
 import '../auth/session.dart';
+import '../catalog/models.dart';
 import '../network/actions.dart' show showAddToList;
 import '../notifications/inbox.dart' show socialAvailable;
 import 'library.dart';
