@@ -116,8 +116,6 @@ class SocialProfile {
   final bool isMuted;
   final int listsCount;
 
-  /// Followed people (actors, directors…).
-
   /// Cover id from `GET /covers` (the banner of its page), and its own image shown instead.
   final String? cover;
   final String? coverUrl;
