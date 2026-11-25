@@ -464,6 +464,20 @@ SliverGridDelegate posterGridDelegate(Layout layout, {double captionHeight = 0})
       captionHeight: captionHeight,
     );
 
+/// Grid of images of one shape ([imageAspectRatio], width / height), [captionHeight] under each
+/// (« Affiches, arrière-plans, logos »).
+SliverGridDelegate imageGridDelegate({
+  required double maxCrossAxisExtent,
+  required double imageAspectRatio,
+  required double spacing,
+  double captionHeight = 0,
+}) => _PosterGridDelegate(
+  maxCrossAxisExtent: maxCrossAxisExtent,
+  imageAspectRatio: imageAspectRatio,
+  spacing: spacing,
+  captionHeight: captionHeight,
+);
+
 /// As `SliverGridDelegateWithMaxCrossAxisExtent` (as many columns as fit, [maxCrossAxisExtent]
 /// wide at most), but a tile is as high as its image plus a fixed [captionHeight]: an aspect
 /// ratio alone can't say "the image, then two lines of text".

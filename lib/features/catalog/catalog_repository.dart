@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../auth/session.dart';
 import '../search/search_filters.dart';
+import 'artwork.dart';
 import 'models.dart';
 
 /// `/catalog/*` endpoints (TMDb metadata, cached and age-filtered by the API).
@@ -32,6 +33,14 @@ class CatalogRepository {
 
   Future<TitleDetails> show(int id) async =>
       TitleDetails.fromJson((await _api.get('/catalog/tv/$id'))['data'] as Map<String, dynamic>);
+
+  /// « Affiches, arrière-plans, logos »: TMDb's images of a title, its choice and the profile's.
+  Future<TitleImages> images(MediaType type, int id) async =>
+      TitleImages.fromJson((await _api.get('/catalog/${type.name}/$id/images'))['data'] as Map<String, dynamic>);
+
+  /// Keeps the profile's [kind] of a title: a [path] of [images], or null for TMDb's.
+  Future<void> chooseImage(int profileId, MediaType type, int id, ArtworkKind kind, String? path) =>
+      _api.put('/profiles/$profileId/artwork/${type.name}/$id', body: {kind.field: path});
 
   Future<Season> season(int showId, int number) async =>
       Season.fromJson((await _api.get('/catalog/tv/$showId/season/$number'))['data'] as Map<String, dynamic>);
@@ -138,12 +147,28 @@ final catalogRepositoryProvider = Provider<CatalogRepository>((ref) => CatalogRe
 /// (the API filters titles with the profile's age limit).
 final _profileIdProvider = Provider<int?>((ref) => ref.watch(sessionProvider.select((s) => s.profile?.id)));
 
+/// Goes up when what the API gives this profile changes for every title (images chosen in
+/// « Affiches, arrière-plans, logos »): the catalog providers read again.
+class CatalogEpoch extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void bump() => state++;
+}
+
+final catalogEpochProvider = NotifierProvider<CatalogEpoch, int>(CatalogEpoch.new);
+
+/// What the catalog providers depend on: the active profile and the epoch.
+final _catalogKeyProvider = Provider<(int?, int)>(
+  (ref) => (ref.watch(_profileIdProvider), ref.watch(catalogEpochProvider)),
+);
+
 /// A movie or TV show by id.
 typedef TitleRef = ({MediaType type, int id});
 
 /// Titles by id, fetched together (`/catalog/titles`): the key is the list of ids, e.g. "movie:550,tv:1399".
 final titlesByIdProvider = FutureProvider.autoDispose.family<Map<TitleRef, MediaItem>, String>((ref, ids) async {
-  ref.watch(_profileIdProvider);
+  ref.watch(_catalogKeyProvider);
   final refs = [
     for (final key in ids.split(',').where((k) => k.contains(':')))
       (type: MediaType.parse(key.split(':').first), id: int.parse(key.split(':').last)),
@@ -158,23 +183,23 @@ String titlesKey(Iterable<TitleRef> titles) =>
     (titles.map((t) => '${t.type.name}:${t.id}').toSet().toList()..sort()).join(',');
 
 final homeProvider = FutureProvider.autoDispose<Home>((ref) {
-  ref.watch(_profileIdProvider);
+  ref.watch(_catalogKeyProvider);
   return ref.read(catalogRepositoryProvider).home();
 });
 
 final titleProvider = FutureProvider.autoDispose.family<TitleDetails, (MediaType, int)>((ref, key) {
-  ref.watch(_profileIdProvider);
+  ref.watch(_catalogKeyProvider);
   final repo = ref.read(catalogRepositoryProvider);
   return key.$1 == MediaType.movie ? repo.movie(key.$2) : repo.show(key.$2);
 });
 
 final seasonProvider = FutureProvider.autoDispose.family<Season, (int, int)>((ref, key) {
-  ref.watch(_profileIdProvider);
+  ref.watch(_catalogKeyProvider);
   return ref.read(catalogRepositoryProvider).season(key.$1, key.$2);
 });
 
 final personProvider = FutureProvider.autoDispose.family<PersonDetails, int>((ref, id) {
-  ref.watch(_profileIdProvider);
+  ref.watch(_catalogKeyProvider);
   return ref.read(catalogRepositoryProvider).person(id);
 });
 
@@ -184,37 +209,37 @@ final personCreditsProvider = FutureProvider.autoDispose.family<Paged<MediaItem>
   ref,
   key,
 ) {
-  ref.watch(_profileIdProvider);
+  ref.watch(_catalogKeyProvider);
   return ref.read(catalogRepositoryProvider).personCredits(key.$1, key.$2, page: key.$3);
 });
 
 /// One page of « Vous pourriez aussi aimer » (type, id, page): its « Voir tout » page.
 final recommendationsProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, (MediaType, int, int)>((ref, key) {
-  ref.watch(_profileIdProvider);
+  ref.watch(_catalogKeyProvider);
   return ref.read(catalogRepositoryProvider).recommendations(key.$1, key.$2, page: key.$3);
 });
 
 /// One page of the people of a title (type, id, page): « Voir tout » of « Créateur et
 /// distribution ».
 final titleCreditsProvider = FutureProvider.autoDispose.family<Paged<Person>, (MediaType, int, int)>((ref, key) {
-  ref.watch(_profileIdProvider);
+  ref.watch(_catalogKeyProvider);
   return ref.read(catalogRepositoryProvider).credits(key.$1, key.$2, page: key.$3);
 });
 
 final searchProvider = FutureProvider.autoDispose.family<SearchResults, (String, SearchFilters)>((ref, key) {
-  ref.watch(_profileIdProvider);
+  ref.watch(_catalogKeyProvider);
   return ref.read(catalogRepositoryProvider).search(key.$1, filters: key.$2);
 });
 
 /// One page of movies or TV shows of the search page (explore or search by type).
 final titlesProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, TitleQuery>((ref, query) {
-  ref.watch(_profileIdProvider);
+  ref.watch(_catalogKeyProvider);
   return ref.read(catalogRepositoryProvider).titles(query);
 });
 
 /// One page of a home list (type, list, page): the "Voir tout" page of a row.
 final titleListProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, (MediaType, String, int)>((ref, key) {
-  ref.watch(_profileIdProvider);
+  ref.watch(_catalogKeyProvider);
   return ref.read(catalogRepositoryProvider).list(key.$1, key.$2, page: key.$3);
 });
 

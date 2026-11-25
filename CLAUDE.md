@@ -928,6 +928,17 @@ lib/
   parental. Le lecteur n'existe pas encore : `features/playback` (`PlaybackRepository`,
   `SkipSegments.at`, `SkipKind.autoFor`) prépare ce qu'il utilisera. Les applis ne parlent jamais
   à OpenSubtitles ni à TheIntroDB : tout passe par l'API (clé Vixeo commune).
+- **Affiches, arrière-plans et logos** (demande du développeur, 25/11/2026, d'après une autre appli
+  de films ; API : `vixeo_backend/docs/images-des-titres.md`) : bouton rond « Affiches,
+  arrière-plans et logos » de la fiche (connecté avec un profil) → `ArtworkScreen`
+  (`/titre/:type/:id/images`, `catalog/artwork_screen.dart`) : en-tête au nom de l'onglet, `VxTabs`
+  Affiches / Arrière-plans / Logos, grille (`imageGridDelegate`) avec **« Par défaut »** (l'image de
+  TMDb) en premier puis les images de TMDb (`titleImagesProvider`, `GET /catalog/{type}/{id}/images`) ;
+  l'image choisie a un anneau vert ; **un appui choisit tout de suite** (`chooseTitleImage`,
+  `PUT /profiles/{id}/artwork/{type}/{id}`, remis en cas d'échec). **L'API applique le choix**
+  partout où elle donne le titre au profil (listes, recherche, accueil, fiche) : après un choix,
+  `catalogEpochProvider` monte et tous les providers du catalogue relisent (ils surveillent
+  `_catalogKeyProvider` : profil actif + époque). Test : `test/artwork_test.dart`.
 - **Pas de section « Sources »** sur la fiche (demande du développeur).
 - **Épisodes d'une série** (`_Episodes`, `_EpisodeCard`, `catalog/details_screen.dart` ; demande
   du développeur) : sous les puces des saisons, une **rangée horizontale** de grandes cartes

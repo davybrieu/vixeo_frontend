@@ -24,6 +24,7 @@ import '../ratings/ratings_sheet.dart';
 import '../search/filter_bar.dart';
 import '../tmdb/rating_buttons.dart';
 import '../tmdb/tmdb.dart';
+import 'artwork_screen.dart';
 import 'catalog_repository.dart';
 import 'list_screen.dart';
 import 'description_screen.dart';
@@ -97,7 +98,7 @@ class _BackButton extends StatelessWidget {
   );
 }
 
-/// « Ajouter à une liste » (« À voir » first) / J'aime ❤ / Vu / Noter / Bande-annonce: the same round
+/// « Ajouter à une liste » (« À voir » first) / J'aime ❤ / Vu / Noter / Images / Bande-annonce: the same round
 /// icon-only button for each action.
 /// Each click confirms with an alert (« Ajouté à « À voir » »…).
 class _Actions extends ConsumerWidget {
@@ -128,6 +129,13 @@ class _Actions extends ConsumerWidget {
               context,
               (type: 'title', id: '${title.type.name}:${title.id}', label: title.title),
             ),
+          ),
+        // « Affiches, arrière-plans, logos »: the images this profile sees for the title.
+        if (!guest)
+          VxIconAction(
+            icon: Icons.photo_library_outlined,
+            label: 'Affiches, arrière-plans et logos',
+            onPressed: () => context.push(ArtworkScreen.location(title.type, title.id)),
           ),
         if (title.trailer != null)
           VxIconAction(

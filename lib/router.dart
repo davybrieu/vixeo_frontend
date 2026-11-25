@@ -11,6 +11,7 @@ import 'features/account/devices_screen.dart';
 import 'features/addons/addons_screen.dart';
 import 'features/auth/device_login.dart';
 import 'features/auth/login_screen.dart';
+import 'features/catalog/artwork_screen.dart';
 import 'features/auth/password_reset_screen.dart';
 import 'features/auth/register_screen.dart' show RegisterScreen;
 import 'features/auth/session.dart';
@@ -422,6 +423,17 @@ final routerProvider = Provider<GoRouter>((ref) {
               type: MediaType.parse(state.pathParameters['type']),
               id: idOf(state) ?? 0,
               title: state.uri.queryParameters['titre'],
+            ),
+          ),
+          // « Affiches, arrière-plans, logos » of a title: a profile's choice.
+          GoRoute(
+            path: '/titre/:type/:id/images',
+            redirect: (_, state) => ref.read(sessionProvider).profile == null
+                ? '/titre/${state.pathParameters['type']}/${state.pathParameters['id']}'
+                : null,
+            builder: (_, state) => ArtworkScreen(
+              type: MediaType.parse(state.pathParameters['type']),
+              id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
             ),
           ),
           GoRoute(
