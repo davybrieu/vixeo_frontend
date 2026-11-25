@@ -78,17 +78,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       onEmail: () => context.go(EmailLoginScreen.location),
       onCancel: _cancel,
     );
-    final guest = Align(
-      alignment: Alignment.centerRight,
-      child: _TextLink(
-        label: 'Continuer en invité',
-        onPressed: () {
-          ref.read(sessionProvider.notifier).continueAsGuest();
-          context.go('/accueil');
-        },
-      ),
-    );
-
     return Scaffold(
       body: Stack(
         children: [
@@ -107,8 +96,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           children: [
                             Column(
                               children: [
-                                Padding(padding: const EdgeInsets.only(top: 4), child: guest),
-                                const SizedBox(height: 20),
                                 const VxLogo(size: 40),
                               ],
                             ),
@@ -149,7 +136,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                       ),
-                      Positioned(top: 12, right: layout.gutter, child: guest),
                     ],
                   ),
           ),
