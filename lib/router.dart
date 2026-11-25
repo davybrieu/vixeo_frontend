@@ -99,8 +99,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       if (session.status == SessionStatus.signedOut) {
         if (authPages.contains(location)) return null;
-        pending = state.uri.toString();
-        return '/connexion?redirect=${Uri.encodeComponent(pending!)}';
+        if (location != '/demarrage') pending = state.uri.toString();
+        final target = pending;
+        return target == null
+            ? '/connexion'
+            : '/connexion?redirect=${Uri.encodeComponent(target)}';
       }
       // Approving a TV code needs an account, not a profile.
       if (location == '/tv') return null;
