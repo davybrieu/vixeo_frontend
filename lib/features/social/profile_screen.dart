@@ -12,6 +12,7 @@ import '../../core/widgets/common.dart';
 import '../../core/widgets/menu.dart';
 import '../../core/widgets/page_header.dart';
 import '../auth/session.dart';
+import '../catalog/models.dart';
 import '../catalog/paging.dart';
 import '../catalog/widgets.dart';
 import '../library/library.dart';
@@ -743,87 +744,6 @@ class SocialCollectionScreen extends ConsumerWidget {
 }
 
 enum _Kind { toWatch, liked, watched, reviews, followers, following }
-
-/// « Personnes suivies » (mine: [username] null) or a member's: back button, title and their round
-/// photos in a grid; a photo opens the person's page.
-class _PeopleScreen extends ConsumerWidget {
-  const _PeopleScreen({this.username});
-
-  final String? username;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final layout = Layout.of(context);
-    final member = username;
-    Widget grid(List<Person> all, {Widget footer = const SizedBox.shrink(), void Function(int, int)? nearEnd}) =>
-        CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: pageContentPadding(context).copyWith(bottom: 0),
-              sliver: SliverGrid.builder(
-                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: PersonCard.widthOf(layout) + layout.cardGap,
-                  mainAxisExtent: PersonCard.heightOf(layout, withRole: false) + layout.cardGap,
-                ),
-                itemCount: all.length,
-                itemBuilder: (_, i) {
-                  nearEnd?.call(i, all.length);
-                  return Center(child: PersonCard(person: all[i]));
-                },
-              ),
-            ),
-            SliverToBoxAdapter(child: footer),
-            SliverToBoxAdapter(child: SizedBox(height: pageContentPadding(context).bottom)),
-          ],
-        );
-    final empty = member == null
-        ? 'Vous ne suivez personne pour l’instant.'
-        : 'Aucune personne suivie pour l’instant.';
-
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(layout.gutter, layout.space(VxSpace.m), layout.gutter, 0),
-              child: const VxBackButton(),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                layout.gutter,
-                layout.space(VxSpace.m),
-                layout.gutter,
-                layout.space(VxSpace.m),
-              ),
-              child: Text('Personnes suivies', style: VxText.title(layout.pageTitleSize)),
-            ),
-            Expanded(
-              // Mine: from the synced library, on this device. A member's: 20 at a time, the next
-              // ones as the grid scrolls.
-              child: member == null
-                  ? _Async(
-                      value: ref.watch(libraryProvider).whenData((state) => state.followedPeople),
-                      empty: empty,
-                      builder: grid,
-                    )
-                  : PagedBuilder<Person>(
-                      page: (page) => socialPeopleProvider((member, page)),
-                      builder: (context, pages, nearEnd) => _Paged(
-                        pages: pages,
-                        page: (page) => socialPeopleProvider((member, page)),
-                        empty: empty,
-                        builder: (people, footer) => grid(people, footer: footer, nearEnd: nearEnd),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 /// [value] loading, failed, empty, or its content.
 class _Async<T> extends StatelessWidget {
