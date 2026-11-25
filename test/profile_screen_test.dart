@@ -91,14 +91,6 @@ class _Library extends LibraryController {
       isLiked: true,
       likedAt: DateTime(2026, 11, 13),
     ),
-    'tmdb|person:287': ProfileItem(
-      source: 'tmdb',
-      itemId: 'person:287',
-      type: 'person',
-      title: 'Brad Pitt',
-      isFollowed: true,
-      followedAt: DateTime(2026, 11, 14),
-    ),
   });
 }
 
