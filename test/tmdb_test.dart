@@ -516,14 +516,14 @@ void main() {
       expect(back.hitTestable(), findsOneWidget);
     });
 
-    testWidgets('a guest: no « ⋮ » (nothing to change)', (tester) async {
+    testWidgets('a signed-in profile can open the title options', (tester) async {
       await pumpPage(
         tester,
         const DetailsScreen(type: MediaType.movie, id: 3),
         tmdb: FakeTmdb(),
-        overrides: [...details(full), sessionProvider.overrideWith(Guest.new)],
+        overrides: details(full),
       );
-      expect(find.bySemanticsLabel('Plus d’options'), findsNothing);
+      expect(find.bySemanticsLabel('Plus d’options'), findsOneWidget);
       expect(find.bySemanticsLabel('Retour'), findsOneWidget);
     });
   });
