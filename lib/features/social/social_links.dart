@@ -1,4 +1,3 @@
-import 'package:material_ui/material_ui.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// The social networks a profile can show (developer's request, 21/11/2026), in the order of the
