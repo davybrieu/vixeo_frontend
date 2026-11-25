@@ -1,16 +1,17 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// The social networks a profile can show (developer's request, 21/11/2026), in the order of the
 /// profile pages; the same keys as the API (`social_links`, vixeo_backend/docs/social.md).
 enum SocialNetwork {
-  instagram('instagram', 'Instagram', Icons.photo_camera_outlined),
-  x('x', 'X', Icons.alternate_email_rounded),
-  tiktok('tiktok', 'TikTok', Icons.tiktok),
-  youtube('youtube', 'YouTube', Icons.smart_display_outlined),
-  letterboxd('letterboxd', 'Letterboxd', Icons.movie_filter_outlined),
-  threads('threads', 'Threads', Icons.forum_outlined),
-  bluesky('bluesky', 'Bluesky', Icons.cloud_outlined),
-  website('website', 'Site web', Icons.language_rounded);
+  instagram('instagram', 'Instagram', FontAwesomeIcons.instagram),
+  x('x', 'X', FontAwesomeIcons.xTwitter),
+  tiktok('tiktok', 'TikTok', FontAwesomeIcons.tiktok),
+  youtube('youtube', 'YouTube', FontAwesomeIcons.youtube),
+  letterboxd('letterboxd', 'Letterboxd', FontAwesomeIcons.film),
+  threads('threads', 'Threads', FontAwesomeIcons.threads),
+  bluesky('bluesky', 'Bluesky', FontAwesomeIcons.bluesky),
+  website('website', 'Site web', FontAwesomeIcons.globe);
 
   const SocialNetwork(this.key, this.label, this.icon);
 
