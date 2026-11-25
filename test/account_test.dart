@@ -56,14 +56,11 @@ class FakeAccountAuth extends AuthRepository {
   @override
   Future<void> revokeDevice(int id) async => calls.add('revoke $id');
 
+  /// The account `/me` gives (« Mon compte » reads it again).
+  User meUser = davy;
+
   @override
-  Future<User> me() async => const User(
-    id: 1,
-    name: 'Léa',
-    email: 'lea@gmail.com',
-    parentalControl: false,
-    providers: ['google'],
-  );
+  Future<User> me() async => meUser;
 
   @override
   Future<String> exportData() async {
@@ -89,6 +86,9 @@ class FakeAccountAuth extends AuthRepository {
   @override
   Future<void> updatePassword({required String? current, required String password}) async {
     calls.add(current == null ? 'create password $password' : 'password $current → $password');
+    if (current == null) {
+      meUser = User(id: meUser.id, name: meUser.name, email: meUser.email, parentalControl: false, providers: meUser.providers);
+    }
     if (current != null && current != 'secret-password') {
       throw const ApiException(
         'Mot de passe incorrect.',
@@ -120,14 +120,12 @@ class SignedIn extends SessionController {
   SessionState build() => const SessionState(status: SessionStatus.signedIn, token: 't', user: davy);
 }
 
+const lea = User(id: 1, name: 'Léa', email: 'lea@gmail.com', parentalControl: false, hasPassword: false, providers: ['google']);
+
 /// An account created with Google: no password yet.
 class SignedInWithGoogle extends SessionController {
   @override
-  SessionState build() => const SessionState(
-    status: SessionStatus.signedIn,
-    token: 't',
-    user: User(id: 1, name: 'Léa', email: 'lea@gmail.com', parentalControl: false, hasPassword: false, providers: ['google']),
-  );
+  SessionState build() => const SessionState(status: SessionStatus.signedIn, token: 't', user: lea);
 }
 
 class SignedOut extends SessionController {
@@ -307,6 +305,7 @@ void main() {
 
   testWidgets('an account of Google creates its first password, and is deleted without one', (tester) async {
     final (container, auth, _) = setUpContainer(session: SignedInWithGoogle.new);
+    auth.meUser = lea;
     await tester.pumpWidget(app(container, const AccountScreen()));
 
     expect(find.textContaining('Vous vous connectez avec Google'), findsOneWidget);
@@ -330,6 +329,7 @@ void main() {
 
   testWidgets('an account without a password is deleted after a confirmation only', (tester) async {
     final (container, auth, _) = setUpContainer(session: SignedInWithGoogle.new);
+    auth.meUser = lea;
     await tester.pumpWidget(app(container, const AccountScreen()));
 
     await tester.ensureVisible(find.text('Supprimer mon compte'));
