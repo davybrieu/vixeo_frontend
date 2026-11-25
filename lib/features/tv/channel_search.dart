@@ -92,7 +92,7 @@ Future<void> playLiveChannel(BuildContext context, WidgetRef ref, TvChannel chan
         title: channel.name,
         loadStream: () => repository.stream(channel.id),
         returnLocation: channelPath(channel.id),
-        guestOverride: ref.read(sessionProvider).isGuest,
+        guestOverride: false,
       ),
     ),
   );
