@@ -18,7 +18,7 @@ enum SocialNetwork {
   /// The API's key.
   final String key;
   final String label;
-  final IconData icon;
+  final FaIconData icon;
 
   /// An account is a handle (`@lea`); the website is an address.
   bool get isWebsite => this == website;
