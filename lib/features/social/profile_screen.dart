@@ -358,6 +358,13 @@ class PublicProfileScreen extends ConsumerWidget {
         // « Partager le profil » (not on TV), then « ⋮ »: mute, block, report.
         focusTabs: social.isSelf,
         actions: [
+          if (!social.isSelf && socialAvailable(ref.watch(sessionProvider)))
+            VxIconAction(
+              icon: Icons.chat_bubble_outline_rounded,
+              label: 'Envoyer un message à @${social.username}',
+              dense: true,
+              onPressed: () => _write(context, ref, social.username),
+            ),
           if (social.shareUrl case final url? when canShareLinks)
             VxIconAction(
               icon: Icons.share_outlined,
@@ -395,10 +402,6 @@ class PublicProfileScreen extends ConsumerWidget {
           onFollowers: canView ? () => context.push(_section('abonnes')) : null,
           onFollowing: canView ? () => context.push(_section('abonnements')) : null,
           action: social.isSelf ? null : _FollowButton(profile: social),
-          // Write to the member (a request first, accepted or declined on its side).
-          onMessage: !social.isSelf && socialAvailable(ref.watch(sessionProvider))
-              ? () => _write(context, ref, social.username)
-              : null,
         ),
         stats: ProfileStats(
           stats: _stats(
