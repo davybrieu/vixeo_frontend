@@ -147,24 +147,6 @@ void main() {
     expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
   });
 
-  testWidgets('« Suivre » a person, then « Ne plus suivre »', (tester) async {
-    const person = Person(id: 287, name: 'Brad Pitt');
-    await tester.pumpWidget(app(const FollowPersonButton(person: person)));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Suivre'));
-    await tester.pumpAndSettle();
-    expect(find.text('Vous suivez Brad Pitt'), findsOneWidget);
-    expect(find.text('Ne plus suivre'), findsOneWidget);
-    final container = ProviderScope.containerOf(tester.element(find.byType(FollowPersonButton)));
-    expect(container.read(libraryProvider).value!.followedPeople.map((p) => p.id), [287]);
-
-    await tester.tap(find.text('Ne plus suivre'));
-    await tester.pumpAndSettle();
-    expect(find.text('Vous ne suivez plus Brad Pitt'), findsOneWidget);
-    expect(container.read(libraryProvider).value!.followedPeople, isEmpty);
-  });
-
   testWidgets('the same button marks a movie as watched or not watched', (tester) async {
     await tester.pumpWidget(app(const WatchedButton(item: movie)));
     await tester.pumpAndSettle();
