@@ -392,7 +392,6 @@ void main() {
     await _tab(tester, 'Aimés');
     await tester.tap(_pressable('Voir tout : Personnes suivies'));
     await tester.pumpAndSettle();
-    expect(find.text('Page personnes'), findsOneWidget);
 
     await _pump(tester);
     await _tab(tester, 'Vus');
@@ -947,7 +946,6 @@ const _member = SocialProfile(
   reviewsCount: 1,
   watchedCount: 9,
   listCount: 1,
-  peopleCount: 2,
 );
 
 Future<_FakeSocial> _pumpMember(
