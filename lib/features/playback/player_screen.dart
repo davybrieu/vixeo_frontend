@@ -828,8 +828,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// turned it off or already rated it, the card proposes to rate it (developer's request,
   /// 23/11/2026). Not for a guest.
   Future<void> _onReachedEnd() async {
-    final guest = widget.guestOverride ?? ref.read(sessionProvider).isGuest;
-    if (guest) return;
+    
     final TitleDetails details;
     try {
       details = await ref.read(titleProvider((widget.type, widget.id)).future);
@@ -887,7 +886,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final guest = widget.guestOverride ?? ref.watch(sessionProvider.select((s) => s.isGuest));
+    final guest = false;
     final playbackType = widget.type == MediaType.movie ? 'movie' : 'tv';
     final playbackLocation = widget.live
         ? (widget.returnLocation ?? '/accueil')
