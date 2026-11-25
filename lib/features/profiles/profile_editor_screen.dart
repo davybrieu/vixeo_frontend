@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -579,7 +580,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
                     decoration: InputDecoration(
                       labelText: network.label,
                       hintText: network.isWebsite ? 'https://…' : 'pseudo',
-                      prefixIcon: Icon(network.icon),
+                      prefixIcon: FaIcon(network.icon),
                       errorText: error?.field('social_links.${network.key}'),
                     ),
                   ),
