@@ -114,7 +114,7 @@ class SessionController extends Notifier<SessionState> {
     } on ApiException catch (e) {
       if (e.isUnauthorized) {
         await _clear();
-        state = const SessionState(status: SessionStatus.guest);
+        state = const SessionState(status: SessionStatus.signedOut);
       } else {
         state = SessionState(status: SessionStatus.unreachable, message: e.message);
       }
