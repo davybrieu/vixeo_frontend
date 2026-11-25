@@ -35,11 +35,11 @@ import 'social_repository.dart';
 /// « Profil » (tab): the active profile's page (`ProfileView`, like Bingers: developer's request,
 /// 25/11/2026). At the top right « Partager le profil », « Notifications » and « ⋮ » (a drop-down:
 /// « Modifier mon profil », « Paramètres », « Changer de profil », « Comptes bloqués et masqués »,
-/// « Se déconnecter »); then its avatar, name, @username, following, followers, followed people, bio
+/// « Se déconnecter »); then its avatar, name, @username, following, followers, bio
 /// and networks (changed in « Modifier mon profil »); then its figures (time watched, titles and
 /// episodes watched, reviews, « À voir ») and five tabs:
 /// « Activité » (each action with its date), « Listes » (« À voir » first, then my lists),
-/// « Avis », « Aimés » (titles liked and followed people) and « Vus » (titles watched, « Mon
+/// « Avis », « Aimés » (titles liked) and « Vus » (titles watched, « Mon
 /// année »). An empty tab shows the [EmptyState] of the « Fil d'actualité ». The round arrow of a
 /// section opens it whole.
 class ProfileScreen extends ConsumerWidget {
@@ -299,7 +299,7 @@ class PublicProfileScreen extends ConsumerWidget {
 
   final String username;
 
-  /// Where a member's titles, reviews or accounts open: `a-voir`, `aimes`, `vus`, `personnes`,
+  /// Where a member's titles, reviews or accounts open: `a-voir`, `aimes`, `vus`,
   /// `avis`, `abonnes`, `abonnements`.
   String _section(String section) => '/membre/${Uri.encodeComponent(username)}/$section';
 
