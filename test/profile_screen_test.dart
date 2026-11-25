@@ -245,8 +245,6 @@ void main() {
     expect(find.text('Fan de science-fiction.'), findsOneWidget);
     expect(_pressable('12 abonnés'), findsOneWidget);
     expect(_pressable('1 abonnement'), findsOneWidget);
-    // The people followed (actors, directors…), from this device's library.
-    expect(_pressable('1 personne suivie'), findsOneWidget);
     // The top of the page on the left (like Bingers): the avatar, then the name and @username
     // under it; following before followers.
     final page = tester.getRect(find.byType(ProfileView));
@@ -302,12 +300,10 @@ void main() {
     expect(find.text('Film noté 1'), findsOneWidget);
     expect(find.text('Film noté 5'), findsOneWidget);
 
-    // « Aimés »: the likes (not favorites) and the people followed.
+    // « Aimés »: the titles liked (not favorites).
     await _tab(tester, 'Aimés');
     expect(find.text('Mes J’aime'), findsOneWidget);
     expect(find.text('Forrest Gump'), findsWidgets);
-    expect(find.text('Personnes suivies'), findsOneWidget);
-    expect(find.text('Brad Pitt'), findsOneWidget);
     expect(find.text('Dune'), findsNothing);
 
     // « Vus »: the titles watched, « Mon année ».
@@ -391,28 +387,17 @@ void main() {
     expect(find.text('Page aimes'), findsOneWidget);
 
     await _pump(tester);
-    await _tab(tester, 'Aimés');
-    await tester.tap(_pressable('Voir tout : Personnes suivies'));
-    await tester.pumpAndSettle();
-    expect(find.text('Page personnes'), findsOneWidget);
-
-    await _pump(tester);
     await _tab(tester, 'Vus');
     await tester.tap(_pressable('Voir tout : Mes titres vus'));
     await tester.pumpAndSettle();
     expect(find.text('Page vus'), findsOneWidget);
   });
 
-  testWidgets('followers and followed people open their list', (tester) async {
+  testWidgets('followers open their list', (tester) async {
     await _pump(tester);
     await tester.tap(_pressable('12 abonnés'));
     await tester.pumpAndSettle();
     expect(find.text('Page abonnes'), findsOneWidget);
-
-    await _pump(tester);
-    await tester.tap(_pressable('1 personne suivie'));
-    await tester.pumpAndSettle();
-    expect(find.text('Page personnes'), findsOneWidget);
   });
 
   testWidgets('a member\'s page: the same page and tabs, and « Suivre »', (tester) async {
@@ -422,7 +407,6 @@ void main() {
     expect(find.text('@max'), findsOneWidget);
     expect(find.text('Cinéphile.'), findsOneWidget);
     expect(_pressable('3 abonnés'), findsOneWidget);
-    expect(_pressable('2 personnes suivies'), findsOneWidget);
     expect(find.bySemanticsLabel('À voir : 1'), findsOneWidget);
     expect(find.text('Son activité'), findsOneWidget);
     expect(find.text('Matrix'), findsOneWidget);
