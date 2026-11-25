@@ -19,6 +19,7 @@ import 'features/auth/session.dart';
 import 'features/catalog/details_screen.dart';
 import 'features/catalog/description_screen.dart';
 import 'features/catalog/home_screen.dart';
+import 'features/catalog/weekly_releases_screen.dart';
 import 'features/catalog/list_screen.dart';
 import 'features/catalog/models.dart';
 import 'features/catalog/person_screen.dart';
@@ -149,6 +150,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => AppShell(location: state.uri.path, child: child),
         routes: [
           GoRoute(path: '/accueil', pageBuilder: (_, state) => tab(state, const HomeScreen())),
+          GoRoute(path: '/sorties', pageBuilder: (_, state) => tab(state, const WeeklyReleasesScreen())),
           // The "Films" and "Séries" pages were removed: their former addresses lead to the home page.
           GoRoute(
             path: '/chaines-tv',
