@@ -141,13 +141,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       subtitle: 'Nouveaux épisodes des séries « À voir », activité.',
                       onPressed: () => context.push(NotificationsScreen.location),
                     ),
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.view_stream_outlined,
-                      title: 'Rangées de l’accueil',
-                      subtitle: 'Trier, afficher ou masquer les rangées.',
-                      onPressed: () => context.push(RowsSettingsScreen.homeLocation),
-                    ),
                     // Live TV is hidden for now (core/features.dart).
                     if (ref.watch(liveTvProvider))
                       _SettingsTile(
