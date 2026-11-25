@@ -221,10 +221,8 @@ class ProfileHeader extends StatelessWidget {
     this.bio,
     this.followers,
     this.following,
-    this.people,
     this.onFollowers,
     this.onFollowing,
-    this.onPeople,
     this.action,
     this.onMessage,
     this.isPrivate = false,
@@ -246,11 +244,8 @@ class ProfileHeader extends StatelessWidget {
   final int? followers;
   final int? following;
 
-  /// Followed people (actors, directors…); null: not shown.
-  final int? people;
   final VoidCallback? onFollowers;
   final VoidCallback? onFollowing;
-  final VoidCallback? onPeople;
   final Widget? action;
 
   /// « Envoyer un message » (a round button before [action]); none when null (my profile,
@@ -380,8 +375,6 @@ class ProfileHeader extends StatelessWidget {
             children: [
               _FollowLink(count: following!, one: 'Abonnement', many: 'Abonnements', onPressed: onFollowing),
               _FollowLink(count: followers!, one: 'Abonné', many: 'Abonnés', onPressed: onFollowers),
-              if (people case final count?)
-                _FollowLink(count: count, one: 'Personne suivie', many: 'Personnes suivies', onPressed: onPeople),
             ],
           ),
         ],
