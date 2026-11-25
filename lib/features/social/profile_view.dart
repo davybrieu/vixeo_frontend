@@ -8,7 +8,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../../core/theme.dart';
-import '../../core/widgets/card.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';

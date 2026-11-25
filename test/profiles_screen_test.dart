@@ -533,16 +533,18 @@ void main() {
     expect(find.widgetWithText(TextField, 'Fan de SF.'), findsOneWidget);
     expect(find.text('Réseaux sociaux'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'davy'), findsWidgets);
-    await tester.enterText(find.widgetWithText(TextField, 'Fan de SF.'), 'Fan de science-fiction.');
-    await tester.ensureVisible(find.widgetWithText(TextField, 'Letterboxd'));
+    // Before typing: a focused field scrolls the page back to itself.
+    await tester.ensureVisible(find.text('Compte privé'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Compte privé'));
     await tester.pump();
+    expect(find.bySemanticsLabel('Compte privé, activé'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Fan de SF.'), 'Fan de science-fiction.');
     await tester.enterText(find.widgetWithText(TextField, 'Letterboxd'), 'davyb');
     // Instagram emptied: removed.
     await tester.enterText(find.widgetWithText(TextField, 'Instagram'), '');
-    await tester.ensureVisible(find.text('Compte privé'));
-    await tester.pump();
-    await tester.tap(find.text('Compte privé'));
-    await tester.pump();
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Enregistrer les modifications'));
     await tester.pump();
