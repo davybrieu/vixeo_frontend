@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'weekly_releases.dart';
+import '../../core/widgets/common.dart';
 
 /// Weekly editorial calendar of worldwide movie, TV and episode releases.
 class WeeklyReleasesScreen extends ConsumerStatefulWidget {
@@ -194,23 +195,9 @@ class _WeeklyReleasesScreenState extends ConsumerState<WeeklyReleasesScreen> {
             Expanded(
               child: releases.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(28),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.cloud_off_rounded, size: 42),
-                        const SizedBox(height: 12),
-                        const Text('Impossible de charger les sorties pour le moment.', textAlign: TextAlign.center),
-                        const SizedBox(height: 12),
-                        FilledButton.tonal(
-                          onPressed: () => ref.invalidate(weeklyReleasesProvider(range)),
-                          child: const Text('Réessayer'),
-                        ),
-                      ],
-                    ),
-                  ),
+                error: (error, _) => ErrorPanel(
+                  error: error,
+                  onRetry: () => ref.invalidate(weeklyReleasesProvider(range)),
                 ),
                 data: (items) => RefreshIndicator(
                   onRefresh: () async { await ref.refresh(weeklyReleasesProvider(range).future); },

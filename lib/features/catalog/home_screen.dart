@@ -11,6 +11,7 @@ import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/page_header.dart';
 import '../library/library.dart';
 import '../profiles/row_preferences.dart';
+import '../profiles/rows_settings_screen.dart';
 import 'catalog_repository.dart';
 import 'hero.dart';
 import 'list_screen.dart';
@@ -34,28 +35,45 @@ class HomeScreen extends ConsumerWidget {
       await Future.wait([ref.read(homeProvider.future), ref.read(libraryProvider.notifier).refresh()]);
     }
 
-    return AsyncView(
-      value: home,
-      onRetry: () => ref.invalidate(homeProvider),
-      data: (data) {
-        if (data.sections.isEmpty && data.featured.isEmpty) {
-          return const EmptyState(
-            icon: Icons.movie_filter_outlined,
-            title: 'Rien à afficher pour l’instant',
-            message: 'Le catalogue est vide pour ce profil.',
-          );
-        }
-        final shown = Home(
-          featured: data.featured,
-          sections: rowPreferences.visible(data.sections, (section) => section.key),
-        );
-        return layout.isPhone
-            ? RefreshIndicator(
-                onRefresh: refresh,
-                child: _PhoneHome(home: shown, resume: resume),
-              )
-            : _LargeHome(home: shown, resume: resume);
-      },
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: AsyncView(
+            value: home,
+            onRetry: () => ref.invalidate(homeProvider),
+            data: (data) {
+              if (data.sections.isEmpty && data.featured.isEmpty) {
+                return const EmptyState(
+                  icon: Icons.movie_filter_outlined,
+                  title: 'Rien à afficher pour l’instant',
+                  message: 'Le catalogue est vide pour ce profil.',
+                );
+              }
+              final shown = Home(
+                featured: data.featured,
+                sections: rowPreferences.visible(data.sections, (section) => section.key),
+              );
+              return layout.isPhone
+                  ? RefreshIndicator(
+                      onRefresh: refresh,
+                      child: _PhoneHome(home: shown, resume: resume),
+                    )
+                  : _LargeHome(home: shown, resume: resume);
+            },
+          ),
+        ),
+        Positioned(
+          top: 12,
+          right: 16,
+          child: SafeArea(
+            child: VxIconAction(
+              icon: Icons.tune_rounded,
+              label: 'Paramètres de l’accueil',
+              onPressed: () => context.push(RowsSettingsScreen.homeLocation),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

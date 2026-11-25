@@ -171,6 +171,34 @@ void main() {
     expect(find.text('Fiche 3'), findsOneWidget);
   });
 
+  testWidgets('the home settings button opens row arrangement', (tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const Scaffold(body: HomeScreen())),
+        GoRoute(path: '/profil/rangees/accueil', builder: (_, _) => const Text('Ranger l’accueil')),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          homeProvider.overrideWith((ref) async => home),
+          libraryProvider.overrideWith(EmptyLibrary.new),
+          titleProvider.overrideWith((ref, key) async => details(key)),
+          titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
+        ],
+        child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Paramètres de l’accueil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ranger l’accueil'), findsOneWidget);
+  });
+
   testWidgets('the hero shows the title page details once the selection rests', (tester) async {
     await pumpHome(tester);
 
