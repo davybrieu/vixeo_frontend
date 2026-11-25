@@ -19,7 +19,6 @@ import '../catalog/hero.dart';
 import '../catalog/models.dart';
 import '../catalog/paging.dart' show NextPage;
 import '../catalog/widgets.dart';
-import '../auth/session.dart';
 import '../tv/channel_row.dart';
 import '../tv/channel_search.dart';
 import 'filter_bar.dart';
@@ -369,9 +368,6 @@ class _RecentSearches extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    if (ref.watch(sessionProvider.select((s) => s.isGuest))) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
     // Synced with the profile's other devices; the 8 most recent here.
     final recent = (ref.watch(recentSearchesProvider).value ?? const <RecentSearch>[]).take(8).toList();
     if (recent.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());

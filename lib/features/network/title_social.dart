@@ -18,7 +18,7 @@ import 'widgets.dart';
 
 /// The social part of a title page (vixeo_backend/docs/social.md): the followed members who watched
 /// it and their average, the most liked reviews (« Voir tout »), and lists that have it. Nothing for
-/// a guest, a child's profile, or a title nobody talked about.
+/// a child's profile, or a title nobody talked about.
 class TitleSocialSection extends ConsumerWidget {
   const TitleSocialSection({super.key, required this.type, required this.id, required this.name});
 

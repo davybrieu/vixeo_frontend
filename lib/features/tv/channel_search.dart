@@ -1,8 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../auth/session.dart';
-
 import '../../core/device/layout.dart';
 import '../../core/widgets/common.dart';
 import 'channel_row.dart';
@@ -92,7 +90,6 @@ Future<void> playLiveChannel(BuildContext context, WidgetRef ref, TvChannel chan
         title: channel.name,
         loadStream: () => repository.stream(channel.id),
         returnLocation: channelPath(channel.id),
-        guestOverride: ref.read(sessionProvider).isGuest,
       ),
     ),
   );

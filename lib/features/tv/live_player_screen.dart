@@ -11,14 +11,12 @@ class LivePlayerScreen extends StatelessWidget {
     this.stream,
     this.loadStream,
     this.returnLocation,
-    this.guest = false,
   }) : assert(stream != null || loadStream != null);
 
   final String title;
   final TvStream? stream;
   final Future<TvStream> Function()? loadStream;
   final String? returnLocation;
-  final bool guest;
 
   static const hideDelay = PlayerScreen.hideDelay;
   static const stallTimeout = PlayerScreen.stallTimeout;
@@ -28,6 +26,5 @@ class LivePlayerScreen extends StatelessWidget {
     title: title,
     loadStream: () async => stream ?? await loadStream!(),
     returnLocation: returnLocation,
-    guestOverride: guest,
   );
 }

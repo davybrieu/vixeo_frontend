@@ -12,7 +12,6 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
-import '../auth/session.dart';
 import '../library/actions.dart';
 import '../library/library.dart';
 import '../ratings/rating_view.dart';
@@ -57,8 +56,7 @@ class PosterCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
-    final itemState = guest ? null : ref.watch(libraryProvider.select((state) => state.value?.forItem(item)));
+    final itemState = ref.watch(libraryProvider.select((state) => state.value?.forItem(item)));
     final watched = itemState?.isWatched ?? false;
     final favorite = itemState?.isFavorite ?? false;
     final radius = width * 0.086;
@@ -117,7 +115,7 @@ class PosterCard extends ConsumerWidget {
       onFocused: onFocused,
       onHovered: onHovered,
       onPressed: () => context.push(titlePath(item.type, item.id)),
-      onLongPress: guest ? null : () => showTitleMenu(context, item),
+      onLongPress: () => showTitleMenu(context, item),
       child: !withCaption
           ? picture
           : SizedBox(

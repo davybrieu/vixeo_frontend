@@ -56,19 +56,18 @@ void main() {
   });
 
   group('session restore never blocks the start screen', () {
-    test('an unreadable keychain starts in guest mode', () async {
+    test('an unreadable keychain requires sign-in', () async {
       final storage = BrokenStorage();
       final state = await restoredWith(storage, OddAuth());
 
-      expect(state.status, SessionStatus.guest);
+      expect(state.status, SessionStatus.signedOut);
       expect(storage.cleared, isTrue);
     });
 
-    test('a device without a saved token starts in guest mode', () async {
+    test('a device without a saved token requires sign-in', () async {
       final state = await restoredWith(MemorySessionStorage(), OddAuth());
 
-      expect(state.status, SessionStatus.guest);
-      expect(state.isGuest, isTrue);
+      expect(state.status, SessionStatus.signedOut);
       expect(state.isSignedIn, isFalse);
     });
 

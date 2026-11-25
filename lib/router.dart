@@ -54,14 +54,14 @@ import 'features/tv/models.dart';
 import 'features/tmdb/review_screen.dart';
 import 'features/tmdb/reviews_screen.dart';
 
-/// Public catalog and playback routes are available to guests. Personal features require an account and profile.
+/// Every in-app route requires an authenticated account; profile-specific routes also require an active profile.
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
   // Only what the redirects depend on: editing the profile (avatar…) must not rebuild the pages.
   ref.listen(sessionProvider.select((s) => (s.status, s.profile == null)), (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
-  // Deep link opened before session restoration, or a protected page requested by a guest.
+  // Deep link opened before session restoration, or a protected page requested before sign-in.
   String? pending;
 
   // A main page (tab of the navigation) is a MaterialPage, like every other page: it changes with
@@ -71,7 +71,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   Widget guarded(String location, Widget child) => BackNavigationGuard(location: location, child: child);
   // Live TV is hidden for now (core/features.dart): its pages lead to the home page.
   String? liveTvOnly(BuildContext context, GoRouterState state) => ref.read(liveTvProvider) ? null : '/accueil';
-  // The social network: not for a guest nor a child's profile.
+  // The social network: not for a child's profile.
   String? socialOnly(BuildContext context, GoRouterState state) =>
       socialAvailable(ref.read(sessionProvider)) ? null : '/accueil';
   int? idOf(GoRouterState state) => int.tryParse(state.pathParameters['id'] ?? '');
@@ -90,14 +90,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       final location = state.matchedLocation;
       const authPages = {'/connexion', EmailLoginScreen.location, '/inscription', '/mot-de-passe-oublie'};
-      const guestAllowed = {
-        '/accueil', '/liste', '/recherche', '/chaines-tv', '/personne', '/titre', '/chaine', '/lecture', '/membre',
-      };
-      const accountOnly = {
-        '/profils', '/avis', '/profil', '/parametres', '/profil/social/aimes', '/profil/social/vus', '/profil/social/personnes', '/profil/social/abonnements', '/profil/social/abonnes',
-        '/profil/parametres', '/profil/compte', '/profil/appareils', '/profil/notifications', '/profil/plugins', '/tv',
-        InboxScreen.location, ConversationsScreen.location, FeedScreen.location, '/listes', OnboardingScreen.location,
-      };
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
         if (location != '/demarrage') {
           if (!authPages.contains(location)) pending = state.uri.toString();
@@ -107,38 +99,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       if (session.status == SessionStatus.signedOut) {
         if (authPages.contains(location)) return null;
-        return '/connexion';
-      }
-      if (session.isGuest) {
-        if (location == '/accueil' && state.uri.queryParameters['mode'] == 'invite') {
-          pending = null;
-          return '/accueil';
-        }
-        if (location == '/demarrage') {
-          final target = pending;
-          pending = null;
-          if (target != null) {
-            final targetPath = Uri.parse(target).path;
-            if (guestAllowed.any((path) => targetPath == path || targetPath.startsWith('$path/'))) {
-              return target;
-            }
-            if (accountOnly.any((path) => targetPath == path || targetPath.startsWith('$path/'))) {
-              pending = target;
-              return '/connexion?redirect=${Uri.encodeComponent(target)}';
-            }
-          }
-          return '/accueil';
-        }
-        if (authPages.contains(location)) {
-          pending = state.uri.queryParameters['redirect'] ?? pending;
-          return null;
-        }
-        final isPublic = guestAllowed.any((path) => location == path || location.startsWith('$path/'));
-        if (isPublic) return null;
-        if (accountOnly.any((path) => location == path || location.startsWith('$path/'))) {
-          pending = state.uri.toString();
-        }
-        return '/connexion';
+        if (location != '/demarrage') pending = state.uri.toString();
+        final target = pending;
+        return target == null
+            ? '/connexion'
+            : '/connexion?redirect=${Uri.encodeComponent(target)}';
       }
       // Approving a TV code needs an account, not a profile.
       if (location == '/tv') return null;
@@ -264,7 +229,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => YearStatsScreen(year: int.tryParse(state.uri.queryParameters['annee'] ?? '')),
           ),
           GoRoute(path: '/profil', pageBuilder: (_, state) => tab(state, const ProfileScreen())),
-          // « Messages » (vixeo_backend/docs/messagerie.md): not for a guest nor a child's profile.
+          // « Messages » (vixeo_backend/docs/messagerie.md): not for a child's profile.
           GoRoute(
             path: ConversationsScreen.location,
             redirect: (_, _) => socialAvailable(ref.read(sessionProvider)) ? null : '/accueil',

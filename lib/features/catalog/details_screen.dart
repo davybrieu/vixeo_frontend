@@ -113,16 +113,15 @@ class _Actions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final item = title.asItem;
-    final guest = ref.watch(sessionProvider.select((s) => s.isGuest));
     final social = socialAvailable(ref.watch(sessionProvider)) && !DeviceInfo.isTv;
     return Wrap(
       spacing: layout.isLarge ? layout.tv(20) : 14,
       runSpacing: 12,
       children: [
-        if (!guest) FavoriteButton(item: item),
-        if (!guest) LikedButton(item: item),
-        if (!guest && title.type == MediaType.movie) WatchedButton(item: item),
-        if (!guest && ref.watch(canRateProvider)) RateTitleButton(item: item),
+        FavoriteButton(item: item),
+        LikedButton(item: item),
+        if (title.type == MediaType.movie) WatchedButton(item: item),
+        if (ref.watch(canRateProvider)) RateTitleButton(item: item),
         // The social network (not on a TV): send it to a friend.
         if (social)
           VxIconAction(
@@ -148,7 +147,7 @@ class _TitleMenuButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (ref.watch(sessionProvider.select((s) => s.isGuest || s.profile == null))) return const SizedBox.shrink();
+    if (ref.watch(sessionProvider.select((s) => s.profile == null))) return const SizedBox.shrink();
     return Builder(
       builder: (anchor) => VxIconAction(
         icon: Icons.more_vert_rounded,

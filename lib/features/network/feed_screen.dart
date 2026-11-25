@@ -22,7 +22,7 @@ import 'network.dart';
 import 'widgets.dart';
 
 /// « Fil d'actualité » (`/fil`, renamed from « Fil » on 23/11/2026; in the navigation of phones,
-/// tablets and computers; not on a TV, nor for a guest or a child's profile;
+/// tablets and computers; not on a TV, nor for a child's profile;
 /// vixeo_backend/docs/social.md), in two tabs (developer's request, 23/11/2026): **« Pour toi »**,
 /// the default (reviews and lists of the whole network, and what the followed members watched and
 /// liked, ranked by the API), and **« Abonnements »** (what the followed members did, the most

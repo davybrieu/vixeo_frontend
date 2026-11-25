@@ -13,8 +13,7 @@ enum SessionStatus {
 
   /// The saved session could not be checked (API unreachable).
   unreachable,
-  guest,
-  /// Kept for explicit account-deletion flows and older tests; normal sign-out now enters guest mode.
+  /// No valid account session is available on this device.
   signedOut,
   signedIn,
 }
@@ -35,7 +34,6 @@ class SessionState {
   final String? message;
 
   bool get isSignedIn => status == SessionStatus.signedIn;
-  bool get isGuest => status == SessionStatus.guest;
 
   SessionState copyWith({User? user, Profile? profile, bool clearProfile = false}) => SessionState(
     status: status,
@@ -72,7 +70,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository(
 
 final sessionProvider = NotifierProvider<SessionController, SessionState>(SessionController.new);
 
-/// Guest browsing or a signed-in account with its active profile.
+/// Authentication state and the active profile of the signed-in account.
 class SessionController extends Notifier<SessionState> {
   SessionStorage get _storage => ref.read(sessionStorageProvider);
   AuthRepository get _auth => ref.read(authRepositoryProvider);
@@ -90,14 +88,13 @@ class SessionController extends Notifier<SessionState> {
     try {
       token = await _storage.readToken();
     } catch (_) {
-      // Unreadable keychain entry (e.g. a backup restored on another device): clear it
-      // and continue without an account.
+      // An unreadable keychain entry cannot be used to authenticate.
       await _clearQuietly();
-      state = const SessionState(status: SessionStatus.guest);
+      state = const SessionState(status: SessionStatus.signedOut);
       return;
     }
     if (token == null) {
-      state = const SessionState(status: SessionStatus.guest);
+      state = const SessionState(status: SessionStatus.signedOut);
       return;
     }
 
@@ -117,7 +114,7 @@ class SessionController extends Notifier<SessionState> {
     } on ApiException catch (e) {
       if (e.isUnauthorized) {
         await _clear();
-        state = const SessionState(status: SessionStatus.guest);
+        state = const SessionState(status: SessionStatus.signedOut);
       } else {
         state = SessionState(status: SessionStatus.unreachable, message: e.message);
       }
@@ -196,11 +193,6 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(clearProfile: true);
   }
 
-  /// Explicitly enter guest mode from the login screen.
-  void continueAsGuest() {
-    state = const SessionState(status: SessionStatus.guest);
-  }
-
   Future<void> logout() async {
     try {
       await _auth.logout();
@@ -208,14 +200,14 @@ class SessionController extends Notifier<SessionState> {
       // Signing out locally is enough if the API cannot be reached.
     }
     await _clear();
-    state = const SessionState(status: SessionStatus.guest);
+    state = const SessionState(status: SessionStatus.signedOut);
   }
 
   /// The API answered 401: the token was revoked or expired.
   Future<void> expire() async {
     if (!state.isSignedIn) return;
     await _clear();
-    state = const SessionState(status: SessionStatus.guest, message: 'Votre session a expiré. Reconnectez-vous.');
+    state = const SessionState(status: SessionStatus.signedOut, message: 'Votre session a expiré. Reconnectez-vous.');
   }
 
   /// The account was deleted, or its token revoked on purpose: forget it on this device.
@@ -239,7 +231,7 @@ class SessionController extends Notifier<SessionState> {
     try {
       await _clear();
     } catch (_) {
-      // Nothing more to do if the keychain refuses: guest browsing remains available.
+      // Nothing more to do if the keychain refuses.
     }
   }
 }

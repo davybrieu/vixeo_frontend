@@ -252,7 +252,7 @@ class ProfileHeader extends StatelessWidget {
   final VoidCallback? onPeople;
   final Widget? action;
 
-  /// « Envoyer un message » (a round button before [action]); none when null (my profile, a guest,
+  /// « Envoyer un message » (a round button before [action]); none when null (my profile,
   /// a child's profile).
   final VoidCallback? onMessage;
 

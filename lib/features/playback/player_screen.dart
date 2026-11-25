@@ -12,7 +12,6 @@ import '../../core/design.dart';
 import '../../core/device/layout.dart';
 import '../addons/scraper_models.dart';
 import '../addons/scrapers.dart';
-import '../auth/session.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focus_navigation.dart';
@@ -146,7 +145,7 @@ final providerSourcesProvider = FutureProvider.family<List<StreamSource>, Provid
 /// [PlayerEngine] (`engine/`): the native player on Android / iOS, media_kit on Windows.
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key, required this.type, required this.id, this.season, this.episode})
-    : live = false, liveTitle = null, loadLiveStream = null, returnLocation = null, guestOverride = null;
+    : live = false, liveTitle = null, loadLiveStream = null, returnLocation = null;
 
   /// A live channel: the stream is asked for here ([loadStream]), under the same spinner as the
   /// start of playback, so there is a single loading, not a dialog then the player.
@@ -155,7 +154,6 @@ class PlayerScreen extends ConsumerStatefulWidget {
     required String title,
     required Future<TvStream> Function() loadStream,
     this.returnLocation,
-    this.guestOverride,
   }) : type = MediaType.movie,
        id = 0,
        season = null,
@@ -172,7 +170,6 @@ class PlayerScreen extends ConsumerStatefulWidget {
   final String? liveTitle;
   final Future<TvStream> Function()? loadLiveStream;
   final String? returnLocation;
-  final bool? guestOverride;
 
   /// How long the controls stay on screen without any action, while playing.
   static const hideDelay = Duration(seconds: 4);
@@ -826,10 +823,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   /// The credits: the movie or the episode is watched (« Vu », the viewings); then, unless the profile
   /// turned it off or already rated it, the card proposes to rate it (developer's request,
-  /// 23/11/2026). Not for a guest.
+  /// 23/11/2026).
   Future<void> _onReachedEnd() async {
-    final guest = widget.guestOverride ?? ref.read(sessionProvider).isGuest;
-    if (guest) return;
+    
     final TitleDetails details;
     try {
       details = await ref.read(titleProvider((widget.type, widget.id)).future);
@@ -887,12 +883,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final guest = widget.guestOverride ?? ref.watch(sessionProvider.select((s) => s.isGuest));
     final playbackType = widget.type == MediaType.movie ? 'movie' : 'tv';
-    final playbackLocation = widget.live
-        ? (widget.returnLocation ?? '/accueil')
-        : '/lecture/$playbackType/${widget.id}'
-            '${_season != null && _episode != null ? '?saison=$_season&episode=$_episode' : ''}';
     final canLoadSources = !widget.live &&
         (widget.type == MediaType.movie || (_season != null && _episode != null));
     final providersAsync = !canLoadSources
@@ -1045,35 +1036,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         ),
                       );
                     },
-                  ),
-                ),
-              if (guest == true)
-                Positioned(
-                  top: MediaQuery.paddingOf(context).top + 88,
-                  left: 16,
-                  right: 16,
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: Material(
-                      color: const Color(0xE617243B),
-                      borderRadius: BorderRadius.circular(24),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.person_outline_rounded, color: VxColors.accent, size: 18),
-                            const SizedBox(width: 8),
-                            const Text('Mode invité', style: TextStyle(color: Colors.white, fontSize: 13)),
-                            const SizedBox(width: 8),
-                            TextButton(
-                              onPressed: () => context.go('/connexion?redirect=${Uri.encodeComponent(playbackLocation)}'),
-                              child: const Text('Se connecter'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   ),
                 ),
               if (error == null)

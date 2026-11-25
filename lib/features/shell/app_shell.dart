@@ -30,14 +30,7 @@ class _Destination {
   final IconData selectedIcon;
 }
 
-const _guestPhoneTabs = [
-  _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
-  _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
-  _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
-];
-
-/// « Messages »: conversations between members, with the number of unread messages (not for a guest
-/// nor a child's profile).
+/// « Messages »: conversations between members, with the number of unread messages (adult profiles only).
 const _messages = _Destination(
   ConversationsScreen.location,
   'Messages',
@@ -45,7 +38,7 @@ const _messages = _Destination(
   Icons.chat_bubble_rounded,
 );
 
-/// « Fil d'actualité »: what the members did (not for a guest nor a child's profile, nor on a TV).
+/// « Fil d'actualité »: what the members did (adult profiles only, not on a TV).
 const _feed = _Destination(
   FeedScreen.location,
   'Fil d’actualité',
@@ -71,12 +64,6 @@ const _settings = _Destination('/parametres', 'Paramètres', Icons.settings_outl
 
 /// Extra bottom inset so list content clears the floating pill (pill ~50 + margins).
 const _phoneNavClearance = 66.0;
-
-const _guestRailItems = [
-  _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
-  _Destination('/accueil', 'Accueil', Icons.home_outlined, Icons.home_rounded),
-  _Destination('/chaines-tv', 'Chaînes TV', Icons.live_tv_outlined, Icons.live_tv_rounded),
-];
 
 /// Tablet, computer: everything. TV: no « Fil » nor « Messages » (the TV is for watching; what helps
 /// choose is on the title pages). « Notifications »: a button of the profile page.
@@ -105,11 +92,10 @@ class AppShell extends ConsumerWidget {
     final layout = Layout.of(context);
     final session = ref.watch(sessionProvider);
     final profile = session.profile;
-    final guest = session.isGuest;
     // « Chaînes TV » only while live TV is shown (hidden for now: core/features.dart).
     final liveTv = ref.watch(liveTvProvider);
     final inbox = socialAvailable(session);
-    // The number on « Messages » (not for a guest nor a child's profile); the one of
+    // The number on « Messages » (adult profiles only); the one of
     // « Notifications » is on its button of the profile page.
     final badges = inbox
         ? {ConversationsScreen.location: ref.watch(unreadMessagesProvider)}
@@ -122,8 +108,8 @@ class AppShell extends ConsumerWidget {
       '/parametres' when layout.isPhone => !inbox,
       _ => true,
     };
-    final phoneTabs = [for (final d in guest ? _guestPhoneTabs : _phoneTabs) if (shown(d)) d];
-    final railItems = [for (final d in guest ? _guestRailItems : _railItems) if (shown(d)) d];
+    final phoneTabs = [for (final d in _phoneTabs) if (shown(d)) d];
+    final railItems = [for (final d in _railItems) if (shown(d)) d];
     // The badges are read again when the navigation changes page or the app comes back.
     Widget watched(Widget shell) => _UnreadWatcher(location: location, enabled: inbox, child: shell);
 
@@ -144,18 +130,16 @@ class AppShell extends ConsumerWidget {
     }
 
     if (layout.isPhone) {
-      final navigationPages = guest
-          ? {'/accueil', '/recherche', '/chaines-tv'}
-          : {
-              '/accueil',
-              '/chaines-tv',
-              FeedScreen.location,
-              '/recherche',
-              ConversationsScreen.location,
-              '/profil',
-              // A child's profile: « Paramètres » is a tab (no profile page to reach it from).
-              if (!inbox) '/parametres',
-            };
+      final navigationPages = {
+        '/accueil',
+        '/chaines-tv',
+        FeedScreen.location,
+        '/recherche',
+        ConversationsScreen.location,
+        '/profil',
+        // A child's profile: « Paramètres » is a tab (no profile page to reach it from).
+        if (!inbox) '/parametres',
+      };
       final showNavigation = navigationPages.contains(location);
       final index = phoneTabs.indexWhere((d) => location == d.path);
       final selectedIndex = index < 0 ? 0 : index;
@@ -169,14 +153,7 @@ class AppShell extends ConsumerWidget {
               child: child,
             )
           : child;
-      final page = guest
-          ? Column(
-              children: [
-                _GuestBanner(onSignIn: () => context.go('/connexion?redirect=${Uri.encodeComponent(location)}')),
-                Expanded(child: body),
-              ],
-            )
-          : body;
+      final page = body;
 
       return watched(BackNavigationGuard(
         location: location,
@@ -194,13 +171,8 @@ class AppShell extends ConsumerWidget {
                     selectedIndex: selectedIndex,
                     profile: profile,
                     tabs: phoneTabs,
-                    guest: guest,
                     badges: badges,
                     onDestinationSelected: (i) {
-                      if (guest && i == phoneTabs.length) {
-                        context.go('/connexion?redirect=${Uri.encodeComponent(location)}');
-                        return;
-                      }
                       context.go(phoneTabs[i].path);
                     },
                   ),
@@ -217,11 +189,9 @@ class AppShell extends ConsumerWidget {
         child: _LargeShell(
           layout: layout,
           items: railItems,
-          guest: guest,
           profile: profile,
           badges: badges,
           isSelected: _isSelected,
-          onSignIn: () => context.go('/connexion'),
           child: child,
         ),
       ),
@@ -241,23 +211,19 @@ class _LargeShell extends StatefulWidget {
   const _LargeShell({
     required this.layout,
     required this.items,
-    required this.guest,
     required this.profile,
     required this.isSelected,
-    required this.onSignIn,
     required this.child,
     this.badges = const {},
   });
 
   final Layout layout;
   final List<_Destination> items;
-  final bool guest;
   final Profile? profile;
 
   /// The number on a destination, by path (unread notifications, unread messages).
   final Map<String, int> badges;
   final bool Function(String path) isSelected;
-  final VoidCallback onSignIn;
   final Widget child;
 
   @override
@@ -323,7 +289,6 @@ class _LargeShellState extends State<_LargeShell> {
                 itemSize: itemSize,
                 padding: layout.isLarge ? layout.tv(56) : 24,
                 items: widget.items,
-                guest: widget.guest,
                 profile: widget.profile,
                 badges: widget.badges,
                 isSelected: widget.isSelected,
@@ -334,7 +299,6 @@ class _LargeShellState extends State<_LargeShell> {
           Expanded(
             child: Column(
               children: [
-                if (widget.guest) _GuestBanner(onSignIn: widget.onSignIn),
                 Expanded(
                   child: Actions(
                     actions: {
@@ -366,7 +330,6 @@ class _Rail extends StatefulWidget {
     required this.itemSize,
     required this.padding,
     required this.items,
-    required this.guest,
     required this.profile,
     required this.isSelected,
     required this.itemNode,
@@ -379,7 +342,6 @@ class _Rail extends StatefulWidget {
   final double itemSize;
   final double padding;
   final List<_Destination> items;
-  final bool guest;
   final Profile? profile;
   final bool Function(String path) isSelected;
 
@@ -429,29 +391,13 @@ class _RailState extends State<_Rail> {
             padding: EdgeInsets.symmetric(vertical: padding),
             child: Column(
               children: [
-                if (widget.guest)
-                  VxFocusable(
-                    onPressed: () => context.go('/connexion'),
-                    borderRadius: size * 0.25,
-                    semanticLabel: 'Se connecter',
-                    child: Container(
-                      width: size * 0.78,
-                      height: size * 0.78,
-                      decoration: BoxDecoration(
-                        color: VxColors.accent.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(size * 0.2),
-                      ),
-                      child: Icon(Icons.login_rounded, size: size * 0.38, color: VxColors.accent),
-                    ),
-                  )
-                else
-                  VxFocusable(
-                    onPressed: () => context.go('/profil'),
-                    borderRadius: size * 0.25,
-                    onAccent: widget.profile?.avatar == null && widget.profile?.photoUrl == null,
-                    semanticLabel: 'Mon profil (${widget.profile?.name ?? ''})',
-                    child: ProfileAvatar(profile: widget.profile, size: size * 0.78, radius: size * 0.2),
-                  ),
+                VxFocusable(
+                  onPressed: () => context.go('/profil'),
+                  borderRadius: size * 0.25,
+                  onAccent: widget.profile?.avatar == null && widget.profile?.photoUrl == null,
+                  semanticLabel: 'Mon profil (${widget.profile?.name ?? ''})',
+                  child: ProfileAvatar(profile: widget.profile, size: size * 0.78, radius: size * 0.2),
+                ),
                 SizedBox(height: size * 0.55),
                 for (final d in widget.items)
                   Padding(
@@ -469,39 +415,6 @@ class _RailState extends State<_Rail> {
           ),
         );
       },
-    ),
-  );
-}
-
-class _GuestBanner extends StatelessWidget {
-  const _GuestBanner({required this.onSignIn});
-
-  final VoidCallback onSignIn;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: const Color(0xFF17243B),
-    child: SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-        child: Row(
-          children: [
-            const Icon(Icons.person_outline_rounded, color: VxColors.accent, size: 20),
-            const SizedBox(width: 9),
-            const Expanded(
-              child: Text(
-                'Mode invité · Connectez-vous pour retrouver vos profils et vos fonctionnalités personnelles.',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
-              ),
-            ),
-            const SizedBox(width: 8),
-            TextButton(onPressed: onSignIn, child: const Text('Se connecter')),
-          ],
-        ),
-      ),
     ),
   );
 }
@@ -561,7 +474,6 @@ class _PhoneNavigationBar extends StatelessWidget {
     required this.selectedIndex,
     required this.profile,
     required this.tabs,
-    required this.guest,
     required this.onDestinationSelected,
     this.badges = const {},
   });
@@ -569,7 +481,6 @@ class _PhoneNavigationBar extends StatelessWidget {
   final int selectedIndex;
   final Profile? profile;
   final List<_Destination> tabs;
-  final bool guest;
   final ValueChanged<int> onDestinationSelected;
 
   /// The number on a tab, by path (unread notifications, unread messages).
@@ -600,25 +511,21 @@ class _PhoneNavigationBar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
                 child: Row(
                   children: [
-                    for (var i = 0; i < tabs.length + (guest ? 1 : 0); i++)
+                    for (var i = 0; i < tabs.length; i++)
                       Expanded(
                         child: _PhoneNavigationItem(
                           selected: selectedIndex == i,
                           onPressed: () => onDestinationSelected(i),
-                          label: i == tabs.length
-                              ? 'Se connecter'
-                              : (badges[tabs[i].path] ?? 0) > 0
-                                  ? '${tabs[i].label}, ${badgeLabel(tabs[i].path, badges[tabs[i].path]!)}'
-                                  : tabs[i].label,
-                          child: i == tabs.length
-                              ? const Icon(Icons.login_rounded, size: 24)
-                              : tabs[i].path == '/profil'
-                                  ? ProfileAvatar(profile: profile, size: 28, radius: 15)
-                                  : NavigationBadge(
-                                      count: badges[tabs[i].path] ?? 0,
-                                      size: 16,
-                                      child: Icon(selectedIndex == i ? tabs[i].selectedIcon : tabs[i].icon, size: 24),
-                                    ),
+                          label: (badges[tabs[i].path] ?? 0) > 0
+                              ? '${tabs[i].label}, ${badgeLabel(tabs[i].path, badges[tabs[i].path]!)}'
+                              : tabs[i].label,
+                          child: tabs[i].path == '/profil'
+                              ? ProfileAvatar(profile: profile, size: 28, radius: 15)
+                              : NavigationBadge(
+                                  count: badges[tabs[i].path] ?? 0,
+                                  size: 16,
+                                  child: Icon(selectedIndex == i ? tabs[i].selectedIcon : tabs[i].icon, size: 24),
+                                ),
                         ),
                       ),
                   ],

@@ -117,7 +117,7 @@ void main() {
     expect(find.text('Continuer avec Google'), findsOneWidget);
     expect(find.text('Continuer avec Apple'), findsOneWidget);
     expect(find.text('Continuer avec l’e-mail'), findsOneWidget);
-    expect(find.text('Continuer en invité'), findsOneWidget);
+    expect(find.text('Continuer en invité'), findsNothing);
     expect(find.textContaining('que votre nom et votre adresse e-mail'), findsOneWidget);
   });
 
