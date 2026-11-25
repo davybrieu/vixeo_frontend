@@ -457,7 +457,7 @@ lib/
   `PagedBuilder` / `watchPages`, `PagedFooter` (cercle ou « Réessayer » sous la liste),
   `LoadMoreOnScroll` et `LoadMoreSentinel` pour une liste construite d'un coup ; jamais de bouton
   « Afficher plus ») : « Voir tout » du catalogue, distribution, titres d'une personne, pages d'un
-  membre (« À voir », J'aime, vus, personnes, avis, abonnés, abonnements, listes), mes listes (et
+  membre (« À voir », J'aime, vus, avis, abonnés, abonnements, listes), mes listes (et
   « Ajouter à une liste »), « Mes avis » (l'API filtre le type et trie, `myReviewsProvider`),
   notifications, activité d'un profil, fil, commentaires, messages. Mes « À voir », J'aime et vus
   viennent de la synchro (tous sur l'appareil) : leurs fiches (`/catalog/titles`) sont demandées
@@ -1042,7 +1042,7 @@ lib/
   Activité, Listes, Avis, Aimés, Vus ; grilles d'une seule requête `titlesByIdProvider` via
   `withCatalogDetails`) ; le bouton rond « Voir tout » ouvre `/listes/a-voir`, `/avis`,
   `/profil/social/aimes|vus` (le mien) ou `/membre/:username/a-voir|avis|aimes|vus|
-  personnes|abonnes|abonnements` (**adresses en français seulement**, plus de `list`, `liked`,
+  abonnes|abonnements` (**adresses en français seulement**, plus de `list`, `liked`,
   `reviews`… : une autre section affiche « Page introuvable ») : **les mêmes pages** « À voir »,
   J'aime, titres vus (`MyListScreen(username:, collection:)`, sans les chaînes) et « Ses avis »
   (`ReviewsScreen(username:)`), avec recherche, filtres et tri (demande du développeur) ;
