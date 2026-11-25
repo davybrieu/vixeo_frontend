@@ -131,7 +131,7 @@ void main() {
     expect(find.byType(TmdbRating), findsNothing);
   });
 
-  testWidgets('movie: "Créateur et distribution", the director first, then the cast', (tester) async {
+  testWidgets('movie: « Distribution » and « Équipe technique », two rows', (tester) async {
     await pumpDetails(
       tester,
       const TitleDetails(
@@ -139,16 +139,27 @@ void main() {
         type: MediaType.movie,
         title: 'Nord Sauvage',
         cast: cast,
-        crew: [Person(id: 9, name: 'Ines Dahl')],
+        crew: [
+          Person(id: 9, name: 'Ines Dahl', role: 'Réalisation, Scénario'),
+          Person(id: 10, name: 'Oskar Brun', role: 'Musique'),
+        ],
       ),
     );
 
-    await tester.scrollUntilVisible(find.text('Créateur et distribution'), 200, scrollable: pageScroll);
+    await tester.scrollUntilVisible(find.text('Équipe technique'), 200, scrollable: pageScroll);
     await tester.pumpAndSettle();
-    expect(find.text('Distribution'), findsNothing);
-    expect(cardNames(tester), ['Ines Dahl (Réalisation)', 'Alma Meyer-Lindqvist (Ingrid)', 'Théo Rivière (Karl)']);
-    expect(find.bySemanticsLabel('Ines Dahl, Réalisation'), findsOneWidget);
-    // Only in the row: no "Réalisation : …" line under the overview any more.
+    expect(find.text('Distribution'), findsOneWidget);
+    expect(find.text('Créateur et distribution'), findsNothing);
+    // The cast first, with their characters; then the crew, with their jobs.
+    expect(cardNames(tester), [
+      'Alma Meyer-Lindqvist (Ingrid)',
+      'Théo Rivière (Karl)',
+      'Ines Dahl (Réalisation, Scénario)',
+      'Oskar Brun (Musique)',
+    ]);
+    expect(tester.getTopLeft(find.text('Distribution')).dy, lessThan(tester.getTopLeft(find.text('Équipe technique')).dy));
+    expect(find.bySemanticsLabel('Ines Dahl, Réalisation, Scénario'), findsOneWidget);
+    // Only in the rows: no "Réalisation : …" line under the overview any more.
     expect(find.textContaining('Réalisation :'), findsNothing);
 
     // A long name gets two lines on a wider card, instead of being cut after a few letters.
@@ -157,7 +168,7 @@ void main() {
     expect(tester.getSize(find.byType(PersonCard).first).width, greaterThanOrEqualTo(100));
   });
 
-  testWidgets('TV show: the creators are marked "Création"', (tester) async {
+  testWidgets('TV show: the creators in « Équipe technique », the sections on the same edge', (tester) async {
     await pumpDetails(
       tester,
       const TitleDetails(
@@ -166,16 +177,17 @@ void main() {
         title: 'Les Veilleurs',
         overview: 'Résumé des Veilleurs',
         cast: cast,
-        crew: [Person(id: 9, name: 'Ines Dahl')],
+        crew: [Person(id: 9, name: 'Ines Dahl', role: 'Création')],
       ),
       size: const Size(1920, 1080),
     );
 
-    await tester.scrollUntilVisible(find.text('Créateur et distribution'), 300, scrollable: pageScroll);
+    await tester.scrollUntilVisible(find.text('Équipe technique'), 300, scrollable: pageScroll);
     await tester.pumpAndSettle();
-    expect(cardNames(tester).first, 'Ines Dahl (Création)');
+    expect(cardNames(tester).last, 'Ines Dahl (Création)');
     // Title, overview and the sections below start at the same left edge.
-    final left = tester.getTopLeft(find.text('Créateur et distribution')).dx;
+    final left = tester.getTopLeft(find.text('Distribution')).dx;
+    expect(tester.getTopLeft(find.text('Équipe technique')).dx, left);
     expect(tester.getTopLeft(find.text('Les Veilleurs').first).dx, left);
     expect(tester.getTopLeft(find.text('Résumé des Veilleurs')).dx, left);
 
@@ -184,11 +196,11 @@ void main() {
     expect(find.textContaining('Création :'), findsNothing);
   });
 
-  testWidgets('no director nor creator: "Distribution" only', (tester) async {
+  testWidgets('no crew: « Distribution » only', (tester) async {
     await pumpDetails(tester, const TitleDetails(id: 3, type: MediaType.movie, title: 'Le Phare', cast: cast));
 
     await tester.scrollUntilVisible(find.text('Distribution'), 200, scrollable: pageScroll);
-    expect(find.text('Créateur et distribution'), findsNothing);
+    expect(find.text('Équipe technique'), findsNothing);
     expect(cardNames(tester).first, 'Alma Meyer-Lindqvist (Ingrid)');
   });
 

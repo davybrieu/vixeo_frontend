@@ -436,12 +436,20 @@ final routerProvider = Provider<GoRouter>((ref) {
               id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
             ),
           ),
+          // « Voir tout » of « Distribution » and « Équipe technique ».
           GoRoute(
             path: '/titre/:type/:id/distribution',
             builder: (_, state) => CreditsScreen(
               type: MediaType.parse(state.pathParameters['type']),
               id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
-              title: state.uri.queryParameters['titre'],
+            ),
+          ),
+          GoRoute(
+            path: '/titre/:type/:id/equipe',
+            builder: (_, state) => CreditsScreen(
+              type: MediaType.parse(state.pathParameters['type']),
+              id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+              crew: true,
             ),
           ),
         ],

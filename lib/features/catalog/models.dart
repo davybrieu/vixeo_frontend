@@ -253,14 +253,15 @@ class Person {
   factory Person.fromJson(Map<String, dynamic> json) => Person(
     id: json['id'] as int,
     name: json['name'] as String? ?? '',
-    role: (json['character'] ?? json['known_for_department']) as String?,
+    role: (json['character'] ?? json['job'] ?? json['known_for_department']) as String?,
     profileUrl: json['profile_url'] as String?,
   );
 
   final int id;
   final String name;
 
-  /// Character (cast) or department (search results).
+  /// Character (cast), jobs (« Équipe technique » : « Réalisation, Scénario ») or department
+  /// (search results).
   final String? role;
   final String? profileUrl;
 
@@ -273,15 +274,16 @@ class Person {
   }
 }
 
-/// Everyone of a title, for « Créateur et distribution » → « Voir tout »
-/// (`GET /catalog/{type}/{id}/credits`; the title page only has 20 cast members).
+/// Everyone of a title, for « Voir tout » of « Distribution » or « Équipe technique »
+/// (`GET /catalog/{type}/{id}/credits`, `group=crew` for the crew; the title page has 20 of each).
 class TitleCredits {
   const TitleCredits({required this.crew, required this.cast});
 
   factory TitleCredits.fromJson(Map<String, dynamic> json) =>
       TitleCredits(crew: _list(json['crew'], Person.fromJson), cast: _list(json['cast'], Person.fromJson));
 
-  /// Directors (movie) or creators (TV show).
+  /// Directors or creators (the first page of the cast), or « Équipe technique » (`group=crew`),
+  /// [Person.role] their jobs.
   final List<Person> crew;
 
   /// The whole cast, in billing order; [Person.role] is the character.
@@ -497,7 +499,19 @@ class TitleDetails {
           ? Trailer.fromJson(json['trailer'] as Map<String, dynamic>)
           : null,
       cast: _list(json['cast'], Person.fromJson),
-      crew: _list(json[type == MediaType.movie ? 'directors' : 'creators'], Person.fromJson),
+      // « Équipe technique »: everyone but the actors, their jobs in French (role); an API of before
+      // gave only the directors or creators.
+      crew: json['crew'] is List
+          ? _list(json['crew'], Person.fromJson)
+          : [
+              for (final p in _list(json[type == MediaType.movie ? 'directors' : 'creators'], Person.fromJson))
+                Person(
+                  id: p.id,
+                  name: p.name,
+                  role: type == MediaType.movie ? 'Réalisation' : 'Création',
+                  profileUrl: p.profileUrl,
+                ),
+            ],
       // Specials (season 0) last.
       seasons: _list(json['seasons'], SeasonSummary.fromJson)
         ..sort((a, b) => (a.number == 0 ? 9999 : a.number).compareTo(b.number == 0 ? 9999 : b.number)),
@@ -540,7 +554,7 @@ class TitleDetails {
   final Trailer? trailer;
   final List<Person> cast;
 
-  /// Directors (movie) or creators (TV show).
+  /// « Équipe technique » (20 at most): everyone but the actors, [Person.role] their jobs.
   final List<Person> crew;
   final List<SeasonSummary> seasons;
   final List<MediaItem> recommended;

@@ -439,9 +439,8 @@ lib/
 - **« Voir tout » de la fiche et de la page d'une personne** (demande du développeur,
   20/11/2026) : le même bouton rond sur « Vous pourriez aussi aimer »
   (`RecommendationsScreen`, `/titre/:type/:id/recommandations`, paginé,
-  `recommendationsProvider`), « Créateur et distribution » (`CreditsScreen`,
-  `/titre/:type/:id/distribution?titre=…`, grille de `PersonCard` : réalisation ou création
-  d'abord, puis toute la distribution, `titleCreditsProvider`), « Connu pour » et
+  `recommendationsProvider`), « Distribution » et « Équipe technique » (`CreditsScreen`,
+  `/titre/:type/:id/distribution` et `/equipe`, grille de `PersonCard`), « Connu pour » et
   « Filmographie » (`PersonTitlesScreen`, `/personne/:id/connu-pour` et `/filmographie`, tous les
   titres, `personCreditsProvider`). Mêmes pages que « Voir tout » de l'accueil (`_SeeAllPage` :
   retour, titre, grille `PagedGrid` : **20 d'abord, les suivants en défilant**, voir « Pages de
@@ -904,12 +903,16 @@ lib/
   (`RecentSearches`, API `/profiles/{id}/searches`) : affichées tout de suite, enregistrées en
   arrière-plan, 8 visibles sur 20 gardées ; « orbi » puis « orbite » ne garde que « orbite » (même
   règle que l'API). Pas de page par genre : on filtre par genre dans la recherche.
-- **Fiche : « Créateur et distribution »** : la rangée commence, à gauche, par la réalisation
-  (film, `directors`) ou la création (série, `creators`), marquées « Réalisation » / « Création »
-  (mots neutres), puis la distribution ; « Distribution » seul si TMDb n'en donne pas. Pas de
-  ligne « Avec … · Réalisation : … » sous le résumé (demande du développeur). Les cartes
-  de personnes passent toutes par `PersonCard` (`catalog/widgets.dart`, fiche et recherche) : nom
-  et rôle sur deux lignes au plus, pour ne pas les couper.
+- **Fiche : « Distribution » et « Équipe technique »** (demande du développeur, 25/11/2026 :
+  deux rangées) : « Distribution » (les acteurs, leur personnage) puis « Équipe technique » (tous
+  les autres, une fois chacun avec **leurs métiers en français** : « Réalisation, Scénario »,
+  « Musique »… ; `TitleDetails.crew`, `crew` de l'API, les plus importants d'abord, création d'une
+  série en tête), 20 chacune, chacune avec son « Voir tout » (`CreditsScreen`,
+  `/titre/:type/:id/distribution` et `/titre/:type/:id/equipe`, `titleCreditsProvider` /
+  `titleCrewProvider`, API `credits` et `credits?group=crew`). Pas de ligne « Avec … · Réalisation :
+  … » sous le résumé (demande du développeur). Les cartes de personnes passent toutes par
+  `PersonCard` (`catalog/widgets.dart`, fiche et recherche) : nom et rôle sur deux lignes au plus,
+  pour ne pas les couper.
 - **Logo du titre** (`TitleLogo`, `catalog/widgets.dart`) : fiche, grande image (accueil et
   recherche) et carrousel du téléphone écrivent le titre avec le logo TMDb (`logo_url`),
   dimensionné avant son chargement (`logo_aspect_ratio`) ; sans logo, ou s'il ne se charge pas, le

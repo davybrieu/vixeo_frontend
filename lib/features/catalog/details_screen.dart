@@ -148,27 +148,27 @@ class _Actions extends ConsumerWidget {
   }
 }
 
-/// "Créateur et distribution": the director(s) of a movie or creator(s) of a TV show first, on
-/// the left, then the cast ("Distribution" alone when TMDb gives no director or creator).
+/// « Distribution » (the actors, their characters) or « Équipe technique » (everyone else, their
+/// jobs in French: « Réalisation, Scénario »), two rows (developer's request, 25/11/2026), 20
+/// people each; « Voir tout » opens everyone.
 class _PeopleRow extends StatelessWidget {
-  const _PeopleRow({required this.title});
+  const _PeopleRow({required this.title, required this.crew});
 
   final TitleDetails title;
+  final bool crew;
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final crewRole = title.type == MediaType.movie ? 'Réalisation' : 'Création';
-    final people = [for (final p in title.crew) (p, crewRole), for (final p in title.cast) (p, p.role)];
-    final heading = title.crew.isEmpty ? 'Distribution' : 'Créateur et distribution';
+    final people = crew ? title.crew : title.cast;
+    final heading = crew ? 'Équipe technique' : 'Distribution';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // « Voir tout »: the whole cast (this row has 20 of them).
         SectionHeader(
           heading,
-          onSeeAll: () => context.push(CreditsScreen.location(title.type, title.id, heading)),
+          onSeeAll: () => context.push(CreditsScreen.location(title.type, title.id, crew: crew)),
         ),
         FocusTraversalGroup(
           policy: vxTraversalPolicy,
@@ -181,7 +181,7 @@ class _PeopleRow extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: layout.isLarge ? layout.tv(16) : 0),
               itemCount: people.length,
               separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
-              itemBuilder: (_, i) => PersonCard(person: people[i].$1, role: people[i].$2),
+              itemBuilder: (_, i) => PersonCard(person: people[i], role: people[i].role),
             ),
           ),
         ),
@@ -666,7 +666,8 @@ List<Widget> _lowerSections(BuildContext context, Layout layout, TitleDetails t)
   final gap = SizedBox(height: layout.sectionGap);
   return [
     if (t.type == MediaType.tv && t.seasons.isNotEmpty) ...[gap, _Episodes(title: t)],
-    if (t.cast.isNotEmpty || t.crew.isNotEmpty) ...[gap, _PeopleRow(title: t)],
+    if (t.cast.isNotEmpty) ...[gap, _PeopleRow(title: t, crew: false)],
+    if (t.crew.isNotEmpty) ...[gap, _PeopleRow(title: t, crew: true)],
     // What the members say about it: followed members, popular reviews, lists.
     TitleSocialSection(type: t.type, id: t.id, name: t.title),
     if (t.recommended.isNotEmpty) ...[
@@ -755,7 +756,7 @@ class _LargeDetails extends StatelessWidget {
               ),
             ),
             Padding(
-              // Same left edge as the sections below ("Créateur et distribution", rows).
+              // Same left edge as the sections below (« Distribution », rows).
               padding: EdgeInsets.fromLTRB(layout.gutter, layout.tv(60), layout.gutter, 0),
               child: SizedBox(
                 width: layout.tv(1100),

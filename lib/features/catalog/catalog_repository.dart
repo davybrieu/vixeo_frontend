@@ -73,19 +73,17 @@ class CatalogRepository {
     MediaItem.fromJson,
   );
 
-  /// One page of « Créateur et distribution » → « Voir tout »: the directors (movie) or creators
-  /// (TV show) first, on the first page, their role « Réalisation » / « Création »; then 20 cast
-  /// members a page, their role the character.
-  Future<Paged<Person>> credits(MediaType type, int id, {int page = 1}) async {
-    final json = await _api.get('/catalog/${type.name}/$id/credits', query: {'page': page});
+  /// One page of « Voir tout » of « Distribution » (20 cast members, their role the character) or,
+  /// [crew], of « Équipe technique » (20 people, their role their jobs: « Réalisation, Scénario »).
+  Future<Paged<Person>> credits(MediaType type, int id, {int page = 1, bool crew = false}) async {
+    final json = await _api.get(
+      '/catalog/${type.name}/$id/credits',
+      query: {'page': page, if (crew) 'group': 'crew'},
+    );
     final credits = TitleCredits.fromJson(json['data'] as Map<String, dynamic>);
-    final crewRole = type == MediaType.movie ? 'Réalisation' : 'Création';
     final meta = Paged<Person>.fromJson({'meta': json['meta']}, (_) => null);
     return Paged(
-      items: [
-        for (final p in credits.crew) Person(id: p.id, name: p.name, role: crewRole, profileUrl: p.profileUrl),
-        ...credits.cast,
-      ],
+      items: crew ? credits.crew : credits.cast,
       page: meta.page,
       totalPages: meta.totalPages,
       totalResults: meta.totalResults,
@@ -219,11 +217,16 @@ final recommendationsProvider = FutureProvider.autoDispose.family<Paged<MediaIte
   return ref.read(catalogRepositoryProvider).recommendations(key.$1, key.$2, page: key.$3);
 });
 
-/// One page of the people of a title (type, id, page): « Voir tout » of « Créateur et
-/// distribution ».
+/// One page of the cast of a title (type, id, page): « Voir tout » of « Distribution ».
 final titleCreditsProvider = FutureProvider.autoDispose.family<Paged<Person>, (MediaType, int, int)>((ref, key) {
   ref.watch(_catalogKeyProvider);
   return ref.read(catalogRepositoryProvider).credits(key.$1, key.$2, page: key.$3);
+});
+
+/// One page of « Équipe technique » (type, id, page): its « Voir tout » page.
+final titleCrewProvider = FutureProvider.autoDispose.family<Paged<Person>, (MediaType, int, int)>((ref, key) {
+  ref.watch(_catalogKeyProvider);
+  return ref.read(catalogRepositoryProvider).credits(key.$1, key.$2, page: key.$3, crew: true);
 });
 
 final searchProvider = FutureProvider.autoDispose.family<SearchResults, (String, SearchFilters)>((ref, key) {

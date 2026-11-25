@@ -15,7 +15,7 @@ import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 
 // « Voir tout » of the title and person pages (developer's request): « Vous pourriez aussi
-// aimer », « Créateur et distribution », « Connu pour » and « Filmographie » open their whole list.
+// aimer », « Distribution », « Équipe technique », « Connu pour » and « Filmographie » open their whole list.
 
 class _EmptyLibrary extends LibraryController {
   @override
@@ -78,7 +78,14 @@ Future<void> _pump(WidgetTester tester, String start, {List<Override> overrides 
         builder: (_, state) => CreditsScreen(
           type: MediaType.parse(state.pathParameters['type']),
           id: int.parse(state.pathParameters['id']!),
-          title: state.uri.queryParameters['titre'],
+        ),
+      ),
+      GoRoute(
+        path: '/titre/:type/:id/equipe',
+        builder: (_, state) => CreditsScreen(
+          type: MediaType.parse(state.pathParameters['type']),
+          id: int.parse(state.pathParameters['id']!),
+          crew: true,
         ),
       ),
       GoRoute(path: '/personne/:id', builder: (_, state) => PersonScreen(id: int.parse(state.pathParameters['id']!))),
@@ -134,25 +141,19 @@ void main() {
     expect(find.byType(PosterCard), findsNWidgets(2));
   });
 
-  testWidgets('title page: « Créateur et distribution » opens everyone, the director first', (tester) async {
+  testWidgets('title page: « Distribution » opens the whole cast, 20 at a time', (tester) async {
     final asked = <int>[];
     await _pump(
       tester,
       '/titre/movie/550',
       overrides: [
-        // Two pages of 20: the director and 19 actors, then 6 more actors.
+        // Two pages of 20: 20 actors, then 6 more.
         titleCreditsProvider.overrideWith((ref, key) async {
           asked.add(key.$3);
           return key.$3 == 1
-              ? Paged(
-                  items: [
-                    const Person(id: 9, name: 'Ines Dahl', role: 'Réalisation'),
-                    for (var i = 1; i <= 19; i++) Person(id: i, name: 'Acteur $i', role: 'Rôle $i'),
-                  ],
-                  totalPages: 2,
-                )
+              ? Paged(items: [for (var i = 1; i <= 20; i++) Person(id: i, name: 'Acteur $i', role: 'Rôle $i')], totalPages: 2)
               : Paged(
-                  items: [for (var i = 20; i <= 25; i++) Person(id: i, name: 'Acteur $i', role: 'Rôle $i')],
+                  items: [for (var i = 21; i <= 26; i++) Person(id: i, name: 'Acteur $i', role: 'Rôle $i')],
                   page: 2,
                   totalPages: 2,
                 );
@@ -160,22 +161,50 @@ void main() {
       ],
     );
 
-    final seeAll = _pressable('Voir tout : Créateur et distribution');
+    final seeAll = _pressable('Voir tout : Distribution');
     await tester.scrollUntilVisible(seeAll, 200, scrollable: _pageScroll);
     await tester.tap(seeAll);
     await tester.pumpAndSettle();
 
-    expect(find.text('Créateur et distribution'), findsOneWidget);
+    expect(find.text('Distribution'), findsOneWidget);
     final cards = tester.widgetList<PersonCard>(find.byType(PersonCard)).toList();
-    expect('${cards.first.person.name} (${cards.first.role})', 'Ines Dahl (Réalisation)');
-    expect('${cards[1].person.name} (${cards[1].role})', 'Acteur 1 (Rôle 1)');
+    expect('${cards.first.person.name} (${cards.first.role})', 'Acteur 1 (Rôle 1)');
     // 20 people first.
     expect(asked, [1]);
 
     // The rest of the cast, read as the grid scrolls.
-    await tester.scrollUntilVisible(find.text('Acteur 25'), 300, scrollable: _pageScroll);
-    expect(find.text('Rôle 25'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Acteur 26'), 300, scrollable: _pageScroll);
+    expect(find.text('Rôle 26'), findsOneWidget);
     expect(asked, [1, 2]);
+  });
+
+  testWidgets('title page: « Équipe technique » opens the whole crew, with their jobs', (tester) async {
+    final asked = <int>[];
+    await _pump(
+      tester,
+      '/titre/movie/550',
+      overrides: [
+        titleCrewProvider.overrideWith((ref, key) async {
+          asked.add(key.$3);
+          return Paged(
+            items: const [
+              Person(id: 9, name: 'Ines Dahl', role: 'Réalisation, Scénario'),
+              Person(id: 10, name: 'Oskar Brun', role: 'Musique'),
+            ],
+          );
+        }),
+      ],
+    );
+
+    final seeAll = _pressable('Voir tout : Équipe technique');
+    await tester.scrollUntilVisible(seeAll, 200, scrollable: _pageScroll);
+    await tester.tap(seeAll);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Équipe technique'), findsOneWidget);
+    final cards = tester.widgetList<PersonCard>(find.byType(PersonCard)).toList();
+    expect([for (final c in cards) '${c.person.name} (${c.role})'], ['Ines Dahl (Réalisation, Scénario)', 'Oskar Brun (Musique)']);
+    expect(asked, [1]);
   });
 
   testWidgets('person page: the filmography is a horizontal row, like « Connu pour »', (tester) async {

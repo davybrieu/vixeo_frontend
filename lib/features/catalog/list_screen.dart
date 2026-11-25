@@ -76,36 +76,30 @@ class PersonTitlesScreen extends StatelessWidget {
   );
 }
 
-/// "Voir tout" of « Créateur et distribution » on a title page: the director(s) of a movie or the
-/// creator(s) of a TV show first, then the whole cast, 20 at a time (the next ones as the grid
-/// scrolls).
+/// « Voir tout » of « Distribution » (the whole cast) or « Équipe technique » (everyone else, their
+/// jobs) on a title page, 20 at a time (the next ones as the grid scrolls).
 class CreditsScreen extends ConsumerWidget {
-  const CreditsScreen({super.key, required this.type, required this.id, this.title});
+  const CreditsScreen({super.key, required this.type, required this.id, this.crew = false});
 
   final MediaType type;
   final int id;
 
-  /// The row's title (« Créateur et distribution » or « Distribution »); without it (address typed
-  /// by hand), chosen once the people are known.
-  final String? title;
+  /// « Équipe technique » (`/titre/:type/:id/equipe`), else « Distribution »
+  /// (`/titre/:type/:id/distribution`).
+  final bool crew;
 
-  static String location(MediaType type, int id, String title) =>
-      '/titre/${type.name}/$id/distribution?titre=${Uri.encodeQueryComponent(title)}';
+  static String location(MediaType type, int id, {bool crew = false}) =>
+      '/titre/${type.name}/$id/${crew ? 'equipe' : 'distribution'}';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
-    final crewRole = type == MediaType.movie ? 'Réalisation' : 'Création';
-    final given = title?.trim() ?? '';
-    // The crew comes with the first page (the grid's own).
-    final firstPage = ref.watch(titleCreditsProvider((type, id, 1))).value;
-    final hasCrew = given.isNotEmpty || (firstPage?.items.any((p) => p.role == crewRole) ?? true);
 
     return _SeeAllPage(
-      heading: given.isNotEmpty ? given : (hasCrew ? 'Créateur et distribution' : 'Distribution'),
+      heading: crew ? 'Équipe technique' : 'Distribution',
       content: PagedGrid<Person>(
-        page: (page) => titleCreditsProvider((type, id, page)),
-        // A director who also plays: twice, once for each role.
+        page: (page) => crew ? titleCrewProvider((type, id, page)) : titleCreditsProvider((type, id, page)),
+        // An actor in two roles: twice, once for each.
         idOf: (person) => '${person.id}:${person.role}',
         // The same cards as the title page's row, as many per line as fit.
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(

@@ -399,7 +399,36 @@ void main() {
     expect(state.forItem(const MediaItem(id: 2, type: MediaType.movie, title: 'x'))?.isFavorite, isTrue);
   });
 
-  test('parses the credits of a title (« Voir tout » of « Créateur et distribution »)', () {
+  test('« Équipe technique »: everyone but the actors, their jobs as their role', () {
+    final movie = TitleDetails.fromJson({
+      'id': 550,
+      'type': 'movie',
+      'title': 'Fight Club',
+      'directors': [
+        {'id': 7467, 'name': 'David Fincher'},
+      ],
+      'crew': [
+        {'id': 7467, 'name': 'David Fincher', 'job': 'Réalisation, Scénario', 'jobs': ['Réalisation', 'Scénario']},
+        {'id': 1, 'name': 'Dust Brothers', 'job': 'Musique', 'jobs': ['Musique']},
+      ],
+    });
+    expect([for (final p in movie.crew) '${p.name} (${p.role})'], [
+      'David Fincher (Réalisation, Scénario)',
+      'Dust Brothers (Musique)',
+    ]);
+    // An API of before: the directors, « Réalisation ».
+    final before = TitleDetails.fromJson({
+      'id': 550,
+      'type': 'movie',
+      'title': 'Fight Club',
+      'directors': [
+        {'id': 7467, 'name': 'David Fincher'},
+      ],
+    });
+    expect(before.crew.single.role, 'Réalisation');
+  });
+
+  test('parses the credits of a title (« Voir tout » of « Distribution »)', () {
     final credits = TitleCredits.fromJson({
       'crew': [
         {'id': 7467, 'name': 'David Fincher', 'profile_url': 'https://image.tmdb.org/t/p/w185/fincher.jpg'},
