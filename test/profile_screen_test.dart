@@ -419,8 +419,6 @@ void main() {
     await _tab(tester, 'Aimés');
     expect(find.text('Ses J’aime'), findsOneWidget);
     expect(find.text('Forrest Gump'), findsWidgets);
-    expect(find.text('Personnes suivies'), findsOneWidget);
-    expect(find.text('Brad Pitt'), findsOneWidget);
 
     await _tab(tester, 'Vus');
     expect(find.text('Ses titres vus'), findsOneWidget);
@@ -707,8 +705,7 @@ void main() {
           socialTitlesProvider.overrideWith((ref, key) async => const Paged<MediaItem>(items: [])),
           socialLikedProvider.overrideWith((ref, key) async => const Paged<MediaItem>(items: [])),
           socialWatchedProvider.overrideWith((ref, key) async => const Paged<MediaItem>(items: [])),
-          socialPeopleProvider.overrideWith((ref, key) async => const Paged<Person>(items: [])),
-          socialReviewsProvider.overrideWith((ref, key) async => const Paged<RatedItem>(items: [])),
+            socialReviewsProvider.overrideWith((ref, key) async => const Paged<RatedItem>(items: [])),
           titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
         ],
         child: MaterialApp(theme: buildVixeoTheme(), home: const PublicProfileScreen(username: 'max')),
@@ -992,7 +989,6 @@ Future<_FakeSocial> _pumpMember(
         socialLikedProvider.overrideWith(
           (ref, key) async => const Paged(items: [MediaItem(id: 13, type: MediaType.movie, title: 'Forrest Gump', year: 1994)]),
         ),
-        socialPeopleProvider.overrideWith((ref, key) async => const Paged(items: [Person(id: 287, name: 'Brad Pitt')])),
         titlesByIdProvider.overrideWith((ref, key) async => const <TitleRef, MediaItem>{}),
       ],
       child: MaterialApp.router(theme: buildVixeoTheme(), routerConfig: router),
