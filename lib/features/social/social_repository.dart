@@ -30,7 +30,7 @@ class SocialProfile {
     this.reviewsCount = 0, this.watchedCount = 0, this.listCount = 0, this.shareUrl,
     this.isPrivate = false, FollowStatus? followStatus, this.canView = true, this.socialLinks = const [],
     this.requestedAt, this.compatibility, this.commonRatings = 0, this.isBlocked = false,
-    this.isMuted = false, this.listsCount = 0, this.peopleCount = 0, this.cover, this.coverUrl,
+    this.isMuted = false, this.listsCount = 0, this.cover, this.coverUrl,
     this.episodesCount = 0, this.watchMinutes = 0,
   }) : _followStatus = followStatus; // ignore: prefer_initializing_formals (a named parameter can't be private)
 
@@ -59,7 +59,6 @@ class SocialProfile {
     isBlocked: json['is_blocked'] as bool? ?? false,
     isMuted: json['is_muted'] as bool? ?? false,
     listsCount: json['lists_count'] as int? ?? 0,
-    peopleCount: json['people_count'] as int? ?? 0,
     cover: json['cover'] as String?,
     coverUrl: json['cover_url'] as String?,
     episodesCount: json['episodes_count'] as int? ?? 0,
@@ -118,7 +117,6 @@ class SocialProfile {
   final int listsCount;
 
   /// Followed people (actors, directors…).
-  final int peopleCount;
 
   /// Cover id from `GET /covers` (the banner of its page), and its own image shown instead.
   final String? cover;
