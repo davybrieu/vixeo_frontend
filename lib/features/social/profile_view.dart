@@ -15,6 +15,7 @@ import '../../core/widgets/focusable.dart';
 import '../../core/widgets/tabs.dart';
 import '../../core/widgets/page_header.dart';
 import '../catalog/catalog_repository.dart';
+import '../catalog/models.dart';
 import '../catalog/widgets.dart';
 import '../profiles/avatars.dart';
 import '../profiles/covers.dart';
