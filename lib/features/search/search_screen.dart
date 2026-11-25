@@ -19,7 +19,6 @@ import '../catalog/hero.dart';
 import '../catalog/models.dart';
 import '../catalog/paging.dart' show NextPage;
 import '../catalog/widgets.dart';
-import '../auth/session.dart';
 import '../tv/channel_row.dart';
 import '../tv/channel_search.dart';
 import 'filter_bar.dart';
