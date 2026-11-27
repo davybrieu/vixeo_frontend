@@ -59,13 +59,13 @@ nouvelle version, ou bloquent si elle est obligatoire (`vixeo_backend/docs/mise-
 | - | - | - |
 | Connexion (page d'entrée) | formulaire sur mur d'affiches | carte centrée |
 | Inscription | ✓ | ✓ |
-| Qui regarde ? | grille, PIN, ajout | rangée, focus télécommande |
+| Profil du compte (un par compte) | page sociale et édition | page sociale et édition, focus télécommande |
 | Accueil | carrousel, rangées, onglets en bas | grande image qui suit le focus, rail à gauche |
 | Fiche film / série | ✓ | ✓ |
 | Recherche, genres | ✓ | ✓ |
 | Ma liste | ✓ | ✓ |
 | Mot de passe oublié (code par e-mail) | ✓ | ✓ |
-| Mon profil : compte, appareils connectés, contrôle parental | ✓ | ✓ |
+| Mon profil : compte et appareils connectés | ✓ | ✓ |
 | Confidentialité, Aide et à propos (sans compte) | ✓ | ✓ |
 
 Voir [`CLAUDE.md`](CLAUDE.md) pour l'architecture et les conventions.
