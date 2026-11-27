@@ -22,21 +22,11 @@ Future<({String token, User user})?> signInWithEmail(
   final redirect = await authorizer.prepare();
   final repository = ref.read(authRepositoryProvider);
 
-  if (name == null) {
-    await repository.requestEmailLink(
-      email: email,
-      redirectUri: '$redirect',
-      challenge: pkceChallenge(verifier),
-    );
-  } else {
-    await repository.register(
-      name: name,
-      username: username ?? '',
-      email: email,
-      redirectUri: '$redirect',
-      challenge: pkceChallenge(verifier),
-    );
-  }
+  await repository.requestEmailLink(
+    email: email,
+    redirectUri: '$redirect',
+    challenge: pkceChallenge(verifier),
+  );
 
   final back = await authorizer.authorize(Uri.parse('${AppConfig.apiBase}/auth/email/waiting'));
   if (back == null) return null;
