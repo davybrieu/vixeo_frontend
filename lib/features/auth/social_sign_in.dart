@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
@@ -50,7 +51,7 @@ abstract class BrowserAuthorizer {
 /// The browser of this device, or null where the sign-in with Google and Apple isn't offered (TV:
 /// it signs in with a code; the tests, unless they give theirs).
 final browserAuthorizerProvider = Provider<BrowserAuthorizer?>((ref) {
-  if (DeviceInfo.isTv) return null;
+  if (kIsWeb || DeviceInfo.isTv) return null;
   if (Platform.isAndroid || Platform.isIOS) return CustomTabAuthorizer();
   if (Platform.isWindows) return LoopbackAuthorizer();
   return null;
