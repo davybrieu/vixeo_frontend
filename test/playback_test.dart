@@ -100,8 +100,7 @@ class FakeAdapter implements HttpClientAdapter {
 
 PlaybackRepository repository(FakeAdapter adapter) => PlaybackRepository(
   ApiClient(
-    token: () => 't',
-    profileId: () => 2,
+    token: () => 't'
     dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
   ),
 );
@@ -135,8 +134,7 @@ class RoutingAdapter implements HttpClientAdapter {
 }
 
 ApiClient routingClient(RoutingAdapter adapter) => ApiClient(
-  token: () => 't',
-  profileId: () => 2,
+  token: () => 't'
   dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
 );
 
