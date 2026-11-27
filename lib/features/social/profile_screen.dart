@@ -701,7 +701,7 @@ class SocialCollectionScreen extends ConsumerWidget {
             ),
             Expanded(
               child: handle == null || handle.isEmpty
-                  ? const EmptyState(icon: Icons.person_outline_rounded, title: 'Aucun profil choisi')
+                  ? const EmptyState(icon: Icons.person_outline_rounded, title: 'Pseudo indisponible')
                   // 20 at a time, the next ones as the list scrolls.
                   : PagedBuilder<SocialProfile>(
                       page: (page) =>
