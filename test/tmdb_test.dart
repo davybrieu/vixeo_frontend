@@ -21,7 +21,7 @@ import 'package:vixeo/features/tmdb/reviews_screen.dart';
 import 'package:vixeo/features/tmdb/tmdb.dart';
 import 'package:vixeo/features/network/network.dart' show TitleSocial, titleSocialProvider;
 
-const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
+const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr');
 
 class WithProfile extends SessionController {
   @override
@@ -40,7 +40,7 @@ class EmptyLibrary extends LibraryController {
 
 /// The Vixeo API's review routes, in memory.
 class FakeTmdb extends TmdbRepository {
-  FakeTmdb() : super(ApiClient(token: () => null, profileId: () => null));
+  FakeTmdb() : super(ApiClient(token: () => null));
 
   final calls = <String>[];
 
