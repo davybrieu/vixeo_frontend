@@ -42,7 +42,6 @@ import 'features/playback/player_screen.dart';
 import 'features/profiles/profile_editor_screen.dart';
 import 'features/profiles/profile_preferences_screen.dart';
 import 'features/profiles/profile_settings_screen.dart';
-import 'features/profiles/profiles_screen.dart';
 import 'features/profiles/row_preferences.dart';
 import 'features/profiles/rows_settings_screen.dart';
 import 'features/search/search_screen.dart';
