@@ -136,7 +136,7 @@ const _social = SocialProfile(
 
 /// The « Activité » and the lists of a profile, without the network.
 class _FakeNetwork extends NetworkRepository {
-  _FakeNetwork() : super(ApiClient(token: () => null, profileId: () => null));
+  _FakeNetwork() : super(ApiClient(token: () => null));
 
   @override
   Future<FeedPage> activity(String username, {int? before}) async => (
@@ -913,7 +913,7 @@ void main() {
 
 class _FakeSocial extends SocialRepository {
   _FakeSocial({this.followAnswer = FollowStatus.following})
-    : super(ApiClient(token: () => null, profileId: () => null));
+    : super(ApiClient(token: () => null));
 
   /// What following a member gives: at once (public account), or a request (private).
   final FollowStatus followAnswer;
@@ -1009,7 +1009,7 @@ class _FakeSharer extends LinkSharer {
 }
 
 class _SearchSocial extends SocialRepository {
-  _SearchSocial(this.found) : super(ApiClient(token: () => null, profileId: () => null));
+  _SearchSocial(this.found) : super(ApiClient(token: () => null));
 
   final List<SocialProfile> found;
 
