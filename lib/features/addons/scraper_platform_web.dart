@@ -4,6 +4,8 @@
 /// available, and native platforms continue to use QuickJS / JavaScriptCore.
 library;
 
+import 'scraper_guard.dart';
+import 'scraper_host.dart';
 import 'scraper_http.dart';
 import 'scraper_models.dart';
 import 'scraper_runtime.dart';
