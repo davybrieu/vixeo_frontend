@@ -20,7 +20,7 @@ class SignedIn extends SessionController {
   SessionState build() => const SessionState(
     status: SessionStatus.signedIn,
     token: 't',
-    user: User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false),
+    user: User(id: 1, name: 'Davy', email: 'davy@exemple.fr'),
   );
 }
 
