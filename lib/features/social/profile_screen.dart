@@ -31,9 +31,9 @@ import '../shell/app_shell.dart' show NavigationBadge, unreadLabel;
 import 'profile_view.dart';
 import 'social_repository.dart';
 
-/// « Profil » (tab): the active profile's page (`ProfileView`, like Bingers: developer's request,
-/// 25/11/2026). At the top right « Partager le profil », « Notifications » and « ⋮ » (a drop-down:
-/// « Modifier mon profil », « Paramètres », « Changer de profil », « Comptes bloqués et masqués »,
+/// « Profil » (tab): the signed-in account's single profile (`ProfileView`). At the top right
+/// « Partager le profil », « Notifications » and « ⋮ » (a drop-down: « Modifier mon profil »,
+/// « Paramètres », « Comptes bloqués et masqués »,
 /// « Se déconnecter »); then its avatar, name, @username, following, followers, followed people, bio
 /// and networks (changed in « Modifier mon profil »); then its figures (time watched, titles and
 /// episodes watched, reviews, « À voir ») and five tabs: « Activité », « Listes », « Avis »,
@@ -48,9 +48,8 @@ class ProfileScreen extends ConsumerWidget {
     if (profile == null) {
       return EmptyState(
         icon: Icons.person_outline_rounded,
-        title: 'Aucun profil choisi',
-        message: 'Choisissez un profil pour voir sa page.',
-        action: VxButton(label: 'Choisir un profil', autofocus: true, onPressed: () => context.go('/profils')),
+        title: 'Profil indisponible',
+        message: 'Le profil associé à ce compte est introuvable.',
       );
     }
     final username = profile.username?.trim() ?? '';
