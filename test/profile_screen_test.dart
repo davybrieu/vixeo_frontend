@@ -322,7 +322,6 @@ void main() {
     const items = [
       'Modifier mon profil',
       'Paramètres',
-      'Changer de profil',
       'Comptes bloqués et masqués',
       'Se déconnecter',
     ];
@@ -669,7 +668,7 @@ void main() {
     expect(top('COMPTE'), lessThan(top('GÉNÉRAL')));
   });
 
-  testWidgets('« Paramètres » of a child\'s profile (no page): « Changer de profil » first', (tester) async {
+  testWidgets('« Paramètres » without a social page: edit the single profile before account settings', (tester) async {
     tester.view.physicalSize = const Size(600, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -682,8 +681,8 @@ void main() {
     await tester.pumpAndSettle();
 
     double top(String text) => tester.getTopLeft(find.text(text)).dy;
-    expect(top('PROFIL'), lessThan(top('Changer de profil')));
-    expect(top('Changer de profil'), lessThan(top('Modifier le profil')));
+    expect(find.text('Changer de profil'), findsNothing);
+    expect(top('PROFIL'), lessThan(top('Modifier le profil')));
     expect(top('Modifier le profil'), lessThan(top('COMPTE')));
   });
 
