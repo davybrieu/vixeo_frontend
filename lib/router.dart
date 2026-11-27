@@ -82,7 +82,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
-      // A profile's link (www.vixeo.app/pseudo, « Partager »), opened by Android in the app: a path
+      // A profile's link (vixeo.app/pseudo, « Partager »), opened by Android in the app: a path
       // no page of the app has (the last route, profileLinkPath).
       final member = memberOfLink(state.uri.path, unknownPage: state.fullPath == profileLinkPath);
       if (member != null) {
@@ -424,7 +424,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ),
       ),
-      // Last: www.vixeo.app/pseudo (like Twitter), see profileLinkRoute.
+      // Last: vixeo.app/pseudo (like Twitter), see profileLinkRoute.
       profileLinkRoute(),
     ],
     errorBuilder: (context, state) => guarded(
@@ -476,7 +476,7 @@ class SplashScreen extends ConsumerWidget {
 /// Path of the last route of the app: one word that no page of the app is, `/lea`.
 const profileLinkPath = '/:username';
 
-/// The last route of the app: a profile's link without @ (www.vixeo.app/lea, like Twitter,
+/// The last route of the app: a profile's link without @ (vixeo.app/lea, like Twitter,
 /// developer's request, 21/11/2026), opened by Android in the app. The top-level redirect sends a
 /// username to the profile ([memberOfLink]); anything else that lands here goes home. Usernames are
 /// never a page of the app (the API reserves them: vixeo_backend `Usernames::RESERVED`).
