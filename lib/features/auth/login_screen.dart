@@ -159,8 +159,7 @@ class _Tagline extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     return Text(
-      'Regardez vos films et vos séries
-Partagez vos avis avec la communauté',
+      'Regardez vos films et vos séries\nPartagez vos avis avec la communauté',
       textAlign: TextAlign.center,
       style: VxText.title(layout.isLarge ? layout.tv(54) : 30).copyWith(height: 1.25),
     );
