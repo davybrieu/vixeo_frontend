@@ -270,11 +270,6 @@ Future<void> _showMyMenu(BuildContext anchor, WidgetRef ref, int profileId) {
         () => phone ? anchor.push('/parametres') : anchor.go('/parametres'),
       ),
       vxMenuItem(
-        Icons.switch_account_outlined,
-        'Changer de profil',
-        () => ref.read(sessionProvider.notifier).switchProfile(),
-      ),
-      vxMenuItem(
         Icons.block_rounded,
         'Comptes bloqués et masqués',
         () => anchor.push(HiddenAccountsScreen.location),
