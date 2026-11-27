@@ -8,7 +8,6 @@ import 'core/widgets/app_loading.dart';
 import 'core/widgets/common.dart';
 import 'features/account/account_screen.dart';
 import 'features/account/devices_screen.dart';
-import 'features/addons/addons_screen.dart';
 import 'features/auth/device_login.dart';
 import 'features/auth/login_screen.dart';
 import 'features/catalog/artwork.dart';
@@ -295,8 +294,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profil/compte', builder: (_, _) => const AccountScreen()),
           GoRoute(path: '/profil/appareils', builder: (_, _) => const DevicesScreen()),
           GoRoute(path: NotificationsScreen.location, builder: (_, _) => const NotificationsScreen()),
-          // Plug-ins in the Stremio add-on format (vixeo_backend/docs/plugins.md).
-          GoRoute(path: AddonsScreen.location, builder: (_, _) => const AddonsScreen()),
           GoRoute(
             path: '/personne/:id',
             builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),

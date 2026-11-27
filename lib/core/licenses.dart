@@ -11,8 +11,6 @@ void registerBundledLicenses() {
         '$family (police)',
       ], await rootBundle.loadString('assets/fonts/OFL-$family.txt'));
     }
-    // crypto-js, bundled in assets/scrapers and lent to the plug-in scrapers that use it.
-    yield LicenseEntryWithLineBreaks(['crypto-js'], await rootBundle.loadString('assets/licenses/crypto-js-MIT.txt'));
     // Lucide's popcorn icon: the logo of Rotten Tomatoes' audience score (assets/images/ratings).
     yield LicenseEntryWithLineBreaks(['Lucide'], await rootBundle.loadString('assets/licenses/lucide-ISC.txt'));
   });

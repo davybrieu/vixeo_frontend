@@ -89,4 +89,3 @@ secrets GitHub, jamais dans le dépôt.
 - **Connexion TV** : rien à faire sur Windows ; « Connecter une TV » (taper le code d'une TV)
   marche aussi depuis l'ordinateur.
 - Plein écran : la fenêtre passe en plein écran (`window_manager`) ; pas d'orientation.
-- Plug-ins : QuickJS (`flutter_js`) comme sur Android, **pas encore essayé** sur un vrai PC.

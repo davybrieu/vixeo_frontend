@@ -113,7 +113,6 @@ lib/
                  affichage et appui (`NotificationsGate`)
     social/      pages de profil (`ProfileView`), réseaux sociaux (`social_links.dart`), compte
                  privé et demandes d'abonnement, J'aime sur les avis (`review_likes.dart`)
-    addons/      plug-ins : dépôts de scrapers JavaScript (façon Nuvio), page « Plug-ins » (`docs/scrapers.md`)
     messages/    messagerie : modèles, dépôt et providers (`messages.dart`, canal temps réel
                  `conversationChannel`), « Messages » (`conversations_screen.dart`), une conversation
                  (`conversation_screen.dart`), créer / gérer un groupe (`group_screen.dart`)
@@ -283,8 +282,7 @@ lib/
   le lancent en silencieux (`/SILENT /SUPPRESSMSGBOXES /NORESTART`, détaché) et ferment Vixeo,
   que l'installateur relance (« Installation de la nouvelle version : Vixeo se ferme, puis
   redémarre. »). Sans fichier, ou sur iOS, le bouton ouvre la page d'installation du site.
-  L'appli ne charge jamais de code **de mise à jour** qu'elle exécuterait elle-même (les scrapers
-  des plug-ins, eux, tournent dans un bac à sable : voir « Plug-ins »). Publication :
+  L'appli ne charge ni n'exécute de code tiers téléchargé. Publication :
   `docs/android-release.md`, `docs/windows-release.md`. Pour essayer les écrans d'une autre
   plateforme : version « profile » avec `--dart-define=UPDATE_PLATFORM=android`.
 - **Version et signature** : `version: x.y.z+build` dans `pubspec.yaml` (`x.y.z` : version
@@ -527,66 +525,8 @@ lib/
   Windows, les notifications arrivent tant que Vixeo est ouvert. ». Rien appli fermée (pas de
   MSIX). Les tests passent par `FakePush`, `FakeNotifications` et `FakeSocket`
   (`test/notifications_test.dart`, `test/realtime_fakes.dart`).
-- **Plug-ins** (`features/addons`, « Paramètres » → « Plug-ins », `/profil/plugins`,
-  `AddonsScreen` ; contrat complet : [`docs/scrapers.md`](docs/scrapers.md) ; demande du développeur,
-  19/11/2026 : « comme Nuvio », **Android, Windows, puis iOS**, **exécuter du code JS** pour les sources).
-  **Remplace les add-ons Stremio** (`AddonInfo`, `GET /addons`, `addonsProvider` : supprimés ; ne pas
-  les réintroduire). Un plug-in est un **dépôt** (`manifest.json`, adresse https) qui liste des
-  **scrapers** : des fichiers JavaScript CommonJS qui exportent
-  `getStreams(tmdbId, mediaType, season, episode)` et renvoient des liens (`url`, `name`, `title`,
-  `quality`, `size`, `language`, `type`, `headers`). **Compatible avec les dépôts Nuvio** (demande du
-  développeur, 20/11/2026 : faire marcher `gowaru/gowaru-nuvio-providers` en suivant l'appli Nuvio,
-  `tapframe/NuvioMobile`) : adresse d'un dossier ou d'une page GitHub acceptée (`normalizeUrl`),
-  scrapers `enabled: false` ou exclus par `supportedPlatforms` / `disabledPlatforms` laissés de côté,
-  globales de Nuvio (`window`, `SCRAPER_ID`, `SCRAPER_SETTINGS` = `{}`, `CryptoJS` prêté aux scrapers
-  qui le nomment, `assets/scrapers/crypto-js.min.js`), `fetch` de Nuvio (statut 0 au lieu d'une
-  exception, `json()` → `null`, `\n...[truncated]`), film sans saison ni épisode (`undefined`),
-  titre du flux affiché en premier (`ScraperStream.label`), contournement de QuickJS pour
-  `for … of yield` (`hoistForOfYield`) ; détails dans `docs/scrapers.md` §2-3.
-  **Uniquement pour les sources** ; **le catalogue n'en dépend pas**
-  (il reste celui de TMDb : pas de rangées ni de « Voir tout » venus d'un plug-in). **Vixeo ne
-  fournit aucun dépôt** et n'en installe aucun ; la page dit que la personne est responsable.
-  Fichiers : `scraper_models.dart` (valeurs : manifeste, `ScraperRepo`, `ScraperInfo`,
-  `ScraperStream`), `scrapers.dart` (`ScraperRepos` : dépôts et choix gardés **sur l'appareil**,
-  par compte, `LocalStore` `vixeo.scrapers.<id>` ; `ScraperLoader` : télécharge manifestes et code,
-  code gardé en mémoire seulement ; `ScraperService.streams` : 6 scrapers en parallèle au plus),
-  `scraper_guard.dart` (règles et limites), `scraper_host.dart` (la conversation avec le bac à
-  sable, la même partout), `scraper_http*.dart` (`DirectScraperHttp`), `scraper_runtime*.dart` et
-  `scraper_js_engine_io.dart` (moteur JS de la plateforme).
-  **La page « Plug-ins » ne montre que les dépôts (les add-ons), jamais leurs scrapers** (demande du
-  développeur, 19/11/2026) : une carte par dépôt (nom, adresse, version, description), un
-  interrupteur sur le haut de la carte (`ScraperRepo.enabled`, gardé sur l'appareil ; désactivé, le
-  dépôt reste installé mais ne donne plus de sources), « monter » / « descendre » (des boutons,
-  comme « Rangées de l'accueil » ; l'ordre des dépôts est celui du panneau des sources), « mettre à
-  jour » et « retirer ». Pas d'ordre ni d'interrupteur par scraper : un dépôt garde l'ordre de son
-  manifeste (relu tel quel par « mettre à jour », seul « activé » est gardé).
-  **Où le JS s'exécute : toujours sur l'appareil** (demande du développeur, 20/11/2026 : plus de
-  web ni de mode « Serveur » ; `execution` d'un manifeste est ignoré, plus de `ScraperMode`) :
-  QuickJS (Android, Windows) ou JavaScriptCore (iOS) via `flutter_js`, créés directement, **sans
-  `memoryLimit`** (absent de la bibliothèque Android : le moteur ne démarrait plus, tous les
-  scrapers échouaient ; test dans `scraper_runner_test.dart`), dans un isolate qu'on peut tuer.
-  Le bac à sable (`assets/scrapers/sandbox.js`, identique partout) n'a ni réseau, ni DOM, ni
-  `require` : son `fetch` devient un message que l'appli vérifie (`ScraperGuard` : `http://` fait en
-  `https://`, jamais le réseau local ; limites de Nuvio : 60 s par scraper, 30 s par requête,
-  minuteries de 60 s, 200 requêtes, 100 flux) puis exécute elle-même, en direct (le jeton Vixeo
-  n'est jamais envoyé à un tiers). Le lecteur lit le flux avec ses `headers` ; aucune route
-  `/scrapers/*` côté serveur.
-  **Sources** : `sourceProvidersProvider` liste les scrapers des dépôts **activés** qui gèrent le
-  type du titre, dans l'ordre des dépôts (un fournisseur chacun, `scraper:{dépôt}:{id}`) ;
-  `providerSourcesProvider` les exécute (rien pour un dépôt désactivé ; un échec affiche sa raison
-  sous « Échec – appuyer pour réessayer », `scraperFailureReason` ; « Aucune source – appuyer pour
-  réessayer » se relance aussi ; **appui long sur une source :
-  son journal** (`ScraperJournal`, `scraperJournalProvider` : requêtes avec statut, durée et taille,
-  console du scraper, fin ; dernier passage seulement, en mémoire ; bouton « Copier »), pour savoir
-  sur un téléphone pourquoi une source ne trouve rien) ; leurs flux sont **déjà
-  lisibles** et le lecteur ne les `resolve` pas. Sans dépôt, le panneau écrit « Aucun plug-in n'est
-  installé. » ; dépôts tous désactivés : « Les plug-ins installés sont désactivés. ». Après un
-  changement : `ref.invalidate(sourceProvidersProvider)`. Implémentation de référence du bac à
-  sable et de la garde : `tools/scraper-runner` (Node + vrai QuickJS, `npm test` ; les 37 scrapers
-  de gowaru-nuvio-providers s'y chargent et s'exécutent). **Pas encore vérifié** sur un appareil
-  (QuickJS de `flutter_js` sur Android et Windows, JavaScriptCore) : la CI compile et teste le
-  Dart, `tools/scraper-runner` le JavaScript. Tests : `test/scraper_models_test.dart`, `scraper_runner_test.dart`,
-  `addons_test.dart`, doublures dans `test/scraper_fakes.dart`.
+- **Plug-ins façon Nuvio** : supprimés le 27/11/2026 (page, dépôts, moteur JavaScript, sandbox, exécution et tests). Ne pas les réintroduire. Le catalogue TMDb et les chaînes TV intégrées sont indépendants.
+
 - **Messagerie** (`features/messages`, le développeur, 22/11/2026, comme Instagram ; API :
   `vixeo_backend/docs/messagerie.md`) : **une entrée à part de la navigation** (demande du
   développeur, 23/11/2026 : pas dans le « Fil d'actualité »), onglet du téléphone et entrée du rail
@@ -1097,8 +1037,7 @@ lib/
   canal temps réel, appli ouverte),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
-  mises à jour (Android / Windows, installées depuis l'appli), plug-ins de sources = dépôts de scrapers JavaScript façon Nuvio (page « Plug-ins », sources du
-  lecteur ; le catalogue reste celui de TMDb ; Dart non vérifié, voir « Plug-ins »), TV en direct (catégories, chaînes, lecture du flux), lecteur à
+  mises à jour (Android / Windows, installées depuis l'appli), TV en direct (catégories, chaînes, lecture du flux), lecteur à
   moteurs par plateforme (natif sur Android / iOS, media_kit sur Windows : `docs/lecteur.md`),
   appli Windows (fenêtre, plein écran, installateur), mises en page téléphone et TV / grand
   écran, navigation à la télécommande.
@@ -1116,8 +1055,8 @@ lib/
   appareil** (la CI compile et teste).
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
 - Vérifié de bout en bout (ancienne version web) contre l'API Laravel locale avec un faux TMDb.
-- Pas encore vérifié sur un vrai PC Windows : lecture (media_kit), plug-ins (QuickJS de
-  `flutter_js`), mise à jour par l'installateur, notifications (canal temps réel) ; la CI ne fait que compiler (matrice de
+- Pas encore vérifié sur un vrai PC Windows : lecture (media_kit), mise à jour par l'installateur,
+  notifications (canal temps réel) ; la CI ne fait que compiler (matrice de
   `docs/lecteur.md`, `docs/windows-release.md`).
 - Pas encore fait : appli iOS ; moments à passer et langues préférées du profil pas encore
   utilisés par le lecteur (les sous-titres de l'API, si) ; signature de l'installateur Windows.

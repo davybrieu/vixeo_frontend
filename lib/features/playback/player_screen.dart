@@ -10,8 +10,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
-import '../addons/scraper_models.dart';
-import '../addons/scrapers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focus_navigation.dart';
@@ -47,25 +45,13 @@ class StreamSource {
     headers: (json['headers'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? const {},
   );
 
-  /// A link a plug-in's scraper found (`docs/scrapers.md`): already playable, the app plays it as
-  /// it is, with its headers.
-  factory StreamSource.fromScraper(ScraperStream stream, {required String provider, required String scraperName}) =>
-      StreamSource(
-        provider: provider,
-        name: stream.label(scraperName),
-        url: stream.url,
-        stream: stream.url,
-        streamType: stream.streamType,
-        headers: stream.headers,
-      );
-
   final String provider;
   final String name;
 
   /// The link the server knows the source by (a player page, or the stream itself).
   final String url;
 
-  /// The address to play (a plug-in's stream). Null: nothing playable.
+  /// The address to play. Null: nothing playable.
   final String? stream;
   final String? streamType;
 
@@ -84,51 +70,18 @@ class SourceProvider {
   final String name;
 }
 
-/// Providers are the scrapers of the installed plug-ins (`features/addons`, `docs/scrapers.md`) and
-/// nothing else: each scraper that handles the title's type is one provider,
-/// `scraper:{repository}:{id}`. No list is hard-coded in the app: Vixeo provides no repository.
-/// Only the repositories turned on count, in the order chosen in « Plug-ins » (a repository is
-/// turned on or off as a whole, never one scraper).
-///
-/// Why nothing is thrown when there is no plug-in: an empty list is a normal answer, the panel tells
-/// the person that no plug-in is installed.
-final sourceProvidersProvider = FutureProvider.family<List<SourceProvider>, PlaybackItem>((ref, item) async {
-  final repos = await ref.watch(scraperReposProvider.future);
-  return [
-    for (final repo in repos.where((r) => r.enabled))
-      for (final scraper in repo.scrapers)
-        if (scraper.supports(item.type)) SourceProvider(id: scraper.providerId, name: scraper.name),
-  ];
-});
+/// The source list is empty until Vixeo has a built-in VOD source provider.
+final sourceProvidersProvider = FutureProvider.family<List<SourceProvider>, PlaybackItem>(
+  (ref, item) async => const [],
+);
 
-/// What the sources panel says when the account has no plug-in that gives sources.
-const noPluginsInstalledMessage = "Aucun plug-in n'est installé.";
-
-/// What it says when plug-ins are installed but all turned off in « Plug-ins ».
-const pluginsDisabledMessage = 'Les plug-ins installés sont désactivés.';
-
-/// A title and the provider whose links are wanted.
 typedef ProviderSourcesKey = ({PlaybackItem item, String provider});
 
-/// The links one provider returns for one title.
-///
-/// Each provider is queried on its own so the panel can show it loading, failed, or with
-/// its links — instead of blocking on a single request that fans out to every provider. A scraper
-/// runs on the device or on the server, as chosen for it (`ScraperService`); a scraper that was
-/// removed since gives nothing.
-final providerSourcesProvider = FutureProvider.family<List<StreamSource>, ProviderSourcesKey>((ref, key) async {
-  final repos = await ref.read(scraperReposProvider.future);
-  final match = findScraper(repos, key.provider);
-  if (match == null || !match.repo.enabled) return const [];
-  final journal = ref.read(scraperJournalProvider).start(key.provider);
-  final streams = await ref
-      .read(scraperServiceProvider)
-      .streams(match.repo, match.scraper, key.item, journal: journal);
-  return [
-    for (final stream in streams)
-      StreamSource.fromScraper(stream, provider: key.provider, scraperName: match.scraper.name),
-  ];
-});
+final providerSourcesProvider = FutureProvider.family<List<StreamSource>, ProviderSourcesKey>(
+  (ref, key) async => const [],
+);
+
+const noSourcesAvailableMessage = 'Aucune source disponible.';
 
 /// The player, for a title (sources, subtitles, episodes) and for a live channel ([PlayerScreen.live]).
 ///
@@ -418,7 +371,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
     await _stopPlayback();
 
-    // A plug-in's stream is already playable: the app plays it as it is, with its headers.
+    // The stream is already playable: the app plays it with its headers.
     final direct = source.stream;
     if (direct == null || direct.isEmpty) {
       if (!mounted) return;
@@ -889,12 +842,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         ? const AsyncData<List<SourceProvider>>(<SourceProvider>[])
         : ref.watch(sourceProvidersProvider(_item));
     final providers = providersAsync.value ?? const <SourceProvider>[];
-    final repos = canLoadSources
-        ? (ref.watch(scraperReposProvider).value ?? const <ScraperRepo>[])
-        : const <ScraperRepo>[];
-    final noProvidersMessage = repos.isNotEmpty && !repos.any((r) => r.enabled)
-        ? pluginsDisabledMessage
-        : noPluginsInstalledMessage;
+    const noProvidersMessage = noSourcesAvailableMessage;
     final sourcesByProvider = <String, AsyncValue<List<StreamSource>>>{};
     if (canLoadSources) {
       for (final provider in providers) {
@@ -1047,7 +995,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     live: widget.live,
                     playing: _playing,
                     loading: loading,
-                    // No source chosen yet: play opens the sources.
+                    // No source chosen yet: play opens the source panel.
                     onPlayPause: waiting ? _openSources : _togglePlay,
                     onRewind: () => _seekBy(-_seekStep),
                     onForward: () => _seekBy(_seekStep),
@@ -1164,7 +1112,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     current: _currentSource,
                     onSelect: _playSource,
                     onRetry: (providerId) => ref.invalidate(providerSourcesProvider((item: _item, provider: providerId))),
-                    journalOf: (providerId) => ref.read(scraperJournalProvider).of(providerId),
                     onClose: () {
                       setState(() => _sourcesPanelOpen = false);
                       _scheduleHide();
@@ -1715,10 +1662,9 @@ class _SourcesPanel extends StatefulWidget {
     required this.onSelect,
     required this.onRetry,
     required this.onClose,
-    this.journalOf,
     this.providersLoading = false,
     this.providersError,
-    this.noProvidersMessage = noPluginsInstalledMessage,
+    this.noProvidersMessage = noSourcesAvailableMessage,
   });
 
   final List<SourceProvider> providers;
@@ -1728,12 +1674,10 @@ class _SourcesPanel extends StatefulWidget {
   final ValueChanged<String> onRetry;
   final VoidCallback onClose;
 
-  /// The journal of a source's last run (`ScraperJournal`), shown on a long press.
-  final List<String> Function(String providerId)? journalOf;
   final bool providersLoading;
   final String? providersError;
 
-  /// Said when there is no provider: no plug-in installed, or all of them turned off.
+  /// Said when no source provider is available.
   final String noProvidersMessage;
 
   @override
@@ -1742,12 +1686,11 @@ class _SourcesPanel extends StatefulWidget {
 
 enum _ProviderStatus { loading, failed, empty, links }
 
-/// Why a source failed, in the words of the plug-in system or of the API (French), written under
+/// Why a source failed, in the words of the API (French), written under
 /// « Échec » in the sources panel; null when there are no such words (an unexpected error). Without
 /// it, a failure on a device cannot be told from another one.
-String? scraperFailureReason(Object? error) {
+String? sourceFailureReason(Object? error) {
   final text = switch (error) {
-    ScraperException(:final message) => message,
     ApiException(:final message) => message,
     _ => '',
   }.trim();
@@ -1756,44 +1699,6 @@ String? scraperFailureReason(Object? error) {
 
 class _SourcesPanelState extends State<_SourcesPanel> {
   String? _selectedProvider;
-
-  /// What a source did during its last run (requests, console, end), to copy and send: the way to
-  /// know, on a phone, why it found nothing.
-  Future<void> _showJournal(SourceProvider provider) {
-    final lines = widget.journalOf?.call(provider.id) ?? const <String>[];
-    final text = lines.isEmpty ? 'Cette source n’a pas encore été interrogée.' : lines.join('\n');
-    return showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: VxColors.surface,
-        title: Text('Journal – ${provider.name}', style: VxText.title(16)),
-        content: SizedBox(
-          width: 640,
-          height: MediaQuery.sizeOf(dialogContext).height * 0.6,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              text,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.35, color: VxColors.textSoft),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: text));
-              showVxSnack(dialogContext, 'Journal copié');
-            },
-            child: const Text('Copier'),
-          ),
-          TextButton(
-            autofocus: true,
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Fermer'),
-          ),
-        ],
-      ),
-    );
-  }
 
   String? _language(StreamSource source) {
     final value = source.name.toUpperCase();
@@ -1837,7 +1742,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
         final provider = widget.providers[index];
         final async = widget.sourcesByProvider[provider.id];
         final links = async?.value ?? const <StreamSource>[];
-        final failure = async != null && async.hasError ? scraperFailureReason(async.error) : null;
+        final failure = async != null && async.hasError ? sourceFailureReason(async.error) : null;
         final _ProviderStatus status;
         if (async == null || async.isLoading) {
           status = _ProviderStatus.loading;
@@ -1860,7 +1765,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 : status == _ProviderStatus.failed || status == _ProviderStatus.empty
                     ? () => widget.onRetry(provider.id)
                     : null,
-            onLongPress: widget.journalOf == null ? null : () => _showJournal(provider),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(

@@ -10,7 +10,6 @@ import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
 import '../../core/widgets/page_header.dart';
-import '../addons/addons_screen.dart';
 import '../auth/session.dart';
 import '../notifications/inbox.dart' show socialAvailable;
 import '../notifications/notifications_screen.dart';
@@ -141,13 +140,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
                         subtitle: 'Trier, afficher ou masquer les catégories.',
                         onPressed: () => context.push(RowsSettingsScreen.channelsLocation),
                       ),
-                    _SettingsTile(
-                      scale: s,
-                      icon: Icons.extension_outlined,
-                      title: 'Plug-ins',
-                      subtitle: 'Activer, désactiver et trier les dépôts de sources.',
-                      onPressed: () => context.push(AddonsScreen.location),
-                    ),
                   ],
                 ),
               ],

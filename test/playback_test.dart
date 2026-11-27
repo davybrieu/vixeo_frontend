@@ -9,17 +9,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vixeo/core/api/api_client.dart';
 import 'package:vixeo/core/api/api_exception.dart';
 import 'package:vixeo/core/theme.dart';
-import 'package:vixeo/features/addons/scraper_models.dart';
 import 'package:vixeo/features/auth/auth_repository.dart';
 import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/playback/playback.dart';
-import 'package:vixeo/features/playback/player_screen.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
 import 'package:vixeo/features/search/search_history.dart';
-
-import 'scraper_fakes.dart';
 
 const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr');
 
@@ -311,141 +307,4 @@ void main() {
     });
   });
 
-  group('stream providers', () {
-    test('a failed source says why, in the words of the plug-in system or of the API', () {
-      expect(
-        scraperFailureReason(const ScraperException("Le moteur des plug-ins n'a pas pu démarrer sur cet appareil.")),
-        "Le moteur des plug-ins n'a pas pu démarrer sur cet appareil.",
-      );
-      expect(scraperFailureReason(const ApiException('Trop de requêtes.')), 'Trop de requêtes.');
-      expect(scraperFailureReason(const ScraperException('  ')), isNull);
-      expect(scraperFailureReason(StateError('x')), isNull);
-      expect(scraperFailureReason(null), isNull);
-    });
-
-    const item = (type: MediaType.movie, id: 550, season: null, episode: null);
-    const tvItem = (type: MediaType.tv, id: 1399, season: 1, episode: 2);
-
-    ProviderContainer containerWith({List<ScraperRepo>? repos, FakeScraperRuntime? runtime, RoutingAdapter? adapter}) {
-      final container = scraperContainer(
-        repos: repos,
-        runtime: runtime,
-        http: FakeScraperHttp({'https://repo.test/providers/films.js': 'module.exports = {};'}),
-        api: adapter == null ? null : routingClient(adapter),
-      );
-      addTearDown(container.dispose);
-      return container;
-    }
-
-    // Riverpod 3 disposes a provider as soon as nothing listens to it. Keep a listener
-    // alive and wait for the value to settle, so a slow request is not cancelled.
-    Future<AsyncValue<T>> read<T>(ProviderContainer container, FutureProvider<T> provider) {
-      final completer = Completer<AsyncValue<T>>();
-      final sub = container.listen<AsyncValue<T>>(provider, (_, next) {
-        if (!completer.isCompleted && (next.hasValue || next.hasError)) {
-          completer.complete(next);
-        }
-      }, fireImmediately: true);
-      addTearDown(sub.close);
-      return completer.future;
-    }
-
-    test('lists the scrapers that handle the title, from every repository', () async {
-      final repo = testRepo();
-
-      final state = await read(containerWith(repos: [repo]), sourceProvidersProvider(item));
-
-      // The series scraper does not handle a movie.
-      expect(state.requireValue.map((p) => p.name), ['Films libres', 'Tout']);
-      expect(state.requireValue.first.id, repo.scrapers[0].providerId);
-
-      final series = await read(containerWith(repos: [repo]), sourceProvidersProvider(tvItem));
-      expect(series.requireValue.map((p) => p.name), ['Séries libres', 'Tout']);
-    });
-
-    test('follows the order of the repositories, and leaves out a repository turned off', () async {
-      final both = await read(containerWith(repos: [otherRepo(), testRepo()]), sourceProvidersProvider(item));
-      expect(both.requireValue.map((p) => p.name), ['Autre source', 'Films libres', 'Tout']);
-
-      final off = await read(
-        containerWith(repos: [otherRepo(), testRepo().copyWith(enabled: false)]),
-        sourceProvidersProvider(item),
-      );
-      expect(off.requireValue.map((p) => p.name), ['Autre source']);
-    });
-
-    test('a scraper of a repository turned off gives nothing, and does not run', () async {
-      final repo = testRepo().copyWith(enabled: false);
-      final runtime = FakeScraperRuntime();
-
-      final state = await read(
-        containerWith(repos: [repo], runtime: runtime),
-        providerSourcesProvider((item: item, provider: repo.scrapers[0].providerId)),
-      );
-
-      expect(state.requireValue, isEmpty);
-      expect(runtime.calls, isEmpty);
-    });
-
-    test('has no provider when no plug-in is installed', () async {
-      final container = containerWith();
-
-      expect((await read(container, sourceProvidersProvider(item))).requireValue, isEmpty);
-    });
-
-    test('never asks the API for providers: the plug-ins are on the device', () async {
-      final adapter = RoutingAdapter([]);
-      final container = containerWith(repos: [testRepo()], adapter: adapter);
-
-      await read(container, sourceProvidersProvider(item));
-
-      expect(adapter.requests, isEmpty);
-    });
-
-    test('runs the chosen scraper, and maps its streams to playable sources', () async {
-      final repo = testRepo();
-      final runtime = FakeScraperRuntime()
-        ..answer = (code, params) => const [
-          ScraperStream(url: 'https://cdn.test/a.m3u8', name: 'Serveur 1', quality: '1080p'),
-          ScraperStream(url: 'https://cdn.test/b.mp4', headers: {'Referer': 'https://x.test/'}),
-        ];
-      final container = containerWith(repos: [repo], runtime: runtime);
-
-      final state = await read(
-        container,
-        providerSourcesProvider((item: item, provider: repo.scrapers[0].providerId)),
-      );
-
-      final links = state.requireValue;
-      expect(links.map((l) => l.name), ['Serveur 1 · 1080p', 'Films libres']);
-      expect(links.first.provider, repo.scrapers[0].providerId);
-      expect(links.first.stream, 'https://cdn.test/a.m3u8');
-      expect(links.first.streamType, 'm3u8');
-      expect(links.last.headers, {'Referer': 'https://x.test/'});
-      expect(runtime.calls.single.params.tmdbId, '550');
-    });
-
-    test('a scraper that was removed gives nothing, not an error', () async {
-      final state = await read(
-        containerWith(repos: [testRepo()]),
-        providerSourcesProvider((item: item, provider: 'scraper:disparu:films')),
-      );
-
-      expect(state.hasError, isFalse);
-      expect(state.requireValue, isEmpty);
-    });
-
-    test('a scraper that fails surfaces as an error', () async {
-      final runtime = FakeScraperRuntime()..error = const ScraperException('Le plug-in a échoué.');
-      final repo = testRepo();
-
-      final state = await read(
-        containerWith(repos: [repo], runtime: runtime),
-        providerSourcesProvider((item: item, provider: repo.scrapers[0].providerId)),
-      );
-
-      expect(state.hasError, isTrue);
-      expect(state.error, isA<ScraperException>());
-    });
-  });
 }
