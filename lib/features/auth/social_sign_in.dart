@@ -66,10 +66,11 @@ final socialProvidersProvider = FutureProvider<Map<SocialProvider, bool>>((ref) 
 
 /// What a sign-in gave: [signedIn] (the router moves on), and a sentence to show, if any.
 class SocialSignInResult {
-  const SocialSignInResult({required this.signedIn, this.message});
+  const SocialSignInResult({required this.signedIn, this.message, this.registrationTicket});
 
   final bool signedIn;
   final String? message;
+  final String? registrationTicket;
 }
 
 /// Signs in with [provider]: the browser, then the token. Throws [ApiException] when the API
@@ -103,7 +104,13 @@ Future<SocialSignInResult> signInWith(WidgetRef ref, SocialProvider provider) as
   }
 
   final result = await ref.read(authRepositoryProvider).socialToken(code: code, verifier: verifier);
-  await ref.read(sessionProvider.notifier).signInWithToken(result.token, result.user);
+  if (result.registrationTicket != null) {
+    return SocialSignInResult(signedIn: false, registrationTicket: result.registrationTicket);
+  }
+  final token = result.token;
+  final user = result.user;
+  if (token == null || user == null) throw const ApiException('Réponse de connexion invalide.');
+  await ref.read(sessionProvider.notifier).signInWithToken(token, user);
   return const SocialSignInResult(signedIn: true);
 }
 
