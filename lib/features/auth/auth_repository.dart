@@ -10,25 +10,40 @@ class AuthRepository {
 
   final ApiClient _api;
 
-  Future<({String token, User user})> login({required String email, required String password}) async {
-    final json = await _api.post(
-      '/auth/login',
-      body: {'email': email, 'password': password, 'device_name': DeviceInfo.deviceName},
-    );
-    return (token: json['token'] as String, user: User.fromJson(json['user'] as Map<String, dynamic>));
-  }
-
-  /// Creates the account and its first profile.
-  Future<({String token, User user})> register({
-    required String name,
+  Future<String> requestEmailLink({
     required String email,
-    required String password,
+    required String redirectUri,
+    required String challenge,
+  }) async => (await _api.post('/auth/email/link', body: {
+    'email': email,
+    'redirect_uri': redirectUri,
+    'code_challenge': challenge,
+  }))['message'] as String? ?? '';
+
+  /// Creates an account without a password and sends its first sign-in link.
+  Future<String> register({
+    required String name,
     required String username,
+    required String email,
+    required String redirectUri,
+    required String challenge,
+  }) async => (await _api.post('/auth/register', body: {
+    'name': name,
+    'username': username,
+    'email': email,
+    'redirect_uri': redirectUri,
+    'code_challenge': challenge,
+  }))['message'] as String? ?? '';
+
+  Future<({String token, User user})> emailToken({
+    required String code,
+    required String verifier,
   }) async {
-    final json = await _api.post(
-      '/auth/register',
-      body: {'name': name, 'username': username, 'email': email, 'password': password, 'device_name': DeviceInfo.deviceName},
-    );
+    final json = await _api.post('/auth/email/token', body: {
+      'code': code,
+      'code_verifier': verifier,
+      'device_name': DeviceInfo.deviceName,
+    });
     return (token: json['token'] as String, user: User.fromJson(json['user'] as Map<String, dynamic>));
   }
 
@@ -43,7 +58,7 @@ class AuthRepository {
 
   /// The token of a sign-in with Google or Apple: the code the browser brought back and the
   /// secret of its challenge (vixeo_backend/docs/connexion-sociale.md).
-  Future<({String token, User user, bool created, bool passwordRemoved})> socialToken({
+  Future<({String token, User user, bool created})> socialToken({
     required String code,
     required String verifier,
   }) async {
@@ -55,30 +70,10 @@ class AuthRepository {
       token: json['token'] as String,
       user: User.fromJson(json['user'] as Map<String, dynamic>),
       created: json['created'] as bool? ?? false,
-      passwordRemoved: json['password_removed'] as bool? ?? false,
     );
   }
 
   Future<User> me() async => User.fromJson((await _api.get('/me'))['data'] as Map<String, dynamic>);
-
-  // ── Forgotten password (vixeo_backend/docs/compte.md) ──
-
-  /// E-mails a 6-digit code if an account uses this address. Returns the API's message.
-  Future<String> forgotPassword(String email) async =>
-      (await _api.post('/auth/password/forgot', body: {'email': email}))['message'] as String? ?? '';
-
-  /// New password with the code; signs out the other devices and signs this one in.
-  Future<({String token, User user})> resetPassword({
-    required String email,
-    required String code,
-    required String password,
-  }) async {
-    final json = await _api.post(
-      '/auth/password/reset',
-      body: {'email': email, 'code': code, 'password': password, 'device_name': DeviceInfo.deviceName},
-    );
-    return (token: json['token'] as String, user: User.fromJson(json['user'] as Map<String, dynamic>));
-  }
 
   // ── Account: devices, data, deletion ──
 
@@ -92,22 +87,19 @@ class AuthRepository {
   /// E-mails the account's data (JSON). Returns the API's message.
   Future<String> exportData() async => (await _api.post('/me/export'))['message'] as String? ?? '';
 
-  /// New e-mail address, confirmed with the account password. Throws an [ApiException] (`email`,
-  /// `password`) when refused.
-  Future<User> updateEmail({required String email, required String password}) async {
-    final json = await _api.post('/me/email', body: {'email': email, 'password': password});
-    return User.fromJson(json['data'] as Map<String, dynamic>);
-  }
+  /// Requests a one-time confirmation link before changing the sign-in e-mail address.
+  Future<String> updateEmail({
+    required String email,
+    required String redirectUri,
+    required String challenge,
+  }) async => (await _api.post('/me/email', body: {
+    'email': email,
+    'redirect_uri': redirectUri,
+    'code_challenge': challenge,
+  }))['message'] as String? ?? '';
 
-  /// New password, confirmed with the current one: the other devices are signed out, this one
-  /// stays. Throws an [ApiException] (`current_password`, `password`) when refused.
-  /// [current] null: an account without a password (Google, Apple) creates its first one.
-  Future<void> updatePassword({required String? current, required String password}) =>
-      _api.post('/me/password', body: {'current_password': ?current, 'password': password});
-
-  /// Deletes the account and all its data. Throws an [ApiException] (`password`) when wrong.
-  /// [password] null: an account without one (Google, Apple).
-  Future<void> deleteAccount(String? password) => _api.post('/me/delete', body: {'password': ?password});
+  /// Deletes the account; the authenticated session confirms the action.
+  Future<void> deleteAccount() => _api.post('/me/delete');
 
   Future<void> logout() => _api.post('/auth/logout');
 

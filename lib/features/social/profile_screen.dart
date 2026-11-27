@@ -380,6 +380,7 @@ class PublicProfileScreen extends ConsumerWidget {
           photoUrl: social.photoUrl,
           username: social.username,
           isPrivate: social.isPrivate,
+          followsYou: social.followsYou,
           compatibility: social.isSelf ? null : social.compatibility,
           links: social.socialLinks,
           bio: social.bio,

@@ -6,7 +6,6 @@ class User {
     required this.id,
     required this.name,
     required this.email,
-    this.hasPassword = true,
     this.providers = const [],
   });
 
@@ -14,17 +13,12 @@ class User {
     id: json['id'] as int,
     name: json['name'] as String,
     email: json['email'] as String,
-    hasPassword: json['has_password'] as bool? ?? true,
     providers: [for (final p in json['providers'] as List? ?? const []) p as String],
   );
 
   final int id;
   final String name;
   final String email;
-
-  /// False for an account created with Google or Apple that never chose a password: « Mon compte »
-  /// offers to create one.
-  final bool hasPassword;
 
   /// Google and Apple accounts linked to this one (`google`, `apple`).
   final List<String> providers;

@@ -104,13 +104,7 @@ Future<SocialSignInResult> signInWith(WidgetRef ref, SocialProvider provider) as
 
   final result = await ref.read(authRepositoryProvider).socialToken(code: code, verifier: verifier);
   await ref.read(sessionProvider.notifier).signInWithToken(result.token, result.user);
-  return SocialSignInResult(
-    signedIn: true,
-    message: result.passwordRemoved
-        ? 'Par sécurité, l’ancien mot de passe de ce compte a été retiré : vous pouvez en créer un dans '
-              '« Paramètres » → « Compte ».'
-        : null,
-  );
+  return const SocialSignInResult(signedIn: true);
 }
 
 /// The sentence of an `?error=` the browser came back with (`cancelled`: none).

@@ -183,6 +183,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       title: member.displayName,
       options: [('profile', 'Voir le profil'), page.blocked ? ('unblock', 'Débloquer') : ('block', 'Bloquer')],
       selected: null,
+      dangerValues: {'block'},
     );
     if (!mounted || choice == null) return;
     switch (choice.$1) {

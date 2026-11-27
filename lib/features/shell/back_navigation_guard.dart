@@ -21,7 +21,6 @@ class BackNavigationGuard extends StatelessWidget {
   static const _signInPages = {
     '/connexion/email': '/connexion',
     '/inscription': '/connexion/email',
-    '/mot-de-passe-oublie': '/connexion/email',
   };
 
   /// Moves the focus off the text field being edited, if any: to the element under it, or to

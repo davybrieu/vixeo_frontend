@@ -83,7 +83,7 @@ lib/
     widgets/                         VxFocusable (focus TV), boutons, images, états vides / erreur
   features/
     auth/        page d'accueil de l'appli (« Continuer avec Google / Apple / l'e-mail »), connexion par
-                 e-mail, Google et Apple (social_sign_in.dart), inscription, mot de passe oublié, session,
+                 lien e-mail (email_sign_in.dart), Google et Apple (social_sign_in.dart), inscription, session,
                  connexion TV par code (device_login.dart : carte TV + page /tv)
     account/     Mon compte (export, suppression), appareils connectés
     updates/     vérification et installation des mises à jour Android / Windows (UpdateGate,
@@ -145,14 +145,14 @@ lib/
   (avatar…) ne doit pas reconstruire les pages. Exception : `/tv` (« Connecter une TV ») ne
   demande pas de profil ; ouvert sans être connecté, il est mémorisé et rouvert juste après la
   connexion.
-  `/connexion/email` et `/mot-de-passe-oublie` sont des pages de connexion.
+  `/connexion/email` et `/inscription` sont les pages de connexion et d'inscription.
 - **Page d'accueil (connexion)** (`/connexion`, `LoginScreen`, demande du développeur, 25/11/2026,
   d'après une autre appli de films) : fond sombre éclairé de vert, logo en haut, accroche au
   milieu (« Regardez vos films et vos séries / Partagez vos avis avec la communauté »), en bas
   trois grands boutons arrondis : **« Continuer avec Google »** (blanc, « G » officiel),
   **« Continuer avec Apple »** et **« Continuer avec l’e-mail »** (`EmailLoginScreen`,
-  `/connexion/email` : adresse, mot de passe, « Mot de passe oublié ? », « Créer un compte » ;
-  Retour : l'accueil ; l'inscription et le mot de passe oublié reviennent à `/connexion/email`),
+  `/connexion/email` : adresse e-mail, envoi d'un lien à usage unique (15 min), « Créer un compte » ;
+  Retour : l'accueil ; l'inscription revient à `/connexion/email`),
   puis « Vixeo ne reçoit de Google ou d’Apple que votre nom et votre adresse e-mail. » ;
   « Continuer en invité » en haut à droite. **Pas de ligne « vous acceptez nos Conditions… »** :
   ni conditions d'utilisation ni politique de confidentialité de l'appli pour l'instant. Grand
@@ -168,9 +168,9 @@ lib/
   serveur de l'appli sur `http://127.0.0.1:{port}/auth`, puis Vixeo revient devant ; la webview du
   paquet est remplacée par son stub, `third_party/`, `dependency_overrides`). `GET /auth/social`
   (`socialProvidersProvider`) : un fournisseur sans réglages sur le serveur le dit tout de suite
-  (« La connexion avec Apple n’est pas encore disponible. »). Compte sans mot de passe
-  (`User.hasPassword`, `providers`) : « Mon compte » propose « Créer un mot de passe », supprime
-  le compte sans mot de passe et demande d'en créer un pour changer d'adresse. Tests :
+  (« La connexion avec Apple n’est pas encore disponible. »). Tous les comptes sont sans mot de passe :
+  inscription et connexion par lien e-mail à usage unique (PKCE), changement d'adresse et suppression
+  sans mot de passe. Tests :
   `test/login_screen_test.dart`, `test/account_test.dart`. **Pas encore essayé sur un appareil.**
 - **Connexion TV par code** (`features/auth/device_login.dart`, API : `vixeo_backend/docs/connexion-tv.md`) :
   sur grand écran, la page de connexion affiche `TvCodeCard` : **le code court seulement, aucun
@@ -306,17 +306,13 @@ lib/
   La carte TV de la connexion montre une forme vide, pas de cercle, en attendant son code. Ne pas
   ajouter d'autre indicateur au démarrage. Test : `test/app_loading_test.dart`.
 - **Mon compte** (`/profil/compte`, `AccountScreen`, « Paramètres » → « Compte » ; API :
-  `vixeo_backend/docs/compte.md`) : « Adresse e-mail » (une phrase, **pas l'adresse sur la page**,
-  demande du développeur ; « Modifier l'adresse e-mail » : l'adresse actuelle en lecture seule,
-  nouvelle adresse + mot de passe, `POST /me/email`, la session garde la nouvelle adresse,
-  `SessionController.updateUser`), « Mot de passe » (« Changer le mot de passe » : actuel +
-  nouveau, `POST /me/password`, les autres appareils sont déconnectés), « Vos données »,
-  « Supprimer le compte ». Les champs de mot de passe passent par `PasswordField` (œil). Test :
+  `vixeo_backend/docs/compte.md`) : adresse e-mail de connexion et modification sans mot de passe,
+  « Vos données » (export par e-mail), « Supprimer le compte » (confirmation simple depuis la session).
+  Aucun écran de mot de passe, mot de passe oublié ou changement de mot de passe. Test :
   `test/account_test.dart`.
-- **Inscription et mot de passe** (demande du développeur) : pas de texte d'aide sous les champs
-  (ni « Unique sur Vixeo · 3 à 30 caractères », ni « 8 caractères minimum ») ; les règles
-  n'apparaissent qu'en message d'erreur. Chaque champ de mot de passe a l'œil « Afficher / Masquer
-  le mot de passe » (connexion, inscription, mot de passe oublié).
+- **Inscription et connexion e-mail** : compte créé sans mot de passe ; lien à usage unique envoyé par
+  e-mail (15 min), retour via `app.vixeo://auth` ou boucle locale Windows et échange PKCE. Tests :
+  `test/login_screen_test.dart`.
 - **Polices** : Sora et Inter sont dans `assets/fonts` (licence OFL) ; rien n'est téléchargé au
   lancement (pas de `google_fonts`).
 - **API** : passer par `ApiClient` (jeton Bearer ajouté automatiquement, sans en-tête de profil,
@@ -338,7 +334,7 @@ lib/
     focalisable ; `InfoSection` est du texte simple) ;
   - touche Retour (`BackNavigationGuard`) : d'une sous-page vers l'accueil (ou vers la page
     d'accueil de la connexion depuis `/connexion/email`, et vers `/connexion/email` depuis
-    l'inscription et le mot de passe oublié) ; depuis l'accueil, la connexion ou
+    l'inscription) ; depuis l'accueil, la connexion ou
     confirmation avant de quitter l'appli depuis l'accueil ou la connexion ; sur TV, Retour pendant la saisie
     d'un champ de texte ne fait que quitter le champ (ce qui ferme le clavier), sans changer de
     page (`BackNavigationGuard.leaveTextField`) ;
@@ -1035,7 +1031,7 @@ lib/
   d’apparence, No spoil, langues et lecture automatique,
   connecter une TV, Notifications (nouveaux épisodes, activité ; Windows par le
   canal temps réel, appli ouverte),
-  déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
+  déconnexion, mon compte : export et suppression, appareils connectés), connexion par lien e-mail,
   vérification des
   mises à jour (Android / Windows, installées depuis l'appli), TV en direct (catégories, chaînes, lecture du flux), lecteur à
   moteurs par plateforme (natif sur Android / iOS, media_kit sur Windows : `docs/lecteur.md`),

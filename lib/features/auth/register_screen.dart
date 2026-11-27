@@ -8,6 +8,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import 'session.dart';
+import 'email_sign_in.dart';
 
 /// Account creation (also creates the first profile, named after the user).
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -22,11 +23,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _name = TextEditingController();
   final _username = TextEditingController();
   final _email = TextEditingController();
-  final _password = TextEditingController();
   bool _loading = false;
 
-  /// The password shown in clear (eye button of the field).
-  bool _showPassword = false;
   ApiException? _error;
 
   @override
@@ -34,7 +32,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _name.dispose();
     _username.dispose();
     _email.dispose();
-    _password.dispose();
     super.dispose();
   }
 
@@ -45,12 +42,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       _error = null;
     });
     try {
-      await ref.read(sessionProvider.notifier).register(
-            _name.text.trim(),
-            _username.text.trim(),
-            _email.text.trim(),
-            _password.text,
-          );
+      final result = await signInWithEmail(
+        ref,
+        email: _email.text.trim(),
+        name: _name.text.trim(),
+        username: _username.text.trim(),
+      );
+      if (result != null) {
+        await ref.read(sessionProvider.notifier).signInWithToken(result.token, result.user);
+      }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {
@@ -94,7 +94,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     Text('Créer un compte', style: VxText.title(28)),
                     const SizedBox(height: 8),
                     Text(
-                      'Un compte pour toute la famille : chacun aura ensuite son profil.',
+                      'Un compte Vixeo avec un profil unique. Vous recevrez un lien de connexion par e-mail.',
                       style: VxText.body(15, color: VxColors.textSecondary),
                     ),
                     const SizedBox(height: VxSpace.l),
@@ -140,26 +140,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ? null
                           : 'Adresse e-mail invalide.',
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _password,
-                      obscureText: !_showPassword,
-                      autofillHints: const [AutofillHints.newPassword],
-                      onFieldSubmitted: (_) => _submit(),
-                      decoration: InputDecoration(
-                        labelText: 'Mot de passe',
-                        errorText: error?.field('password'),
-                        suffixIcon: IconButton(
-                          tooltip: _showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe',
-                          icon: Icon(_showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                          color: VxColors.textSecondary,
-                          onPressed: () => setState(() => _showPassword = !_showPassword),
-                        ),
-                      ),
-                      validator: (v) => (v ?? '').length < 8
-                          ? 'Au moins 8 caractères.'
-                          : null,
-                    ),
                     const SizedBox(height: 24),
                     if (generalError != null) ...[
                       Text(
@@ -169,7 +149,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       const SizedBox(height: 12),
                     ],
                     VxButton(
-                      label: 'Créer mon compte',
+                      label: 'Créer mon compte et recevoir le lien',
                       onPressed: _submit,
                       loading: _loading,
                       expand: true,

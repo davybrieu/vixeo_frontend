@@ -10,6 +10,7 @@ import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import 'device_login.dart';
 import 'session.dart';
+import 'email_sign_in.dart';
 import 'social_sign_in.dart';
 
 /// Entry page of the app (`/connexion`), like the other film apps' (developer's request,
@@ -364,29 +365,30 @@ class EmailLoginScreen extends ConsumerStatefulWidget {
 class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
-  final _password = TextEditingController();
-  bool _showPassword = false;
   bool _loading = false;
   ApiException? _error;
 
   @override
   void dispose() {
     _email.dispose();
-    _password.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate() || _loading) return;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      await ref.read(sessionProvider.notifier).login(_email.text.trim(), _password.text);
-      // The router opens the app with the account's profile already resolved.
+      final result = await signInWithEmail(ref, email: _email.text.trim());
+      if (result != null) {
+        await ref.read(sessionProvider.notifier).signInWithToken(result.token, result.user);
+      }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
+    } catch (e) {
+      if (mounted) setState(() => _error = ApiException('Impossible d’envoyer le lien de connexion.'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -411,143 +413,50 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
           padding: EdgeInsets.fromLTRB(layout.gutter, 8, layout.gutter, 32),
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: layout.isLarge ? layout.tv(640).clamp(440, 640).toDouble() : 440),
-            child: _LoginForm(
-              formKey: _formKey,
-              email: _email,
-              password: _password,
-              showPassword: _showPassword,
-              onTogglePassword: () => setState(() => _showPassword = !_showPassword),
-              loading: _loading,
-              error: _error,
-              onSubmit: _submit,
-              large: !layout.isPhone,
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Se connecter avec l’e-mail', style: VxText.title(layout.isLarge ? 32 : 28)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Saisissez votre adresse : nous vous enverrons un lien de connexion valable 15 minutes.',
+                    style: VxText.body(15, color: VxColors.textSecondary),
+                  ),
+                  const SizedBox(height: 24),
+                  TextFormField(
+                    controller: _email,
+                    autofocus: true,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email],
+                    autocorrect: false,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _submit(),
+                    decoration: InputDecoration(labelText: 'Adresse e-mail', errorText: _error?.field('email')),
+                    validator: (v) => (v ?? '').trim().contains('@') ? null : 'Adresse e-mail invalide.',
+                  ),
+                  if (_error != null && _error!.fieldErrors.isEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(_error!.message, style: VxText.body(14, color: VxColors.error)),
+                  ],
+                  const SizedBox(height: 24),
+                  VxButton(label: 'Envoyer le lien de connexion', onPressed: _submit, loading: _loading, expand: true),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text('Pas encore de compte ?', style: VxText.body(14, color: VxColors.textSecondary)),
+                      TextButton(onPressed: () => context.go('/inscription'), child: const Text('Créer un compte')),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
-}
-
-class _LoginForm extends StatelessWidget {
-  const _LoginForm({
-    required this.formKey,
-    required this.email,
-    required this.password,
-    required this.showPassword,
-    required this.onTogglePassword,
-    required this.loading,
-    required this.error,
-    required this.onSubmit,
-    required this.large,
-  });
-
-  final GlobalKey<FormState> formKey;
-  final TextEditingController email;
-  final TextEditingController password;
-  final bool showPassword;
-  final VoidCallback onTogglePassword;
-  final bool loading;
-  final ApiException? error;
-  final VoidCallback onSubmit;
-  final bool large;
-
-  @override
-  Widget build(BuildContext context) {
-    final emailError = error?.field('email');
-    final generalError = error != null && emailError == null && error!.field('password') == null
-        ? error!.message
-        : null;
-
-    return Form(
-      key: formKey,
-      child: AutofillGroup(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Se connecter avec l’e-mail', style: VxText.title(large ? 32 : 28)),
-            const SizedBox(height: 8),
-            Text(
-              'Connectez-vous pour retrouver vos profils, vos listes et votre progression.',
-              style: VxText.body(15, color: VxColors.textSecondary),
-            ),
-            const SizedBox(height: 24),
-            _FieldLabel('Adresse e-mail'),
-            TextFormField(
-              controller: email,
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.email],
-              textInputAction: TextInputAction.next,
-              autocorrect: false,
-              style: VxText.body(16),
-              decoration: InputDecoration(hintText: 'vous@exemple.fr', errorText: emailError),
-              validator: (value) {
-                final v = value?.trim() ?? '';
-                if (v.isEmpty) return 'Saisissez votre adresse e-mail.';
-                if (!v.contains('@') || !v.contains('.')) return 'Adresse e-mail invalide.';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            _FieldLabel('Mot de passe'),
-            TextFormField(
-              controller: password,
-              obscureText: !showPassword,
-              autofillHints: const [AutofillHints.password],
-              textInputAction: TextInputAction.done,
-              onFieldSubmitted: (_) => onSubmit(),
-              style: VxText.body(16),
-              decoration: InputDecoration(
-                hintText: 'Votre mot de passe',
-                errorText: error?.field('password'),
-                suffixIcon: IconButton(
-                  tooltip: showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe',
-                  icon: Icon(showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                  color: VxColors.textSecondary,
-                  onPressed: onTogglePassword,
-                ),
-              ),
-              validator: (value) => (value ?? '').isEmpty ? 'Saisissez votre mot de passe.' : null,
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => context.push('/mot-de-passe-oublie', extra: email.text.trim()),
-                child: const Text('Mot de passe oublié ?'),
-              ),
-            ),
-            if (generalError != null) ...[
-              Text(generalError, style: VxText.body(14, color: VxColors.error)),
-              const SizedBox(height: 12),
-            ],
-            VxButton(label: 'Se connecter', onPressed: onSubmit, loading: loading, expand: true),
-            const SizedBox(height: 16),
-            Wrap(
-              alignment: WrapAlignment.center,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text('Pas encore de compte ?', style: VxText.body(14, color: VxColors.textSecondary)),
-                TextButton(onPressed: () => context.go('/inscription'), child: const Text('Créer un compte')),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Text(
-      text,
-      style: VxText.body(14, weight: FontWeight.w500, color: VxColors.textSecondary),
-    ),
-  );
 }

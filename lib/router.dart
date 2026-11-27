@@ -12,7 +12,6 @@ import 'features/auth/device_login.dart';
 import 'features/auth/login_screen.dart';
 import 'features/catalog/artwork.dart';
 import 'features/catalog/artwork_screen.dart';
-import 'features/auth/password_reset_screen.dart';
 import 'features/auth/register_screen.dart' show RegisterScreen;
 import 'features/auth/session.dart';
 import 'features/catalog/details_screen.dart';
@@ -88,7 +87,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return mine ? '/profil' : '/membre/${Uri.encodeComponent(member)}';
       }
       final location = state.matchedLocation;
-      const authPages = {'/connexion', EmailLoginScreen.location, '/inscription', '/mot-de-passe-oublie'};
+      const authPages = {'/connexion', EmailLoginScreen.location, '/inscription'};
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
         if (location != '/demarrage') {
           if (!authPages.contains(location)) pending = state.uri.toString();
@@ -132,10 +131,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => guarded(state.uri.path, const EmailLoginScreen()),
       ),
       GoRoute(path: '/inscription', builder: (_, state) => guarded(state.uri.path, const RegisterScreen())),
-      GoRoute(
-        path: '/mot-de-passe-oublie',
-        builder: (_, state) => guarded(state.uri.path, PasswordResetScreen(initialEmail: state.extra as String?)),
-      ),
       GoRoute(path: '/profils', redirect: (_, _) => '/accueil'),
       GoRoute(
         path: '/profils/modifier/:id',
