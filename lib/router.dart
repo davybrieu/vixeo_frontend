@@ -114,10 +114,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return target;
       }
       if (session.profile == null) {
-        // « Qui regarde ? » and its « Ajouter » only.
-        return location == '/profils' || location == ProfileEditorScreen.newLocation ? null : '/profils';
+        // Single-profile accounts go straight into the app; the API resolves the account profile.
+        return location == '/accueil' ? null : '/accueil';
       }
-      if (authPages.contains(location) || location == '/profils' || location == '/demarrage') {
+      if (authPages.contains(location) || location == '/profils' || location == ProfileEditorScreen.newLocation || location == '/demarrage') {
         // A new profile: the first launch first (rate a few titles, accounts to follow).
         final target = pending ?? (OnboardingScreen.needed(session) ? OnboardingScreen.location : '/accueil');
         pending = null;
