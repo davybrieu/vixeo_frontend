@@ -75,7 +75,7 @@ class FirebasePushMessaging implements PushMessaging {
   static const registerTimeout = Duration(seconds: 30);
 
   @override
-  bool get supported => defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS;
+  bool get supported => !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
 
   Future<FirebaseMessaging?> _messaging() => _ready ??= () async {
     if (!supported) return null;
