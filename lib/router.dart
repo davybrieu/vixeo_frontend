@@ -116,8 +116,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         // Single-profile accounts go straight into the app; the API resolves the account profile.
         return location == '/accueil' ? null : '/accueil';
       }
-      if (authPages.contains(location) || location == '/profils' || location == ProfileEditorScreen.newLocation || location == '/demarrage') {
-        // A new profile: the first launch first (rate a few titles, accounts to follow).
+      if (authPages.contains(location) || location == '/profils' || location == '/demarrage') {
+        // Finish authentication and continue to onboarding or the requested destination.
         final target = pending ?? (OnboardingScreen.needed(session) ? OnboardingScreen.location : '/accueil');
         pending = null;
         return target;
@@ -138,9 +138,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => guarded(state.uri.path, PasswordResetScreen(initialEmail: state.extra as String?)),
       ),
       GoRoute(path: '/profils', redirect: (_, _) => '/accueil'),
-      // « Ajouter un profil » (« Qui regarde ? ») and « Modifier le profil » (« ⋮ » of the profile
-      // page), without the navigation.
-      GoRoute(path: ProfileEditorScreen.newLocation, redirect: (_, _) => '/accueil'),
       GoRoute(
         path: '/profils/modifier/:id',
         builder: (_, state) => ProfileEditorScreen(profileId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
