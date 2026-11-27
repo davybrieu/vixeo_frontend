@@ -21,7 +21,7 @@ import 'package:vixeo/features/updates/updates.dart';
 
 /// Answers with [next], and records the builds it was asked about.
 class FakeUpdates extends UpdateRepository {
-  FakeUpdates(this.next) : super(ApiClient(token: () => null, profileId: () => null));
+  FakeUpdates(this.next) : super(ApiClient(token: () => null));
 
   UpdateInfo Function() next;
   final asked = <String>[];

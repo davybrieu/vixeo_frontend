@@ -87,7 +87,7 @@ const _list = {
 };
 
 class _FakeNetwork extends NetworkRepository {
-  _FakeNetwork() : super(ApiClient(token: () => null, profileId: () => null));
+  _FakeNetwork() : super(ApiClient(token: () => null));
 
   final calls = <String>[];
   final stored = <SocialComment>[];
@@ -204,7 +204,7 @@ class _FakeNetwork extends NetworkRepository {
 }
 
 class _FakeProfiles extends AuthRepository {
-  _FakeProfiles() : super(ApiClient(token: () => null, profileId: () => null));
+  _FakeProfiles() : super(ApiClient(token: () => null));
 
   final updates = <Map<String, Object?>>[];
 

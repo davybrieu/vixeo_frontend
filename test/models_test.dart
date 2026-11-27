@@ -40,8 +40,8 @@ void main() {
       'updated_at': '2026-11-04T10:00:00.000000Z',
     });
 
-    expect(profile.isKid, isTrue);
-    expect(profile.effectiveMaxAgeRating, 10);
+    expect(profile.id, 3);
+    expect(profile.name, 'léa');
     expect(profile.initial, 'L');
   });
 

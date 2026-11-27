@@ -36,7 +36,7 @@ const _imagesJson = {
 };
 
 class _Catalog extends CatalogRepository {
-  _Catalog() : super(ApiClient(token: () => null, profileId: () => null));
+  _Catalog() : super(ApiClient(token: () => null));
 
   final choices = <String>[];
 

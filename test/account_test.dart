@@ -15,10 +15,10 @@ import 'package:vixeo/features/auth/password_reset_screen.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/router.dart';
 
-const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
+const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr');
 
 class FakeAccountAuth extends AuthRepository {
-  FakeAccountAuth() : super(ApiClient(token: () => null, profileId: () => null));
+  FakeAccountAuth() : super(ApiClient(token: () => null));
 
   final calls = <String>[];
 
@@ -80,14 +80,14 @@ class FakeAccountAuth extends AuthRepository {
         },
       );
     }
-    return User(id: davy.id, name: davy.name, email: email, parentalControl: false);
+    return User(id: davy.id, name: davy.name, email: email);
   }
 
   @override
   Future<void> updatePassword({required String? current, required String password}) async {
     calls.add(current == null ? 'create password $password' : 'password $current → $password');
     if (current == null) {
-      meUser = User(id: meUser.id, name: meUser.name, email: meUser.email, parentalControl: false, providers: meUser.providers);
+      meUser = User(id: meUser.id, name: meUser.name, email: meUser.email, providers: meUser.providers);
     }
     if (current != null && current != 'secret-password') {
       throw const ApiException(
@@ -120,7 +120,7 @@ class SignedIn extends SessionController {
   SessionState build() => const SessionState(status: SessionStatus.signedIn, token: 't', user: davy);
 }
 
-const lea = User(id: 1, name: 'Léa', email: 'lea@gmail.com', parentalControl: false, hasPassword: false, providers: ['google']);
+const lea = User(id: 1, name: 'Léa', email: 'lea@gmail.com', hasPassword: false, providers: ['google']);
 
 /// An account created with Google: no password yet.
 class SignedInWithGoogle extends SessionController {

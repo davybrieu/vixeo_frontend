@@ -12,7 +12,7 @@ import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/auth/social_sign_in.dart';
 
 class FakeAuthRepository extends AuthRepository {
-  FakeAuthRepository() : super(ApiClient(token: () => null, profileId: () => null));
+  FakeAuthRepository() : super(ApiClient(token: () => null));
 
   String? lastEmail;
 
@@ -28,7 +28,7 @@ class FakeAuthRepository extends AuthRepository {
         },
       );
     }
-    return (token: 'token-1', user: const User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false));
+    return (token: 'token-1', user: const User(id: 1, name: 'Davy', email: 'davy@exemple.fr'));
   }
 
   Map<String, bool> available = {'google': true, 'apple': false};
@@ -46,7 +46,7 @@ class FakeAuthRepository extends AuthRepository {
     tokens.add((code: code, verifier: verifier));
     return (
       token: 'token-google',
-      user: const User(id: 2, name: 'Léa', email: 'lea@gmail.com', parentalControl: false, hasPassword: false),
+      user: const User(id: 2, name: 'Léa', email: 'lea@gmail.com', hasPassword: false),
       created: true,
       passwordRemoved: passwordRemoved,
     );

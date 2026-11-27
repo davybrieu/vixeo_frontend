@@ -230,7 +230,6 @@ final socialProfileProvider = FutureProvider.autoDispose.family<SocialProfile, S
 /// one's own profile is opened from the navigation (« Profil »). The API leaves it out too.
 final socialSearchProvider = FutureProvider.autoDispose.family<List<SocialProfile>, String>((ref, query) async {
   final activeProfile = ref.watch(sessionProvider.select((s) => s.profile));
-  if (activeProfile?.isKid == true) return const <SocialProfile>[];
   if (query.trim().length < 2) return const <SocialProfile>[];
   final found = await ref.read(socialRepositoryProvider).search(query);
   final me = activeProfile?.username?.toLowerCase();

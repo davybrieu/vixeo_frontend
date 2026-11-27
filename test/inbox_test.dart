@@ -31,7 +31,7 @@ class _Session extends SessionController {
 final _now = DateTime.now();
 
 class _FakeInbox extends InboxRepository {
-  _FakeInbox() : super(ApiClient(token: () => null, profileId: () => null));
+  _FakeInbox() : super(ApiClient(token: () => null));
 
   int reads = 0;
 
@@ -98,7 +98,7 @@ class _FakeInbox extends InboxRepository {
 }
 
 class _FakeSocial extends SocialRepository {
-  _FakeSocial() : super(ApiClient(token: () => null, profileId: () => null));
+  _FakeSocial() : super(ApiClient(token: () => null));
 
   final calls = <String>[];
   var waiting = [const SocialProfile(id: 9, username: 'nina', name: 'Nina')];
@@ -294,10 +294,10 @@ void main() {
     expect(_pressable('Messages, 12 messages non lus'), findsOneWidget);
     expect(find.text('9+'), findsOneWidget);
 
-    // A child's profile: no messages.
-    await tester.pumpWidget(_shell(const Profile(id: 3, name: 'Tom', isKid: true)));
+    // A profile without a username is still the account's profile; child-profile gating is gone.
+    await tester.pumpWidget(_shell(const Profile(id: 3, name: 'Tom')));
     await tester.pump();
-    expect(find.byTooltip('Messages'), findsNothing);
+    expect(find.byTooltip('Messages'), findsOneWidget);
     expect(find.byTooltip('Recherche'), findsOneWidget);
   });
 

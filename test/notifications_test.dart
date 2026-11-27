@@ -82,7 +82,7 @@ class FakePush implements PushMessaging {
 
 /// The API's `/push/device`, recorded.
 class PushApi extends ApiClient {
-  PushApi({this.available = true, this.realtime = true, this.testAnswer}) : super(token: () => 't', profileId: () => 1);
+  PushApi({this.available = true, this.realtime = true, this.testAnswer}) : super(token: () => 't');
 
   final bool available;
   final bool realtime;

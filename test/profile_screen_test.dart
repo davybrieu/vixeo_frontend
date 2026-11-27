@@ -29,7 +29,7 @@ import 'package:vixeo/features/social/social_repository.dart';
 import 'package:vixeo/features/tmdb/reviews_screen.dart';
 import 'package:vixeo/features/tmdb/tmdb.dart';
 
-const _user = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
+const _user = User(id: 1, name: 'Davy', email: 'davy@exemple.fr');
 
 class _Signed extends SessionController {
   @override
@@ -41,14 +41,14 @@ class _Signed extends SessionController {
   );
 }
 
-/// A child's profile: no page of its own.
-class _Kid extends SessionController {
+/// A profile without a public username yet.
+class _NoUsernameProfile extends SessionController {
   @override
   SessionState build() => SessionState(
     status: SessionStatus.signedIn,
     token: 't',
     user: _user,
-    profile: Profile.fromJson({'id': 3, 'name': 'Tom', 'is_kid': true}),
+    profile: Profile.fromJson({'id': 3, 'name': 'Tom'}),
   );
 }
 
@@ -95,7 +95,7 @@ class _Library extends LibraryController {
 }
 
 class _Tmdb extends TmdbRepository {
-  _Tmdb() : super(ApiClient(token: () => null, profileId: () => null));
+  _Tmdb() : super(ApiClient(token: () => null));
 
   @override
   Future<Paged<RatedItem>> reviews(
@@ -136,7 +136,7 @@ const _social = SocialProfile(
 
 /// The « Activité » and the lists of a profile, without the network.
 class _FakeNetwork extends NetworkRepository {
-  _FakeNetwork() : super(ApiClient(token: () => null, profileId: () => null));
+  _FakeNetwork() : super(ApiClient(token: () => null));
 
   @override
   Future<FeedPage> activity(String username, {int? before}) async => (
@@ -668,24 +668,6 @@ void main() {
     expect(top('COMPTE'), lessThan(top('GÉNÉRAL')));
   });
 
-  testWidgets('« Paramètres » without a social page: edit the single profile before account settings', (tester) async {
-    tester.view.physicalSize = const Size(600, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sessionProvider.overrideWith(_Kid.new)],
-        child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: ProfileSettingsScreen())),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    double top(String text) => tester.getTopLeft(find.text(text)).dy;
-    expect(find.text('Changer de profil'), findsNothing);
-    expect(top('PROFIL'), lessThan(top('Modifier le profil')));
-    expect(top('Modifier le profil'), lessThan(top('COMPTE')));
-  });
-
   testWidgets('« Partager » sends the profile\'s page, or copies it', (tester) async {
     final sharer = _FakeSharer();
     const shared = SocialProfile(
@@ -913,7 +895,7 @@ void main() {
 
 class _FakeSocial extends SocialRepository {
   _FakeSocial({this.followAnswer = FollowStatus.following})
-    : super(ApiClient(token: () => null, profileId: () => null));
+    : super(ApiClient(token: () => null));
 
   /// What following a member gives: at once (public account), or a request (private).
   final FollowStatus followAnswer;
@@ -1009,7 +991,7 @@ class _FakeSharer extends LinkSharer {
 }
 
 class _SearchSocial extends SocialRepository {
-  _SearchSocial(this.found) : super(ApiClient(token: () => null, profileId: () => null));
+  _SearchSocial(this.found) : super(ApiClient(token: () => null));
 
   final List<SocialProfile> found;
 

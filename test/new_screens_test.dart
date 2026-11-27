@@ -13,15 +13,14 @@ import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/person_screen.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
-import 'package:vixeo/features/profiles/parental_pin.dart';
 import 'package:vixeo/features/profiles/profiles_screen.dart';
 
-const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: true);
-const lea = Profile(id: 2, name: 'Léa', isKid: true);
+const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr');
+const lea = Profile(id: 2, name: 'Léa');
 
 /// Records calls instead of talking to the API.
 class FakeAuth extends AuthRepository {
-  FakeAuth() : super(ApiClient(token: () => null, profileId: () => null));
+  FakeAuth() : super(ApiClient(token: () => null));
 
   int polls = 0;
   int pollsBeforeApproval = 2;
@@ -57,53 +56,19 @@ class FakeAuth extends AuthRepository {
   @override
   Future<void> approveDeviceLogin(String userCode) async => approved.add(userCode);
 
-  /// What `GET /me` answers (parental control on or off).
-  User user = davy;
-  final pinsSet = <String>[];
-
-  @override
-  Future<User> me() async => user;
-
-  @override
-  Future<void> setParentalPin(String pin, {String? currentPin, String? password}) async {
-    pinsSet.add(currentPin == null ? pin : '$currentPin→$pin');
-    user = const User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: true);
-  }
-
   @override
   Future<List<Profile>> profiles() async => const [lea];
 
   @override
-  Future<void> verifyParentalPin(String pin) async {
-    verifiedPins.add(pin);
-    if (pin != '9999') {
-      throw const ApiException(
-        'Code PIN parental incorrect.',
-        status: 422,
-        fieldErrors: {
-          'pin': ['Code PIN parental incorrect.'],
-        },
-      );
-    }
-  }
-
-  @override
   Future<Profile> updateProfile(int profileId, Map<String, Object?> fields) async {
     updates.add(fields);
-    return Profile(id: profileId, name: 'Léa', isKid: fields['is_kid'] as bool? ?? true);
+    return Profile(id: profileId, name: 'Léa');
   }
 }
 
 class SignedIn extends SessionController {
   @override
   SessionState build() => const SessionState(status: SessionStatus.signedIn, token: 't', user: davy);
-}
-
-const noParentalControl = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
-
-class SignedInWithoutPin extends SessionController {
-  @override
-  SessionState build() => const SessionState(status: SessionStatus.signedIn, token: 't', user: noParentalControl);
 }
 
 Widget wrap(Widget child, FakeAuth auth, {List overrides = const []}) => ProviderScope(
@@ -185,66 +150,6 @@ void main() {
 
     expect(auth.approved, ['K7F-29Q']);
     expect(find.text('C’est fait !'), findsOneWidget);
-  });
-
-  Future<void> typePin(WidgetTester tester, String pin) async {
-    for (final digit in pin.split('')) {
-      await tester.tap(find.bySemanticsLabel(digit).last);
-      await tester.pump();
-    }
-    await tester.pumpAndSettle();
-  }
-
-  testWidgets('« Mon compte »: turns the parental PIN on, on the keypad, then offers to change it', (tester) async {
-    final auth = FakeAuth()..user = noParentalControl;
-    await tester.pumpWidget(
-      wrap(
-        ListView(children: const [ParentalPinSection()]),
-        auth,
-        overrides: [sessionProvider.overrideWith(SignedInWithoutPin.new)],
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Code PIN parental'), findsOneWidget);
-    // No "Activé / Désactivé" badge (developer's request): the button says it.
-    expect(find.text('Désactivé'), findsNothing);
-    expect(find.text('Désactiver'), findsNothing);
-
-    await tester.tap(find.text('Activer'));
-    await tester.pumpAndSettle();
-    await typePin(tester, '1234');
-    await typePin(tester, '1234');
-
-    expect(auth.pinsSet, ['1234']);
-    expect(find.text('Contrôle parental activé'), findsOneWidget);
-    expect(find.text('Changer le code'), findsOneWidget);
-    expect(find.text('Désactiver'), findsOneWidget);
-    expect(find.text('Activer'), findsNothing);
-  });
-
-  testWidgets('« Mon compte »: changing the parental PIN asks the current one first', (tester) async {
-    final auth = FakeAuth();
-    await tester.pumpWidget(
-      wrap(
-        ListView(children: const [ParentalPinSection()]),
-        auth,
-        overrides: [sessionProvider.overrideWith(SignedIn.new)],
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Changer le code'));
-    await tester.pumpAndSettle();
-    await typePin(tester, '0000');
-    expect(find.text('Code PIN parental incorrect.'), findsOneWidget);
-    await typePin(tester, '9999');
-    // The new code, twice.
-    await typePin(tester, '4321');
-    await typePin(tester, '4321');
-
-    expect(auth.pinsSet, ['9999→4321']);
-    expect(find.text('Code PIN parental modifié'), findsOneWidget);
   });
 
   test('reads a person and formats dates the French way', () {

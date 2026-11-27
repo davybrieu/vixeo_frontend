@@ -35,7 +35,6 @@ final _files = {
 
 ApiClient apiWith(RoutingAdapter adapter) => ApiClient(
   token: () => 't',
-  profileId: () => 2,
   dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
 );
 
@@ -590,7 +589,7 @@ class _SlowRuntime extends FakeScraperRuntime {
 
 /// The player's data without the network (no subtitles).
 class _NoResolve extends PlaybackRepository {
-  _NoResolve() : super(ApiClient(token: () => null, profileId: () => null));
+  _NoResolve() : super(ApiClient(token: () => null));
 
   @override
   Future<List<SubtitleOption>> subtitles(PlaybackItem item, {List<String>? languages}) async => const [];

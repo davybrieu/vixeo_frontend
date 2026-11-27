@@ -36,7 +36,7 @@ final imdbLogo = find.byWidgetPredicate(
 
 /// The other sites of « Notes » (MDBList through the API): Rotten Tomatoes and Letterboxd only.
 class _OtherSites extends CatalogRepository {
-  _OtherSites() : super(ApiClient(token: () => null, profileId: () => null));
+  _OtherSites() : super(ApiClient(token: () => null));
 
   final asked = <(MediaType, int)>[];
 

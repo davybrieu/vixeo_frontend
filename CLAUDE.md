@@ -88,8 +88,8 @@ lib/
     account/     Mon compte (export, suppression), appareils connectés
     updates/     vérification et installation des mises à jour Android / Windows (UpdateGate,
                  écrans, ApkInstaller : APK ou installateur Windows)
-    profiles/    « Qui regarde ? », PIN, ajout, « Mon profil », avatars, photo et couverture de profil
-                 (profile_photo.dart : cadrage, covers.dart : couvertures dessinées), contrôle parental
+    profiles/    profil unique par compte, édition du profil social, avatars, photo et couverture
+                 (profile_photo.dart : cadrage, covers.dart : couvertures dessinées)
     catalog/     modèles TMDb, accueil, fiche film / série, page personne, cartes et rangées
     library/     synchro par profil (« À voir », J’aime ❤, personnes suivies, vus, « Continuer à
                  regarder »), page « À voir » (aussi « Mes J’aime » et « Mes titres vus »),
@@ -133,16 +133,16 @@ lib/
   développeur) ; les traductions (`GlobalMaterialLocalizations`) viennent aussi de `material_ui`.
   go_router cherche le `MaterialApp` de `material_ui` pour bâtir ses pages.
 - **État** : Riverpod 3 (`Provider`, `FutureProvider.family`, `Notifier`, `AsyncNotifier`), sans
-  génération de code. Les providers du catalogue surveillent le profil actif : changer de profil
-  recharge les données (l'API filtre selon l'âge du profil).
+  génération de code. La session charge automatiquement l'unique profil du compte ; les données
+  sont synchronisées pour cette identité, sans sélection ni filtrage par âge.
 - **Jamais d'ancienne adresse** (demande du développeur, 23/11/2026) : quand une page change
   d'adresse ou disparaît, l'ancienne adresse est supprimée (ni redirection ni alias) ; supprimés
   le 23/11/2026 : `/@pseudo`, `/films`, `/series`, `/tv-live`, `/profils/gestion`,
   `/profil/avatar`, `/profil/controle-parental`, `/profil/code-pin`, `/profil/connexions`,
   `/profil/tmdb`, `/profil/notes`, `/profil/social/favoris`.
 - **Navigation** : go_router. La connexion est la page d'entrée ; le routeur redirige vers
-  `/connexion` tant qu'on n'est pas connecté, puis vers `/profils` tant qu'aucun profil n'est choisi.
-  Le routeur n'écoute que le statut de connexion et la présence d'un profil : modifier le profil
+  `/connexion` tant qu'on n'est pas connecté, puis vers `/accueil` après authentification.
+  Le routeur n'écoute que le statut de connexion et la présence du profil unique : modifier le profil
   (avatar…) ne doit pas reconstruire les pages. Exception : `/tv` (« Connecter une TV ») ne
   demande pas de profil ; ouvert sans être connecté, il est mémorisé et rouvert juste après la
   connexion.
@@ -253,55 +253,19 @@ lib/
   `VideoFit`, `_FramedVideo` : la vue posée à la forme de l'image, `PlayerEngineValue.aspectRatio`,
   puis agrandie par `FittedBox` ; même arbre, la vue native n'est jamais reconstruite). Tests :
   `test/player_engine_test.dart`.
-- **« Qui regarde ? »** (`profiles_screen.dart`, `/profils` ; demande du développeur, d'après
-  une vidéo d'un autre media center) : fond sombre éclairé de vert en haut, « Qui regarde ? »
-  (**sans logo**), avatars **ronds** avec le nom dessous (cadenas si le profil a un code ; plus
-  de badge « Enfant »), puis, tant que le compte a moins de 5 profils, **« Ajouter »** (rond « + »
-  de la taille d'un avatar, `_AddTile`, lu « Ajouter un profil » ; demande du développeur,
-  25/11/2026) qui ouvre « Ajouter un profil » (`/profils/nouveau`, la seule page que le routeur
-  ouvre aussi sans profil choisi) ; **rien d'autre** (ni « Gérer les profils », ni crayon, ni
-  « Terminé »). **Pas de « Se déconnecter »** sur cette page (il n'est que dans le « ⋮ » de la
-  page « Profil » : plus dans « Paramètres », demande du développeur, 25/11/2026).
-  Flèche retour en haut à gauche seulement après « Changer de profil » : elle revient au profil
-  quitté (`SessionController.previousProfile` / `cancelSwitch`). Code d'un profil : le pavé
-  numérique `showPinPad` (`pin_pad.dart` : 4 points, touches 0-9 focalisables, chiffres du
-  clavier ou de la télécommande, `confirm` = saisi deux fois).
-  **Le profil se gère depuis le « ⋮ » de sa page** (demande du développeur, 25/11/2026 : voir
-  « Pages de profil ») : « Modifier mon profil », « Changer de profil » ; **plus de rubrique
-  « Profil » dans « Paramètres »** ni de « Gérer les profils » (`/profil/profils` supprimé) : un
-  autre profil se modifie ou se supprime après « Changer de profil ». Exception : un **profil
-  enfant** (pas de page de profil) garde dans « Paramètres » une rubrique « Profil » avec
-  « Changer de profil » et « Modifier le profil ». **« Ajouter un profil »** (`/profils/nouveau`)
-  et **« Modifier le profil »** (`/profils/modifier/:id`) : `ProfileEditorScreen`
-  (`profile_editor_screen.dart`, hors de la navigation) ; supprimer le profil actuel ramène à
-  « Qui regarde ? » (`SessionController.forgetProfile`) : aperçu (avatar,
-  nom et @pseudo tapés ; **pas de ligne « Avatar : … »**), « Nom du profil », « Pseudo » (choisi à
-  l'ajout comme à la modification ; vide à l'ajout : l'API en fait un), pour un profil existant qui
-  a une page (pas un profil enfant) **« Biographie »** (160 caractères au plus, `bioMaxLength`),
-  **« Réseaux sociaux »** (un champ par réseau) et **« Compte privé »** (section
-  « Confidentialité »), enregistrés avec le reste (`PUT /profiles/{id}` : `bio`, `social_links`,
-  `is_private` ; plus de pages `/profil/biographie`, `/profil/reseaux-sociaux`,
-  `/profil/compte-prive`), « Photo de profil », « Choisir un avatar » (par
-  licence, ronds, avatar au hasard pour un nouveau profil), « Couverture », « Restrictions » (« Âge maximum »
-  (`showVxChoice`) et « Titres sans classification » (seulement avec une limite d'âge) ; **pas de
-  « Profil enfant »**, demande du développeur : un ancien profil enfant affiche sa limite de 10 ans
-  (`effectiveMaxAge`) et devient, à la première modification de ses restrictions, un profil
-  avec `is_kid: false` et une limite d'âge explicite), puis pour un profil existant
-  « Sécurité » (« Ajouter un code PIN » / « Retirer le code PIN » : libellés courts, lisibles en
-  entier sur téléphone), « Enregistrer les modifications » et « Supprimer le profil » (confirmation ; jamais le dernier). Contrôle parental
-  activé : le code PIN parental est demandé pour créer, supprimer et changer les restrictions.
-  Test : `test/profiles_screen_test.dart`.
-- **Contrôle parental** (API : `vixeo_backend/docs/controle-parental.md`) : **plus de page ni de
-  tuile « Contrôle parental » ni « Code PIN »** (supprimées, demande du développeur). Les
-  **restrictions** d'un profil (âge maximum, titres sans classification) sont dans
-  « Ajouter / Modifier le profil » (section « Restrictions ») ; le **code PIN parental** du compte
-  est dans « Mon compte » (`ParentalPinSection`, `parental_pin.dart` : « Activer », ou « Changer
-  le code » (le code actuel d'abord), « Désactiver » et « Code oublié ? » (mot de passe du compte) ;
-  **pas de badge « Activé / Désactivé »**). Tous les codes se tapent sur le pavé `showPinPad` ;
-  `askParentalPin` demande le code parental (vérifié par l'API) pour créer ou supprimer un profil
-  et changer ses restrictions, et il est envoyé avec la modification (`parental_pin`). Après une
-  modification de restriction : invalider `profilesProvider` et `homeProvider` (le catalogue
-  dépend des limites).
+- **Profil unique du compte** : chaque compte possède exactement un profil, créé à l'inscription
+  et résolu automatiquement par l'API depuis l'utilisateur authentifié. Il n'existe plus de page
+  « Qui regarde ? », de sélection, d'ajout, de changement ou de suppression de profil, de PIN,
+  de profil enfant, de contrôle parental ni de restriction d'âge. L'ancien en-tête
+  `X-Profile-Id` n'est plus envoyé ni interprété. Le backend conserve un seul profil par compte
+  (migration : conservation du plus ancien, suppression des doublons et de leurs données), impose
+  une contrainte unique sur `profiles.user_id`, retire les colonnes de restriction et expose
+  uniquement GET/POST /profiles et GET/PATCH /profiles/{id}. POST ne sert qu'à créer le profil
+  initial d'un compte qui n'en aurait pas encore ; aucun endpoint de suppression ou de PIN.
+  L'édition se fait depuis le menu « ⋮ » de la page « Profil » : nom, pseudo, biographie, réseaux,
+  confidentialité, avatar, photo et couverture. Les préférences de lecture, la bibliothèque,
+  les avis, les listes et les messages restent attachés à ce profil unique.
+  Tests : `test/profile_screen_test.dart`, tests de session et de modèles.
 - **Mises à jour** (`features/updates`, API : `vixeo_backend/docs/mise-a-jour.md`) : sur Android,
   Windows et iOS, `UpdateGate` (dans le `builder` de `MaterialApp.router`) interroge `GET /app/update` avec le
   **build** installé (`package_info_plus`) au lancement et au retour au premier plan (toutes les 6 h
@@ -339,7 +303,7 @@ lib/
   `windows/runner/resources/app_icon.ico` (tirée de `brand/icons/icon-rounded.svg`).
 - **Chargement au démarrage** (demande du développeur : un seul chargement) : un seul
   chargement : `AppLoading` (`core/widgets/app_loading.dart`, logo + cercle), affiché par
-  l'écran de démarrage (`/demarrage`), par « Qui regarde ? » tant que les profils chargent et par
+  l'écran de démarrage (`/demarrage`), pendant que la session et le profil unique se chargent et par
   `AppShell` au premier chargement de l'accueil (sans la navigation, une seule fois par lancement).
   La carte TV de la connexion montre une forme vide, pas de cercle, en attendant son code. Ne pas
   ajouter d'autre indicateur au démarrage. Test : `test/app_loading_test.dart`.
@@ -348,8 +312,7 @@ lib/
   demande du développeur ; « Modifier l'adresse e-mail » : l'adresse actuelle en lecture seule,
   nouvelle adresse + mot de passe, `POST /me/email`, la session garde la nouvelle adresse,
   `SessionController.updateUser`), « Mot de passe » (« Changer le mot de passe » : actuel +
-  nouveau, `POST /me/password`, les autres appareils sont déconnectés), « Code PIN parental »
-  (`ParentalPinSection`, voir « Contrôle parental »), « Vos données »,
+  nouveau, `POST /me/password`, les autres appareils sont déconnectés), « Vos données »,
   « Supprimer le compte ». Les champs de mot de passe passent par `PasswordField` (œil). Test :
   `test/account_test.dart`.
 - **Inscription et mot de passe** (demande du développeur) : pas de texte d'aide sous les champs
@@ -358,7 +321,7 @@ lib/
   le mot de passe » (connexion, inscription, mot de passe oublié).
 - **Polices** : Sora et Inter sont dans `assets/fonts` (licence OFL) ; rien n'est téléchargé au
   lancement (pas de `google_fonts`).
-- **API** : passer par `ApiClient` (jeton Bearer + en-tête `X-Profile-Id` ajoutés automatiquement,
+- **API** : passer par `ApiClient` (jeton Bearer ajouté automatiquement, sans en-tête de profil,
   erreurs → `ApiException` avec le message français de l'API, 401 → session expirée).
 - **Modèles** : écrits à la main d'après `vixeo_backend/docs/openapi.json` (seuls les champs
   utilisés). À chaque changement de l'API, mettre à jour le modèle et son test
@@ -378,7 +341,7 @@ lib/
   - touche Retour (`BackNavigationGuard`) : d'une sous-page vers l'accueil (ou vers la page
     d'accueil de la connexion depuis `/connexion/email`, et vers `/connexion/email` depuis
     l'inscription et le mot de passe oublié) ; depuis l'accueil, la connexion ou
-    « Qui regarde ? », confirmation avant de quitter l'appli ; sur TV, Retour pendant la saisie
+    confirmation avant de quitter l'appli depuis l'accueil ou la connexion ; sur TV, Retour pendant la saisie
     d'un champ de texte ne fait que quitter le champ (ce qui ferme le clavier), sans changer de
     page (`BackNavigationGuard.leaveTextField`) ;
   - **navigation au D-pad** (`core/widgets/focus_navigation.dart`, demande du développeur,
@@ -487,7 +450,7 @@ lib/
   et `inbox.dart` ; demande du développeur, 21/11/2026 ; API : `vixeo_backend/docs/social.md`) :
   **plus dans la navigation** (demande du développeur, 25/11/2026 : ni onglet ni rail) : une
   **cloche en haut à droite de la page « Profil », juste avant « ⋮ »** (`ProfileScreen`,
-  toutes les tailles d'écran ; pas pour un invité ni un profil enfant : `socialAvailable`, la route
+  toutes les tailles d'écran ; uniquement si le compte possède un pseudo : `socialAvailable`, la route
   mène alors à l'accueil), avec une **pastille** du nombre de non lues (`NavigationBadge`, « 9+ »
   au-delà ; lue « Notifications, 3 notifications non lues ») ; la page a son bouton retour. Pastille : `unreadNotificationsProvider` (`GET /notifications/count`),
   relue à l'arrivée de la navigation, à chaque changement de page (30 s au plus entre deux,
@@ -627,7 +590,7 @@ lib/
 - **Messagerie** (`features/messages`, le développeur, 22/11/2026, comme Instagram ; API :
   `vixeo_backend/docs/messagerie.md`) : **une entrée à part de la navigation** (demande du
   développeur, 23/11/2026 : pas dans le « Fil d'actualité »), onglet du téléphone et entrée du rail
-  **« Messages »** après « Recherche » (`ConversationsScreen`, `/messages` ; pas pour un invité ni un profil enfant :
+  **« Messages »** après « Recherche » (`ConversationsScreen`, `/messages` ; uniquement si le compte possède un pseudo :
   `socialAvailable`, la route mène à l'accueil) : `VxPageHeader` avec « Écrire à un membre… »
   (recherche des comptes, `MemberSearchResults`) et « Créer un groupe » (`VxIconAction`), les
   **demandes reçues** (« Accepter » ✓ / « Refuser » ✕) puis les conversations (avatar ou icône du
@@ -668,7 +631,7 @@ lib/
   liste), la conversation est dans les commentaires.
   - **Navigation du téléphone** : Accueil · Fil d'actualité · Recherche · Messages · Profil (icônes
     seules ; « Notifications » (cloche) et « ⋮ » (dont « Paramètres ») en haut de la page « Profil »,
-    boutons ronds ; un profil enfant garde l'onglet « Paramètres »). Tablette et ordinateur : « Fil d'actualité » dans le rail,
+    boutons ronds ; le profil unique garde l'onglet « Paramètres »). Tablette et ordinateur : « Fil d'actualité » dans le rail,
     après « Chaînes TV ». **Pas de « Fil d'actualité » ni de « Messages » sur TV** (la TV sert à
     regarder ; ce qui aide à choisir est sur la fiche).
   - **« Fil d'actualité »** (renommé de « Fil » le 23/11/2026, demande du développeur ;
@@ -703,7 +666,7 @@ lib/
     marque-page d'un titre (`FavoriteButton`, fiche, grande image, appui long sur une carte :
     `addToList`) ouvre `showAddToList` : **« À voir » en tête** puis mes listes (une coche par liste
     qui a le titre, `GET /social/lists?item=`), et « Nouvelle liste » ; alertes « Ajouté à « À
-    voir » », « Retiré de « Mon top » »… Sans listes à soi (profil enfant, pas de pseudo :
+    voir » », « Retiré de « Mon top » »… Sans listes à soi (pas encore de pseudo :
     `listsAvailable`), le bouton ajoute à « À voir » ou en retire directement. Fiche : aussi
     « Envoyer à un ami » (`recommendToFriend` : une conversation ou un membre, `share` de
     `POST /messages/{id}` ; la bulle montre la carte, `SharedCard`, un appui l'ouvre).
@@ -737,7 +700,7 @@ lib/
     paramètres »**, qui remplace le lecteur par `/profil/parametres?reglage=noter`
     (`ProfilePreferencesScreen.rateAfterWatchingLocation` : le réglage a le focus). « Noter »
     remplace aussi le lecteur, par la page de note (retour : la fiche).
-  - **Premier lancement** (`OnboardingScreen`, `/bienvenue`, ouvert après « Qui regarde ? » quand
+  - **Premier lancement** (`OnboardingScreen`, `/bienvenue`, ouvert après l'authentification quand
     `onboarded` est faux ; pas sur TV) : noter des titres connus, puis des comptes à suivre ;
     « Passer » à tout moment (`PUT /profiles/{id}` `onboarded: true`).
   - **Signaler, bloquer, masquer** partout (profil, avis, liste, commentaire, message : `report`,
@@ -755,8 +718,8 @@ lib/
   Bas de la télécommande font défiler le texte, Haut en haut revient à « Retour »). Test :
   `test/description_test.dart`.
 - **Pas de page « Avancé »** (supprimée, demande du développeur, 25/11/2026 : ni `/profil/avance`,
-  ni « Mémoriser le dernier profil », ni « Vider le cache ») : le dernier profil choisi s'ouvre
-  toujours au lancement (un profil à code demande toujours son code). Lignes des réglages communes :
+  ni « Mémoriser le dernier profil », ni « Vider le cache ») : l'unique profil du compte est
+  automatiquement restauré au lancement. Lignes des réglages communes :
   `profiles/settings_rows.dart` (`SettingsSection`, `SettingsChoiceRow`, `SettingsSwitchRow`,
   `SettingsActionRow`).
 - **Rail de navigation sur un écran bas** : icônes et marges rétrécissent selon la hauteur
@@ -926,8 +889,7 @@ lib/
   `vixeo_backend/docs/lecture.md`) : langue audio préférée (null = version originale), langue des
   sous-titres (null = désactivés ; noms dans `profiles/languages.dart`, mêmes codes que l'API) et
   « Passer automatiquement » le générique de début, le résumé, le générique de fin, l'aperçu
-  (sinon le lecteur montrera un bouton « Passer »). Champs du profil : synchronisés, pas de PIN
-  parental. Le lecteur n'existe pas encore : `features/playback` (`PlaybackRepository`,
+  (sinon le lecteur montrera un bouton « Passer »). Champs du profil unique : synchronisés. Le lecteur n'existe pas encore : `features/playback` (`PlaybackRepository`,
   `SkipSegments.at`, `SkipKind.autoFor`) prépare ce qu'il utilisera. Les applis ne parlent jamais
   à OpenSubtitles ni à TheIntroDB : tout passe par l'API (clé Vixeo commune).
 - **Affiches, arrière-plans et logos** (demande du développeur, 25/11/2026, d'après une autre appli
@@ -1015,8 +977,7 @@ lib/
   `CoverPainter` : `linear`, `glow`, `stripes`, `dots`, `waves`, `grid`, `film`, `spotlight`,
   `curtain`, `stars` ; motif inconnu : dégradé de ses couleurs ; sans couverture : « Aurore »,
   `CoverDef.fallback`), ou **son image** (`cover_url`, `ProfileCover(imageUrl:)` : la couverture du
-  catalogue dessous pendant le chargement). **Un nouveau profil reçoit une couverture au hasard**
-  (l'API à l'inscription ; « Ajouter un profil » en tire une, montrée dans l'aperçu). Carte
+  catalogue dessous pendant le chargement). **Le profil initial reçoit une couverture au hasard à l'inscription.** Carte
   « Couverture » de « Ajouter / Modifier le profil » (`_CoverCard`) : « Importer une image » /
   « Changer l'image » / « Retirer l'image » (pas d'import sur TV), puis les couvertures par style
   (vignettes 3:1, coche verte) ; **choisir une couverture retire l'image** ; l'image choisie s'ouvre
@@ -1040,7 +1001,7 @@ lib/
   déroulante** sous le bouton (`showVxMenu`, `core/widgets/menu.dart` : une route transparente
   placée à côté du bouton, alignée à droite, au-dessus faute de place ; lignes `VxFocusable`, la
   première a le focus ; Retour ou un appui à côté la ferme) : **« Modifier mon profil »**
-  (`/profils/modifier/:id`), **« Paramètres »** (`/parametres`), **« Changer de profil »**,
+  (`/profils/modifier/:id`), **« Paramètres »** (`/parametres`),
   **« Comptes bloqués et masqués »** (`/profil/comptes-masques`), **« Se déconnecter »** (rouge).
   **En-tête aligné à gauche** : l'avatar à gauche, à moitié sur la couverture (anneau de la
   couleur de la page) et, à sa droite sous la couverture, les boutons d'un membre (« Envoyer un
@@ -1070,8 +1031,7 @@ lib/
   titre, pas « Mon avis ». Le mien : liste de la synchro (`libraryProvider`) et première page de
   mes avis (`myReviewsProvider`). Un membre (première page de chacun) :
   `socialProfileProvider`, `socialTitlesProvider`, `socialWatchedProvider`, `socialReviewsProvider` (API
-  `/social/profiles/{username}…` ; les avis ont les champs de « Mes avis »). Profil enfant : pas
-  de page. **Comptes** (recherche, abonnés) : `AccountTile` = avatar, nom, @pseudo, **sans le
+  `/social/profiles/{username}…` ; les avis ont les champs de « Mes avis »). Le profil unique est la page publique du compte dès qu'un pseudo est défini. **Comptes** (recherche, abonnés) : `AccountTile` = avatar, nom, @pseudo, **sans le
   nombre d'abonnés** (demande du développeur). **La recherche ne montre jamais le profil actif
   lui-même** (demande du développeur, 20/11/2026 : on ouvre son profil par la navigation,
   « Profil ») : l'API le retire et `socialSearchProvider` aussi. **« Partager le profil »**
@@ -1125,17 +1085,15 @@ lib/
 ## État actuel
 
 - Fait : connexion (e-mail, Google et Apple dans un navigateur), inscription, session persistante (jeton chiffré), connexion TV par code
-  (tapé dans l'appli du téléphone), « Qui regarde ? » (PIN de profil, ajout avec PIN parental si
-  activé), accueil (carrousel / grande image, « Continuer à regarder », rangées),
+  (tapé dans l'appli du téléphone), profil unique résolu automatiquement après la connexion, accueil (carrousel / grande image, « Continuer à regarder », rangées),
   fiche film et série (saisons, épisodes avec date de diffusion, distribution, recommandations,
   bande-annonce, « À voir » et listes, Vu, avis sur le film et la série), page personne (`/personne/:id` : biographie, « Connu pour », filmographie ; ouverte depuis
   la distribution et la recherche), recherche (filtres type / genre / années, tri, grande image
   sur grand écran, résultats groupés, recherches récentes synchronisées), notes IMDb (jeux de
   données importés par l'API) sinon TMDb, avec leurs votants (« Notes »), sur les titres et les épisodes,
   « À voir », « Avis » (notes et commentaires), « Mon profil » (paramètres
-  d’apparence, No spoil, langues et lecture automatique, code PIN parental dans « Mon compte »,
-  restrictions dans « Modifier le profil »,
-  connecter une TV, changer de profil, Notifications (nouveaux épisodes, activité ; Windows par le
+  d’apparence, No spoil, langues et lecture automatique,
+  connecter une TV, Notifications (nouveaux épisodes, activité ; Windows par le
   canal temps réel, appli ouverte),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des

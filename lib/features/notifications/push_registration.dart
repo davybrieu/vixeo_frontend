@@ -30,7 +30,7 @@ String pushDeviceChannel(int id) => 'private-push-devices.$id';
 
 /// Gives this app's Firebase installation ID to the server (`PUT /push/device`,
 /// vixeo_backend/docs/notifications.md), or on Windows registers it for the real-time channel, with
-/// the active profile (`X-Profile-Id`), its « Nouveaux épisodes » and « Activité » settings and the
+/// the account's single profile, its « Nouveaux épisodes » and « Activité » settings and the
 /// device's time zone. The server then sends the notifications: nothing is programmed on the device.
 /// Signing out removes the registration on the server (it belongs to the session's token).
 class PushRegistration {

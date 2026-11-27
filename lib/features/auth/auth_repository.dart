@@ -116,40 +116,6 @@ class AuthRepository {
     return (json['data'] as List).cast<Map<String, dynamic>>().map(Profile.fromJson).toList();
   }
 
-  /// Without [username], the API makes one from the name; without [avatar], it picks one.
-  Future<Profile> createProfile({
-    required String name,
-    String? username,
-    String? avatar,
-    String? cover,
-    bool isKid = false,
-    int? maxAgeRating,
-    bool allowUnrated = false,
-    String? parentalPin,
-  }) async {
-    final json = await _api.post(
-      '/profiles',
-      body: {
-        'name': name,
-        if (username != null && username.isNotEmpty) 'username': username,
-        'avatar': ?avatar,
-        'cover': ?cover,
-        'is_kid': isKid,
-        'max_age_rating': ?maxAgeRating,
-        'allow_unrated': allowUnrated,
-        if (parentalPin != null && parentalPin.isNotEmpty) 'parental_pin': parentalPin,
-      },
-    );
-    return Profile.fromJson(json['data'] as Map<String, dynamic>);
-  }
-
-  /// The parental PIN goes in a header (a DELETE has no body, a PIN is never in a URL). Throws an
-  /// [ApiException] with a `parental_pin` field error when it is wrong.
-  Future<void> deleteProfile(int profileId, {String? parentalPin}) => _api.delete(
-    '/profiles/$profileId',
-    headers: {if (parentalPin != null && parentalPin.isNotEmpty) 'X-Parental-Pin': parentalPin},
-  );
-
   /// The profile's own photo (a framed square, PNG), shown instead of its avatar
   /// (vixeo_backend/docs/social.md).
   Future<Profile> uploadProfilePhoto(int profileId, Uint8List png) async {
@@ -193,10 +159,6 @@ class AuthRepository {
     return Profile.fromJson(json['data'] as Map<String, dynamic>);
   }
 
-  /// Throws an [ApiException] with a `pin` field error when the PIN is wrong.
-  Future<void> verifyProfilePin(int profileId, String pin) =>
-      _api.post('/profiles/$profileId/verify-pin', body: {'pin': pin});
-
   // ── TV sign-in with a code (vixeo_backend/docs/connexion-tv.md) ──
 
   /// The TV asks for a code to show.
@@ -218,18 +180,7 @@ class AuthRepository {
   /// Signed-in phone: sign the TV in to this account.
   Future<void> approveDeviceLogin(String userCode) => _api.post('/auth/device/approve', body: {'user_code': userCode});
 
-  // ── Parental control (vixeo_backend/docs/controle-parental.md) ──
 
-  /// Sets (or changes, with [currentPin] or [password]) the parental PIN.
-  Future<void> setParentalPin(String pin, {String? currentPin, String? password}) =>
-      _api.put('/parental-control/pin', body: {'pin': pin, 'current_pin': ?currentPin, 'password': ?password});
-
-  /// Turns parental control off, with the current PIN or the account password.
-  Future<void> disableParentalControl({String? currentPin, String? password}) =>
-      _api.post('/parental-control/disable', body: {'current_pin': ?currentPin, 'password': ?password});
-
-  /// Throws an [ApiException] (`pin` field) when wrong, 429 after 5 wrong attempts.
-  Future<void> verifyParentalPin(String pin) => _api.post('/parental-control/verify', body: {'pin': pin});
 }
 
 /// Code shown by a TV waiting to be signed in.

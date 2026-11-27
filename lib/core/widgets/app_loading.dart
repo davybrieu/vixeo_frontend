@@ -5,7 +5,7 @@ import 'common.dart';
 
 /// The app's only start-up loading: the logo and a spinner, centred on the dark background.
 ///
-/// Every screen of the start (session check, « Qui regarde ? », the home page) shows this same widget while it loads:
+/// Every screen of the start (session check, profile resolution, the home page) shows this same widget while it loads:
 /// one loading that stays in place, never two or three at once (developer's request).
 class AppLoading extends StatelessWidget {
   const AppLoading({super.key});

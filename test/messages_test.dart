@@ -32,7 +32,7 @@ const _max = ChatMember(id: 7, username: 'max', name: 'Max');
 const _nina = ChatMember(id: 9, username: 'nina', name: 'Nina');
 
 class _FakeMessages extends MessagesRepository {
-  _FakeMessages(this.page) : super(ApiClient(token: () => null, profileId: () => null));
+  _FakeMessages(this.page) : super(ApiClient(token: () => null));
 
   ConversationPage page;
   final calls = <String>[];
@@ -341,13 +341,13 @@ void main() {
       expect(repository.calls, ['count', 'count']);
     });
 
-    test('a child\'s profile: no badge, nothing asked', () async {
+    test('the account profile can read its unread-message badge without child-profile gating', () async {
       final repository = _FakeMessages(_page());
-      final badge = container(repository, profile: const Profile(id: 3, name: 'Tom', isKid: true));
+      final badge = container(repository, profile: const Profile(id: 3, name: 'Tom'));
 
       await badge.read(unreadMessagesProvider.notifier).refresh(force: true);
-      expect(badge.read(unreadMessagesProvider), 0);
-      expect(repository.calls, isEmpty);
+      expect(badge.read(unreadMessagesProvider), 4);
+      expect(repository.calls, ['count']);
     });
   });
 

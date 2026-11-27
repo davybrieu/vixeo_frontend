@@ -233,9 +233,8 @@ class InboxRepository {
 
 final inboxRepositoryProvider = Provider<InboxRepository>((ref) => InboxRepository(ref.read(apiClientProvider)));
 
-/// The page and its badge exist for a signed-in profile that isn't a child's.
-bool socialAvailable(SessionState session) =>
-    session.isSignedIn && session.profile != null && !session.profile!.isKid;
+/// The page and its badge exist for every signed-in account.
+bool socialAvailable(SessionState session) => session.isSignedIn && session.profile != null;
 
 /// Unread notifications: the badge of « Notifications » in the navigation. Read again when the
 /// navigation is shown or changes page (30 s at most between two), when the app comes back to the

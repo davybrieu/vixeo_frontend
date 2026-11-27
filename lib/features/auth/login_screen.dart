@@ -317,7 +317,7 @@ class _TextLink extends StatelessWidget {
   }
 }
 
-/// Dark, lit with green from the top, like « Qui regarde ? ».
+/// Dark welcome background, lit with green from the top.
 class _WelcomeBackground extends StatelessWidget {
   const _WelcomeBackground();
 
@@ -384,7 +384,7 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
     });
     try {
       await ref.read(sessionProvider.notifier).login(_email.text.trim(), _password.text);
-      // The router moves on to "Qui regarde ?".
+      // The router opens the app with the account's profile already resolved.
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {

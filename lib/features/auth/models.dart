@@ -6,7 +6,6 @@ class User {
     required this.id,
     required this.name,
     required this.email,
-    required this.parentalControl,
     this.hasPassword = true,
     this.providers = const [],
   });
@@ -15,7 +14,6 @@ class User {
     id: json['id'] as int,
     name: json['name'] as String,
     email: json['email'] as String,
-    parentalControl: json['parental_control'] as bool? ?? false,
     hasPassword: json['has_password'] as bool? ?? true,
     providers: [for (final p in json['providers'] as List? ?? const []) p as String],
   );
@@ -23,9 +21,6 @@ class User {
   final int id;
   final String name;
   final String email;
-
-  /// A parental PIN is set on the account.
-  final bool parentalControl;
 
   /// False for an account created with Google or Apple that never chose a password: « Mon compte »
   /// offers to create one.
@@ -67,7 +62,7 @@ class Device {
   final DateTime? expiresAt;
 }
 
-/// Viewer profile ("Qui regarde ?", ProfileResource).
+/// The single social and viewing profile attached to an account (ProfileResource).
 class Profile {
   const Profile({
     required this.id,
@@ -78,12 +73,7 @@ class Profile {
     this.photoUrl,
     this.cover,
     this.coverUrl,
-    this.isKid = false,
-    this.maxAgeRating,
-    this.effectiveMaxAgeRating,
-    this.hasPin = false,
     this.position = 0,
-    this.allowUnrated = false,
     this.audioLanguage,
     this.subtitleLanguage,
     this.noSpoiler = false,
@@ -106,12 +96,7 @@ class Profile {
     photoUrl: json['photo_url'] as String?,
     cover: json['cover'] as String?,
     coverUrl: json['cover_url'] as String?,
-    isKid: json['is_kid'] as bool? ?? false,
-    maxAgeRating: json['max_age_rating'] as int?,
-    effectiveMaxAgeRating: json['effective_max_age_rating'] as int?,
-    hasPin: json['has_pin'] as bool? ?? false,
     position: json['position'] as int? ?? 0,
-    allowUnrated: json['allow_unrated'] as bool? ?? false,
     audioLanguage: json['audio_language'] as String?,
     subtitleLanguage: json['subtitle_language'] as String?,
     noSpoiler: json['no_spoiler'] as bool? ?? false,
@@ -143,16 +128,7 @@ class Profile {
   /// Its own cover image (`cover_url`), shown instead of [cover]; null = [cover].
   final String? coverUrl;
 
-  final bool isKid;
-  final int? maxAgeRating;
-
-  /// Age limit actually applied by the API (null = none).
-  final int? effectiveMaxAgeRating;
-  final bool hasPin;
   final int position;
-
-  /// With an age limit: also show titles without a known age rating.
-  final bool allowUnrated;
 
   /// Preferred audio language ("fr"…), null = original version (docs: vixeo_backend/docs/lecture.md).
   final String? audioLanguage;
