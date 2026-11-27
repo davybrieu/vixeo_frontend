@@ -57,7 +57,7 @@ class _Child extends SessionController {
   SessionState build() => const SessionState(
     status: SessionStatus.signedIn,
     token: 't',
-    profile: Profile(id: 3, name: 'Tom', isKid: true),
+    profile: Profile(id: 3, name: 'Tom'),
   );
 }
 
