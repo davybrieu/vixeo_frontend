@@ -178,7 +178,7 @@ class SignedOut extends SessionController {
 }
 
 class FakePlayback extends PlaybackRepository {
-  FakePlayback() : super(ApiClient(token: () => null, profileId: () => null));
+  FakePlayback() : super(ApiClient(token: () => null));
 
   @override
   Future<List<SubtitleOption>> subtitles(PlaybackItem item, {List<String>? languages}) async => const [
