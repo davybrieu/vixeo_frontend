@@ -113,7 +113,6 @@ lib/
                  affichage et appui (`NotificationsGate`)
     social/      pages de profil (`ProfileView`), réseaux sociaux (`social_links.dart`), compte
                  privé et demandes d'abonnement, J'aime sur les avis (`review_likes.dart`)
-    addons/      plug-ins : dépôts de scrapers JavaScript (façon Nuvio), page « Plug-ins » (`docs/scrapers.md`)
     messages/    messagerie : modèles, dépôt et providers (`messages.dart`, canal temps réel
                  `conversationChannel`), « Messages » (`conversations_screen.dart`), une conversation
                  (`conversation_screen.dart`), créer / gérer un groupe (`group_screen.dart`)
@@ -1058,8 +1057,8 @@ lib/
   appareil** (la CI compile et teste).
 - Notarisation Apple : audit et état des corrections dans `APPLE_NOTARIZATION.md`.
 - Vérifié de bout en bout (ancienne version web) contre l'API Laravel locale avec un faux TMDb.
-- Pas encore vérifié sur un vrai PC Windows : lecture (media_kit), plug-ins (QuickJS de
-  `flutter_js`), mise à jour par l'installateur, notifications (canal temps réel) ; la CI ne fait que compiler (matrice de
+- Pas encore vérifié sur un vrai PC Windows : lecture (media_kit), mise à jour par l'installateur,
+  notifications (canal temps réel) ; la CI ne fait que compiler (matrice de
   `docs/lecteur.md`, `docs/windows-release.md`).
 - Pas encore fait : appli iOS ; moments à passer et langues préférées du profil pas encore
   utilisés par le lecteur (les sous-titres de l'API, si) ; signature de l'installateur Windows.
