@@ -34,19 +34,18 @@ class FakeAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-ApiClient client(FakeAdapter adapter, {String? token, int? profileId, void Function()? onUnauthorized}) {
+ApiClient client(FakeAdapter adapter, {String? token, void Function()? onUnauthorized}) {
   final dio = Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter;
-  return ApiClient(token: () => token, profileId: () => profileId, onUnauthorized: onUnauthorized, dio: dio);
+  return ApiClient(token: () => token, onUnauthorized: onUnauthorized, dio: dio);
 }
 
 void main() {
-  test('sends the token and the active profile', () async {
+  test('sends the bearer token without a profile-selection header', () async {
     final adapter = FakeAdapter(200, {'data': []});
-    await client(adapter, token: 'abc', profileId: 7).get('/profiles');
+    await client(adapter, token: 'abc').get('/profiles');
 
     final headers = adapter.requests.single.headers;
     expect(headers['Authorization'], 'Bearer abc');
-    expect(headers['X-Profile-Id'], '7');
   });
 
   test('sends neither header when signed out', () async {
