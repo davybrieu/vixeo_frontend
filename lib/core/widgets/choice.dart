@@ -14,6 +14,7 @@ Future<(T?,)?> showVxChoice<T>(
   required String title,
   required List<(T?, String)> options,
   required T? selected,
+  Set<T?> dangerValues = const {},
 }) {
   final layout = Layout.of(context);
   final large = !layout.isPhone;
@@ -44,7 +45,9 @@ Future<(T?,)?> showVxChoice<T>(
                       style: VxText.body(
                         16 * s,
                         weight: value == selected ? FontWeight.w600 : FontWeight.w400,
-                        color: value == selected ? VxColors.accent : VxColors.text,
+                        color: dangerValues.contains(value)
+                            ? VxColors.error
+                            : value == selected ? VxColors.accent : VxColors.text,
                       ),
                     ),
                   ),

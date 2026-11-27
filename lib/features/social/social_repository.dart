@@ -26,7 +26,7 @@ class SocialProfile {
   const SocialProfile({
     required this.id, required this.username, required this.name,
     this.avatar, this.photoUrl, this.bio, this.followersCount = 0, this.followingCount = 0,
-    this.isFollowing = false, this.isSelf = false,
+    this.isFollowing = false, this.followsYou = false, this.isSelf = false,
     this.reviewsCount = 0, this.watchedCount = 0, this.listCount = 0, this.shareUrl,
     this.isPrivate = false, FollowStatus? followStatus, this.canView = true, this.socialLinks = const [],
     this.requestedAt, this.compatibility, this.commonRatings = 0, this.isBlocked = false,
@@ -44,6 +44,7 @@ class SocialProfile {
     followersCount: json['followers_count'] as int? ?? 0,
     followingCount: json['following_count'] as int? ?? 0,
     isFollowing: json['is_following'] as bool? ?? false,
+    followsYou: json['follows_you'] as bool? ?? false,
     isSelf: json['is_self'] as bool? ?? false,
     reviewsCount: json['reviews_count'] as int? ?? 0,
     watchedCount: json['watched_count'] as int? ?? 0,
@@ -77,6 +78,8 @@ class SocialProfile {
   final int followersCount;
   final int followingCount;
   final bool isFollowing;
+  /// The viewed member follows the active profile.
+  final bool followsYou;
   final bool isSelf;
   final int reviewsCount;
   final int watchedCount;

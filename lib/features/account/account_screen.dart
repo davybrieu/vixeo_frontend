@@ -7,13 +7,11 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../auth/session.dart';
+import '../auth/email_sign_in.dart';
 import 'info_page.dart';
 
-/// "Mon compte" (`/profil/compte`): change the e-mail address and the password, receive a copy of
-/// the data, delete the account (GDPR).
 class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({super.key});
-
   @override
   ConsumerState<AccountScreen> createState() => _AccountScreenState();
 }
@@ -35,49 +33,20 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
 
   Future<void> _changeEmail() async {
     final changed = await showDialog<bool>(context: context, builder: (_) => const _EmailDialog());
-    if (changed == true && mounted) showVxSnack(context, 'Adresse e-mail modifiée', icon: Icons.check_circle_rounded);
+    if (changed == true && mounted) showVxSnack(context, 'Votre nouvelle adresse e-mail a été confirmée.');
   }
 
-  Future<void> _changePassword({required bool create}) async {
-    final changed = await showDialog<bool>(context: context, builder: (_) => _PasswordDialog(create: create));
-    if (changed != true || !mounted) return;
-    if (create) {
-      showVxSnack(context, 'Mot de passe créé', icon: Icons.lock_rounded);
-      // « has_password » changes: the page shows « Changer le mot de passe ».
-      try {
-        await ref.read(sessionProvider.notifier).refreshUser();
-      } on ApiException catch (_) {
-        // Shown at the next visit of the page.
-      }
-    } else {
-      showVxSnack(context, 'Mot de passe modifié. Vos autres appareils ont été déconnectés.', icon: Icons.lock_rounded);
+  Future<void> _delete() async {
+    final deleted = await showDialog<bool>(context: context, builder: (_) => const _DeleteAccountDialog());
+    if (deleted == true) {
+      await ref.read(sessionProvider.notifier).forget(message: 'Votre compte et toutes ses données ont été supprimés.');
     }
-  }
-
-  Future<void> _delete({required bool withPassword}) async {
-    final deleted = await showDialog<bool>(
-      context: context,
-      builder: (_) => _DeleteAccountDialog(withPassword: withPassword),
-    );
-    if (deleted != true) return;
-    // The router goes back to the sign-in page, which shows this message.
-    await ref.read(sessionProvider.notifier).forget(message: 'Votre compte et toutes ses données ont été supprimés.');
   }
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     final user = ref.watch(sessionProvider.select((s) => s.user));
-    // An account created with Google or Apple has no password until it creates one.
-    final hasPassword = user?.hasPassword ?? true;
-    final linked = [
-      for (final provider in user?.providers ?? const <String>[])
-        switch (provider) {
-          'google' => 'Google',
-          'apple' => 'Apple',
-          _ => provider,
-        },
-    ].join(' et ');
     return InfoPage(
       title: 'Mon compte',
       fallback: '/profil',
@@ -85,73 +54,28 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         InfoSection(
           title: 'Adresse e-mail',
           children: [
-            InfoText(
-              hasPassword
-                  ? 'Changez l’adresse e-mail de votre compte, celle qui sert à vous connecter.'
-                  : 'Pour changer l’adresse e-mail de votre compte, créez d’abord un mot de passe.',
-            ),
+            InfoText('Votre adresse e-mail sert à vous connecter. À chaque connexion, Vixeo vous envoie un lien à usage unique.'),
             SizedBox(height: layout.space(VxSpace.xs)),
-            VxButton(
-              label: 'Modifier l’adresse e-mail',
-              icon: Icons.alternate_email_rounded,
-              kind: VxButtonKind.secondary,
-              autofocus: hasPassword,
-              onPressed: hasPassword ? _changeEmail : null,
-            ),
-          ],
-        ),
-        InfoSection(
-          title: 'Mot de passe',
-          children: [
-            InfoText(
-              hasPassword
-                  ? 'Changer le mot de passe déconnecte vos autres appareils ; celui-ci reste connecté.'
-                        '${linked.isEmpty ? '' : ' Vous pouvez aussi vous connecter avec $linked.'}'
-                  : 'Vous vous connectez avec ${linked.isEmpty ? 'Google ou Apple' : linked}. Créez un mot de passe '
-                        'pour vous connecter aussi avec votre adresse e-mail.',
-            ),
+            InfoText(user?.email ?? ''),
             SizedBox(height: layout.space(VxSpace.xs)),
-            VxButton(
-              label: hasPassword ? 'Changer le mot de passe' : 'Créer un mot de passe',
-              icon: Icons.lock_reset_rounded,
-              kind: VxButtonKind.secondary,
-              autofocus: !hasPassword,
-              onPressed: () => _changePassword(create: !hasPassword),
-            ),
+            VxButton(label: 'Modifier l’adresse e-mail', icon: Icons.alternate_email_rounded, kind: VxButtonKind.secondary, autofocus: true, onPressed: _changeEmail),
           ],
         ),
         InfoSection(
           title: 'Vos données',
           children: [
-            const InfoText(
-              'Recevez par e-mail un fichier avec tout ce que Vixeo conserve sur votre compte : profils, liste, '
-              'progression et appareils connectés.',
-            ),
+            const InfoText('Recevez par e-mail un fichier avec tout ce que Vixeo conserve sur votre compte : profil, liste, progression et appareils connectés.'),
             SizedBox(height: layout.space(VxSpace.xs)),
-            VxButton(
-              label: 'Recevoir mes données',
-              icon: Icons.download_rounded,
-              kind: VxButtonKind.secondary,
-              loading: _exporting,
-              onPressed: _export,
-            ),
+            VxButton(label: 'Recevoir mes données', icon: Icons.download_rounded, kind: VxButtonKind.secondary, loading: _exporting, onPressed: _export),
           ],
         ),
         InfoSection(
           title: 'Supprimer le compte',
           last: true,
           children: [
-            const InfoText(
-              'Le compte, tous ses profils, leur liste et leur progression sont effacés définitivement, et tous '
-              'les appareils sont déconnectés. Il n’est pas possible de revenir en arrière.',
-            ),
+            const InfoText('Le compte, son profil, sa liste et sa progression seront effacés définitivement. Tous les appareils seront déconnectés.'),
             SizedBox(height: layout.space(VxSpace.xs)),
-            VxButton(
-              label: 'Supprimer mon compte',
-              icon: Icons.delete_forever_outlined,
-              kind: VxButtonKind.danger,
-              onPressed: () => _delete(withPassword: hasPassword),
-            ),
+            VxButton(label: 'Supprimer mon compte', icon: Icons.delete_forever_outlined, kind: VxButtonKind.danger, onPressed: _delete),
           ],
         ),
       ],
@@ -159,42 +83,69 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   }
 }
 
-/// Asks the account password (none for an account of Google or Apple without one), then deletes
-/// the account. Pops true once deleted.
+class _EmailDialog extends ConsumerStatefulWidget {
+  const _EmailDialog();
+  @override
+  ConsumerState<_EmailDialog> createState() => _EmailDialogState();
+}
+
+class _EmailDialogState extends ConsumerState<_EmailDialog> {
+  final _email = TextEditingController();
+  String? _error;
+  bool _loading = false;
+
+  @override
+  void dispose() { _email.dispose(); super.dispose(); }
+
+  Future<void> _confirm() async {
+    final email = _email.text.trim();
+    if (!email.contains('@')) { setState(() => _error = 'Adresse e-mail invalide.'); return; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final result = await changeEmailWithLink(ref, email: email);
+      if (result != null) {
+        await ref.read(sessionProvider.notifier).signInWithToken(result.token, result.user);
+        if (mounted) Navigator.pop(context, true);
+      }
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.field('email') ?? e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Nouvelle adresse e-mail'),
+    content: SizedBox(width: 380, child: TextField(
+      controller: _email, autofocus: true, keyboardType: TextInputType.emailAddress, autocorrect: false,
+      decoration: InputDecoration(labelText: 'Adresse e-mail', errorText: _error),
+      onSubmitted: (_) => _confirm(),
+    )),
+    actions: [
+      TextButton(onPressed: _loading ? null : () => Navigator.pop(context, false), child: const Text('Annuler')),
+      VxButton(label: 'Enregistrer', loading: _loading, onPressed: _confirm),
+    ],
+  );
+}
+
 class _DeleteAccountDialog extends ConsumerStatefulWidget {
-  const _DeleteAccountDialog({required this.withPassword});
-
-  final bool withPassword;
-
+  const _DeleteAccountDialog();
   @override
   ConsumerState<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
 }
 
 class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
-  final _password = TextEditingController();
-  String? _error;
   bool _loading = false;
-
-  @override
-  void dispose() {
-    _password.dispose();
-    super.dispose();
-  }
+  String? _error;
 
   Future<void> _confirm() async {
-    if (widget.withPassword && _password.text.isEmpty) {
-      setState(() => _error = 'Saisissez le mot de passe du compte.');
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
-      await ref.read(authRepositoryProvider).deleteAccount(widget.withPassword ? _password.text : null);
+      await ref.read(authRepositoryProvider).deleteAccount();
       if (mounted) Navigator.pop(context, true);
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.field('password') ?? e.message);
+      if (mounted) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -203,258 +154,16 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('Supprimer le compte ?'),
-    content: SizedBox(
-      width: 380,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Tous les profils, leur liste et leur progression seront effacés définitivement.'
-            '${widget.withPassword ? ' Saisissez le mot de passe du compte pour confirmer.' : ''}',
-            style: VxText.body(14, color: VxColors.textSecondary),
-          ),
-          if (widget.withPassword) ...[
-            const SizedBox(height: 16),
-            PasswordField(
-              controller: _password,
-              label: 'Mot de passe',
-              error: _error,
-              autofocus: true,
-              onSubmitted: _confirm,
-            ),
-          ] else if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(_error!, style: VxText.body(14, color: VxColors.error)),
-          ],
-        ],
-      ),
-    ),
+    content: SizedBox(width: 380, child: Column(
+      mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Tous les profils, la liste et la progression seront effacés définitivement. Cette action est irréversible.'),
+        if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: VxText.body(14, color: VxColors.error))],
+      ],
+    )),
     actions: [
       TextButton(onPressed: _loading ? null : () => Navigator.pop(context, false), child: const Text('Annuler')),
-      VxButton(label: 'Supprimer définitivement', loading: _loading, onPressed: _confirm),
-    ],
-  );
-}
-
-/// A password field with the eye button that shows it in clear (« Afficher le mot de passe »).
-class PasswordField extends StatefulWidget {
-  const PasswordField({
-    super.key,
-    required this.controller,
-    required this.label,
-    this.error,
-    this.autofocus = false,
-    this.newPassword = false,
-    this.onSubmitted,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String? error;
-  final bool autofocus;
-
-  /// A password being chosen (the system offers to save it), not one being typed to confirm.
-  final bool newPassword;
-  final VoidCallback? onSubmitted;
-
-  @override
-  State<PasswordField> createState() => _PasswordFieldState();
-}
-
-class _PasswordFieldState extends State<PasswordField> {
-  bool _shown = false;
-
-  @override
-  Widget build(BuildContext context) => TextField(
-    controller: widget.controller,
-    autofocus: widget.autofocus,
-    obscureText: !_shown,
-    autocorrect: false,
-    enableSuggestions: false,
-    autofillHints: [widget.newPassword ? AutofillHints.newPassword : AutofillHints.password],
-    textInputAction: widget.onSubmitted == null ? TextInputAction.next : TextInputAction.done,
-    onSubmitted: widget.onSubmitted == null ? null : (_) => widget.onSubmitted!(),
-    decoration: InputDecoration(
-      labelText: widget.label,
-      errorText: widget.error,
-      suffixIcon: IconButton(
-        tooltip: _shown ? 'Masquer le mot de passe' : 'Afficher le mot de passe',
-        icon: Icon(_shown ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-        color: VxColors.textSecondary,
-        onPressed: () => setState(() => _shown = !_shown),
-      ),
-    ),
-  );
-}
-
-/// The new e-mail address and the account password. Pops true once changed (the session keeps
-/// the new address).
-class _EmailDialog extends ConsumerStatefulWidget {
-  const _EmailDialog();
-
-  @override
-  ConsumerState<_EmailDialog> createState() => _EmailDialogState();
-}
-
-class _EmailDialogState extends ConsumerState<_EmailDialog> {
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  String? _emailError;
-  String? _passwordError;
-  bool _loading = false;
-
-  @override
-  void dispose() {
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  Future<void> _confirm() async {
-    final email = _email.text.trim();
-    setState(() {
-      _emailError = email.contains('@') ? null : 'Adresse e-mail invalide.';
-      _passwordError = _password.text.isEmpty ? 'Saisissez le mot de passe du compte.' : null;
-    });
-    if (_emailError != null || _passwordError != null) return;
-    setState(() => _loading = true);
-    try {
-      final user = await ref.read(authRepositoryProvider).updateEmail(email: email, password: _password.text);
-      ref.read(sessionProvider.notifier).updateUser(user);
-      if (mounted) Navigator.pop(context, true);
-    } on ApiException catch (e) {
-      if (mounted) {
-        setState(() {
-          _emailError = e.field('email');
-          _passwordError = e.field('password') ?? (e.field('email') == null ? e.message : null);
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Modifier l’adresse e-mail'),
-    content: SizedBox(
-      width: 380,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Elle sert à vous connecter et à recevoir les codes « mot de passe oublié ».',
-            style: VxText.body(14, color: VxColors.textSecondary),
-          ),
-          const SizedBox(height: 16),
-          // The address in use, to read only.
-          TextFormField(
-            initialValue: ref.watch(sessionProvider.select((s) => s.user?.email)) ?? '',
-            readOnly: true,
-            enableInteractiveSelection: true,
-            style: VxText.body(16, color: VxColors.textSecondary),
-            decoration: const InputDecoration(labelText: 'Adresse e-mail actuelle'),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _email,
-            autofocus: true,
-            keyboardType: TextInputType.emailAddress,
-            autofillHints: const [AutofillHints.email],
-            autocorrect: false,
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(labelText: 'Nouvelle adresse e-mail', errorText: _emailError),
-          ),
-          const SizedBox(height: 16),
-          PasswordField(controller: _password, label: 'Mot de passe', error: _passwordError, onSubmitted: _confirm),
-        ],
-      ),
-    ),
-    actions: [
-      TextButton(onPressed: _loading ? null : () => Navigator.pop(context, false), child: const Text('Annuler')),
-      VxButton(label: 'Enregistrer', loading: _loading, onPressed: _confirm),
-    ],
-  );
-}
-
-/// The current password and the new one ([create]: the first one, no current). Pops true once
-/// changed.
-class _PasswordDialog extends ConsumerStatefulWidget {
-  const _PasswordDialog({this.create = false});
-
-  final bool create;
-
-  @override
-  ConsumerState<_PasswordDialog> createState() => _PasswordDialogState();
-}
-
-class _PasswordDialogState extends ConsumerState<_PasswordDialog> {
-  final _current = TextEditingController();
-  final _password = TextEditingController();
-  String? _currentError;
-  String? _passwordError;
-  bool _loading = false;
-
-  @override
-  void dispose() {
-    _current.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  Future<void> _confirm() async {
-    setState(() {
-      _currentError = !widget.create && _current.text.isEmpty ? 'Saisissez votre mot de passe actuel.' : null;
-      _passwordError = _password.text.isEmpty ? 'Saisissez le nouveau mot de passe.' : null;
-    });
-    if (_currentError != null || _passwordError != null) return;
-    setState(() => _loading = true);
-    try {
-      await ref
-          .read(authRepositoryProvider)
-          .updatePassword(current: widget.create ? null : _current.text, password: _password.text);
-      if (mounted) Navigator.pop(context, true);
-    } on ApiException catch (e) {
-      if (mounted) {
-        setState(() {
-          _currentError = e.field('current_password');
-          _passwordError = e.field('password') ?? (e.field('current_password') == null ? e.message : null);
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.create ? 'Créer un mot de passe' : 'Changer le mot de passe'),
-    content: SizedBox(
-      width: 380,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!widget.create) ...[
-            PasswordField(controller: _current, label: 'Mot de passe actuel', error: _currentError, autofocus: true),
-            const SizedBox(height: 16),
-          ],
-          PasswordField(
-            controller: _password,
-            label: widget.create ? 'Mot de passe' : 'Nouveau mot de passe',
-            error: _passwordError,
-            newPassword: true,
-            autofocus: widget.create,
-            onSubmitted: _confirm,
-          ),
-        ],
-      ),
-    ),
-    actions: [
-      TextButton(onPressed: _loading ? null : () => Navigator.pop(context, false), child: const Text('Annuler')),
-      VxButton(label: 'Enregistrer', loading: _loading, onPressed: _confirm),
+      VxButton(label: 'Supprimer définitivement', kind: VxButtonKind.danger, loading: _loading, onPressed: _confirm),
     ],
   );
 }

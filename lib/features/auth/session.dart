@@ -120,16 +120,6 @@ class SessionController extends Notifier<SessionState> {
     }
   }
 
-  Future<void> login(String email, String password) async {
-    final result = await _auth.login(email: email, password: password);
-    await _signedIn(result.token, result.user);
-  }
-
-  Future<void> register(String name, String username, String email, String password) async {
-    final result = await _auth.register(name: name, username: username, email: email, password: password);
-    await _signedIn(result.token, result.user);
-  }
-
   /// Signed in by another device (TV approved from a phone).
   Future<void> signInWithToken(String token, User user) => _signedIn(token, user);
 

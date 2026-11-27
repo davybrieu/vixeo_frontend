@@ -225,6 +225,7 @@ class ProfileHeader extends StatelessWidget {
     this.onFollowing,
     this.action,
     this.isPrivate = false,
+    this.followsYou = false,
     this.links = const [],
     this.compatibility,
   });
@@ -249,6 +250,9 @@ class ProfileHeader extends StatelessWidget {
 
   /// A private account: a lock after the name.
   final bool isPrivate;
+
+  /// The member follows the active profile.
+  final bool followsYou;
 
   /// Its accounts on social networks, under the bio (a press opens the page).
   final List<SocialLink> links;
@@ -331,6 +335,17 @@ class ProfileHeader extends StatelessWidget {
             ],
           ],
         ),
+        if (followsYou) ...[
+          SizedBox(height: layout.space(VxSpace.xs)),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: layout.space(VxSpace.s), vertical: layout.space(VxSpace.xxs)),
+            decoration: BoxDecoration(
+              color: VxColors.surfaceHigh,
+              borderRadius: BorderRadius.circular(layout.size(VxRadius.button, tv: VxRadius.buttonTv)),
+            ),
+            child: Text('Te suit', style: VxText.body(layout.captionSize, color: VxColors.textSecondary, weight: FontWeight.w600)),
+          ),
+        ],
         if (handle.isNotEmpty) ...[
           SizedBox(height: layout.space(VxSpace.xxs)),
           Text(
