@@ -51,7 +51,7 @@ class StreamSource {
   /// The link the server knows the source by (a player page, or the stream itself).
   final String url;
 
-  /// The address to play (a plug-in's stream). Null: nothing playable.
+  /// The address to play. Null: nothing playable.
   final String? stream;
   final String? streamType;
 
@@ -81,7 +81,7 @@ final providerSourcesProvider = FutureProvider.family<List<StreamSource>, Provid
   (ref, key) async => const [],
 );
 
-const noPluginsInstalledMessage = 'Aucune source disponible.';
+const noSourcesAvailableMessage = 'Aucune source disponible.';
 
 /// The player, for a title (sources, subtitles, episodes) and for a live channel ([PlayerScreen.live]).
 ///
@@ -371,7 +371,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
     await _stopPlayback();
 
-    // A plug-in's stream is already playable: the app plays it as it is, with its headers.
+    // The stream is already playable: the app plays it with its headers.
     final direct = source.stream;
     if (direct == null || direct.isEmpty) {
       if (!mounted) return;
@@ -842,7 +842,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         ? const AsyncData<List<SourceProvider>>(<SourceProvider>[])
         : ref.watch(sourceProvidersProvider(_item));
     final providers = providersAsync.value ?? const <SourceProvider>[];
-    const noProvidersMessage = noPluginsInstalledMessage;
+    const noProvidersMessage = noSourcesAvailableMessage;
     final sourcesByProvider = <String, AsyncValue<List<StreamSource>>>{};
     if (canLoadSources) {
       for (final provider in providers) {
@@ -995,7 +995,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     live: widget.live,
                     playing: _playing,
                     loading: loading,
-                    // No source chosen yet: play opens the sources.
+                    // No source chosen yet: play opens the source panel.
                     onPlayPause: waiting ? _openSources : _togglePlay,
                     onRewind: () => _seekBy(-_seekStep),
                     onForward: () => _seekBy(_seekStep),
@@ -1675,12 +1675,10 @@ class _SourcesPanel extends StatefulWidget {
   final ValueChanged<String> onRetry;
   final VoidCallback onClose;
 
-  /// The journal of a source's last run (`ScraperJournal`), shown on a long press.
-  final List<String> Function(String providerId)? journalOf;
   final bool providersLoading;
   final String? providersError;
 
-  /// Said when there is no provider: no plug-in installed, or all of them turned off.
+  /// Said when no source provider is available.
   final String noProvidersMessage;
 
   @override
@@ -1689,7 +1687,7 @@ class _SourcesPanel extends StatefulWidget {
 
 enum _ProviderStatus { loading, failed, empty, links }
 
-/// Why a source failed, in the words of the plug-in system or of the API (French), written under
+/// Why a source failed, in the words of the API (French), written under
 /// « Échec » in the sources panel; null when there are no such words (an unexpected error). Without
 /// it, a failure on a device cannot be told from another one.
 String? sourceFailureReason(Object? error) {
@@ -1702,44 +1700,6 @@ String? sourceFailureReason(Object? error) {
 
 class _SourcesPanelState extends State<_SourcesPanel> {
   String? _selectedProvider;
-
-  /// What a source did during its last run (requests, console, end), to copy and send: the way to
-  /// know, on a phone, why it found nothing.
-  Future<void> _showJournal(SourceProvider provider) {
-    final lines = widget.journalOf?.call(provider.id) ?? const <String>[];
-    final text = lines.isEmpty ? 'Cette source n’a pas encore été interrogée.' : lines.join('\n');
-    return showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: VxColors.surface,
-        title: Text('Journal – ${provider.name}', style: VxText.title(16)),
-        content: SizedBox(
-          width: 640,
-          height: MediaQuery.sizeOf(dialogContext).height * 0.6,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              text,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.35, color: VxColors.textSoft),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: text));
-              showVxSnack(dialogContext, 'Journal copié');
-            },
-            child: const Text('Copier'),
-          ),
-          TextButton(
-            autofocus: true,
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Fermer'),
-          ),
-        ],
-      ),
-    );
-  }
 
   String? _language(StreamSource source) {
     final value = source.name.toUpperCase();
@@ -1806,7 +1766,6 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                 : status == _ProviderStatus.failed || status == _ProviderStatus.empty
                     ? () => widget.onRetry(provider.id)
                     : null,
-            onLongPress: widget.journalOf == null ? null : () => _showJournal(provider),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
