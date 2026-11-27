@@ -86,7 +86,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return mine ? '/profil' : '/membre/${Uri.encodeComponent(member)}';
       }
       final location = state.matchedLocation;
-      const authPages = {'/connexion', EmailLoginScreen.location, '/inscription'};
+      const authPages = {'/connexion', EmailLoginScreen.location, '/inscription', '/inscription/profil'};
       if (session.status == SessionStatus.restoring || session.status == SessionStatus.unreachable) {
         if (location != '/demarrage') {
           if (!authPages.contains(location)) pending = state.uri.toString();
@@ -137,6 +137,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => guarded(state.uri.path, const EmailLoginScreen()),
       ),
       GoRoute(path: '/inscription', redirect: (_, _) => EmailLoginScreen.location),
+      GoRoute(
+        path: '/inscription/profil',
+        builder: (_, state) => ProfileEditorScreen(
+          profileId: 0,
+          onboarding: true,
+          registrationTicket: state.uri.queryParameters['ticket'],
+        ),
+      ),
       GoRoute(path: '/profils', redirect: (_, _) => '/accueil'),
       GoRoute(
         path: '/profils/modifier/:id',
