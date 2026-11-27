@@ -159,7 +159,8 @@ class _Tagline extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
     return Text(
-      'Regardez vos films et vos séries\nPartagez vos avis avec la communauté',
+      'Regardez vos films et vos séries
+Partagez vos avis avec la communauté',
       textAlign: TextAlign.center,
       style: VxText.title(layout.isLarge ? layout.tv(54) : 30).copyWith(height: 1.25),
     );
@@ -385,7 +386,9 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
       } else {
         final result = await repository.verifyEmailCode(email: _email.text.trim(), code: _code.text.trim());
         if (result.registrationTicket != null) {
-          if (mounted) {\n            context.go(ProfileEditorScreen.registrationLocation(result.registrationTicket!));\n          }
+          if (mounted) {
+            context.go(ProfileEditorScreen.registrationLocation(result.registrationTicket!));
+          }
         } else if (result.token != null && result.user != null) {
           await ref.read(sessionProvider.notifier).signInWithToken(result.token!, result.user!);
         } else {
