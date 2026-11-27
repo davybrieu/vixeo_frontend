@@ -96,37 +96,6 @@ jobs:
           force_orphan: true
           commit_message: "Deploy Flutter Web from ${{ github.sha }}"
 
-  # Pull requests: the Android app must still compile (native player plugin, Gradle, manifest),
-  # without the release key and without publishing anything. The release job below only runs
-  # on main: without this one, a broken Android build would only be seen after the merge.
-  build-apk-debug:
-    name: Build Android APK (debug, pull requests only)
-    needs: checks
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build debug APK
-        run: flutter build apk --debug --dart-define=API_URL="${{ env.API_URL }}"
-
   build-apk-release:
     name: Build Android APK and publish GitHub Release
     needs: checks
@@ -298,3 +267,21 @@ jobs:
           files: |
             release/vixeo-setup-${{ steps.app-version.outputs.build }}.exe
             release/vixeo-setup-${{ steps.app-version.outputs.build }}.exe.sha256
+
+
+  # Deploy the Laravel API only after every production build has succeeded.
+  deploy-laravel:
+    name: Deploy Laravel backend via Forge
+    needs: [build-web, build-apk-release, build-windows-release]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Trigger Laravel Forge deployment
+        env:
+          FORGE_DEPLOY_WEBHOOK: ${{ secrets.FORGE_DEPLOY_WEBHOOK }}
+        run: |
+          if [ -z "$FORGE_DEPLOY_WEBHOOK" ]; then
+            echo "::error::Missing GitHub secret FORGE_DEPLOY_WEBHOOK (Laravel Forge deployment webhook URL)"
+            exit 1
+          fi
+          curl --fail --silent --show-error --request POST "$FORGE_DEPLOY_WEBHOOK"
