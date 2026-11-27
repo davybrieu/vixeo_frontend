@@ -120,7 +120,7 @@ String? socialSignInError(SocialProvider provider, String reason) => switch (rea
   'unavailable' => 'La connexion avec ${provider.label} n’est pas encore disponible.',
   'email' => '${provider.label} n’a pas donné d’adresse e-mail : le compte ne peut pas être créé.',
   'unverified' =>
-    '${provider.label} n’a pas vérifié cette adresse : connectez-vous avec votre e-mail et votre mot de passe.',
+    '${provider.label} n’a pas vérifié cette adresse : connectez-vous avec votre adresse e-mail et un code de vérification.',
   _ => '${provider.label} n’a pas pu vous connecter. Réessayez.',
 };
 
