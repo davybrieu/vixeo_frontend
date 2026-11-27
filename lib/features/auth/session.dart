@@ -27,7 +27,7 @@ class SessionState {
   final String? token;
   final User? user;
 
-  /// Profile chosen on "Qui regarde ?" (null = not chosen yet).
+  /// The account's single profile, resolved automatically after sign-in.
   final Profile? profile;
 
   /// Message to show once (e.g. "session expirée").
@@ -35,11 +35,11 @@ class SessionState {
 
   bool get isSignedIn => status == SessionStatus.signedIn;
 
-  SessionState copyWith({User? user, Profile? profile, bool clearProfile = false}) => SessionState(
+  SessionState copyWith({User? user, Profile? profile}) => SessionState(
     status: status,
     token: token,
     user: user ?? this.user,
-    profile: clearProfile ? null : (profile ?? this.profile),
+    profile: profile ?? this.profile,
   );
 }
 
@@ -48,15 +48,13 @@ final sessionStorageProvider = Provider<SessionStorage>((ref) => SecureSessionSt
 final apiClientProvider = Provider<ApiClient>(
   (ref) => ApiClient(
     token: () => ref.read(sessionProvider).token,
-    profileId: () => ref.read(sessionProvider).profile?.id,
     onUnauthorized: () => ref.read(sessionProvider.notifier).expire(),
   ),
 );
 
-/// The real-time connection of the signed-in app (Reverb, `core/api/realtime.dart`): another
-/// account or profile gets another one (other channels, another authorization).
+/// The real-time connection of the signed-in account (Reverb).
 final realtimeProvider = Provider<Realtime>((ref) {
-  ref.watch(sessionProvider.select((s) => (s.token, s.profile?.id)));
+  ref.watch(sessionProvider.select((s) => s.token));
   final api = ref.read(apiClientProvider);
   final realtime = Realtime(
     authorize: (socketId, channel) async =>
@@ -132,16 +130,10 @@ class SessionController extends Notifier<SessionState> {
     await _signedIn(result.token, result.user);
   }
 
-  Future<void> selectProfile(Profile profile) async {
-    _previous = null;
-    await _storage.writeProfileId(profile.id);
-    state = state.copyWith(profile: profile);
-  }
-
   /// Signed in by another device (TV approved from a phone).
   Future<void> signInWithToken(String token, User user) => _signedIn(token, user);
 
-  /// Re-reads the account (e.g. after turning parental control on or off).
+  /// Re-reads the account.
   Future<void> refreshUser() async {
     if (!state.isSignedIn) return;
     state = state.copyWith(user: await _auth.me());
@@ -157,35 +149,6 @@ class SessionController extends Notifier<SessionState> {
     if (state.profile?.id == profile.id) {
       state = state.copyWith(profile: profile);
     }
-  }
-
-  /// The profile left with « Changer de profil »: « Qui regarde ? » can go back to it.
-  Profile? _previous;
-
-  Profile? get previousProfile => _previous;
-
-  /// Back to "Qui regarde ?".
-  Future<void> switchProfile() async {
-    _previous = state.profile;
-    await _storage.writeProfileId(null);
-    state = state.copyWith(clearProfile: true);
-  }
-
-  /// « Qui regarde ? »'s back button: the profile in use before, without asking its PIN again.
-  Future<void> cancelSwitch() async {
-    final previous = _previous;
-    if (previous == null) return;
-    _previous = null;
-    await selectProfile(previous);
-  }
-
-  /// A profile deleted (« Modifier mon profil »): never back to it. The profile in
-  /// use deleted: back to « Qui regarde ? ».
-  Future<void> forgetProfile(int profileId) async {
-    if (_previous?.id == profileId) _previous = null;
-    if (state.profile?.id != profileId) return;
-    await _storage.writeProfileId(null);
-    state = state.copyWith(clearProfile: true);
   }
 
   Future<void> logout() async {
@@ -226,7 +189,6 @@ class SessionController extends Notifier<SessionState> {
 
   Future<void> _clear() async {
     await _storage.writeToken(null);
-    await _storage.writeProfileId(null);
   }
 
   Future<void> _clearQuietly() async {
