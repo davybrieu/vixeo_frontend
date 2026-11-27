@@ -295,7 +295,7 @@ void main() {
     expect(find.text('9+'), findsOneWidget);
 
     // A child's profile: no messages.
-    await tester.pumpWidget(_shell(const Profile(id: 3, name: 'Tom', isKid: true)));
+    await tester.pumpWidget(_shell(const Profile(id: 3, name: 'Tom')));
     await tester.pump();
     expect(find.byTooltip('Messages'), findsNothing);
     expect(find.byTooltip('Recherche'), findsOneWidget);
