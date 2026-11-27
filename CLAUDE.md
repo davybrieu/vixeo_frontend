@@ -321,7 +321,7 @@ lib/
   le mot de passe » (connexion, inscription, mot de passe oublié).
 - **Polices** : Sora et Inter sont dans `assets/fonts` (licence OFL) ; rien n'est téléchargé au
   lancement (pas de `google_fonts`).
-- **API** : passer par `ApiClient` (jeton Bearer + en-tête `X-Profile-Id` ajoutés automatiquement,
+- **API** : passer par `ApiClient` (jeton Bearer ajouté automatiquement, sans en-tête de profil,
   erreurs → `ApiException` avec le message français de l'API, 401 → session expirée).
 - **Modèles** : écrits à la main d'après `vixeo_backend/docs/openapi.json` (seuls les champs
   utilisés). À chaque changement de l'API, mettre à jour le modèle et son test
@@ -341,7 +341,7 @@ lib/
   - touche Retour (`BackNavigationGuard`) : d'une sous-page vers l'accueil (ou vers la page
     d'accueil de la connexion depuis `/connexion/email`, et vers `/connexion/email` depuis
     l'inscription et le mot de passe oublié) ; depuis l'accueil, la connexion ou
-    « Qui regarde ? », confirmation avant de quitter l'appli ; sur TV, Retour pendant la saisie
+    confirmation avant de quitter l'appli depuis l'accueil ou la connexion ; sur TV, Retour pendant la saisie
     d'un champ de texte ne fait que quitter le champ (ce qui ferme le clavier), sans changer de
     page (`BackNavigationGuard.leaveTextField`) ;
   - **navigation au D-pad** (`core/widgets/focus_navigation.dart`, demande du développeur,
@@ -718,8 +718,8 @@ lib/
   Bas de la télécommande font défiler le texte, Haut en haut revient à « Retour »). Test :
   `test/description_test.dart`.
 - **Pas de page « Avancé »** (supprimée, demande du développeur, 25/11/2026 : ni `/profil/avance`,
-  ni « Mémoriser le dernier profil », ni « Vider le cache ») : le dernier profil choisi s'ouvre
-  toujours au lancement (un profil à code demande toujours son code). Lignes des réglages communes :
+  ni « Mémoriser le dernier profil », ni « Vider le cache ») : l'unique profil du compte est
+  automatiquement restauré au lancement. Lignes des réglages communes :
   `profiles/settings_rows.dart` (`SettingsSection`, `SettingsChoiceRow`, `SettingsSwitchRow`,
   `SettingsActionRow`).
 - **Rail de navigation sur un écran bas** : icônes et marges rétrécissent selon la hauteur
