@@ -68,7 +68,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository(
 
 final sessionProvider = NotifierProvider<SessionController, SessionState>(SessionController.new);
 
-/// Authentication state and the active profile of the signed-in account.
+/// Authentication state and the single profile of the signed-in account.
 class SessionController extends Notifier<SessionState> {
   SessionStorage get _storage => ref.read(sessionStorageProvider);
   AuthRepository get _auth => ref.read(authRepositoryProvider);
