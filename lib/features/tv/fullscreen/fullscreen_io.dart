@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -25,7 +26,7 @@ Future<void> unlockOrientation() async {
 Future<void> enterFullscreen() async {
   _fullscreen = true;
   // Windows: the window covers the whole screen (taskbar included), as in a desktop player.
-  if (Platform.isWindows) {
+  if (!kIsWeb && Platform.isWindows) {
     await windowManager.setFullScreen(true);
     return;
   }
@@ -47,8 +48,8 @@ Future<void> exitFullscreen() async {
 /// Landscape while the player is open or full screen; otherwise every orientation (the app's
 /// default: none is set anywhere else).
 Future<void> _applyOrientation() async {
-  // A computer's screen has no orientation to lock.
-  if (Platform.isWindows) return;
+  // A browser has no native orientation lock here; a computer's screen has none either.
+  if (kIsWeb || Platform.isWindows) return;
   await _setOrientation();
 }
 
