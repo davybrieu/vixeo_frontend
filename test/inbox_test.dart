@@ -294,10 +294,10 @@ void main() {
     expect(_pressable('Messages, 12 messages non lus'), findsOneWidget);
     expect(find.text('9+'), findsOneWidget);
 
-    // A child's profile: no messages.
+    // A profile without a username is still the account's profile; child-profile gating is gone.
     await tester.pumpWidget(_shell(const Profile(id: 3, name: 'Tom')));
     await tester.pump();
-    expect(find.byTooltip('Messages'), findsNothing);
+    expect(find.byTooltip('Messages'), findsOneWidget);
     expect(find.byTooltip('Recherche'), findsOneWidget);
   });
 
