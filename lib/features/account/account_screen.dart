@@ -7,7 +7,6 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../auth/session.dart';
-import '../profiles/parental_pin.dart';
 import 'info_page.dart';
 
 /// "Mon compte" (`/profil/compte`): change the e-mail address and the password, receive a copy of
@@ -121,8 +120,6 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
             ),
           ],
         ),
-        // The parental PIN of the account (the « Contrôle parental » page is gone).
-        const ParentalPinSection(),
         InfoSection(
           title: 'Vos données',
           children: [
