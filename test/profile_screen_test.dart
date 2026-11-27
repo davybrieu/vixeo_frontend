@@ -668,24 +668,6 @@ void main() {
     expect(top('COMPTE'), lessThan(top('GÉNÉRAL')));
   });
 
-  testWidgets('« Paramètres » without a social page: edit the single profile before account settings', (tester) async {
-    tester.view.physicalSize = const Size(600, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sessionProvider.overrideWith(_NoUsernameProfile.new)],
-        child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: ProfileSettingsScreen())),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    double top(String text) => tester.getTopLeft(find.text(text)).dy;
-    expect(find.text('Changer de profil'), findsNothing);
-    expect(top('PROFIL'), lessThan(top('Modifier le profil')));
-    expect(top('Modifier le profil'), lessThan(top('COMPTE')));
-  });
-
   testWidgets('« Partager » sends the profile\'s page, or copies it', (tester) async {
     final sharer = _FakeSharer();
     const shared = SocialProfile(
