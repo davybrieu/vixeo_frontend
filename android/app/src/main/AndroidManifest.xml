@@ -38,15 +38,13 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
-            <!-- The app's own page of a member (www.vixeo.app/membre/pseudo: no page of the site),
-                 used by the site's « Ouvrir dans Vixeo »: opened in the app on every Android
-                 version. Android App Links, verified with the site's /.well-known/assetlinks.json
-                 (release key). -->
+            <!-- Public Flutter profile links (app.vixeo.app/membre/pseudo) open directly in the app.
+                 Android App Links are verified by web/.well-known/assetlinks.json. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="www.vixeo.app" android:pathPrefix="/membre/"/>
+                <data android:scheme="https" android:host="app.vixeo.app" android:pathPrefix="/membre/"/>
             </intent-filter>
             <!-- The link's path goes to go_router (router.dart: /pseudo → /membre/pseudo). -->
             <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
