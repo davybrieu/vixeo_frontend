@@ -282,8 +282,7 @@ lib/
   le lancent en silencieux (`/SILENT /SUPPRESSMSGBOXES /NORESTART`, détaché) et ferment Vixeo,
   que l'installateur relance (« Installation de la nouvelle version : Vixeo se ferme, puis
   redémarre. »). Sans fichier, ou sur iOS, le bouton ouvre la page d'installation du site.
-  L'appli ne charge jamais de code **de mise à jour** qu'elle exécuterait elle-même (les scrapers
-  des plug-ins, eux, tournent dans un bac à sable : voir « Plug-ins »). Publication :
+  L'appli ne charge ni n'exécute de code tiers téléchargé. Publication :
   `docs/android-release.md`, `docs/windows-release.md`. Pour essayer les écrans d'une autre
   plateforme : version « profile » avec `--dart-define=UPDATE_PLATFORM=android`.
 - **Version et signature** : `version: x.y.z+build` dans `pubspec.yaml` (`x.y.z` : version
@@ -1038,8 +1037,7 @@ lib/
   canal temps réel, appli ouverte),
   déconnexion, mon compte : export et suppression, appareils connectés), mot de passe oublié,
   vérification des
-  mises à jour (Android / Windows, installées depuis l'appli), plug-ins de sources = dépôts de scrapers JavaScript façon Nuvio (page « Plug-ins », sources du
-  lecteur ; le catalogue reste celui de TMDb ; Dart non vérifié, voir « Plug-ins »), TV en direct (catégories, chaînes, lecture du flux), lecteur à
+  mises à jour (Android / Windows, installées depuis l'appli), TV en direct (catégories, chaînes, lecture du flux), lecteur à
   moteurs par plateforme (natif sur Android / iOS, media_kit sur Windows : `docs/lecteur.md`),
   appli Windows (fenêtre, plein écran, installateur), mises en page téléphone et TV / grand
   écran, navigation à la télécommande.
