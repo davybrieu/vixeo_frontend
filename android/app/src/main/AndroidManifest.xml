@@ -38,18 +38,18 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
-            <!-- Public Flutter profile links (app.vixeo.app/membre/pseudo) open directly in the app.
+            <!-- Public Flutter profile links (vixeo.app/membre/pseudo) open directly in the app.
                  Android App Links are verified by web/.well-known/assetlinks.json. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="app.vixeo.app" android:pathPrefix="/membre/"/>
+                <data android:scheme="https" android:host="vixeo.app" android:pathPrefix="/membre/"/>
             </intent-filter>
             <!-- The link's path goes to go_router (router.dart: /pseudo → /membre/pseudo). -->
             <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
         </activity>
-        <!-- Legacy short profile links (app.vixeo.app/pseudo) are opened in the app on Android 12+;
+        <!-- Legacy short profile links (vixeo.app/pseudo) are opened in the app on Android 12+;
              the router redirects them to /membre/pseudo. -->
         <activity-alias
             android:name=".ProfileLinkActivity"
@@ -60,7 +60,7 @@
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="app.vixeo.app" android:pathAdvancedPattern="/[A-Za-z0-9_]+"/>
+                <data android:scheme="https" android:host="vixeo.app" android:pathAdvancedPattern="/[A-Za-z0-9_]+"/>
             </intent-filter>
             <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
         </activity-alias>
