@@ -186,7 +186,13 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
       final withCover = await _saveCover(profile.id, profile);
       if (withCover != null) ref.read(sessionProvider.notifier).updateProfile(withCover);
       if (widget.onboarding) {
-        final completed = await repository.updateProfile(profile.id, {'registration_completed': true});
+        final completed = await repository.updateProfile(profile.id, {
+          'registration_completed': true,
+          'name': _name.text.trim(),
+          'username': _username.text.trim().toLowerCase(),
+          'avatar': _avatar,
+          'cover': _cover,
+        });
         ref.read(sessionProvider.notifier).updateProfile(completed);
       }
       ref.invalidate(profilesProvider);
