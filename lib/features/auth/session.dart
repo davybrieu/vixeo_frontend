@@ -102,14 +102,9 @@ class SessionController extends Notifier<SessionState> {
     state = SessionState(status: SessionStatus.restoring, token: token);
     try {
       final user = await _auth.me();
-      // The last profile chosen opens at launch.
-      final profileId = await _storage.readProfileId();
-      Profile? profile;
-      if (profileId != null) {
-        final profiles = await _auth.profiles();
-        // A protected profile always asks for its PIN again after a restart.
-        profile = profiles.where((p) => p.id == profileId && !p.hasPin).firstOrNull;
-      }
+      // One account has one viewer identity: use its sole profile automatically.
+      final profiles = await _auth.profiles();
+      final profile = profiles.isEmpty ? null : profiles.first;
       state = SessionState(status: SessionStatus.signedIn, token: token, user: user, profile: profile);
     } on ApiException catch (e) {
       if (e.isUnauthorized) {
@@ -218,8 +213,15 @@ class SessionController extends Notifier<SessionState> {
 
   Future<void> _signedIn(String token, User user) async {
     await _storage.writeToken(token);
-    await _storage.writeProfileId(null);
-    state = SessionState(status: SessionStatus.signedIn, token: token, user: user);
+    // Do not persist a selected profile. Resolve the account's single profile on every sign-in.
+    Profile? profile;
+    try {
+      final profiles = await _auth.profiles();
+      profile = profiles.isEmpty ? null : profiles.first;
+    } catch (_) {
+      // Keep the authenticated session; the profile can be resolved on the next restore.
+    }
+    state = SessionState(status: SessionStatus.signedIn, token: token, user: user, profile: profile);
   }
 
   Future<void> _clear() async {

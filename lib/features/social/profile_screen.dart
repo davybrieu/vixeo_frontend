@@ -53,14 +53,6 @@ class ProfileScreen extends ConsumerWidget {
         action: VxButton(label: 'Choisir un profil', autofocus: true, onPressed: () => context.go('/profils')),
       );
     }
-    if (profile.isKid) {
-      return const EmptyState(
-        icon: Icons.child_care_rounded,
-        title: 'Pas de page de profil',
-        message: 'Les profils enfants ne disposent pas de profil public.',
-      );
-    }
-
     final username = profile.username?.trim() ?? '';
     final social = username.isEmpty ? null : ref.watch(socialProfileProvider(username)).value;
 
@@ -268,11 +260,6 @@ Future<void> _showMyMenu(BuildContext anchor, WidgetRef ref, int profileId) {
         Icons.settings_outlined,
         'Paramètres',
         () => phone ? anchor.push('/parametres') : anchor.go('/parametres'),
-      ),
-      vxMenuItem(
-        Icons.switch_account_outlined,
-        'Changer de profil',
-        () => ref.read(sessionProvider.notifier).switchProfile(),
       ),
       vxMenuItem(
         Icons.block_rounded,

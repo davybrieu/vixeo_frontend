@@ -42,7 +42,6 @@ import 'features/playback/player_screen.dart';
 import 'features/profiles/profile_editor_screen.dart';
 import 'features/profiles/profile_preferences_screen.dart';
 import 'features/profiles/profile_settings_screen.dart';
-import 'features/profiles/profiles_screen.dart';
 import 'features/profiles/row_preferences.dart';
 import 'features/profiles/rows_settings_screen.dart';
 import 'features/search/search_screen.dart';
@@ -114,10 +113,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return target;
       }
       if (session.profile == null) {
-        // « Qui regarde ? » and its « Ajouter » only.
-        return location == '/profils' || location == ProfileEditorScreen.newLocation ? null : '/profils';
+        // Single-profile accounts go straight into the app; the API resolves the account profile.
+        return location == '/accueil' ? null : '/accueil';
       }
-      if (authPages.contains(location) || location == '/profils' || location == '/demarrage') {
+      if (authPages.contains(location) || location == '/profils' || location == ProfileEditorScreen.newLocation || location == '/demarrage') {
         // A new profile: the first launch first (rate a few titles, accounts to follow).
         final target = pending ?? (OnboardingScreen.needed(session) ? OnboardingScreen.location : '/accueil');
         pending = null;
@@ -138,10 +137,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/mot-de-passe-oublie',
         builder: (_, state) => guarded(state.uri.path, PasswordResetScreen(initialEmail: state.extra as String?)),
       ),
-      GoRoute(path: '/profils', builder: (_, state) => guarded(state.uri.path, const ProfilesScreen())),
+      GoRoute(path: '/profils', redirect: (_, _) => '/accueil'),
       // « Ajouter un profil » (« Qui regarde ? ») and « Modifier le profil » (« ⋮ » of the profile
       // page), without the navigation.
-      GoRoute(path: ProfileEditorScreen.newLocation, builder: (_, _) => const ProfileEditorScreen()),
+      GoRoute(path: ProfileEditorScreen.newLocation, redirect: (_, _) => '/accueil'),
       GoRoute(
         path: '/profils/modifier/:id',
         builder: (_, state) => ProfileEditorScreen(profileId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),

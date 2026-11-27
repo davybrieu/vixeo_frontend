@@ -78,16 +78,9 @@ class ProfileSettingsScreen extends ConsumerWidget {
                     children: [
                       _SettingsTile(
                         scale: s,
-                        icon: Icons.switch_account_outlined,
-                        title: 'Changer de profil',
-                        subtitle: 'Basculer vers un autre profil.',
-                        onPressed: () => ref.read(sessionProvider.notifier).switchProfile(),
-                      ),
-                      _SettingsTile(
-                        scale: s,
                         icon: Icons.edit_outlined,
                         title: 'Modifier le profil',
-                        subtitle: 'Nom, avatar ou photo, restrictions, code PIN.',
+                        subtitle: 'Nom, pseudo, avatar, photo et couverture.',
                         onPressed: () => context.push(ProfileEditorScreen.editLocation(profile.id)),
                       ),
                     ],
@@ -102,7 +95,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
                       scale: s,
                       icon: Icons.person_outline_rounded,
                       title: 'Compte',
-                      subtitle: 'Adresse e-mail, mot de passe, code PIN parental, vos données.',
+                      subtitle: 'Adresse e-mail, mot de passe et vos données.',
                       onPressed: () => context.push('/profil/compte'),
                     ),
                     _SettingsTile(
