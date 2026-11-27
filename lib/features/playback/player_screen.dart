@@ -1662,7 +1662,6 @@ class _SourcesPanel extends StatefulWidget {
     required this.onSelect,
     required this.onRetry,
     required this.onClose,
-    this.journalOf,
     this.providersLoading = false,
     this.providersError,
     this.noProvidersMessage = noSourcesAvailableMessage,
