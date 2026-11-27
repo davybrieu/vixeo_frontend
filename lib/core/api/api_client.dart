@@ -8,17 +8,13 @@ import 'api_exception.dart';
 
 /// HTTP client for the Vixeo API (`/api/v1`).
 ///
-/// Adds the bearer token and the active profile (`X-Profile-Id`, used by the API
-/// to apply the profile's age limit) to every request, and turns errors into
-/// [ApiException]s carrying the API's French messages.
+/// Adds the bearer token to every request and turns errors into [ApiException]s.
 class ApiClient {
   ApiClient({
     required String? Function() token,
-    required int? Function() profileId,
     void Function()? onUnauthorized,
     Dio? dio,
   }) : _token = token, // ignore: prefer_initializing_formals
-       _profileId = profileId, // ignore: prefer_initializing_formals
        _onUnauthorized = onUnauthorized, // ignore: prefer_initializing_formals
        _dio =
            dio ??
@@ -37,10 +33,6 @@ class ApiClient {
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
-          final profileId = _profileId();
-          if (profileId != null) {
-            options.headers['X-Profile-Id'] = '$profileId';
-          }
           handler.next(options);
         },
       ),
@@ -49,7 +41,6 @@ class ApiClient {
 
   final Dio _dio;
   final String? Function() _token;
-  final int? Function() _profileId;
   final void Function()? _onUnauthorized;
 
   Future<Map<String, dynamic>> get(String path, {Map<String, dynamic>? query, Duration? receiveTimeout}) => _send(
