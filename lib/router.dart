@@ -109,12 +109,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         pending = null;
         return target;
       }
-      if (session.profile == null) {
+      final profile = session.profile;
+      if (profile == null) {
         // Single-profile accounts go straight into the app; the API resolves the account profile.
         return location == '/accueil' ? null : '/accueil';
       }
-      if (!session.profile.registrationCompleted) {
-        final setupPath = '/profils/modifier/${session.profile.id}';
+      if (!profile.registrationCompleted) {
+        final setupPath = '/profils/modifier/${profile.id}';
         if (location != setupPath || state.uri.queryParameters['inscription'] != '1') {
           return '$setupPath?inscription=1';
         }
