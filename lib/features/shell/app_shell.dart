@@ -19,6 +19,7 @@ import '../messages/messages.dart' show unreadMessagesProvider;
 import '../notifications/inbox.dart';
 import '../network/feed_screen.dart';
 import '../profiles/avatars.dart';
+import '../profiles/profiles_screen.dart';
 import 'back_navigation_guard.dart';
 
 class _Destination {
@@ -59,7 +60,7 @@ const _phoneTabs = [
   _feed,
   _Destination('/recherche', 'Recherche', Icons.search_rounded, Icons.search_rounded),
   _messages,
-  _Destination('/profil', 'Profil', Icons.person_outline_rounded, Icons.person_rounded),
+  _Destination('/profil', 'Profil', Icons.account_circle_outlined, Icons.account_circle_rounded),
   _settings,
 ];
 
@@ -95,7 +96,15 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final session = ref.watch(sessionProvider);
-    final profile = session.profile;
+    // Resolve the profile independently of the initial token exchange. A transient failure in
+    // SessionController must not leave the authenticated account without its profile forever.
+    final profiles = ref.watch(profilesProvider);
+    ref.listen(profilesProvider, (_, next) {
+      next.whenData((items) {
+        if (items.isNotEmpty) ref.read(sessionProvider.notifier).updateProfile(items.first);
+      });
+    });
+    final profile = session.profile ?? profiles.value?.firstOrNull;
     // « Chaînes TV » only while live TV is shown (hidden for now: core/features.dart).
     final liveTv = ref.watch(liveTvProvider);
     final inbox = socialAvailable(session);
