@@ -58,21 +58,6 @@ class AuthRepository {
     'code_challenge': challenge,
   }))['message'] as String? ?? '';
 
-  /// Creates an account without a password and sends its first sign-in link.
-  Future<String> register({
-    required String name,
-    required String username,
-    required String email,
-    required String redirectUri,
-    required String challenge,
-  }) async => (await _api.post('/auth/register', body: {
-    'name': name,
-    'username': username,
-    'email': email,
-    'redirect_uri': redirectUri,
-    'code_challenge': challenge,
-  }))['message'] as String? ?? '';
-
   Future<({String token, User user})> emailToken({
     required String code,
     required String verifier,
