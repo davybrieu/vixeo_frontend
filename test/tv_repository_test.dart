@@ -43,7 +43,7 @@ class RoutingAdapter implements HttpClientAdapter {
 
 TvRepository repository(RoutingAdapter adapter) => TvRepository(
   ApiClient(
-    token: () => 't'
+    token: () => 't',
     dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
   ),
 );
