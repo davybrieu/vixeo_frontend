@@ -343,7 +343,7 @@ void main() {
 
     test('a child\'s profile: no badge, nothing asked', () async {
       final repository = _FakeMessages(_page());
-      final badge = container(repository, profile: const Profile(id: 3, name: 'Tom', isKid: true));
+      final badge = container(repository, profile: const Profile(id: 3, name: 'Tom'));
 
       await badge.read(unreadMessagesProvider.notifier).refresh(force: true);
       expect(badge.read(unreadMessagesProvider), 0);
