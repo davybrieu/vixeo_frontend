@@ -100,7 +100,7 @@ class FakeAdapter implements HttpClientAdapter {
 
 PlaybackRepository repository(FakeAdapter adapter) => PlaybackRepository(
   ApiClient(
-    token: () => 't'
+    token: () => 't',
     dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
   ),
 );
