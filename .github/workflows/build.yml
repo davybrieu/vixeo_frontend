@@ -1,7 +1,7 @@
 name: Build
 
 # The apps: Android (APK) and Windows (installer), published as GitHub releases that the API reads
-# for the in-app updates (vixeo_backend/docs/mise-a-jour.md). No web version any more.
+# for in-app updates (vixeo_backend/docs/mise-a-jour.md). Flutter Web is deployed to web-dist.
 on:
   push:
     branches: [main]
@@ -47,6 +47,54 @@ jobs:
 
       - name: Test
         run: flutter test
+
+  # Web build: deploy the static Flutter site to web-dist, separately from native releases.
+  # Pull requests compile it too, but never publish it.
+  build-web:
+    name: Build Flutter Web
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Web
+        run: |
+          flutter build web --release \
+            --dart-define=API_URL="${{ env.API_URL }}" \
+            --dart-define=REVERB_HOST="${{ env.REVERB_HOST }}" \
+            --dart-define=REVERB_PORT="${{ env.REVERB_PORT }}" \
+            --dart-define=REVERB_SCHEME="${{ env.REVERB_SCHEME }}" \
+            --dart-define=REVERB_APP_KEY="${{ env.REVERB_APP_KEY }}" \
+            --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}" \
+            --dart-define=SUPPORT_EMAIL="${{ env.SUPPORT_EMAIL }}"
+
+      - name: Upload Web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vixeo-web
+          path: build/web/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish web-dist branch
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: web-dist
+          publish_dir: build/web
+          force_orphan: true
+          commit_message: "Deploy Flutter Web from ${{ github.sha }}"
 
   # Pull requests: the Android app must still compile (native player plugin, Gradle, manifest),
   # without the release key and without publishing anything. The release job below only runs

@@ -90,7 +90,7 @@ class PluginNotifications implements SystemNotifications {
   /// Activation of a clicked toast (COM class registered by the plugin; never change it either).
   static const windowsActivator = '27b7b264-7a02-4694-b923-e79cb2e4f440';
 
-  static bool get _windows => defaultTargetPlatform == TargetPlatform.windows;
+  static bool get _windows => !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
   static NotificationDetails _details(NotificationChannel channel) => NotificationDetails(
     android: AndroidNotificationDetails(
@@ -107,7 +107,7 @@ class PluginNotifications implements SystemNotifications {
 
   @override
   bool get supported =>
-      defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS || _windows;
+      !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS || _windows);
 
   /// The app icon of the toasts: the PNG of the assets, next to vixeo.exe (null if missing).
   static String? _windowsIcon() {

@@ -1,6 +1,6 @@
 # Vixeo — appli
 
-Appli Flutter de Vixeo (Android, Android TV, Windows, puis iOS ; plus de version web), reliée à l'API
+Appli Flutter de Vixeo (Android, Android TV, Windows, Web, puis iOS), reliée à l'API
 [`vixeo_backend`](https://github.com/davybrieu/vixeo_backend).
 
 ## Démarrer
@@ -14,7 +14,7 @@ flutter run -d windows --dart-define=API_URL=http://localhost:8000
 - Émulateur Android : `--dart-define=API_URL=http://10.0.2.2:8000`.
 - Tests : `flutter test` · analyse : `flutter analyze`.
 
-## Version Release (Android, Windows, iOS)
+## Version Release (Android, Windows, Web, iOS)
 
 Une version Release refuse de démarrer s'il lui manque l'un de ces réglages
 (`lib/core/config.dart`, `lib/core/legal.dart`) :

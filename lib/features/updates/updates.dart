@@ -15,6 +15,7 @@ enum UpdatePlatform { android, ios, windows }
 UpdatePlatform? currentUpdatePlatform() {
   const forced = String.fromEnvironment('UPDATE_PLATFORM');
   if (!kReleaseMode && forced.isNotEmpty) return UpdatePlatform.values.asNameMap()[forced];
+  if (kIsWeb) return null;
   return switch (defaultTargetPlatform) {
     TargetPlatform.android => UpdatePlatform.android,
     TargetPlatform.iOS => UpdatePlatform.ios,

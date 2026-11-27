@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,6 +72,10 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   bool _sharing = false;
 
   Future<void> _share() async {
+    if (kIsWeb) {
+      showVxSnack(context, 'Le partage en image est disponible sur Android et Windows.', icon: Icons.info_outline_rounded);
+      return;
+    }
     if (_sharing) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _sharing = true);
@@ -120,8 +125,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   ),
                   const Spacer(),
                   VxButton(
-                    label: Platform.isWindows ? 'Enregistrer l’image' : 'Partager',
-                    icon: Platform.isWindows ? Icons.download_rounded : Icons.ios_share_rounded,
+                    label: !kIsWeb && Platform.isWindows ? 'Enregistrer l’image' : 'Partager',
+                    icon: !kIsWeb && Platform.isWindows ? Icons.download_rounded : Icons.ios_share_rounded,
                     dense: true,
                     autofocus: true,
                     loading: _sharing,

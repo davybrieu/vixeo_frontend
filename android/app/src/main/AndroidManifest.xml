@@ -38,24 +38,19 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
-            <!-- The app's own page of a member (www.vixeo.app/membre/pseudo: no page of the site),
-                 used by the site's « Ouvrir dans Vixeo »: opened in the app on every Android
-                 version. Android App Links, verified with the site's /.well-known/assetlinks.json
-                 (release key). -->
+            <!-- Public Flutter profile links (vixeo.app/membre/pseudo) open directly in the app.
+                 Android App Links are verified by web/.well-known/assetlinks.json. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="www.vixeo.app" android:pathPrefix="/membre/"/>
+                <data android:scheme="https" android:host="vixeo.app" android:pathPrefix="/membre/"/>
             </intent-filter>
             <!-- The link's path goes to go_router (router.dart: /pseudo → /membre/pseudo). -->
             <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
         </activity>
-        <!-- A profile's page without @ (www.vixeo.app/pseudo, like Twitter, « Partager »): one word,
-             never a page of the site (usernames are reserved). pathAdvancedPattern exists from
-             Android 12 only: older versions would ignore it and open every page of the site in the
-             app, so this alias is only enabled from Android 12 (values-v31/bools.xml); before,
-             the link opens the site's page, whose « Ouvrir dans Vixeo » uses /membre/pseudo. -->
+        <!-- Legacy short profile links (vixeo.app/pseudo) are opened in the app on Android 12+;
+             the router redirects them to /membre/pseudo. -->
         <activity-alias
             android:name=".ProfileLinkActivity"
             android:targetActivity=".MainActivity"
@@ -65,7 +60,7 @@
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="www.vixeo.app" android:pathAdvancedPattern="/[A-Za-z0-9_]+"/>
+                <data android:scheme="https" android:host="vixeo.app" android:pathAdvancedPattern="/[A-Za-z0-9_]+"/>
             </intent-filter>
             <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
         </activity-alias>
