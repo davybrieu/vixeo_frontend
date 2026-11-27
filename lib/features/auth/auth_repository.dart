@@ -14,7 +14,7 @@ class AuthRepository {
     required String email,
   }) async => (await _api.post('/auth/email/code', body: {'email': email}))['message'] as String? ?? '';
 
-  Future<({String token, User user, bool created})> verifyEmailCode({
+  Future<({String? token, User? user, bool created, String? registrationTicket})> verifyEmailCode({
     required String email,
     required String code,
   }) async {
@@ -23,10 +23,28 @@ class AuthRepository {
       'code': code,
       'device_name': DeviceInfo.deviceName,
     });
+    final ticket = json['registration_ticket'] as String?;
+    return (
+      token: json['token'] as String?,
+      user: json['user'] is Map<String, dynamic> ? User.fromJson(json['user'] as Map<String, dynamic>) : null,
+      created: json['created'] as bool? ?? false,
+      registrationTicket: ticket,
+    );
+  }
+
+  /// Create the account and its only profile after the verified identity completes registration.
+  Future<({String token, User user})> completeRegistration({
+    required String registrationTicket,
+    required Map<String, Object?> profile,
+  }) async {
+    final json = await _api.post('/auth/register/profile', body: {
+      'registration_ticket': registrationTicket,
+      'device_name': DeviceInfo.deviceName,
+      ...profile,
+    });
     return (
       token: json['token'] as String,
       user: User.fromJson(json['user'] as Map<String, dynamic>),
-      created: json['created'] as bool? ?? false,
     );
   }
 
@@ -35,21 +53,6 @@ class AuthRepository {
     required String redirectUri,
     required String challenge,
   }) async => (await _api.post('/auth/email/link', body: {
-    'email': email,
-    'redirect_uri': redirectUri,
-    'code_challenge': challenge,
-  }))['message'] as String? ?? '';
-
-  /// Creates an account without a password and sends its first sign-in link.
-  Future<String> register({
-    required String name,
-    required String username,
-    required String email,
-    required String redirectUri,
-    required String challenge,
-  }) async => (await _api.post('/auth/register', body: {
-    'name': name,
-    'username': username,
     'email': email,
     'redirect_uri': redirectUri,
     'code_challenge': challenge,
@@ -78,7 +81,7 @@ class AuthRepository {
 
   /// The token of a sign-in with Google or Apple: the code the browser brought back and the
   /// secret of its challenge (vixeo_backend/docs/connexion-sociale.md).
-  Future<({String token, User user, bool created})> socialToken({
+  Future<({String? token, User? user, bool created, String? registrationTicket})> socialToken({
     required String code,
     required String verifier,
   }) async {
@@ -87,9 +90,10 @@ class AuthRepository {
       body: {'code': code, 'code_verifier': verifier, 'device_name': DeviceInfo.deviceName},
     );
     return (
-      token: json['token'] as String,
-      user: User.fromJson(json['user'] as Map<String, dynamic>),
+      token: json['token'] as String?,
+      user: json['user'] is Map<String, dynamic> ? User.fromJson(json['user'] as Map<String, dynamic>) : null,
       created: json['created'] as bool? ?? false,
+      registrationTicket: json['registration_ticket'] as String?,
     );
   }
 

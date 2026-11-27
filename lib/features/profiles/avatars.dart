@@ -203,12 +203,21 @@ class ProfileAvatar extends StatelessWidget {
   final double? radius;
 
   @override
-  Widget build(BuildContext context) =>
-      AvatarTile(
-        avatarId: profile?.avatar,
-        photoUrl: profile?.photoUrl,
-        initial: profile?.initial ?? '?',
-        size: size,
-        radius: radius,
+  Widget build(BuildContext context) {
+    if (profile == null) {
+      return CircleAvatar(
+        radius: radius ?? size / 2,
+        backgroundColor: Colors.white10,
+        child: Icon(Icons.person_outline_rounded, size: size * 0.58, color: Colors.white70),
       );
+    }
+
+    return AvatarTile(
+      avatarId: profile!.avatar,
+      photoUrl: profile!.photoUrl,
+      initial: profile!.initial,
+      size: size,
+      radius: radius,
+    );
+  }
 }

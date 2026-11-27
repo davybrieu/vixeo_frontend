@@ -30,10 +30,13 @@ const bioMaxLength = 160;
 
 /// Edit the single profile attached to the signed-in account.
 class ProfileEditorScreen extends ConsumerStatefulWidget {
-  const ProfileEditorScreen({super.key, required this.profileId, this.onboarding = false});
+  const ProfileEditorScreen({super.key, required this.profileId, this.onboarding = false, this.registrationTicket});
 
   final int profileId;
   final bool onboarding;
+  final String? registrationTicket;
+
+  static String registrationLocation(String ticket) => '/inscription/profil?ticket=${Uri.encodeComponent(ticket)}';
 
   static String editLocation(int id) => '/profils/modifier/$id';
 
@@ -168,6 +171,30 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
     });
     final repository = ref.read(authRepositoryProvider);
     try {
+      if (widget.onboarding && profile.id == 0) {
+        final ticket = widget.registrationTicket;
+        if (ticket == null || _avatar == null || _cover == null) {
+          throw ApiException('Choisissez un avatar et une couverture pour continuer.');
+        }
+        final created = await repository.completeRegistration(
+          registrationTicket: ticket,
+          profile: {
+            'name': name,
+            'username': username,
+            'bio': _bio.text.trim(),
+            'avatar': _avatar,
+            'cover': _cover,
+            'social_links': {
+              for (final entry in _links.entries)
+                entry.key.key: entry.value.text.trim().isEmpty ? null : entry.value.text.trim(),
+            },
+          },
+        );
+        await ref.read(sessionProvider.notifier).signInWithToken(created.token, created.user);
+        if (!mounted) return;
+        context.go('/bienvenue');
+        return;
+      }
       final page = _pageFields(profile);
       final fields = <String, Object?>{
         ...page,
@@ -214,24 +241,28 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   Widget build(BuildContext context) {
     final s = uiScale(context);
     final layout = Layout.of(context);
-    final profiles = ref.watch(profilesProvider);
+    final isNewRegistration = widget.onboarding && widget.registrationTicket != null;
+    final profiles = isNewRegistration ? const AsyncData<List<Profile>>([]) : ref.watch(profilesProvider);
     final catalog = ref.watch(avatarCatalogProvider);
     final covers = ref.watch(coverCatalogProvider);
-    final profile = _profile(profiles.value);
+    final existingProfile = _profile(profiles.value);
+    final profile = existingProfile ?? (isNewRegistration ? const Profile(id: 0, name: '') : null);
     final gap = layout.sectionGap;
 
-    // Load the account's profile into the form.
+    // Load an existing profile, or initialise an empty registration form without creating a user.
     if (!_ready) {
-      if (profile != null) {
-        _name.text = profile.name;
-        _username.text = profile.username ?? '';
-        _avatar = profile.avatar;
-        _cover = profile.cover;
-        _bio.text = profile.bio ?? '';
-        for (final link in profile.socialLinks) {
+      if (existingProfile != null) {
+        _name.text = existingProfile.name;
+        _username.text = existingProfile.username ?? '';
+        _avatar = existingProfile.avatar;
+        _cover = existingProfile.cover;
+        _bio.text = existingProfile.bio ?? '';
+        for (final link in existingProfile.socialLinks) {
           _links[link.network]!.text = link.handle;
         }
-        _private = profile.isPrivate;
+        _private = existingProfile.isPrivate;
+        _ready = true;
+      } else if (isNewRegistration) {
         _ready = true;
       }
     }
@@ -408,7 +439,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
             ],
           ),
         ],
-        if (canChooseProfilePhoto || _hasPhoto(profile)) ...[
+        if (profile.id != 0 && (canChooseProfilePhoto || _hasPhoto(profile))) ...[
           SizedBox(height: gap),
           _PhotoCard(
             hasPhoto: _hasPhoto(profile),
@@ -457,7 +488,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           hasImage: _hasCoverImage(profile),
           error: error?.field('cover'),
           onRetry: () => ref.invalidate(coverCatalogProvider),
-          onChoose: canChooseProfilePhoto && !_saving ? _chooseCover : null,
+          onChoose: profile.id != 0 && canChooseProfilePhoto && !_saving ? _chooseCover : null,
           onRemove: _saving
               ? null
               : () => setState(() {
@@ -478,7 +509,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
         ],
         SizedBox(height: gap),
         VxButton(
-          label: widget.onboarding ? 'Créer mon profil et continuer' : 'Enregistrer les modifications',
+          label: widget.onboarding ? 'Créer mon compte et continuer' : 'Enregistrer les modifications',
           expand: true,
           loading: _saving,
           onPressed: name.isEmpty || (widget.onboarding && (username.trim().isEmpty || _avatar == null || _cover == null))

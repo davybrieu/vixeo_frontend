@@ -12,6 +12,7 @@ import '../../core/widgets/focusable.dart';
 import 'device_login.dart';
 import 'session.dart';
 import 'social_sign_in.dart';
+import '../profiles/profile_editor_screen.dart';
 
 /// Entry page of the app (`/connexion`), like the other film apps' (developer's request,
 /// 25/11/2026): the logo, a tagline, then « Continuer avec Google », « Continuer avec Apple » and
@@ -51,7 +52,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _pending = provider);
     try {
       final result = await signInWith(ref, provider);
-      // Signed in: the router moves on, the message (if any) stays on the next page.
+      if (result.registrationTicket != null && mounted) {
+        context.go(ProfileEditorScreen.registrationLocation(result.registrationTicket!));
+        return;
+      }
+      // Existing account: the router moves on, the message (if any) stays on the next page.
       if (result.message != null) showVxSnackOn(messenger, result.message!);
     } on ApiException catch (e) {
       showVxSnackOn(messenger, e.message);
@@ -379,7 +384,15 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
         if (mounted) setState(() => _codeSent = true);
       } else {
         final result = await repository.verifyEmailCode(email: _email.text.trim(), code: _code.text.trim());
-        await ref.read(sessionProvider.notifier).signInWithToken(result.token, result.user);
+        if (result.registrationTicket != null) {
+          if (mounted) {
+            context.go(ProfileEditorScreen.registrationLocation(result.registrationTicket!));
+          }
+        } else if (result.token != null && result.user != null) {
+          await ref.read(sessionProvider.notifier).signInWithToken(result.token!, result.user!);
+        } else {
+          throw ApiException('Réponse de connexion invalide.');
+        }
       }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
@@ -489,7 +502,7 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
                   ],
                   const SizedBox(height: 12),
                   Text(
-                    'Première connexion ? Votre compte sera créé automatiquement après validation du code. Vous pourrez ensuite compléter votre profil.',
+                    'Première connexion ? Après validation du code, vous créerez votre compte en complétant votre profil. Aucun compte n’est créé avant cette étape.',
                     textAlign: TextAlign.center,
                     style: VxText.body(13, color: VxColors.textMuted, height: 1.4),
                   ),

@@ -23,7 +23,7 @@ class FakeAuthRepository extends AuthRepository {
   }
 
   @override
-  Future<({String token, User user, bool created})> verifyEmailCode({
+  Future<({String? token, User? user, bool created, String? registrationTicket})> verifyEmailCode({
     required String email,
     required String code,
   }) async {
@@ -32,7 +32,8 @@ class FakeAuthRepository extends AuthRepository {
     return (
       token: 'token-email',
       user: const User(id: 1, name: 'Davy', email: 'davy@exemple.fr'),
-      created: true,
+      created: false,
+      registrationTicket: null,
     );
   }
 
@@ -43,8 +44,8 @@ class FakeAuthRepository extends AuthRepository {
   Future<Map<String, bool>> socialProviders() async => {'google': true, 'apple': false};
 
   @override
-  Future<({String token, User user, bool created})> socialToken({required String code, required String verifier}) async =>
-      (token: 'token-social', user: const User(id: 2, name: 'Léa', email: 'lea@gmail.com'), created: true);
+  Future<({String? token, User? user, bool created, String? registrationTicket})> socialToken({required String code, required String verifier}) async =>
+      (token: 'token-social', user: const User(id: 2, name: 'Léa', email: 'lea@gmail.com'), created: false, registrationTicket: null);
 }
 
 class SignedOut extends SessionController {

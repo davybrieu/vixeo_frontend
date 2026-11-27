@@ -66,10 +66,11 @@ final socialProvidersProvider = FutureProvider<Map<SocialProvider, bool>>((ref) 
 
 /// What a sign-in gave: [signedIn] (the router moves on), and a sentence to show, if any.
 class SocialSignInResult {
-  const SocialSignInResult({required this.signedIn, this.message});
+  const SocialSignInResult({required this.signedIn, this.message, this.registrationTicket});
 
   final bool signedIn;
   final String? message;
+  final String? registrationTicket;
 }
 
 /// Signs in with [provider]: the browser, then the token. Throws [ApiException] when the API
@@ -103,7 +104,13 @@ Future<SocialSignInResult> signInWith(WidgetRef ref, SocialProvider provider) as
   }
 
   final result = await ref.read(authRepositoryProvider).socialToken(code: code, verifier: verifier);
-  await ref.read(sessionProvider.notifier).signInWithToken(result.token, result.user);
+  if (result.registrationTicket != null) {
+    return SocialSignInResult(signedIn: false, registrationTicket: result.registrationTicket);
+  }
+  final token = result.token;
+  final user = result.user;
+  if (token == null || user == null) throw const ApiException('Réponse de connexion invalide.');
+  await ref.read(sessionProvider.notifier).signInWithToken(token, user);
   return const SocialSignInResult(signedIn: true);
 }
 
@@ -113,7 +120,7 @@ String? socialSignInError(SocialProvider provider, String reason) => switch (rea
   'unavailable' => 'La connexion avec ${provider.label} n’est pas encore disponible.',
   'email' => '${provider.label} n’a pas donné d’adresse e-mail : le compte ne peut pas être créé.',
   'unverified' =>
-    '${provider.label} n’a pas vérifié cette adresse : connectez-vous avec votre e-mail et votre mot de passe.',
+    '${provider.label} n’a pas vérifié cette adresse : connectez-vous avec votre adresse e-mail et un code de vérification.',
   _ => '${provider.label} n’a pas pu vous connecter. Réessayez.',
 };
 
