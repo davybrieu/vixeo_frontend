@@ -47,7 +47,7 @@ dependencies:
   # only what plays the video depends on the platform.
   # - Android / iOS: better_native_video_player (ExoPlayer / AVPlayer).
   # - Windows: media_kit (libmpv, bundled by media_kit_libs_windows_video): HLS, MP4, MKV… with
-  #   the headers the plug-ins ask for.
+  #   the headers returned by the Vixeo API.
   # - The tests (and macOS / Linux): video_player.
   video_player: ^2.9.2
   better_native_video_player: ^1.9.1
