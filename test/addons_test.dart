@@ -34,7 +34,7 @@ final _files = {
 };
 
 ApiClient apiWith(RoutingAdapter adapter) => ApiClient(
-  token: () => 't'
+  token: () => 't',
   dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
 );
 
