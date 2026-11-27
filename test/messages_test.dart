@@ -32,7 +32,7 @@ const _max = ChatMember(id: 7, username: 'max', name: 'Max');
 const _nina = ChatMember(id: 9, username: 'nina', name: 'Nina');
 
 class _FakeMessages extends MessagesRepository {
-  _FakeMessages(this.page) : super(ApiClient(token: () => null, profileId: () => null));
+  _FakeMessages(this.page) : super(ApiClient(token: () => null));
 
   ConversationPage page;
   final calls = <String>[];
