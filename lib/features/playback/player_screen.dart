@@ -1665,7 +1665,7 @@ class _SourcesPanel extends StatefulWidget {
     this.journalOf,
     this.providersLoading = false,
     this.providersError,
-    this.noProvidersMessage = noPluginsInstalledMessage,
+    this.noProvidersMessage = noSourcesAvailableMessage,
   });
 
   final List<SourceProvider> providers;
