@@ -62,7 +62,7 @@ class Device {
   final DateTime? expiresAt;
 }
 
-/// Viewer profile ("Qui regarde ?", ProfileResource).
+/// The single social and viewing profile attached to an account (ProfileResource).
 class Profile {
   const Profile({
     required this.id,
