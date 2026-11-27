@@ -25,6 +25,7 @@ Future<void> unlockOrientation() async {
 
 Future<void> enterFullscreen() async {
   _fullscreen = true;
+  if (kIsWeb) return;
   // Windows: the window covers the whole screen (taskbar included), as in a desktop player.
   if (!kIsWeb && Platform.isWindows) {
     await windowManager.setFullScreen(true);
