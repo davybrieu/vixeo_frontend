@@ -52,14 +52,6 @@ class WithProfile extends SessionController {
   );
 }
 
-class _Child extends SessionController {
-  @override
-  SessionState build() => const SessionState(
-    status: SessionStatus.signedIn,
-    token: 't',
-    profile: Profile(id: 3, name: 'Tom'),
-  );
-}
 
 /// Title pages asked one by one (there should be none), and batches of titles.
 final titleRequests = <(MediaType, int)>[];
@@ -205,15 +197,7 @@ void main() {
     await pumpPage(tester, const SearchScreen());
     final search = tester.getTopLeft(find.text('Recherche'));
 
-    // A child's profile: « Paramètres » is a tab of the phone, a main page.
-    await pumpPage(tester, const ProfileSettingsScreen(), overrides: [sessionProvider.overrideWith(_Child.new)]);
-    expect(find.byType(VxPageHeader), findsOneWidget);
-    expect(find.byType(VxBackButton), findsNothing);
-    // The page title (the first one: a tile is also called « Paramètres »).
-    expect(tester.getTopLeft(find.text('Paramètres').first), search);
-
-    // A profile with a page: opened from it on a phone (23/11/2026), a back button above the
-    // same title.
+    // The single account profile opens settings as a secondary page with a back button.
     await pumpPage(tester, const ProfileSettingsScreen(), overrides: [sessionProvider.overrideWith(WithProfile.new)]);
     expect(find.byType(VxBackButton), findsOneWidget);
     expect(tester.getTopLeft(find.text('Paramètres').first).dx, search.dx);
