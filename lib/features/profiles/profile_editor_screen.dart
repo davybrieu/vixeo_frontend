@@ -29,9 +29,9 @@ import 'settings_rows.dart';
 const bioMaxLength = 160;
 
 /// Edit the single profile attached to the signed-in account.\nclass ProfileEditorScreen extends ConsumerStatefulWidget {
-  const ProfileEditorScreen({super.key, this.profileId});
+  const ProfileEditorScreen({super.key, required this.profileId});
 
-  final int? profileId;
+  final int profileId;
 
   static String editLocation(int id) => '/profils/modifier/$id';
 
@@ -53,7 +53,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   bool _private = false;
   String? _avatar;
 
-  /// A photo framed here, sent with « Enregistrer » / « Créer un profil ».
+  /// A photo framed here, sent with « Enregistrer ».
   Uint8List? _newPhoto;
 
   /// The profile's photo is to be removed (« Retirer la photo », or an avatar chosen).
@@ -62,7 +62,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   /// Cover of the catalog (`GET /covers`).
   String? _cover;
 
-  /// A cover image framed here, sent with « Enregistrer » / « Créer un profil ».
+  /// A cover image framed here, sent with « Enregistrer ».
   Uint8List? _newCover;
 
   /// The profile's cover image is to be removed (« Retirer l'image », or a cover chosen).
@@ -204,7 +204,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
     final profile = _profile(profiles.value);
     final gap = layout.sectionGap;
 
-    // The form starts from the profile (to change it), or from an avatar at random (a new one).
+    // Load the account's profile into the form.
     if (!_ready) {
       if (profile != null) {
         _name.text = profile.name;
@@ -276,7 +276,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          name.isEmpty ? 'Nouveau profil' : name,
+                          name.isEmpty ? 'Mon profil' : name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: VxText.title(18 * s),
@@ -300,7 +300,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
                 maxLength: 50,
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.done,
-                // The preview and « Créer un profil » follow the name.
+                // The preview follows the name.
                 onChanged: (_) => setState(() {}),
                 style: VxText.body(16 * s),
                 decoration: InputDecoration(
