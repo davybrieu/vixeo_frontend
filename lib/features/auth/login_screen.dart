@@ -385,7 +385,7 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
       } else {
         final result = await repository.verifyEmailCode(email: _email.text.trim(), code: _code.text.trim());
         if (result.registrationTicket != null) {
-          if (mounted) context.go(ProfileEditorScreen.registrationLocation(result.registrationTicket!));
+          if (mounted) {\n            context.go(ProfileEditorScreen.registrationLocation(result.registrationTicket!));\n          }
         } else if (result.token != null && result.user != null) {
           await ref.read(sessionProvider.notifier).signInWithToken(result.token!, result.user!);
         } else {
