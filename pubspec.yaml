@@ -56,9 +56,6 @@ dependencies:
   media_kit_libs_windows_video: ^1.0.11
   # Windows: the player's full screen.
   window_manager: ^0.5.1
-  # Plug-ins (lib/features/addons, docs/scrapers.md): the JavaScript engine that runs a scraper on
-  # Android and Windows (QuickJS) and iOS (JavaScriptCore), in its own isolate.
-  flutter_js: ^0.8.0
   package_info_plus: ^10.2.2
   crypto: ^3.0.8
   path_provider: ^2.1.6
@@ -119,11 +116,6 @@ flutter:
     # Logos of « Continuer avec Google / Apple » (brand/sign-in, brand/tools/sign_in_logos.py).
     - assets/images/sign_in/
     - assets/licenses/lucide-ISC.txt
-    # The sandbox every plug-in scraper runs on top of (same file on every platform).
-    - assets/scrapers/sandbox.js
-    # crypto-js 4.2.0, lent to the scrapers that use it, as Nuvio does (docs/scrapers.md), and its licence.
-    - assets/scrapers/crypto-js.min.js
-    - assets/licenses/crypto-js-MIT.txt
   fonts:
     - family: Sora
       fonts:
