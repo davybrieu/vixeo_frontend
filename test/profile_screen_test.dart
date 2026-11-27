@@ -29,7 +29,7 @@ import 'package:vixeo/features/social/social_repository.dart';
 import 'package:vixeo/features/tmdb/reviews_screen.dart';
 import 'package:vixeo/features/tmdb/tmdb.dart';
 
-const _user = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
+const _user = User(id: 1, name: 'Davy', email: 'davy@exemple.fr');
 
 class _Signed extends SessionController {
   @override
@@ -41,14 +41,14 @@ class _Signed extends SessionController {
   );
 }
 
-/// A child's profile: no page of its own.
-class _Kid extends SessionController {
+/// A profile without a public username yet.
+class _NoUsernameProfile extends SessionController {
   @override
   SessionState build() => SessionState(
     status: SessionStatus.signedIn,
     token: 't',
     user: _user,
-    profile: Profile.fromJson({'id': 3, 'name': 'Tom', 'is_kid': true}),
+    profile: Profile.fromJson({'id': 3, 'name': 'Tom'}),
   );
 }
 
@@ -95,7 +95,7 @@ class _Library extends LibraryController {
 }
 
 class _Tmdb extends TmdbRepository {
-  _Tmdb() : super(ApiClient(token: () => null, profileId: () => null));
+  _Tmdb() : super(ApiClient(token: () => null));
 
   @override
   Future<Paged<RatedItem>> reviews(
@@ -674,7 +674,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sessionProvider.overrideWith(_Kid.new)],
+        overrides: [sessionProvider.overrideWith(_NoUsernameProfile.new)],
         child: MaterialApp(theme: buildVixeoTheme(), home: const Scaffold(body: ProfileSettingsScreen())),
       ),
     );
