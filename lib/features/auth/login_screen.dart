@@ -61,6 +61,7 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       await ref.read(authRepositoryProvider).requestEmailCode(email: _email.text.trim());
+      _code.clear();
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {
