@@ -113,7 +113,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   }
 
   /// The profile shows a photo: a new one, or its own unless removed.
-  bool _hasPhoto(Profile? profile) => _newPhoto != null || (!_removePhoto && profile?.photoUrl != null);
+  bool _hasPhoto(Profile? profile) => _newPhoto != null || (!_removePhoto && profile.photoUrl != null);
 
   Future<void> _choosePhoto() async {
     final photo = await chooseProfilePhoto(context);
@@ -135,7 +135,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   }
 
   /// The profile shows a cover image: a new one, or its own unless removed.
-  bool _hasCoverImage(Profile? profile) => _newCover != null || (!_removeCover && profile?.coverUrl != null);
+  bool _hasCoverImage(Profile? profile) => _newCover != null || (!_removeCover && profile.coverUrl != null);
 
   Future<void> _chooseCover() async {
     final cover = await chooseProfileImage(context, FramingShape.cover);
@@ -256,7 +256,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
                       )
                     : ProfileCover(
                         coverId: _cover,
-                        imageUrl: _removeCover ? null : profile?.coverUrl,
+                        imageUrl: _removeCover ? null : profile.coverUrl,
                         borderRadius: VxRadius.button * s,
                       ),
               ),
@@ -266,7 +266,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
                   AvatarTile(
                     avatarId: _avatar,
                     photo: _newPhoto,
-                    photoUrl: _removePhoto ? null : profile?.photoUrl,
+                    photoUrl: _removePhoto ? null : profile.photoUrl,
                     initial: name.isEmpty ? '?' : name.characters.first.toUpperCase(),
                     size: 64 * s,
                     radius: 32 * s,
