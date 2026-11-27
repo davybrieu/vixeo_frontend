@@ -19,6 +19,7 @@ enum PushTransport {
 }
 
 final pushTransportProvider = Provider<PushTransport>((ref) {
+  if (kIsWeb) return PushTransport.none;
   if (ref.watch(pushMessagingProvider).supported) return PushTransport.firebase;
   final realtime = ref.watch(realtimeProvider.select((r) => r.enabled));
   return defaultTargetPlatform == TargetPlatform.windows && realtime ? PushTransport.realtime : PushTransport.none;
