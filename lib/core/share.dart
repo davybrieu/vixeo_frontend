@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -17,7 +18,7 @@ class LinkSharer {
 
   /// True when the share sheet opened.
   Future<bool> share({required String text, String? subject}) async {
-    if (!Platform.isAndroid) return false;
+    if (kIsWeb || !Platform.isAndroid) return false;
     try {
       return await _channel.invokeMethod<bool>('share', {'text': text, 'subject': ?subject}) ?? false;
     } on PlatformException {
@@ -31,7 +32,7 @@ class LinkSharer {
 extension ImageSharing on LinkSharer {
   /// Opens the share sheet with a PNG of the app's cache (`cache/shared/`); false elsewhere.
   Future<bool> shareImage(String path, {String? text}) async {
-    if (!Platform.isAndroid) return false;
+    if (kIsWeb || !Platform.isAndroid) return false;
     try {
       return await LinkSharer._channel.invokeMethod<bool>('shareImage', {'path': path, 'text': ?text}) ?? false;
     } on PlatformException {
