@@ -19,7 +19,6 @@ import '../messages/messages.dart' show unreadMessagesProvider;
 import '../notifications/inbox.dart';
 import '../network/feed_screen.dart';
 import '../profiles/avatars.dart';
-import '../profiles/profiles_screen.dart';
 import 'back_navigation_guard.dart';
 
 class _Destination {
@@ -96,15 +95,8 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final layout = Layout.of(context);
     final session = ref.watch(sessionProvider);
-    // Resolve the profile independently of the initial token exchange. A transient failure in
-    // SessionController must not leave the authenticated account without its profile forever.
-    final profiles = ref.watch(profilesProvider);
-    ref.listen(profilesProvider, (_, next) {
-      next.whenData((items) {
-        if (items.isNotEmpty) ref.read(sessionProvider.notifier).updateProfile(items.first);
-      });
-    });
-    final profile = session.profile ?? profiles.value?.firstOrNull;
+    // Navigation must not depend on profile loading; the profile page resolves it when opened.
+    final profile = session.profile;
     // « Chaînes TV » only while live TV is shown (hidden for now: core/features.dart).
     final liveTv = ref.watch(liveTvProvider);
     final inbox = socialAvailable(session);
