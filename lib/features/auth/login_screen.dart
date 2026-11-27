@@ -165,36 +165,3 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
     );
   }
 }
-).hasMatch((v ?? '').trim())
-                          ? null : 'Saisissez les 6 chiffres reçus par e-mail.',
-                    ),
-                  ],
-                  if (_error != null && _error!.fieldErrors.isEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(_error!.message, style: VxText.body(14, color: VxColors.error)),
-                  ],
-                  const SizedBox(height: 24),
-                  VxButton(
-                    label: _codeSent ? 'Valider et me connecter' : 'Recevoir mon code',
-                    onPressed: _submit, loading: _loading, expand: true,
-                  ),
-                  if (_codeSent) ...[
-                    const SizedBox(height: 12),
-                    TextButton(onPressed: _loading ? null : _submit, child: const Text('Renvoyer un code')),
-                    TextButton(onPressed: _loading ? null : _changeEmail, child: const Text('Modifier mon adresse e-mail')),
-                  ],
-                  const SizedBox(height: 12),
-                  Text(
-                    'Première connexion ? Votre compte sera créé automatiquement après validation du code. Vous pourrez ensuite compléter votre profil.',
-                    textAlign: TextAlign.center,
-                    style: VxText.body(13, color: VxColors.textMuted, height: 1.4),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
