@@ -21,7 +21,7 @@ import 'package:vixeo/features/search/search_history.dart';
 
 import 'scraper_fakes.dart';
 
-const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr', parentalControl: false);
+const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr');
 
 class WithProfile extends SessionController {
   WithProfile(this.profile);
@@ -34,7 +34,7 @@ class WithProfile extends SessionController {
 
 /// The API's profile update, in memory.
 class FakeProfiles extends AuthRepository {
-  FakeProfiles() : super(ApiClient(token: () => null, profileId: () => null));
+  FakeProfiles() : super(ApiClient(token: () => null));
 
   final updates = <Map<String, Object?>>[];
   Map<String, dynamic> json = {'id': 2, 'name': 'Léa'};
@@ -49,7 +49,7 @@ class FakeProfiles extends AuthRepository {
 
 /// The API's recent searches, in memory.
 class FakeHistory extends SearchHistoryRepository {
-  FakeHistory() : super(ApiClient(token: () => null, profileId: () => null));
+  FakeHistory() : super(ApiClient(token: () => null));
 
   final calls = <String>[];
   var stored = <RecentSearch>[const RecentSearch(id: 1, query: 'Dune')];
