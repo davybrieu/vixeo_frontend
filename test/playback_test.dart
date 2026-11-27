@@ -134,7 +134,7 @@ class RoutingAdapter implements HttpClientAdapter {
 }
 
 ApiClient routingClient(RoutingAdapter adapter) => ApiClient(
-  token: () => 't'
+  token: () => 't',
   dio: Dio(BaseOptions(baseUrl: 'https://api.test/api/v1'))..httpClientAdapter = adapter,
 );
 
