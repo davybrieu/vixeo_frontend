@@ -31,7 +31,7 @@ class _Session extends SessionController {
 final _now = DateTime.now();
 
 class _FakeInbox extends InboxRepository {
-  _FakeInbox() : super(ApiClient(token: () => null, profileId: () => null));
+  _FakeInbox() : super(ApiClient(token: () => null));
 
   int reads = 0;
 
@@ -98,7 +98,7 @@ class _FakeInbox extends InboxRepository {
 }
 
 class _FakeSocial extends SocialRepository {
-  _FakeSocial() : super(ApiClient(token: () => null, profileId: () => null));
+  _FakeSocial() : super(ApiClient(token: () => null));
 
   final calls = <String>[];
   var waiting = [const SocialProfile(id: 9, username: 'nina', name: 'Nina')];
