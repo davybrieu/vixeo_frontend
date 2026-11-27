@@ -12,7 +12,6 @@ import 'features/auth/device_login.dart';
 import 'features/auth/login_screen.dart';
 import 'features/catalog/artwork.dart';
 import 'features/catalog/artwork_screen.dart';
-import 'features/auth/register_screen.dart' show RegisterScreen;
 import 'features/auth/session.dart';
 import 'features/catalog/details_screen.dart';
 import 'features/catalog/description_screen.dart';
@@ -110,9 +109,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         pending = null;
         return target;
       }
-      if (session.profile == null) {
+      final profile = session.profile;
+      if (profile == null) {
         // Single-profile accounts go straight into the app; the API resolves the account profile.
         return location == '/accueil' ? null : '/accueil';
+      }
+      if (!profile.registrationCompleted) {
+        final setupPath = '/profils/modifier/${profile.id}';
+        if (location != setupPath || state.uri.queryParameters['inscription'] != '1') {
+          return '$setupPath?inscription=1';
+        }
+        return null;
+      }
+      if (state.uri.queryParameters['inscription'] == '1' && location.startsWith('/profils/modifier/')) {
+        return OnboardingScreen.needed(session) ? OnboardingScreen.location : '/accueil';
       }
       if (authPages.contains(location) || location == '/profils' || location == '/demarrage') {
         // Finish authentication and continue to onboarding or the requested destination.
@@ -130,11 +140,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: EmailLoginScreen.location,
         builder: (_, state) => guarded(state.uri.path, const EmailLoginScreen()),
       ),
-      GoRoute(path: '/inscription', builder: (_, state) => guarded(state.uri.path, const RegisterScreen())),
+      GoRoute(path: '/inscription', redirect: (_, _) => EmailLoginScreen.location),
       GoRoute(path: '/profils', redirect: (_, _) => '/accueil'),
       GoRoute(
         path: '/profils/modifier/:id',
-        builder: (_, state) => ProfileEditorScreen(profileId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
+        builder: (_, state) => ProfileEditorScreen(
+          profileId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+          onboarding: state.uri.queryParameters['inscription'] == '1',
+        ),
       ),
       ShellRoute(
         builder: (context, state, child) => AppShell(location: state.uri.path, child: child),

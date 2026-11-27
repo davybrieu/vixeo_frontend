@@ -30,9 +30,10 @@ const bioMaxLength = 160;
 
 /// Edit the single profile attached to the signed-in account.
 class ProfileEditorScreen extends ConsumerStatefulWidget {
-  const ProfileEditorScreen({super.key, required this.profileId});
+  const ProfileEditorScreen({super.key, required this.profileId, this.onboarding = false});
 
   final int profileId;
+  final bool onboarding;
 
   static String editLocation(int id) => '/profils/modifier/$id';
 
@@ -159,7 +160,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
   Future<void> _save(Profile? profile) async {
     if (profile == null) return;
     final name = _name.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty || (widget.onboarding && _username.text.trim().isEmpty)) return;
     final username = _username.text.trim().toLowerCase();
     setState(() {
       _saving = true;
@@ -184,10 +185,24 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
       if (withPhoto != null) ref.read(sessionProvider.notifier).updateProfile(withPhoto);
       final withCover = await _saveCover(profile.id, profile);
       if (withCover != null) ref.read(sessionProvider.notifier).updateProfile(withCover);
+      if (widget.onboarding) {
+        final completed = await repository.updateProfile(profile.id, {
+          'registration_completed': true,
+          'name': _name.text.trim(),
+          'username': _username.text.trim().toLowerCase(),
+          'avatar': _avatar,
+          'cover': _cover,
+        });
+        ref.read(sessionProvider.notifier).updateProfile(completed);
+      }
       ref.invalidate(profilesProvider);
       if (!mounted) return;
-      showVxSnack(context, 'Modifications enregistrées', icon: Icons.check_circle_outline_rounded);
-      context.pop(true);
+      showVxSnack(context, widget.onboarding ? 'Profil créé' : 'Modifications enregistrées', icon: Icons.check_circle_outline_rounded);
+      if (widget.onboarding) {
+        context.go('/bienvenue');
+      } else {
+        context.pop(true);
+      }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {
@@ -220,7 +235,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
         _ready = true;
       }
     }
-    const title = 'Modifier mon profil';
+    final title = widget.onboarding ? 'Complétez votre profil' : 'Modifier mon profil';
     if (profile == null) {
       return InfoPage(
         title: title,
@@ -463,10 +478,12 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
         ],
         SizedBox(height: gap),
         VxButton(
-          label: 'Enregistrer les modifications',
+          label: widget.onboarding ? 'Créer mon profil et continuer' : 'Enregistrer les modifications',
           expand: true,
           loading: _saving,
-          onPressed: name.isEmpty ? null : () => _save(profile),
+          onPressed: name.isEmpty || (widget.onboarding && (username.trim().isEmpty || _avatar == null || _cover == null))
+              ? null
+              : () => _save(profile),
         ),
       ],
     );

@@ -13,24 +13,27 @@ import 'package:vixeo/features/auth/social_sign_in.dart';
 class FakeAuthRepository extends AuthRepository {
   FakeAuthRepository() : super(ApiClient(token: () => null));
   String? requestedEmail;
-  String? redirectUri;
-  String? challenge;
-  String? redeemedCode;
-  String? redeemedVerifier;
+  String? verifiedEmail;
+  String? verifiedCode;
 
   @override
-  Future<String> requestEmailLink({required String email, required String redirectUri, required String challenge}) async {
+  Future<String> requestEmailCode({required String email}) async {
     requestedEmail = email;
-    this.redirectUri = redirectUri;
-    this.challenge = challenge;
-    return 'Si un compte utilise cette adresse, un lien vient de lui être envoyé.';
+    return 'Un code vient de vous être envoyé.';
   }
 
   @override
-  Future<({String token, User user})> emailToken({required String code, required String verifier}) async {
-    redeemedCode = code;
-    redeemedVerifier = verifier;
-    return (token: 'token-email', user: const User(id: 1, name: 'Davy', email: 'davy@exemple.fr'));
+  Future<({String token, User user, bool created})> verifyEmailCode({
+    required String email,
+    required String code,
+  }) async {
+    verifiedEmail = email;
+    verifiedCode = code;
+    return (
+      token: 'token-email',
+      user: const User(id: 1, name: 'Davy', email: 'davy@exemple.fr'),
+      created: true,
+    );
   }
 
   @override
@@ -100,24 +103,27 @@ void main() {
     expect(find.text('Continuer avec l’e-mail'), findsOneWidget);
   });
 
-  testWidgets('email sign-in sends a link, waits for its callback and redeems the PKCE code', (tester) async {
+  testWidgets('email sign-in sends and verifies a six-digit code without opening a browser', (tester) async {
     await pumpPage(tester, const EmailLoginScreen());
     expect(find.byType(TextFormField), findsOneWidget);
-    expect(find.textContaining('lien de connexion valable 15 minutes'), findsOneWidget);
+    expect(find.textContaining('code à 6 chiffres valable 10 minutes'), findsOneWidget);
     expect(find.text('Mot de passe oublié ?'), findsNothing);
     expect(find.text('Mot de passe'), findsNothing);
 
     await tester.enterText(find.byType(TextFormField), '  davy@exemple.fr ');
-    await tester.tap(find.text('Envoyer le lien de connexion'));
+    await tester.tap(find.text('Recevoir mon code'));
     await tester.pumpAndSettle();
 
     expect(auth.requestedEmail, 'davy@exemple.fr');
-    expect(auth.redirectUri, appRedirect);
-    expect(auth.challenge, isNotNull);
-    expect(browser.opened?.path, endsWith('/auth/email/waiting'));
-    expect(auth.redeemedCode, 'email-code');
-    expect(auth.redeemedVerifier, isNotNull);
-    expect(auth.challenge, pkceChallenge(auth.redeemedVerifier!));
+    expect(browser.opened, isNull);
+    expect(find.text('Code de vérification'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).last, '123456');
+    await tester.tap(find.text('Valider et me connecter'));
+    await tester.pumpAndSettle();
+
+    expect(auth.verifiedEmail, 'davy@exemple.fr');
+    expect(auth.verifiedCode, '123456');
     expect(container.read(sessionProvider).isSignedIn, isTrue);
     expect(storage.token, 'token-email');
   });
@@ -125,7 +131,7 @@ void main() {
   testWidgets('invalid email is rejected before sending a link', (tester) async {
     await pumpPage(tester, const EmailLoginScreen());
     await tester.enterText(find.byType(TextFormField), 'not-an-email');
-    await tester.tap(find.text('Envoyer le lien de connexion'));
+    await tester.tap(find.text('Recevoir mon code'));
     await tester.pumpAndSettle();
 
     expect(find.text('Adresse e-mail invalide.'), findsOneWidget);
