@@ -13,6 +13,7 @@ import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/person_screen.dart';
 import 'package:vixeo/features/profiles/avatars.dart';
+import 'package:vixeo/features/profiles/profiles_screen.dart';
 
 const davy = User(id: 1, name: 'Davy', email: 'davy@exemple.fr');
 const lea = Profile(id: 2, name: 'Léa');
