@@ -46,7 +46,7 @@ class ApkInstaller {
        _channel = channel ?? const MethodChannel('app.vixeo/updates'),
        _cacheDirectory = cacheDirectory ?? getTemporaryDirectory,
        _onAndroid = onAndroid ?? defaultTargetPlatform == TargetPlatform.android,
-       _onWindows = onWindows ?? Platform.isWindows,
+       _onWindows = onWindows ?? (!kIsWeb && Platform.isWindows),
        _runInstaller = runInstaller ?? _runAndQuit;
 
   final Dio _dio;
