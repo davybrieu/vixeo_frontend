@@ -1,6 +1,8 @@
 import 'dart:io' show Platform;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
@@ -13,7 +15,8 @@ import 'core/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (Platform.isWindows) await _setUpWindows();
+  if (kIsWeb) usePathUrlStrategy();
+  if (!kIsWeb && Platform.isWindows) await _setUpWindows();
 
   // A release build without an https:// API stops here instead of sending data in clear text.
   final configError = AppConfig.configurationError;
