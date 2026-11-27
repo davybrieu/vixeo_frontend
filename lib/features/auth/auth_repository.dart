@@ -10,6 +10,26 @@ class AuthRepository {
 
   final ApiClient _api;
 
+  Future<String> requestEmailCode({
+    required String email,
+  }) async => (await _api.post('/auth/email/code', body: {'email': email}))['message'] as String? ?? '';
+
+  Future<({String token, User user, bool created})> verifyEmailCode({
+    required String email,
+    required String code,
+  }) async {
+    final json = await _api.post('/auth/email/verify', body: {
+      'email': email,
+      'code': code,
+      'device_name': DeviceInfo.deviceName,
+    });
+    return (
+      token: json['token'] as String,
+      user: User.fromJson(json['user'] as Map<String, dynamic>),
+      created: json['created'] as bool? ?? false,
+    );
+  }
+
   Future<String> requestEmailLink({
     required String email,
     required String redirectUri,
