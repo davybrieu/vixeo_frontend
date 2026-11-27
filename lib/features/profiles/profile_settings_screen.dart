@@ -78,13 +78,6 @@ class ProfileSettingsScreen extends ConsumerWidget {
                     children: [
                       _SettingsTile(
                         scale: s,
-                        icon: Icons.switch_account_outlined,
-                        title: 'Changer de profil',
-                        subtitle: 'Basculer vers un autre profil.',
-                        onPressed: () => ref.read(sessionProvider.notifier).switchProfile(),
-                      ),
-                      _SettingsTile(
-                        scale: s,
                         icon: Icons.edit_outlined,
                         title: 'Modifier le profil',
                         subtitle: 'Nom, avatar ou photo, restrictions, code PIN.',
