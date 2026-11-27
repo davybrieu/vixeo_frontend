@@ -20,7 +20,7 @@ class BrokenStorage extends MemorySessionStorage {
 
 /// API answering something that is not the expected JSON.
 class OddAuth extends AuthRepository {
-  OddAuth() : super(ApiClient(token: () => null, profileId: () => null));
+  OddAuth() : super(ApiClient(token: () => null));
 
   @override
   Future<User> me() async => throw TypeError();
