@@ -439,7 +439,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
             ],
           ),
         ],
-        if (canChooseProfilePhoto || _hasPhoto(profile)) ...[
+        if (profile.id != 0 && (canChooseProfilePhoto || _hasPhoto(profile))) ...[
           SizedBox(height: gap),
           _PhotoCard(
             hasPhoto: _hasPhoto(profile),
@@ -488,7 +488,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           hasImage: _hasCoverImage(profile),
           error: error?.field('cover'),
           onRetry: () => ref.invalidate(coverCatalogProvider),
-          onChoose: canChooseProfilePhoto && !_saving ? _chooseCover : null,
+          onChoose: profile.id != 0 && canChooseProfilePhoto && !_saving ? _chooseCover : null,
           onRemove: _saving
               ? null
               : () => setState(() {
