@@ -132,7 +132,7 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) => _submit(),
                       decoration: InputDecoration(labelText: 'Code de vérification', counterText: '', errorText: _error?.field('code')),
-                      validator: (v) => RegExp(r'^\d{6}.hasMatch((v ?? '').trim())
+                      validator: (v) => RegExp(r'^\d{6}$').hasMatch((v ?? '').trim())
                           ? null : 'Saisissez les 6 chiffres reçus par e-mail.',
                     ),
                   ],
