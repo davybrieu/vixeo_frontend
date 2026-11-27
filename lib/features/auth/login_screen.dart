@@ -317,7 +317,7 @@ class _TextLink extends StatelessWidget {
   }
 }
 
-/// Dark, lit with green from the top, like « Qui regarde ? ».
+/// Dark welcome background, lit with green from the top.
 class _WelcomeBackground extends StatelessWidget {
   const _WelcomeBackground();
 
