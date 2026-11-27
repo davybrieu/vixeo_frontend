@@ -14,7 +14,6 @@ import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/playback/playback.dart';
-import 'package:vixeo/features/playback/player_screen.dart';
 import 'package:vixeo/features/profiles/profile_preferences_screen.dart';
 import 'package:vixeo/features/search/search_history.dart';
 
