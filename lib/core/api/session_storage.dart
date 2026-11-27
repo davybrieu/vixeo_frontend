@@ -13,9 +13,18 @@ class SecureSessionStorage implements SessionStorage {
   final FlutterSecureStorage _storage;
 
   static const _tokenKey = 'vixeo.token';
+  static const _legacyProfileKey = 'vixeo.profile_id';
 
   @override
-  Future<String?> readToken() => _storage.read(key: _tokenKey);
+  Future<String?> readToken() async {
+    // Remove the profile-selection value saved by older versions; it is no longer used.
+    try {
+      await _storage.delete(key: _legacyProfileKey);
+    } catch (_) {
+      // A stale selection must never prevent restoring the account session.
+    }
+    return _storage.read(key: _tokenKey);
+  }
 
   @override
   Future<void> writeToken(String? token) =>
