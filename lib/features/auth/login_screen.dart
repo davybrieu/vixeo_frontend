@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/device/layout.dart';
@@ -10,7 +11,6 @@ import '../../core/widgets/focus_navigation.dart';
 import '../../core/widgets/focusable.dart';
 import 'device_login.dart';
 import 'session.dart';
-import 'email_sign_in.dart';
 import 'social_sign_in.dart';
 
 /// Entry page of the app (`/connexion`), like the other film apps' (developer's request,
@@ -51,6 +51,18 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
       if (mounted) setState(() => _error = ApiException(
         _codeSent ? 'Impossible de vérifier le code.' : 'Impossible d’envoyer le code de connexion.',
       ));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _resendCode() async {
+    if (_loading) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      await ref.read(authRepositoryProvider).requestEmailCode(email: _email.text.trim());
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -97,7 +109,7 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
                   TextFormField(
                     controller: _email,
                     readOnly: _codeSent,
-                    autofocus: true,
+                    autofocus: !_codeSent,
                     keyboardType: TextInputType.emailAddress,
                     autofillHints: const [AutofillHints.email],
                     autocorrect: false,
@@ -112,6 +124,7 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
                       controller: _code,
                       autofocus: true,
                       keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       autofillHints: const [AutofillHints.oneTimeCode],
                       maxLength: 6,
                       textAlign: TextAlign.center,
@@ -119,7 +132,40 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) => _submit(),
                       decoration: InputDecoration(labelText: 'Code de vérification', counterText: '', errorText: _error?.field('code')),
-                      validator: (v) => RegExp(r'^\\d{6}$').hasMatch((v ?? '').trim())
+                      validator: (v) => RegExp(r'^\d{6}.hasMatch((v ?? '').trim())
+                          ? null : 'Saisissez les 6 chiffres reçus par e-mail.',
+                    ),
+                  ],
+                  if (_error != null && _error!.fieldErrors.isEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(_error!.message, style: VxText.body(14, color: VxColors.error)),
+                  ],
+                  const SizedBox(height: 24),
+                  VxButton(
+                    label: _codeSent ? 'Valider et me connecter' : 'Recevoir mon code',
+                    onPressed: _submit, loading: _loading, expand: true,
+                  ),
+                  if (_codeSent) ...[
+                    const SizedBox(height: 12),
+                    TextButton(onPressed: _loading ? null : _resendCode, child: const Text('Renvoyer un code')),
+                    TextButton(onPressed: _loading ? null : _changeEmail, child: const Text('Modifier mon adresse e-mail')),
+                  ],
+                  const SizedBox(height: 12),
+                  Text(
+                    'Première connexion ? Votre compte sera créé automatiquement après validation du code. Vous pourrez ensuite compléter votre profil.',
+                    textAlign: TextAlign.center,
+                    style: VxText.body(13, color: VxColors.textMuted, height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+).hasMatch((v ?? '').trim())
                           ? null : 'Saisissez les 6 chiffres reçus par e-mail.',
                     ),
                   ],
