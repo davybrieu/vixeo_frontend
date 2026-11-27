@@ -137,10 +137,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/mot-de-passe-oublie',
         builder: (_, state) => guarded(state.uri.path, PasswordResetScreen(initialEmail: state.extra as String?)),
       ),
-      GoRoute(path: '/profils', builder: (_, state) => guarded(state.uri.path, const ProfilesScreen())),
+      GoRoute(path: '/profils', redirect: (_, _) => '/accueil'),
       // « Ajouter un profil » (« Qui regarde ? ») and « Modifier le profil » (« ⋮ » of the profile
       // page), without the navigation.
-      GoRoute(path: ProfileEditorScreen.newLocation, builder: (_, _) => const ProfileEditorScreen()),
+      GoRoute(path: ProfileEditorScreen.newLocation, redirect: (_, _) => '/accueil'),
       GoRoute(
         path: '/profils/modifier/:id',
         builder: (_, state) => ProfileEditorScreen(profileId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
