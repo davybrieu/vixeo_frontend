@@ -69,13 +69,13 @@ jobs:
 
       - name: Build Web
         run: |
-          flutter build web --release \\
-            --dart-define=API_URL="${{ env.API_URL }}" \\
-            --dart-define=REVERB_HOST="${{ env.REVERB_HOST }}" \\
-            --dart-define=REVERB_PORT="${{ env.REVERB_PORT }}" \\
-            --dart-define=REVERB_SCHEME="${{ env.REVERB_SCHEME }}" \\
-            --dart-define=REVERB_APP_KEY="${{ env.REVERB_APP_KEY }}" \\
-            --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}" \\
+          flutter build web --release \
+            --dart-define=API_URL="${{ env.API_URL }}" \
+            --dart-define=REVERB_HOST="${{ env.REVERB_HOST }}" \
+            --dart-define=REVERB_PORT="${{ env.REVERB_PORT }}" \
+            --dart-define=REVERB_SCHEME="${{ env.REVERB_SCHEME }}" \
+            --dart-define=REVERB_APP_KEY="${{ env.REVERB_APP_KEY }}" \
+            --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}" \
             --dart-define=SUPPORT_EMAIL="${{ env.SUPPORT_EMAIL }}"
 
       - name: Upload Web artifact
