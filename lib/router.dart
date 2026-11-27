@@ -139,6 +139,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/inscription', redirect: (_, _) => EmailLoginScreen.location),
       GoRoute(
         path: '/inscription/profil',
+        redirect: (_, state) => (state.uri.queryParameters['ticket'] ?? '').isEmpty ? EmailLoginScreen.location : null,
         builder: (_, state) => ProfileEditorScreen(
           profileId: 0,
           onboarding: true,
