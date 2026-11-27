@@ -18,7 +18,7 @@ import 'profile_editor_screen.dart';
 import 'profiles_screen.dart';
 import 'rows_settings_screen.dart';
 
-/// Saves profile fields with the API, refreshes the session and "Qui regarde ?", then
+/// Saves profile fields with the API and refreshes the account profile, then
 /// confirms with an alert. [context] is only read before the request: the save may end
 /// after the screen that asked for it was closed.
 Future<bool> saveProfile(
@@ -44,10 +44,8 @@ Future<bool> saveProfile(
 }
 
 /// Settings hub: grouped cards (account, general), using the app's own destinations. The profile
-/// is changed, and the account left, from the « ⋮ » of its page (« Modifier mon profil »,
-/// « Changer de profil », « Comptes bloqués et masqués », « Se déconnecter »: developer's request,
-/// 25/11/2026; no « Profil », « Avancé » nor « Se déconnecter » here any more). A child's profile
-/// has no page: « Changer de profil » and « Modifier le profil » stay here for it.
+/// is edited from the « ⋮ » of its page (« Modifier mon profil », « Comptes bloqués et masqués »,
+/// « Se déconnecter »). Every account has exactly one profile; there is no profile-switching page.
 class ProfileSettingsScreen extends ConsumerWidget {
   const ProfileSettingsScreen({super.key});
 
