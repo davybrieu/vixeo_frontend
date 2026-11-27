@@ -481,7 +481,9 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
           label: widget.onboarding ? 'Créer mon profil et continuer' : 'Enregistrer les modifications',
           expand: true,
           loading: _saving,
-          onPressed: name.isEmpty || (widget.onboarding && username.trim().isEmpty) ? null : () => _save(profile),
+          onPressed: name.isEmpty || (widget.onboarding && (username.trim().isEmpty || _avatar == null || _cover == null))
+              ? null
+              : () => _save(profile),
         ),
       ],
     );
