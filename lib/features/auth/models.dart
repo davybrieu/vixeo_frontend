@@ -79,6 +79,7 @@ class Profile {
     this.socialLinks = const [],
     this.rateAfterWatching = true,
     this.onboarded = true,
+    this.registrationCompleted = true,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
@@ -103,6 +104,7 @@ class Profile {
     rateAfterWatching: json['rate_after_watching'] as bool? ?? true,
     // An older API doesn't say: no first launch.
     onboarded: json['onboarded'] as bool? ?? true,
+    registrationCompleted: json['registration_completed'] as bool? ?? true,
   );
 
   final int id;
@@ -152,6 +154,9 @@ class Profile {
 
   /// The first launch (rate known titles, accounts to follow) was done or skipped.
   final bool onboarded;
+
+  /// Whether the mandatory first-time profile registration has been completed.
+  final bool registrationCompleted;
 
   /// First letter, shown on the avatar tile.
   String get initial => name.isEmpty ? '?' : String.fromCharCode(name.runes.first).toUpperCase();
