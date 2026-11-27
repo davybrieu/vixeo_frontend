@@ -28,7 +28,8 @@ import 'settings_rows.dart';
 /// Longest biography, in characters.
 const bioMaxLength = 160;
 
-/// Edit the single profile attached to the signed-in account.\nclass ProfileEditorScreen extends ConsumerStatefulWidget {
+/// Edit the single profile attached to the signed-in account.
+class ProfileEditorScreen extends ConsumerStatefulWidget {
   const ProfileEditorScreen({super.key, required this.profileId});
 
   final int profileId;
