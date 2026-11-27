@@ -220,7 +220,7 @@ class _ProfileEditorScreenState extends ConsumerState<ProfileEditorScreen> {
       }
     }
     const title = 'Modifier mon profil';
-    if (!_creating && profile == null) {
+    if (profile == null) {
       return InfoPage(
         title: title,
         fallback: '/profil',
