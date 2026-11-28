@@ -230,19 +230,19 @@ void main() {
       personCreditsProvider.overrideWith((ref, key) async {
         asked.add(key);
         return Paged(
-          items: [for (var i = 1; i <= 3; i++) _movie(200 + i, key.$2 == PersonCreditsType.movie ? 'Film $i' : 'Série $i')],
+          items: [for (var i = 1; i <= 3; i++) MediaItem(id: 200 + i, type: key.$2 == PersonCreditsType.movie ? MediaType.movie : MediaType.tv, title: key.$2 == PersonCreditsType.movie ? 'Film $i' : 'Série $i')],
         );
       }),
     ];
 
     await _pump(tester, '/personne/287', overrides: overrides);
-    await tester.tap(_pressable('Voir tout : Connu pour'));
+    await tester.tap(_pressable('Voir tout : Films'));
     await tester.pumpAndSettle();
     expect(find.text('Films'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Film 3')), findsOneWidget);
 
     await _pump(tester, '/personne/287', overrides: overrides);
-    final seeAll = _pressable('Voir tout : Filmographie');
+    final seeAll = _pressable('Voir tout : Séries');
     await tester.scrollUntilVisible(seeAll, 200, scrollable: _pageScroll);
     await tester.tap(seeAll);
     await tester.pumpAndSettle();
