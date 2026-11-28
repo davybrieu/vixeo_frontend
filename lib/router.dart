@@ -14,6 +14,7 @@ import 'features/catalog/artwork.dart';
 import 'features/catalog/artwork_screen.dart';
 import 'features/auth/session.dart';
 import 'features/catalog/details_screen.dart';
+import 'features/catalog/title_shortcuts.dart';
 import 'features/catalog/description_screen.dart';
 import 'features/catalog/home_screen.dart';
 import 'features/catalog/weekly_releases_screen.dart';
@@ -355,6 +356,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: DescriptionScreen.location,
             redirect: (_, state) => DescriptionScreen.fromExtra(state.extra) == null ? '/accueil' : null,
             builder: (_, state) => DescriptionScreen.fromExtra(state.extra)!,
+          ),
+          GoRoute(
+            path: '/titre/:type/:id/ou-regarder',
+            builder: (_, state) => TitleInfoScreen(type: MediaType.parse(state.pathParameters['type']), id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0, section: TitleInfoSection.providers),
+          ),
+          GoRoute(
+            path: '/titre/:type/:id/bandes-annonces',
+            builder: (_, state) => TitleInfoScreen(type: MediaType.parse(state.pathParameters['type']), id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0, section: TitleInfoSection.trailers),
+          ),
+          GoRoute(
+            path: '/titre/:type/:id/vus',
+            redirect: socialOnly,
+            builder: (_, state) => TitleInfoScreen(type: MediaType.parse(state.pathParameters['type']), id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0, section: TitleInfoSection.watchedBy),
           ),
           GoRoute(
             path: '/titre/:type/:id',
