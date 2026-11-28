@@ -4,7 +4,6 @@ import 'dart:ui' show ImageFilter;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/design.dart';
 import '../../core/device/layout.dart';
@@ -17,7 +16,6 @@ import '../../core/widgets/focus_navigation.dart';
 import '../auth/session.dart';
 import '../library/actions.dart';
 import '../network/actions.dart' show recommendToFriend;
-import '../network/title_social.dart';
 import '../notifications/inbox.dart' show socialAvailable;
 import '../profiles/no_spoiler.dart';
 import '../ratings/rating_view.dart';
@@ -64,11 +62,6 @@ void _play(BuildContext context, TitleDetails title, {int? season, int? episode}
   final path = '/lecture/$type/${title.id}';
   final query = (season != null && episode != null) ? '?saison=$season&episode=$episode' : '';
   context.push('$path$query');
-}
-
-Future<void> _openTrailer(BuildContext context, Trailer trailer) async {
-  final ok = await launchUrl(Uri.parse(trailer.url), mode: LaunchMode.externalApplication);
-  if (!ok && context.mounted) showVxSnack(context, 'Impossible d’ouvrir la bande-annonce.');
 }
 
 String _ageLabel(int age) => age == 0 ? 'Tous publics' : '$age+';
@@ -164,112 +157,6 @@ class _TitleMenuButton extends ConsumerWidget {
               (ArtworkKind.logo, Icons.title_rounded, 'Changer le logo'),
             ])
               vxMenuItem(icon, label, () => anchor.push(ArtworkScreen.location(title.type, title.id, kind: kind))),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// « Bandes-annonces » (developer's request, 25/11/2026: a row like the filmography, instead of a
-/// button): every trailer and teaser of the title, the best first; a card each, YouTube's still with
-/// a play mark, « Teaser » on a teaser, the name under it. A press opens it on YouTube.
-class _TrailersRow extends StatelessWidget {
-  const _TrailersRow({required this.trailers});
-
-  final List<Trailer> trailers;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final width = _TrailerCard.widthOf(layout);
-    // Room for the focus zoom on TV.
-    final vPad = layout.isLarge ? layout.tv(16) : 0.0;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionHeader('Bandes-annonces'),
-        FocusTraversalGroup(
-          policy: vxTraversalPolicy,
-          child: SizedBox(
-            height: _TrailerCard.heightOf(context) + vPad * 2,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              padding: EdgeInsets.symmetric(horizontal: layout.gutter, vertical: vPad),
-              itemCount: trailers.length,
-              separatorBuilder: (_, _) => SizedBox(width: layout.cardGap),
-              itemBuilder: (_, i) => SizedBox(width: width, child: _TrailerCard(trailer: trailers[i])),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TrailerCard extends StatelessWidget {
-  const _TrailerCard({required this.trailer});
-
-  final Trailer trailer;
-
-  static double widthOf(Layout layout) => layout.isLarge ? layout.tv(440) : (layout.isPhone ? 240.0 : 280.0);
-
-  /// The 16:9 still and two lines of name.
-  static double heightOf(BuildContext context) {
-    final layout = Layout.of(context);
-    final size = layout.size(14, tv: 22);
-    final lines = MediaQuery.textScalerOf(context).scale(size) * 1.35 * 2;
-    return widthOf(layout) * 9 / 16 + layout.space(VxSpace.xs) + lines;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = Layout.of(context);
-    final radius = layout.size(12, tv: 18);
-    final name = trailer.name?.trim();
-    final play = layout.size(44, tv: 72);
-    return VxFocusable(
-      borderRadius: radius,
-      semanticLabel: [trailer.kind, if (name != null && name.isNotEmpty) name].join(' : '),
-      onPressed: () => _openTrailer(context, trailer),
-      child: ExcludeSemantics(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(radius),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    NetImage(url: trailer.thumbnailUrl, seed: trailer.url.hashCode),
-                    Center(
-                      child: Container(
-                        width: play,
-                        height: play,
-                        decoration: const BoxDecoration(color: Color(0xB3070A08), shape: BoxShape.circle),
-                        child: Icon(Icons.play_arrow_rounded, color: VxColors.text, size: play * 0.6),
-                      ),
-                    ),
-                    if (trailer.teaser)
-                      Positioned(
-                        left: layout.space(VxSpace.xs),
-                        top: layout.space(VxSpace.xs),
-                        child: VxBadge('Teaser', fontSize: layout.size(12, tv: 18)),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(height: layout.space(VxSpace.xs)),
-            Text(
-              name == null || name.isEmpty ? trailer.kind : name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: VxText.body(layout.size(14, tv: 22), weight: FontWeight.w600, height: 1.35),
-            ),
           ],
         ),
       ),
