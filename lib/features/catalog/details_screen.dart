@@ -32,7 +32,7 @@ import 'list_screen.dart';
 import 'description_screen.dart';
 import 'models.dart';
 import 'widgets.dart';
-import 'where_to_watch.dart';
+import 'title_shortcuts.dart';
 
 /// Movie or TV show page.
 class DetailsScreen extends ConsumerWidget {
@@ -777,6 +777,8 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                     const SizedBox(height: 16),
                     DescriptionLink(title: t.title, description: t.overview!),
                   ],
+                  const SizedBox(height: 14),
+                  TitleShortcuts(title: t),
                 ],
               ),
             ),
@@ -806,13 +808,8 @@ List<Widget> _lowerSections(BuildContext context, Layout layout, TitleDetails t)
   final gap = SizedBox(height: layout.sectionGap);
   return [
     if (t.type == MediaType.tv && t.seasons.isNotEmpty) ...[gap, _Episodes(title: t)],
-    if (t.trailers.isNotEmpty) ...[gap, _TrailersRow(trailers: t.trailers)],
-    gap,
-    WhereToWatchSection(type: t.type, id: t.id),
     if (t.cast.isNotEmpty) ...[gap, _PeopleRow(title: t, crew: false)],
     if (t.crew.isNotEmpty) ...[gap, _PeopleRow(title: t, crew: true)],
-    // What the members say about it: followed members, popular reviews, lists.
-    TitleSocialSection(type: t.type, id: t.id, name: t.title),
     if (t.recommended.isNotEmpty) ...[
       gap,
       PosterRow(
@@ -924,6 +921,8 @@ class _LargeDetails extends StatelessWidget {
                         child: DescriptionLink(title: t.title, description: t.overview!),
                       ),
                     ],
+                    SizedBox(height: layout.tv(18)),
+                    TitleShortcuts(title: t),
                     SizedBox(height: layout.sectionGap),
                     Row(
                       children: [
