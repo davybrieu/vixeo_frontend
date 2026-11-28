@@ -8,6 +8,7 @@ import '../../core/device/layout.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/common.dart';
 import '../../core/widgets/focusable.dart';
+import '../../core/widgets/page_header.dart';
 import '../network/network.dart';
 import '../profiles/avatars.dart';
 import '../social/profile_view.dart' show AccountTile, ProfileHeader;
@@ -26,7 +27,7 @@ class TitleShortcuts extends ConsumerWidget {
     final layout = Layout.of(context);
     final social = ref.watch(titleSocialProvider((type: title.type, id: title.id))).value;
     final providers = ref.watch(titleProvidersPreviewProvider((title.type, title.id)));
-    final data = providers.valueOrNull ?? const <String, dynamic>{};
+    final data = providers.asData?.value ?? const <String, dynamic>{};
     final providerList = [
       ...(data['flatrate'] as List? ?? const []),
       ...(data['free'] as List? ?? const []),
