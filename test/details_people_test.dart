@@ -162,9 +162,9 @@ void main() {
     // Only in the rows: no "Réalisation : …" line under the overview any more.
     expect(find.textContaining('Réalisation :'), findsNothing);
 
-    // A long name gets two lines on a wider card, instead of being cut after a few letters.
+    // The name is overlaid on the image and constrained to a single line.
     final name = tester.widget<Text>(find.text('Alma Meyer-Lindqvist'));
-    expect(name.maxLines, 2);
+    expect(name.maxLines, 1);
     expect(tester.getSize(find.byType(PersonCard).first).width, greaterThanOrEqualTo(100));
   });
 
@@ -182,14 +182,16 @@ void main() {
       size: const Size(1920, 1080),
     );
 
+    // Capture the title and overview alignment before scrolling them out of the sliver viewport.
+    final left = tester.getTopLeft(find.text('Les Veilleurs')).dx;
+    expect(tester.getTopLeft(find.text('Résumé des Veilleurs')).dx, left);
+
     await tester.scrollUntilVisible(find.text('Équipe technique'), 300, scrollable: pageScroll);
     await tester.pumpAndSettle();
     expect(cardNames(tester).last, 'Ines Dahl (Création)');
-    // Title, overview and the sections below start at the same left edge.
-    final left = tester.getTopLeft(find.text('Distribution')).dx;
+    // Both people sections start at the same left edge as the title and overview.
+    expect(tester.getTopLeft(find.text('Distribution')).dx, left);
     expect(tester.getTopLeft(find.text('Équipe technique')).dx, left);
-    expect(tester.getTopLeft(find.text('Les Veilleurs').first).dx, left);
-    expect(tester.getTopLeft(find.text('Résumé des Veilleurs')).dx, left);
 
     // Large screen: no "Avec … · Création : …" line under the overview.
     expect(find.textContaining('Avec '), findsNothing);
