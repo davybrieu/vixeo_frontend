@@ -397,9 +397,11 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
     } catch (_) {
-      if (mounted) setState(() => _error = ApiException(
-        _codeSent ? 'Impossible de vérifier le code.' : 'Impossible d’envoyer le code de connexion.',
-      ));
+      if (mounted) {
+        setState(() => _error = ApiException(
+          _codeSent ? 'Impossible de vérifier le code.' : 'Impossible d’envoyer le code de connexion.',
+        ));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -451,7 +453,7 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
                   const SizedBox(height: 8),
                   Text(
                     _codeSent
-                        ? 'Un code à 6 chiffres a été envoyé à ' + _email.text.trim() + '. Il est valable 10 minutes.'
+                        ? 'Un code à 6 chiffres a été envoyé à ${_email.text.trim()}. Il est valable 10 minutes.'
                         : 'Saisissez votre adresse e-mail. Nous vous enverrons un code à 6 chiffres valable 10 minutes.',
                     style: VxText.body(15, color: VxColors.textSecondary),
                   ),
