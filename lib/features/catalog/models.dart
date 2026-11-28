@@ -291,12 +291,9 @@ class TitleCredits {
 }
 
 /// Order of a person's titles (`GET /catalog/person/{id}/credits?sort=`).
-enum PersonCreditsSort {
-  /// Most voted first: « Connu pour ».
-  popular,
-
-  /// Newest first: « Filmographie ».
-  date,
+enum PersonCreditsType {
+  movie,
+  tv,
 }
 
 /// A trailer or a teaser on YouTube (« Bandes-annonces » of the title page).
@@ -696,8 +693,8 @@ class PersonDetails {
     this.placeOfBirth,
     this.knownForDepartment,
     this.profileUrl,
-    this.knownFor = const [],
-    this.filmography = const [],
+    this.movies = const [],
+    this.shows = const [],
   });
 
   factory PersonDetails.fromJson(Map<String, dynamic> json) => PersonDetails(
@@ -709,8 +706,8 @@ class PersonDetails {
     placeOfBirth: json['place_of_birth'] as String?,
     knownForDepartment: json['known_for_department'] as String?,
     profileUrl: json['profile_url'] as String?,
-    knownFor: _list(json['known_for'], MediaItem.fromJson),
-    filmography: _list(json['filmography'], MediaItem.fromJson),
+    movies: _list(json['movies'], MediaItem.fromJson),
+    shows: _list(json['shows'], MediaItem.fromJson),
   );
 
   final int id;
@@ -722,11 +719,11 @@ class PersonDetails {
   final String? knownForDepartment;
   final String? profileUrl;
 
-  /// Best-known titles.
-  final List<MediaItem> knownFor;
+  /// Movies the person appeared in.
+  final List<MediaItem> movies;
 
-  /// All titles as cast member, most recent first.
-  final List<MediaItem> filmography;
+  /// TV shows the person appeared in.
+  final List<MediaItem> shows;
 
   /// "Interprétation", "Réalisation"…
   String? get department => switch (knownForDepartment) {

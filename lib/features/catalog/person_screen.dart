@@ -47,8 +47,7 @@ class _PersonView extends ConsumerStatefulWidget {
 }
 
 class _PersonViewState extends ConsumerState<_PersonView> {
-  /// Titles of the « Filmographie » row (newest first), like a home row: the rest is behind
-  /// « Voir tout ».
+  /// Number of posters shown in each row; the rest is behind « Voir tout ».
   static const _rowLength = 20;
 
   @override
@@ -120,26 +119,26 @@ class _PersonViewState extends ConsumerState<_PersonView> {
           ),
         // Rows scrolled left to right like the home's, each with « Voir tout » (every title of
         // the person, most voted or newest first).
-        if (p.knownFor.isNotEmpty)
+        if (p.movies.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.only(bottom: layout.sectionGap),
               child: PosterRow(
-                title: 'Connu pour',
-                items: p.knownFor,
-                onSeeAll: () => context.push(PersonTitlesScreen.location(p.id, PersonCreditsSort.popular)),
+                title: 'Films',
+                items: p.movies.take(_rowLength).toList(),
+                onSeeAll: () => context.push(PersonTitlesScreen.location(p.id, PersonCreditsType.movie)),
               ),
             ),
           ),
-        if (p.filmography.isNotEmpty)
+        if (p.shows.isNotEmpty)
           SliverToBoxAdapter(
             child: PosterRow(
-              title: 'Filmographie',
-              items: p.filmography.take(_rowLength).toList(),
-              onSeeAll: () => context.push(PersonTitlesScreen.location(p.id, PersonCreditsSort.date)),
+              title: 'Séries',
+              items: p.shows.take(_rowLength).toList(),
+              onSeeAll: () => context.push(PersonTitlesScreen.location(p.id, PersonCreditsType.tv)),
             ),
           ),
-        if (p.knownFor.isEmpty && p.filmography.isEmpty)
+        if (p.movies.isEmpty && p.shows.isEmpty)
           const SliverToBoxAdapter(
             child: EmptyState(icon: Icons.movie_filter_outlined, title: 'Aucun titre disponible pour ce profil'),
           ),

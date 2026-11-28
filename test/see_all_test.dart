@@ -15,7 +15,7 @@ import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 
 // « Voir tout » of the title and person pages (developer's request): « Vous pourriez aussi
-// aimer », « Distribution », « Équipe technique », « Connu pour » and « Filmographie » open their whole list.
+// aimer », « Distribution », « Équipe technique », « Films » and « Séries » open their whole list.
 
 class _EmptyLibrary extends LibraryController {
   @override
@@ -48,8 +48,8 @@ const _title = TitleDetails(
 final _person = PersonDetails(
   id: 287,
   name: 'Alma Meyer',
-  knownFor: [_movie(1, 'Connu 1')],
-  filmography: [for (var i = 1; i <= 30; i++) _movie(100 + i, 'Film $i')],
+  movies: [for (var i = 1; i <= 30; i++) _movie(100 + i, 'Film $i')],
+  shows: [MediaItem(id: 2, type: MediaType.tv, title: 'Série 1')],
 );
 
 Future<void> _pump(WidgetTester tester, String start, {List<Override> overrides = const []}) async {
@@ -90,14 +90,14 @@ Future<void> _pump(WidgetTester tester, String start, {List<Override> overrides 
       ),
       GoRoute(path: '/personne/:id', builder: (_, state) => PersonScreen(id: int.parse(state.pathParameters['id']!))),
       GoRoute(
-        path: '/personne/:id/connu-pour',
+        path: '/personne/:id/films',
         builder: (_, state) =>
-            PersonTitlesScreen(id: int.parse(state.pathParameters['id']!), sort: PersonCreditsSort.popular),
+            PersonTitlesScreen(id: int.parse(state.pathParameters['id']!), sort: PersonCreditsType.movie),
       ),
       GoRoute(
-        path: '/personne/:id/filmographie',
+        path: '/personne/:id/series',
         builder: (_, state) =>
-            PersonTitlesScreen(id: int.parse(state.pathParameters['id']!), sort: PersonCreditsSort.date),
+            PersonTitlesScreen(id: int.parse(state.pathParameters['id']!), sort: PersonCreditsType.tv),
       ),
     ],
   );
@@ -207,48 +207,48 @@ void main() {
     expect(asked, [1]);
   });
 
-  testWidgets('person page: the filmography is a horizontal row, like « Connu pour »', (tester) async {
+  testWidgets('person page: movies and series are separate horizontal rows', (tester) async {
     await _pump(tester, '/personne/287');
 
-    await tester.scrollUntilVisible(find.text('Filmographie'), 200, scrollable: _pageScroll);
+    await tester.scrollUntilVisible(find.text('Séries'), 200, scrollable: _pageScroll);
     await tester.pumpAndSettle();
     final row = find.ancestor(
-      of: find.bySemanticsLabel(RegExp(r'^Film 1\b')),
+      of: find.bySemanticsLabel(RegExp(r'^Série 1\b')),
       matching: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.right),
     );
     expect(row, findsOneWidget);
-    // The start of the filmography (newest first); the rest is behind « Voir tout ».
+    // The series row is separate from the movies row.
     final listView = tester.widget<ListView>(find.ancestor(of: row, matching: find.byType(ListView)).first);
     expect(listView.childrenDelegate.estimatedChildCount, lessThanOrEqualTo(2 * 20));
-    expect(_pressable('Voir tout : Connu pour'), findsOneWidget);
-    expect(_pressable('Voir tout : Filmographie'), findsOneWidget);
+    expect(_pressable('Voir tout : Films'), findsOneWidget);
+    expect(_pressable('Voir tout : Séries'), findsOneWidget);
   });
 
-  testWidgets('person page: « Connu pour » and « Filmographie » open every title', (tester) async {
-    final asked = <(int, PersonCreditsSort, int)>[];
+  testWidgets('person page: « Films » and « Séries » open their own lists', (tester) async {
+    final asked = <(int, PersonCreditsType, int)>[];
     final overrides = <Override>[
       personCreditsProvider.overrideWith((ref, key) async {
         asked.add(key);
         return Paged(
-          items: [for (var i = 1; i <= 3; i++) _movie(200 + i, key.$2 == PersonCreditsSort.popular ? 'Célèbre $i' : 'Récent $i')],
+          items: [for (var i = 1; i <= 3; i++) MediaItem(id: 200 + i, type: key.$2 == PersonCreditsType.movie ? MediaType.movie : MediaType.tv, title: key.$2 == PersonCreditsType.movie ? 'Film $i' : 'Série $i')],
         );
       }),
     ];
 
     await _pump(tester, '/personne/287', overrides: overrides);
-    await tester.tap(_pressable('Voir tout : Connu pour'));
+    await tester.tap(_pressable('Voir tout : Films'));
     await tester.pumpAndSettle();
-    expect(find.text('Connu pour'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp(r'^Célèbre 3')), findsOneWidget);
+    expect(find.text('Films'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^Film 3')), findsOneWidget);
 
     await _pump(tester, '/personne/287', overrides: overrides);
-    final seeAll = _pressable('Voir tout : Filmographie');
+    final seeAll = _pressable('Voir tout : Séries');
     await tester.scrollUntilVisible(seeAll, 200, scrollable: _pageScroll);
     await tester.tap(seeAll);
     await tester.pumpAndSettle();
-    expect(find.text('Filmographie'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp(r'^Récent 1')), findsOneWidget);
+    expect(find.text('Séries'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^Série 1')), findsOneWidget);
 
-    expect(asked, [(287, PersonCreditsSort.popular, 1), (287, PersonCreditsSort.date, 1)]);
+    expect(asked, [(287, PersonCreditsType.movie, 1), (287, PersonCreditsType.tv, 1)]);
   });
 }
