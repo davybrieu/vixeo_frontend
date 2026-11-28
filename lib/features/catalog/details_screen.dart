@@ -64,11 +64,6 @@ void _play(BuildContext context, TitleDetails title, {int? season, int? episode}
   context.push('$path$query');
 }
 
-Future<void> _openTrailer(BuildContext context, Trailer trailer) async {
-  final ok = await launchUrl(Uri.parse(trailer.url), mode: LaunchMode.externalApplication);
-  if (!ok && context.mounted) showVxSnack(context, 'Impossible d’ouvrir la bande-annonce.');
-}
-
 String _ageLabel(int age) => age == 0 ? 'Tous publics' : '$age+';
 
 List<String> _meta(TitleDetails t) => [
