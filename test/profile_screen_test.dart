@@ -41,17 +41,6 @@ class _Signed extends SessionController {
   );
 }
 
-/// A profile without a public username yet.
-class _NoUsernameProfile extends SessionController {
-  @override
-  SessionState build() => SessionState(
-    status: SessionStatus.signedIn,
-    token: 't',
-    user: _user,
-    profile: Profile.fromJson({'id': 3, 'name': 'Tom'}),
-  );
-}
-
 class _Library extends LibraryController {
   @override
   Future<LibraryState> build() async => LibraryState({
