@@ -161,6 +161,15 @@ class SessionController extends Notifier<SessionState> {
         // Session restoration will retry with the account resource.
       }
     }
+    if (profile == null) {
+      state = SessionState(
+        status: SessionStatus.unreachable,
+        token: token,
+        user: user,
+        message: "Le profil du compte n'a pas pu être chargé. Réessayez après la mise à jour du serveur.",
+      );
+      return;
+    }
     state = SessionState(status: SessionStatus.signedIn, token: token, user: user, profile: profile);
   }
 
