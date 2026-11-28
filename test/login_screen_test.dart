@@ -31,7 +31,12 @@ class FakeAuthRepository extends AuthRepository {
     verifiedCode = code;
     return (
       token: 'token-email',
-      user: const User(id: 1, name: 'Davy', email: 'davy@exemple.fr'),
+      user: const User(
+        id: 1,
+        name: 'Davy',
+        email: 'davy@exemple.fr',
+        profile: Profile(id: 1, name: 'Davy', username: 'davy'),
+      ),
       created: false,
       registrationTicket: null,
     );
