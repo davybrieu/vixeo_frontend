@@ -126,7 +126,7 @@ class _PersonViewState extends ConsumerState<_PersonView> {
               child: PosterRow(
                 title: 'Films',
                 items: p.movies.take(_rowLength).toList(),
-                onSeeAll: () => context.push(PersonTitlesScreen.location(p.id, PersonCreditsSort.movie)),
+                onSeeAll: () => context.push(PersonTitlesScreen.location(p.id, PersonCreditsType.movie)),
               ),
             ),
           ),
@@ -135,7 +135,7 @@ class _PersonViewState extends ConsumerState<_PersonView> {
             child: PosterRow(
               title: 'Séries',
               items: p.shows.take(_rowLength).toList(),
-              onSeeAll: () => context.push(PersonTitlesScreen.location(p.id, PersonCreditsSort.tv)),
+              onSeeAll: () => context.push(PersonTitlesScreen.location(p.id, PersonCreditsType.tv)),
             ),
           ),
         if (p.movies.isEmpty && p.shows.isEmpty)
