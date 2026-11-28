@@ -53,8 +53,7 @@ class RecommendationsScreen extends StatelessWidget {
   );
 }
 
-/// "Voir tout" of « Connu pour » (most voted first) or « Filmographie » (newest first) on a
-/// person page: every title of the person, 20 at a time (the next ones as the grid scrolls).
+/// "Voir tout" of the movies or TV shows row on a person page.
 class PersonTitlesScreen extends StatelessWidget {
   const PersonTitlesScreen({super.key, required this.id, required this.sort});
 
@@ -62,11 +61,11 @@ class PersonTitlesScreen extends StatelessWidget {
   final PersonCreditsSort sort;
 
   static String location(int id, PersonCreditsSort sort) =>
-      '/personne/$id/${sort == PersonCreditsSort.popular ? 'connu-pour' : 'filmographie'}';
+      '/personne/$id/${sort == PersonCreditsSort.movie ? 'films' : 'series'}';
 
   @override
   Widget build(BuildContext context) => _SeeAllPage(
-    heading: sort == PersonCreditsSort.popular ? 'Connu pour' : 'Filmographie',
+    heading: sort == PersonCreditsSort.movie ? 'Films' : 'Séries',
     content: _PagedTitles(
       page: (page) => personCreditsProvider((id, sort, page)),
       empty: const EmptyState(icon: Icons.movie_filter_outlined, title: 'Aucun titre disponible pour ce profil'),
