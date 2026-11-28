@@ -162,22 +162,22 @@ void main() {
       'place_of_birth': 'Shawnee, Oklahoma, USA',
       'known_for_department': 'Acting',
       'profile_url': null,
-      'known_for': [
+      'movies': [
         {'id': 550, 'type': 'movie', 'title': 'Fight Club'},
-      ],
-      'filmography': [
         {'id': 1, 'type': 'movie', 'title': 'F1'},
+      ],
+      'shows': [
         {'id': 2, 'type': 'tv', 'title': 'Friends'},
       ],
     });
 
     expect(person.department, 'Interprétation');
     expect(person.lifeLine, 'Naissance : 18 décembre 1963 à Shawnee, Oklahoma, USA');
-    expect(person.filmography.map((i) => i.type), [MediaType.movie, MediaType.tv]);
+    expect(person.movies.map((i) => i.type), [MediaType.movie, MediaType.movie]);
     expect(formatFrenchDate(DateTime(2020, 3, 1)), '1er mars 2020');
   });
 
-  testWidgets('person page shows the biography and the filmography', (tester) async {
+  testWidgets('person page shows separate movies and TV shows', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -187,11 +187,8 @@ void main() {
       name: 'Alma Meyer',
       biography: 'Actrice française.',
       knownForDepartment: 'Acting',
-      knownFor: [MediaItem(id: 1, type: MediaType.movie, title: 'Nord Sauvage')],
-      filmography: [
-        MediaItem(id: 1, type: MediaType.movie, title: 'Nord Sauvage'),
-        MediaItem(id: 2, type: MediaType.tv, title: 'Les Veilleurs'),
-      ],
+      movies: [MediaItem(id: 1, type: MediaType.movie, title: 'Nord Sauvage')],
+      shows: [MediaItem(id: 2, type: MediaType.tv, title: 'Les Veilleurs')],
     );
     await tester.pumpWidget(
       wrap(
@@ -209,8 +206,8 @@ void main() {
     expect(find.text('Alma Meyer'), findsOneWidget);
     expect(find.text('Interprétation'), findsOneWidget);
     expect(find.text('Actrice française.'), findsOneWidget);
-    expect(find.text('Connu pour'), findsOneWidget);
-    expect(find.text('Filmographie'), findsOneWidget);
+    expect(find.text('Films'), findsOneWidget);
+    expect(find.text('Séries'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Les Veilleurs, série')), findsOneWidget);
   });
 }
