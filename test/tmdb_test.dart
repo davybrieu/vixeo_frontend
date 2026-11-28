@@ -471,10 +471,13 @@ void main() {
     testWidgets('« Voir la bande-annonce » opens the dedicated page with every trailer', (tester) async {
       await pumpPage(tester, const DetailsScreen(type: MediaType.movie, id: 3), tmdb: FakeTmdb(), overrides: details(full));
 
-      final shortcut = find.bySemanticsLabel('Voir la bande-annonce');
-      await tester.scrollUntilVisible(shortcut, 300, scrollable: find.byType(Scrollable).first);
+      final shortcuts = find.byType(TitleShortcuts);
+      expect(shortcuts, findsOneWidget);
+      await tester.ensureVisible(shortcuts);
+      await tester.pumpAndSettle();
+      final shortcut = find.text('Voir la bande-annonce');
       expect(shortcut, findsOneWidget);
-      expect(find.bySemanticsLabel('Bande-annonce : Bande-annonce VF'), findsNothing);
+      expect(find.text('Bande-annonce VF'), findsNothing);
 
       await tester.tap(shortcut);
       await tester.pumpAndSettle();
