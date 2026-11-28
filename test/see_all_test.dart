@@ -15,7 +15,7 @@ import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
 
 // « Voir tout » of the title and person pages (developer's request): « Vous pourriez aussi
-// aimer », « Distribution », « Équipe technique », « Connu pour » and « Filmographie » open their whole list.
+// aimer », « Distribution », « Équipe technique », « Films » and « Séries » open their whole list.
 
 class _EmptyLibrary extends LibraryController {
   @override
@@ -48,8 +48,8 @@ const _title = TitleDetails(
 final _person = PersonDetails(
   id: 287,
   name: 'Alma Meyer',
-  knownFor: [_movie(1, 'Connu 1')],
-  filmography: [for (var i = 1; i <= 30; i++) _movie(100 + i, 'Film $i')],
+  movies: [for (var i = 1; i <= 30; i++) _movie(100 + i, 'Film $i')],
+  shows: [MediaItem(id: 2, type: MediaType.tv, title: 'Série 1')],
 );
 
 Future<void> _pump(WidgetTester tester, String start, {List<Override> overrides = const []}) async {
@@ -90,14 +90,14 @@ Future<void> _pump(WidgetTester tester, String start, {List<Override> overrides 
       ),
       GoRoute(path: '/personne/:id', builder: (_, state) => PersonScreen(id: int.parse(state.pathParameters['id']!))),
       GoRoute(
-        path: '/personne/:id/connu-pour',
+        path: '/personne/:id/films',
         builder: (_, state) =>
-            PersonTitlesScreen(id: int.parse(state.pathParameters['id']!), sort: PersonCreditsSort.popular),
+            PersonTitlesScreen(id: int.parse(state.pathParameters['id']!), sort: PersonCreditsType.movie),
       ),
       GoRoute(
-        path: '/personne/:id/filmographie',
+        path: '/personne/:id/series',
         builder: (_, state) =>
-            PersonTitlesScreen(id: int.parse(state.pathParameters['id']!), sort: PersonCreditsSort.date),
+            PersonTitlesScreen(id: int.parse(state.pathParameters['id']!), sort: PersonCreditsType.tv),
       ),
     ],
   );
@@ -225,12 +225,12 @@ void main() {
   });
 
   testWidgets('person page: « Connu pour » and « Filmographie » open every title', (tester) async {
-    final asked = <(int, PersonCreditsSort, int)>[];
+    final asked = <(int, PersonCreditsType, int)>[];
     final overrides = <Override>[
       personCreditsProvider.overrideWith((ref, key) async {
         asked.add(key);
         return Paged(
-          items: [for (var i = 1; i <= 3; i++) _movie(200 + i, key.$2 == PersonCreditsSort.popular ? 'Célèbre $i' : 'Récent $i')],
+          items: [for (var i = 1; i <= 3; i++) _movie(200 + i, key.$2 == PersonCreditsType.popular ? 'Célèbre $i' : 'Récent $i')],
         );
       }),
     ];
@@ -249,6 +249,6 @@ void main() {
     expect(find.text('Filmographie'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Récent 1')), findsOneWidget);
 
-    expect(asked, [(287, PersonCreditsSort.popular, 1), (287, PersonCreditsSort.date, 1)]);
+    expect(asked, [(287, PersonCreditsType.popular, 1), (287, PersonCreditsType.date, 1)]);
   });
 }
