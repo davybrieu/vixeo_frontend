@@ -12,6 +12,7 @@ import 'package:vixeo/features/auth/models.dart';
 import 'package:vixeo/features/auth/session.dart';
 import 'package:vixeo/features/catalog/catalog_repository.dart';
 import 'package:vixeo/features/catalog/details_screen.dart';
+import 'package:vixeo/features/catalog/title_shortcuts.dart';
 import 'package:vixeo/features/catalog/models.dart';
 import 'package:vixeo/features/catalog/widgets.dart';
 import 'package:vixeo/features/library/library.dart';
@@ -127,6 +128,14 @@ Future<void> pumpPage(
       GoRoute(
         path: '/titre/:type/:id',
         builder: (_, state) => Scaffold(body: Text('Fiche ${state.pathParameters['id']}')),
+      ),
+      GoRoute(
+        path: '/titre/:type/:id/bandes-annonces',
+        builder: (_, state) => TitleInfoScreen(
+          type: state.pathParameters['type'] == 'tv' ? MediaType.tv : MediaType.movie,
+          id: int.parse(state.pathParameters['id']!),
+          section: TitleInfoSection.trailers,
+        ),
       ),
       GoRoute(
         path: '/titre/:type/:id/images',
@@ -459,19 +468,19 @@ void main() {
       trailer: Trailer(url: 'https://www.youtube.com/watch?v=a', name: 'Bande-annonce VF'),
     );
 
-    testWidgets('« Bandes-annonces »: a row of every trailer, no « Bande-annonce » button', (tester) async {
+    testWidgets('« Voir la bande-annonce » opens the dedicated page with every trailer', (tester) async {
       await pumpPage(tester, const DetailsScreen(type: MediaType.movie, id: 3), tmdb: FakeTmdb(), overrides: details(full));
 
-      expect(find.bySemanticsLabel('Voir la bande-annonce'), findsNothing);
-      final first = find.bySemanticsLabel('Bande-annonce : Bande-annonce VF');
-      await tester.scrollUntilVisible(first, 300, scrollable: find.byType(Scrollable).first);
+      final shortcut = find.bySemanticsLabel('Voir la bande-annonce');
+      await tester.scrollUntilVisible(shortcut, 300, scrollable: find.byType(Scrollable).first);
+      expect(shortcut, findsOneWidget);
+      expect(find.bySemanticsLabel('Bande-annonce : Bande-annonce VF'), findsNothing);
+
+      await tester.tap(shortcut);
+      await tester.pumpAndSettle();
       expect(find.text('Bandes-annonces'), findsOneWidget);
-      expect(find.bySemanticsLabel('Teaser : Teaser officiel'), findsOneWidget);
-      // Side by side, the best first.
-      expect(
-        tester.getCenter(first).dx,
-        lessThan(tester.getCenter(find.bySemanticsLabel('Teaser : Teaser officiel')).dx),
-      );
+      expect(find.text('Bande-annonce VF'), findsOneWidget);
+      expect(find.text('Teaser officiel'), findsOneWidget);
     });
 
     testWidgets('« ⋮ » changes the poster, backdrop or logo; no images button any more', (tester) async {
