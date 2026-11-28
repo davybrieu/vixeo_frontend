@@ -207,30 +207,30 @@ void main() {
     expect(asked, [1]);
   });
 
-  testWidgets('person page: the filmography is a horizontal row, like « Connu pour »', (tester) async {
+  testWidgets('person page: movies and series are separate horizontal rows', (tester) async {
     await _pump(tester, '/personne/287');
 
-    await tester.scrollUntilVisible(find.text('Filmographie'), 200, scrollable: _pageScroll);
+    await tester.scrollUntilVisible(find.text('Séries'), 200, scrollable: _pageScroll);
     await tester.pumpAndSettle();
     final row = find.ancestor(
-      of: find.bySemanticsLabel(RegExp(r'^Film 1\b')),
+      of: find.bySemanticsLabel(RegExp(r'^Série 1\b')),
       matching: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.right),
     );
     expect(row, findsOneWidget);
-    // The start of the filmography (newest first); the rest is behind « Voir tout ».
+    // The series row is separate from the movies row.
     final listView = tester.widget<ListView>(find.ancestor(of: row, matching: find.byType(ListView)).first);
     expect(listView.childrenDelegate.estimatedChildCount, lessThanOrEqualTo(2 * 20));
-    expect(_pressable('Voir tout : Connu pour'), findsOneWidget);
-    expect(_pressable('Voir tout : Filmographie'), findsOneWidget);
+    expect(_pressable('Voir tout : Films'), findsOneWidget);
+    expect(_pressable('Voir tout : Séries'), findsOneWidget);
   });
 
-  testWidgets('person page: « Connu pour » and « Filmographie » open every title', (tester) async {
+  testWidgets('person page: « Films » and « Séries » open their own lists', (tester) async {
     final asked = <(int, PersonCreditsType, int)>[];
     final overrides = <Override>[
       personCreditsProvider.overrideWith((ref, key) async {
         asked.add(key);
         return Paged(
-          items: [for (var i = 1; i <= 3; i++) _movie(200 + i, key.$2 == PersonCreditsType.popular ? 'Célèbre $i' : 'Récent $i')],
+          items: [for (var i = 1; i <= 3; i++) _movie(200 + i, key.$2 == PersonCreditsType.movie ? 'Film $i' : 'Série $i')],
         );
       }),
     ];
@@ -238,17 +238,17 @@ void main() {
     await _pump(tester, '/personne/287', overrides: overrides);
     await tester.tap(_pressable('Voir tout : Connu pour'));
     await tester.pumpAndSettle();
-    expect(find.text('Connu pour'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp(r'^Célèbre 3')), findsOneWidget);
+    expect(find.text('Films'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^Film 3')), findsOneWidget);
 
     await _pump(tester, '/personne/287', overrides: overrides);
     final seeAll = _pressable('Voir tout : Filmographie');
     await tester.scrollUntilVisible(seeAll, 200, scrollable: _pageScroll);
     await tester.tap(seeAll);
     await tester.pumpAndSettle();
-    expect(find.text('Filmographie'), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp(r'^Récent 1')), findsOneWidget);
+    expect(find.text('Séries'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^Série 1')), findsOneWidget);
 
-    expect(asked, [(287, PersonCreditsType.popular, 1), (287, PersonCreditsType.date, 1)]);
+    expect(asked, [(287, PersonCreditsType.movie, 1), (287, PersonCreditsType.tv, 1)]);
   });
 }
