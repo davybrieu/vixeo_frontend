@@ -311,19 +311,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/personne/:id',
             builder: (_, state) => PersonScreen(id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0),
           ),
-          // « Voir tout » of a person page: every title, most voted or newest first.
+          // « Voir tout » of a person's films or series.
           GoRoute(
-            path: '/personne/:id/connu-pour',
+            path: '/personne/:id/films',
             builder: (_, state) => PersonTitlesScreen(
               id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
-              sort: PersonCreditsSort.popular,
+              sort: PersonCreditsSort.movie,
             ),
           ),
           GoRoute(
-            path: '/personne/:id/filmographie',
+            path: '/personne/:id/series',
             builder: (_, state) => PersonTitlesScreen(
               id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
-              sort: PersonCreditsSort.date,
+              sort: PersonCreditsSort.tv,
             ),
           ),
           // « Connecter une TV » (from « Paramètres »); ?code= prefills the code.
