@@ -442,7 +442,7 @@ void main() {
     expect(credits.crew.single.name, 'David Fincher');
     expect(credits.crew.single.profileUrl, 'https://image.tmdb.org/t/p/w185/fincher.jpg');
     expect(credits.cast.map((p) => '${p.name} (${p.role})'), ['Edward Norton (The Narrator)', 'Brad Pitt (Tyler Durden)']);
-    expect(PersonCreditsSort.date.name, 'date');
+    expect(PersonCreditsType.tv.name, 'tv');
   });
 
   test('the other sites of « Notes » (MDBList), each on its own scale', () {
