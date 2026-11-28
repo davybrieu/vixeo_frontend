@@ -8,29 +8,20 @@ import 'auth_repository.dart';
 import 'models.dart';
 
 enum SessionStatus {
-  /// Reading the saved session at startup.
   restoring,
-
-  /// The saved session could not be checked (API unreachable).
   unreachable,
-  /// No valid account session is available on this device.
   signedOut,
   signedIn,
 }
 
 class SessionState {
   const SessionState({required this.status, this.token, this.user, this.profile, this.message});
-
   const SessionState.restoring() : this(status: SessionStatus.restoring);
 
   final SessionStatus status;
   final String? token;
   final User? user;
-
-  /// The account's single profile, resolved automatically after sign-in.
   final Profile? profile;
-
-  /// Message to show once (e.g. "session expirée").
   final String? message;
 
   bool get isSignedIn => status == SessionStatus.signedIn;
@@ -52,7 +43,6 @@ final apiClientProvider = Provider<ApiClient>(
   ),
 );
 
-/// The real-time connection of the signed-in account (Reverb).
 final realtimeProvider = Provider<Realtime>((ref) {
   ref.watch(sessionProvider.select((s) => s.token));
   final api = ref.read(apiClientProvider);
@@ -65,10 +55,8 @@ final realtimeProvider = Provider<Realtime>((ref) {
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository(ref.read(apiClientProvider)));
-
 final sessionProvider = NotifierProvider<SessionController, SessionState>(SessionController.new);
 
-/// Authentication state and the single profile of the signed-in account.
 class SessionController extends Notifier<SessionState> {
   SessionStorage get _storage => ref.read(sessionStorageProvider);
   AuthRepository get _auth => ref.read(authRepositoryProvider);
@@ -79,14 +67,12 @@ class SessionController extends Notifier<SessionState> {
     return const SessionState.restoring();
   }
 
-  /// Reads the saved token and checks it with `GET /me`.
   Future<void> restore() async {
     state = const SessionState.restoring();
     String? token;
     try {
       token = await _storage.readToken();
     } catch (_) {
-      // An unreadable keychain entry cannot be used to authenticate.
       await _clearQuietly();
       state = const SessionState(status: SessionStatus.signedOut);
       return;
@@ -96,23 +82,28 @@ class SessionController extends Notifier<SessionState> {
       return;
     }
 
-    // Token needed by the API client for the checks below.
     state = SessionState(status: SessionStatus.restoring, token: token);
     try {
       final user = await _auth.me();
-      // One account has one viewer identity: use its sole profile automatically.
-      final profiles = await _auth.profiles();
-      final profile = profiles.isEmpty ? null : profiles.first;
+      // The profile is embedded in the account response; the old endpoint is a compatibility fallback.
+      final legacyProfiles = user.profile == null ? await _auth.profiles() : const <Profile>[];
+      final profile = user.profile ?? (legacyProfiles.isEmpty ? null : legacyProfiles.first);
+      if (profile == null) {
+        state = const SessionState(
+          status: SessionStatus.unreachable,
+          message: "Le compte ne contient pas encore de profil. Vérifiez la migration du compte côté serveur.",
+        );
+        return;
+      }
       state = SessionState(status: SessionStatus.signedIn, token: token, user: user, profile: profile);
     } on ApiException catch (e) {
       if (e.isUnauthorized) {
         await _clear();
         state = const SessionState(status: SessionStatus.signedOut);
       } else {
-        state = SessionState(status: SessionStatus.unreachable, message: e.message);
+        state = SessionState(status: SessionStatus.unreachable, token: token, message: e.message);
       }
     } catch (_) {
-      // Unexpected answer (not the JSON the app expects): the start screen offers "Réessayer".
       state = const SessionState(
         status: SessionStatus.unreachable,
         message: 'Le serveur a envoyé une réponse inattendue. Réessayez dans un instant.',
@@ -120,21 +111,18 @@ class SessionController extends Notifier<SessionState> {
     }
   }
 
-  /// Signed in by another device (TV approved from a phone).
   Future<void> signInWithToken(String token, User user) => _signedIn(token, user);
 
-  /// Re-reads the account.
   Future<void> refreshUser() async {
     if (!state.isSignedIn) return;
-    state = state.copyWith(user: await _auth.me());
+    final user = await _auth.me();
+    state = state.copyWith(user: user, profile: user.profile);
   }
 
-  /// The account was edited (new e-mail address…).
   void updateUser(User user) {
-    if (state.isSignedIn) state = state.copyWith(user: user);
+    if (state.isSignedIn) state = state.copyWith(user: user, profile: user.profile);
   }
 
-  /// The active profile was edited (avatar, poster format…).
   void updateProfile(Profile profile) {
     if (state.profile?.id == profile.id) {
       state = state.copyWith(profile: profile);
@@ -151,14 +139,12 @@ class SessionController extends Notifier<SessionState> {
     state = const SessionState(status: SessionStatus.signedOut);
   }
 
-  /// The API answered 401: the token was revoked or expired.
   Future<void> expire() async {
     if (!state.isSignedIn) return;
     await _clear();
     state = const SessionState(status: SessionStatus.signedOut, message: 'Votre session a expiré. Reconnectez-vous.');
   }
 
-  /// The account was deleted, or its token revoked on purpose: forget it on this device.
   Future<void> forget({String? message}) async {
     await _clearQuietly();
     state = SessionState(status: SessionStatus.signedOut, message: message);
@@ -166,13 +152,23 @@ class SessionController extends Notifier<SessionState> {
 
   Future<void> _signedIn(String token, User user) async {
     await _storage.writeToken(token);
-    // Do not persist a selected profile. Resolve the account's single profile on every sign-in.
-    Profile? profile;
-    try {
-      final profiles = await _auth.profiles();
-      profile = profiles.isEmpty ? null : profiles.first;
-    } catch (_) {
-      // Keep the authenticated session; the profile can be resolved on the next restore.
+    Profile? profile = user.profile;
+    if (profile == null) {
+      try {
+        final profiles = await _auth.profiles();
+        profile = profiles.isEmpty ? null : profiles.first;
+      } catch (_) {
+        // Session restoration will retry with the account resource.
+      }
+    }
+    if (profile == null) {
+      state = SessionState(
+        status: SessionStatus.unreachable,
+        token: token,
+        user: user,
+        message: "Le profil du compte n'a pas pu être chargé. Réessayez après la mise à jour du serveur.",
+      );
+      return;
     }
     state = SessionState(status: SessionStatus.signedIn, token: token, user: user, profile: profile);
   }
@@ -184,8 +180,6 @@ class SessionController extends Notifier<SessionState> {
   Future<void> _clearQuietly() async {
     try {
       await _clear();
-    } catch (_) {
-      // Nothing more to do if the keychain refuses.
-    }
+    } catch (_) {}
   }
 }

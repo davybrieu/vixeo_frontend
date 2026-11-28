@@ -7,6 +7,7 @@ class User {
     required this.name,
     required this.email,
     this.providers = const [],
+    this.profile,
   });
 
   factory User.fromJson(Map<String, dynamic> json) => User(
@@ -14,6 +15,9 @@ class User {
     name: json['name'] as String,
     email: json['email'] as String,
     providers: [for (final p in json['providers'] as List? ?? const []) p as String],
+    profile: json['profile'] is Map<String, dynamic>
+        ? Profile.fromJson(json['profile'] as Map<String, dynamic>)
+        : null,
   );
 
   final int id;
@@ -22,6 +26,9 @@ class User {
 
   /// Google and Apple accounts linked to this one (`google`, `apple`).
   final List<String> providers;
+
+  /// The single profile stored on this same users row.
+  final Profile? profile;
 }
 
 /// A signed-in device of the account (one API token): `GET /me/devices`.
@@ -102,7 +109,6 @@ class Profile {
     isPrivate: json['is_private'] as bool? ?? false,
     socialLinks: SocialLink.listOf(json['social_links']),
     rateAfterWatching: json['rate_after_watching'] as bool? ?? true,
-    // An older API doesn't say: no first launch.
     onboarded: json['onboarded'] as bool? ?? true,
     registrationCompleted: json['registration_completed'] as bool? ?? true,
   );
@@ -125,37 +131,17 @@ class Profile {
   final String? coverUrl;
 
   final int position;
-
-  /// Preferred audio language ("fr"…), null = original version (docs: vixeo_backend/docs/lecture.md).
   final String? audioLanguage;
-
-  /// Preferred subtitles ("fr", "pt-BR"…), null = none.
   final String? subtitleLanguage;
-
-  /// Hide episode artwork, titles and descriptions until selected.
   final bool noSpoiler;
-
-  /// Moments the player skips by itself; otherwise it shows a "Passer" button.
   final bool skipIntro;
   final bool skipRecap;
   final bool skipCredits;
   final bool skipPreview;
-
-  /// A private account (like Twitter): only its accepted followers see its lists and reviews
-  /// (vixeo_backend/docs/social.md).
   final bool isPrivate;
-
-  /// Its accounts on social networks (« Modifier mon profil »), shown on its page.
   final List<SocialLink> socialLinks;
-
-  /// At the end of a movie or an episode, the player proposes to rate it (« Paramètres du
-  /// profil » → « Proposer de noter à la fin »).
   final bool rateAfterWatching;
-
-  /// The first launch (rate known titles, accounts to follow) was done or skipped.
   final bool onboarded;
-
-  /// Whether the mandatory first-time profile registration has been completed.
   final bool registrationCompleted;
 
   /// First letter, shown on the avatar tile.
