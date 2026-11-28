@@ -67,8 +67,8 @@ class CatalogRepository {
 
   /// One page (20 titles) of a person's movies or TV shows →
   /// « Voir tout » (the person page has the first 20).
-  Future<Paged<MediaItem>> personCredits(int id, PersonCreditsSort sort, {int page = 1}) async => Paged.fromJson(
-    await _api.get('/catalog/person/$id/credits', query: {'sort': sort.name, 'page': page}),
+  Future<Paged<MediaItem>> personCredits(int id, PersonCreditsType sort, {int page = 1}) async => Paged.fromJson(
+    await _api.get('/catalog/person/$id/credits', query: {'type': sort.name, 'page': page}),
     MediaItem.fromJson,
   );
 
@@ -207,7 +207,7 @@ final personProvider = FutureProvider.autoDispose.family<PersonDetails, int>((re
 });
 
 /// One page of a person's movies or TV shows (id, media type, page).
-final personCreditsProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, (int, PersonCreditsSort, int)>((
+final personCreditsProvider = FutureProvider.autoDispose.family<Paged<MediaItem>, (int, PersonCreditsType, int)>((
   ref,
   key,
 ) {
