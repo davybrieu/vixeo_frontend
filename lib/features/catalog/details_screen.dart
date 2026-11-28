@@ -777,6 +777,8 @@ class _PhoneDetailsState extends State<_PhoneDetails> {
                     const SizedBox(height: 16),
                     DescriptionLink(title: t.title, description: t.overview!),
                   ],
+                  const SizedBox(height: 14),
+                  TitleShortcuts(title: t),
                 ],
               ),
             ),
@@ -806,8 +808,6 @@ List<Widget> _lowerSections(BuildContext context, Layout layout, TitleDetails t)
   final gap = SizedBox(height: layout.sectionGap);
   return [
     if (t.type == MediaType.tv && t.seasons.isNotEmpty) ...[gap, _Episodes(title: t)],
-    gap,
-    TitleShortcuts(title: t),
     if (t.cast.isNotEmpty) ...[gap, _PeopleRow(title: t, crew: false)],
     if (t.crew.isNotEmpty) ...[gap, _PeopleRow(title: t, crew: true)],
     if (t.recommended.isNotEmpty) ...[
@@ -921,6 +921,8 @@ class _LargeDetails extends StatelessWidget {
                         child: DescriptionLink(title: t.title, description: t.overview!),
                       ),
                     ],
+                    SizedBox(height: layout.tv(18)),
+                    TitleShortcuts(title: t),
                     SizedBox(height: layout.sectionGap),
                     Row(
                       children: [
