@@ -383,8 +383,7 @@ class TitleLogo extends StatelessWidget {
   }
 }
 
-/// Person card (cast, director, search results): round photo or initials, name on up to two
-/// lines and, if given, the role. Opens the person's page.
+/// Portrait card for cast, crew and search results. The name and role sit over the image.
 class PersonCard extends StatelessWidget {
   const PersonCard({super.key, required this.person, this.role});
 
@@ -393,59 +392,82 @@ class PersonCard extends StatelessWidget {
   /// Character, or "Réalisation" / "Création"; null = name only.
   final String? role;
 
-  static double avatarOf(Layout layout) => layout.isLarge ? layout.tv(150) : 84;
+  static double widthOf(Layout layout) => layout.isLarge ? layout.tv(280) : (layout.isPhone ? 156 : 180);
 
-  static double widthOf(Layout layout) => layout.isLarge ? layout.tv(210) : 108;
-
-  /// Room for the photo, two lines of name and two lines of role.
-  static double heightOf(Layout layout, {bool withRole = true}) =>
-      avatarOf(layout) + (layout.isLarge ? layout.tv(withRole ? 136 : 76) : (withRole ? 76 : 44));
+  static double heightOf(Layout layout, {bool withRole = true}) => widthOf(layout) * 1.5;
 
   @override
   Widget build(BuildContext context) {
     final layout = Layout.of(context);
-    final size = avatarOf(layout);
     final large = layout.isLarge;
+    final scale = large ? layout.scale * 2 : 1.0;
+    final width = widthOf(layout);
+    final radius = VxRadius.poster * scale;
+    final imageHeight = heightOf(layout);
 
     return VxFocusable(
-      borderRadius: large ? layout.tv(20) : 12,
+      borderRadius: radius,
       semanticLabel: role == null ? person.name : '${person.name}, $role',
       onPressed: () => context.push(personPath(person.id)),
       child: SizedBox(
-        width: widthOf(layout),
-        child: ExcludeSemantics(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ClipOval(
-                child: SizedBox.square(
-                  dimension: size,
-                  child: NetImage(
-                    url: person.profileUrl,
-                    seed: person.id,
-                    fallback: Center(child: Text(person.initials, style: VxText.title(size * 0.3))),
+        width: width,
+        height: imageHeight,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: ExcludeSemantics(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                NetImage(
+                  url: person.profileUrl,
+                  seed: person.id,
+                  fallback: ColoredBox(
+                    color: VxColors.surface,
+                    child: Center(child: Text(person.initials, style: VxText.title(width * 0.2))),
                   ),
                 ),
-              ),
-              SizedBox(height: large ? layout.tv(12) : 8),
-              Text(
-                person.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: VxText.body(large ? layout.tv(24) : 13, weight: FontWeight.w600, height: 1.2),
-              ),
-              if (role != null) ...[
-                SizedBox(height: large ? layout.tv(4) : 2),
-                Text(
-                  role!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: VxText.body(large ? layout.tv(20) : 12, color: VxColors.textSecondary, height: 1.2),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Color(0x00070A08), Color(0xE6070A08)],
+                      stops: [0.35, 0.58, 1],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 10 * scale,
+                  right: 10 * scale,
+                  bottom: 10 * scale,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        person.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: VxText.body(large ? layout.tv(24) : 14, weight: FontWeight.w700, height: 1.15)
+                            .copyWith(color: Colors.white),
+                      ),
+                      if (role != null) ...[
+                        SizedBox(height: 3 * scale),
+                        Text(
+                          role!.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: VxText.body(large ? layout.tv(17) : 11, weight: FontWeight.w600, height: 1.1)
+                              .copyWith(color: const Color(0xFFB8BDBA), letterSpacing: 0.5),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ),
