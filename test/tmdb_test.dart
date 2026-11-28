@@ -475,9 +475,9 @@ void main() {
       expect(shortcuts, findsOneWidget);
       await tester.ensureVisible(shortcuts);
       await tester.pumpAndSettle();
-      final shortcut = find.bySemanticsLabel('Voir la bande-annonce');
+      final shortcut = find.text('Voir la bande-annonce');
       expect(shortcut, findsOneWidget);
-      expect(find.bySemanticsLabel('Bande-annonce : Bande-annonce VF'), findsNothing);
+      expect(find.text('Bande-annonce VF'), findsNothing);
 
       await tester.tap(shortcut);
       await tester.pumpAndSettle();
