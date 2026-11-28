@@ -58,14 +58,14 @@ class PersonTitlesScreen extends StatelessWidget {
   const PersonTitlesScreen({super.key, required this.id, required this.sort});
 
   final int id;
-  final PersonCreditsSort sort;
+  final PersonCreditsType sort;
 
-  static String location(int id, PersonCreditsSort sort) =>
-      '/personne/$id/${sort == PersonCreditsSort.movie ? 'films' : 'series'}';
+  static String location(int id, PersonCreditsType sort) =>
+      '/personne/$id/${sort == PersonCreditsType.movie ? 'films' : 'series'}';
 
   @override
   Widget build(BuildContext context) => _SeeAllPage(
-    heading: sort == PersonCreditsSort.movie ? 'Films' : 'Séries',
+    heading: sort == PersonCreditsType.movie ? 'Films' : 'Séries',
     content: _PagedTitles(
       page: (page) => personCreditsProvider((id, sort, page)),
       empty: const EmptyState(icon: Icons.movie_filter_outlined, title: 'Aucun titre disponible pour ce profil'),
