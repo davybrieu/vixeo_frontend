@@ -78,14 +78,6 @@ jobs:
             --dart-define=PUBLISHER_NAME="${{ env.PUBLISHER_NAME }}" \
             --dart-define=SUPPORT_EMAIL="${{ env.SUPPORT_EMAIL }}"
 
-      - name: Upload Web artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: vixeo-web
-          path: build/web/
-          if-no-files-found: error
-          retention-days: 7
-
       - name: Publish web-dist branch
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: peaceiris/actions-gh-pages@v4
