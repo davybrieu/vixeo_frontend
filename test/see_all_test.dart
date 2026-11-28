@@ -174,7 +174,7 @@ void main() {
 
     // The rest of the cast, read as the grid scrolls.
     await tester.scrollUntilVisible(find.text('Acteur 26'), 300, scrollable: _pageScroll);
-    expect(find.text('Rôle 26'), findsOneWidget);
+    expect(find.text('RÔLE 26'), findsOneWidget);
     expect(asked, [1, 2]);
   });
 
